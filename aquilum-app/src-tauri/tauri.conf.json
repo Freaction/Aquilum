@@ -15,8 +15,8 @@
         "title": "Aquilum",
         "width": 1000,
         "height": 600,
-        "decorations": false,
-        "visible": false
+        "decorations": true,
+        "visible": true
       }
     ],
     "security": {
