@@ -23,4 +23,8 @@ export function createMcpToken(): string {
   return crypto.randomUUID().replace(/-/g, '');
 }
 
+export function getStdioExecutablePath(): Promise<string> {
+  return invoke<string>('get_stdio_executable_path');
+}
+
 export { useMcpNavigation, useActiveNoteReport } from './useMcpNavigation';

@@ -4,10 +4,12 @@ mod http;
 mod protocol;
 mod server;
 mod stdio;
+mod stdio_server;
 mod tools;
 mod vault;
 
 pub use stdio::run_stdio_bridge;
+pub use stdio_server::run_stdio_server;
 
 use crate::settings::models::McpSettings;
 use serde::Serialize;

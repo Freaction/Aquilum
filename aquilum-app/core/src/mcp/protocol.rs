@@ -4,6 +4,39 @@ use serde_json::{json, Value};
 
 pub type ToolCaller<'a> = &'a dyn Fn(&str, &Value) -> Result<Value, String>;
 
+/// Handles a single JSON-RPC message (already parsed from JSON).
+/// Returns `None` for notifications (no response needed), `Some(response)` for requests.
+pub fn handle_message_for_stdio<F: Fn(&str, &Value) -> Result<Value, String> + Send + Sync>(
+    message: &Value,
+    call: &F,
+) -> Option<Value> {
+    match message {
+        Value::Array(items) => {
+            // Batch: collect all responses, skip notifications
+            let responses = items
+                .iter()
+                .filter_map(|item| handle_single_stdio(item.clone(), call))
+                .collect::<Vec<_>>();
+            (!responses.is_empty()).then(|| Value::Array(responses))
+        }
+        single => handle_single_stdio(single.clone(), call),
+    }
+}
+
+fn handle_single_stdio(message: Value, call: ToolCaller<'_>) -> Option<Value> {
+    let request = match serde_json::from_value::<RpcRequest>(message) {
+        Ok(request) => request,
+        Err(error) => return Some(failure(Value::Null, PARSE_ERROR, &error.to_string())),
+    };
+    // Notifications (no id or null id) produce no response
+    let id = request.id.filter(|id| !id.is_null())?;
+
+    Some(match dispatch(&request.method, request.params, call) {
+        Ok(result) => json!({ "jsonrpc": "2.0", "id": id, "result": result }),
+        Err((code, message)) => failure(id, code, &message),
+    })
+}
+
 const PROTOCOL_VERSION: &str = "2025-06-18";
 const SERVER_NAME: &str = "aquilum";
 

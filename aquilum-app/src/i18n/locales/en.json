@@ -277,11 +277,15 @@
       "allowWriteHint": "Without this the agent can only read and search",
       "allowWriteLabel": "Editing notes",
       "connection": "Connection",
+      "stdioServer": "Stdio server mode",
+      "executable": "Executable",
+      "stdioServerHint": "Run the app as a standalone MCP server — no HTTP, no port, works in AppImage. Set AQUILUM_WORKSPACE env var to choose the knowledge base.",
       "copied": "Copied",
       "copy": "Copy",
       "claudeHint": "Run the command in a terminal",
       "codexHint": "Add to ~/.codex/config.toml",
-      "geminiHint": "Add to ~/.gemini/settings.json"
+      "geminiHint": "Add to ~/.gemini/settings.json",
+      "stdioHint": "Run the app as an MCP server via stdin/stdout — ideal for AppImage"
     },
     "system": {
       "autostart": "Startup",
