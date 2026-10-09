@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, type IconNode } from 'lucide';
+import { Check, ChevronRight, type IconNode } from 'lucide';
 import { Icon } from './Icon';
 import './Menu.css';
 
@@ -11,6 +11,8 @@ export interface MenuItem {
   disabled?: boolean;
   checked?: boolean;
   icon?: IconNode;
+  /** Вложенные пункты: открываются справа при наведении или клике. */
+  children?: MenuItem[];
   onSelect: () => void;
 }
 
@@ -46,6 +48,23 @@ export function Menu({
   excludeRef,
 }: MenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const subRef = useRef<HTMLDivElement>(null);
+  const [sub, setSub] = useState<{ id: string; anchor: DOMRect; focus: boolean } | null>(null);
+  const subItems = sub ? items.find(item => item.id === sub.id)?.children ?? [] : [];
+
+  useEffect(() => { if (!open) setSub(null); }, [open, items]);
+
+  useLayoutEffect(() => {
+    const menu = subRef.current;
+    if (!sub || !menu) return;
+    const rect = menu.getBoundingClientRect();
+    // Справа от пункта; если не помещается — слева от него.
+    const right = sub.anchor.right + VIEWPORT_MARGIN_PX / 2;
+    const left = right + rect.width > window.innerWidth - VIEWPORT_MARGIN_PX ? sub.anchor.left - rect.width - VIEWPORT_MARGIN_PX / 2 : right;
+    menu.style.left = `${Math.max(VIEWPORT_MARGIN_PX, left)}px`;
+    menu.style.top = `${Math.max(VIEWPORT_MARGIN_PX, Math.min(sub.anchor.top, window.innerHeight - rect.height - VIEWPORT_MARGIN_PX))}px`;
+    if (sub.focus) menu.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+  }, [sub]);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;
@@ -107,32 +126,77 @@ export function Menu({
         width: position.width,
       }}
     >
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          role={role === 'listbox' ? 'option' : 'menuitem'}
-          aria-selected={role === 'listbox' ? Boolean(item.checked) : undefined}
-          disabled={item.disabled}
-          className="q-menu__item"
-          onClick={() => {
-            if (item.disabled) return;
-            item.onSelect();
-            onClose();
+      {items.map((item) => {
+        const nested = Boolean(item.children?.length);
+        const openSub = (event: { currentTarget: HTMLElement }, focus: boolean) => {
+          setSub({ id: item.id, anchor: event.currentTarget.getBoundingClientRect(), focus });
+        };
+        return (
+          <button
+            key={item.id}
+            type="button"
+            role={role === 'listbox' ? 'option' : 'menuitem'}
+            aria-selected={role === 'listbox' ? Boolean(item.checked) : undefined}
+            aria-haspopup={nested ? 'menu' : undefined}
+            aria-expanded={nested ? sub?.id === item.id : undefined}
+            disabled={item.disabled}
+            className="q-menu__item"
+            onMouseEnter={(event) => { if (nested && !item.disabled) openSub(event, false); else setSub(null); }}
+            onKeyDown={(event) => { if (nested && event.key === 'ArrowRight') { event.preventDefault(); openSub(event, true); } }}
+            onClick={(event) => {
+              if (item.disabled) return;
+              if (nested) { openSub(event, true); return; }
+              item.onSelect();
+              onClose();
+            }}
+          >
+            {item.icon && (
+              <span className="q-menu__item-icon" aria-hidden="true">
+                <Icon icon={item.icon} strokeWidth={1.2} />
+              </span>
+            )}
+            <span className="q-menu__item-label">{item.label}</span>
+            {item.shortcut && <kbd className="q-menu__item-shortcut">{item.shortcut}</kbd>}
+            {showCheck && item.checked && (
+              <Icon icon={Check} className="q-menu__item-check" />
+            )}
+            {nested && <Icon icon={ChevronRight} className="q-menu__item-submenu" />}
+          </button>
+        );
+      })}
+      {sub && subItems.length > 0 && (
+        <div
+          ref={subRef}
+          role="menu"
+          aria-label={items.find(item => item.id === sub.id)?.label}
+          className="q-menu q-menu--sub"
+          style={{ top: sub.anchor.top, left: sub.anchor.right }}
+          onKeyDown={(event) => {
+            if (event.key !== 'ArrowLeft') return;
+            event.preventDefault();
+            const parent = sub.id;
+            setSub(null);
+            menuRef.current?.querySelectorAll<HTMLButtonElement>(':scope > .q-menu__item')[items.findIndex(item => item.id === parent)]?.focus();
           }}
         >
-          {item.icon && (
-            <span className="q-menu__item-icon" aria-hidden="true">
-              <Icon icon={item.icon} strokeWidth={1.2} />
-            </span>
-          )}
-          <span className="q-menu__item-label">{item.label}</span>
-          {item.shortcut && <kbd className="q-menu__item-shortcut">{item.shortcut}</kbd>}
-          {showCheck && item.checked && (
-            <Icon icon={Check} className="q-menu__item-check" />
-          )}
-        </button>
-      ))}
+          {subItems.map(child => (
+            <button
+              key={child.id}
+              type="button"
+              role="menuitem"
+              disabled={child.disabled}
+              className="q-menu__item"
+              onClick={() => {
+                if (child.disabled) return;
+                child.onSelect();
+                onClose();
+              }}
+            >
+              <span className="q-menu__item-label">{child.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>,
     document.body,
   );

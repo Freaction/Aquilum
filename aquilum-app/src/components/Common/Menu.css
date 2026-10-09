@@ -103,3 +103,10 @@
   font: inherit;
   white-space: nowrap;
 }
+
+.q-menu__item-submenu {
+  flex-shrink: 0;
+  width: var(--q-size-16);
+  height: var(--q-size-16);
+  color: var(--q-icon-muted);
+}

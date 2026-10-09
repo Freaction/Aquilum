@@ -649,6 +649,13 @@
     "showRightSidebar": "Show the right sidebar"
   },
   "fileTree": {
+    "copyPath": "Copy path",
+    "copyPathFromVault": "From vault root",
+    "copyPathAbsolute": "Absolute path",
+    "revealInFinder": "Show in Finder",
+    "revealInFileManager": "Show in file manager",
+    "copyFailed": "Could not copy to the clipboard",
+    "revealFailed": "Could not show the item in the file manager",
     "renameAria": "New file name",
     "fileActions": "File actions",
     "folderActions": "Folder actions",

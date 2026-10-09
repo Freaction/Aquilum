@@ -1,3 +1,4 @@
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FileText } from 'lucide';
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
@@ -225,6 +226,19 @@ export const Sidebar = memo(function Sidebar({
     });
   });
 
+  const copyText = useStableCallback(async (text: string) => {
+    try { await navigator.clipboard.writeText(text); }
+    catch { setPluginError(t('fileTree.copyFailed')); }
+  });
+  const copyVaultPath = useStableCallback((path: string) => {
+    if (workspacePath) void copyText(relativePath(workspacePath, path));
+  });
+  // Windows-путь может прийти с префиксом \\?\ — пользователю он не нужен.
+  const copySystemPath = useStableCallback((path: string) => { void copyText(path.replace(/^\\\\\?\\/, '')); });
+  const revealInFileManager = useStableCallback((path: string) => {
+    revealItemInDir(path).catch(() => setPluginError(t('fileTree.revealFailed')));
+  });
+
   const treeActions = useMemo<FileTreeActions>(() => ({
     ...selectionActions,
     ...fileOps.rowActions,
@@ -237,7 +251,10 @@ export const Sidebar = memo(function Sidebar({
     hidePath: plugins.explorerFilters.enabled && vault.data ? hidePath : undefined,
     isPinned,
     isHidden,
-  }), [fileOps.rowActions, prefetchFolder, selectionActions, toggleFolder, plugins, vault.data, chooseColor, chooseIcon, togglePin, hidePath, isPinned, isHidden]);
+    copyVaultPath,
+    copySystemPath,
+    revealInFileManager,
+  }), [fileOps.rowActions, prefetchFolder, selectionActions, toggleFolder, plugins, vault.data, chooseColor, chooseIcon, togglePin, hidePath, isPinned, isHidden, copyVaultPath, copySystemPath, revealInFileManager]);
 
   useLayoutEffect(() => {
     const content = contentRef.current;

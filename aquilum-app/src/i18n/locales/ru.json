@@ -649,6 +649,13 @@
     "showRightSidebar": "Показать правую боковую панель"
   },
   "fileTree": {
+    "copyPath": "Скопировать путь",
+    "copyPathFromVault": "От корня хранилища",
+    "copyPathAbsolute": "Абсолютный путь",
+    "revealInFinder": "Показать в Finder",
+    "revealInFileManager": "Показать в проводнике",
+    "copyFailed": "Не удалось скопировать в буфер обмена",
+    "revealFailed": "Не удалось показать элемент в файловом менеджере",
     "renameAria": "Новое имя файла",
     "fileActions": "Действия с файлом",
     "folderActions": "Действия с папкой",

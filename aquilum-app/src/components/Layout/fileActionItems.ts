@@ -1,4 +1,5 @@
 import { t } from '../../i18n';
+import { isMacOs } from '../../modules/platform';
 import type { MenuItem } from '../Common/Menu';
 
 export interface FileMenuActions {
@@ -11,6 +12,9 @@ export interface FileMenuActions {
   hidePath?: (path: string) => void;
   isPinned?: (path: string) => boolean;
   isHidden?: (path: string) => boolean;
+  copyVaultPath?: (path: string) => void;
+  copySystemPath?: (path: string) => void;
+  revealInFileManager?: (path: string) => void;
 }
 
 export function renameItem(onSelect: () => void): MenuItem {
@@ -23,6 +27,12 @@ export function fileActionItems(actions: FileMenuActions, path: string, allowFil
     { id: 'duplicate', label: t('common.duplicate'), onSelect: () => actions.duplicateFile(path) },
     { id: 'delete', label: t('common.delete'), onSelect: () => actions.requestDelete(path) },
   ] : [];
+  const copyItems = [
+    actions.copyVaultPath && { id: 'copy-vault-path', label: t('fileTree.copyPathFromVault'), onSelect: () => actions.copyVaultPath!(path) },
+    actions.copySystemPath && { id: 'copy-system-path', label: t('fileTree.copyPathAbsolute'), onSelect: () => actions.copySystemPath!(path) },
+  ].filter((item): item is MenuItem => Boolean(item));
+  if (copyItems.length) items.push({ id: 'copy-path', label: t('fileTree.copyPath'), children: copyItems, onSelect: () => {} });
+  if (actions.revealInFileManager) items.push({ id: 'reveal', label: t(isMacOs() ? 'fileTree.revealInFinder' : 'fileTree.revealInFileManager'), onSelect: () => actions.revealInFileManager!(path) });
   // пункты появляются только при включённом плагине.
   if (actions.chooseColor) items.push({ id: 'color', label: t('plugins.fileColors.choose'), onSelect: () => actions.chooseColor!(path) });
   if (actions.chooseIcon) items.push({ id: 'icon', label: t('plugins.fileIcons.choose'), onSelect: () => actions.chooseIcon!(path) });

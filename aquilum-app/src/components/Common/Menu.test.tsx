@@ -42,3 +42,27 @@ it('renders shortcuts separately and caps its content width inside narrow viewpo
   expect(menu.style.maxWidth).toBe('359px');
   expect(menu.style.left).toBe('8px');
 });
+
+it('opens a submenu on hover, flips it left at the right edge and returns focus with ArrowLeft', async () => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ top: 100, left: 600, bottom: 130, right: 790, width: 190, height: 30 } as DOMRect);
+  vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(800);
+  const pick = vi.fn();
+  const close = vi.fn();
+  const items = [
+    { id: 'copy', label: 'Copy path', onSelect: () => {}, children: [{ id: 'vault', label: 'From vault root', onSelect: pick }] },
+    { id: 'other', label: 'Other', onSelect: () => {} },
+  ];
+  await actAndSettle(() => { mounted = mountDom(<Menu open position={{ top: 100, left: 600 }} items={items} onClose={close} />); });
+  const parent = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent === 'Copy path')!;
+  await actAndSettle(() => { parent.dispatchEvent(new MouseEvent('mouseenter')); });
+  const submenu = document.querySelector<HTMLElement>('.q-menu--sub')!;
+  expect(parent.getAttribute('aria-expanded')).toBe('true');
+  expect(parseFloat(submenu.style.left)).toBeLessThan(600);
+  await actAndSettle(() => { submenu.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })); });
+  expect(document.querySelector('.q-menu--sub')).toBeNull();
+  expect(document.activeElement).toBe(parent);
+  await actAndSettle(() => parent.click());
+  await actAndSettle(() => document.querySelector<HTMLButtonElement>('.q-menu--sub button')!.click());
+  expect(pick).toHaveBeenCalledOnce();
+  expect(close).toHaveBeenCalledOnce();
+});

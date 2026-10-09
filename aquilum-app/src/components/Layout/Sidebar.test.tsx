@@ -11,6 +11,8 @@ import { Sidebar } from './Sidebar';
 const state = vi.hoisted(() => ({ config: null as any, data: null as any, overview: null as any, update: vi.fn() }));
 vi.mock('../../modules/settings', async importOriginal => ({ ...await importOriginal<typeof import('../../modules/settings')>(), useSettingsStore: () => ({ config: state.config }) }));
 vi.mock('../../plugins/vaultData', () => ({ usePluginVaultData: () => ({ data: state.data, update: state.update }) }));
+const opener = vi.hoisted(() => ({ revealItemInDir: vi.fn() }));
+vi.mock('@tauri-apps/plugin-opener', () => opener);
 vi.mock('../../plugins/explorer/useExplorerOverview', () => ({ useExplorerOverview: () => ({ overview: state.overview, error: null, loading: false }) }));
 let mounted: MountedDom | undefined;
 const folder = { id: '/vault/A', name: 'A', type: 'folder' as const };
@@ -180,4 +182,32 @@ describe('explorer sidebar integration', () => {
     expect(state.data.colors.A).toBe('blue');
     expect(document.querySelector('[role="dialog"] [role="alert"]')?.textContent).toBe(t('plugins.explorerFilters.saveError'));
   });
+});
+
+it('copies the vault-relative and system paths and reveals the item in the file manager', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+  opener.revealItemInDir.mockResolvedValue(undefined);
+  await actAndSettle(() => { mounted = mountDom(render()); });
+  const copy = async (label: string) => {
+    await menu(note.id);
+    const parent = button(t('fileTree.copyPath'));
+    expect(parent.getAttribute('aria-haspopup')).toBe('menu');
+    await actAndSettle(() => parent.click());
+    expect(parent.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement?.textContent).toBe(t('fileTree.copyPathFromVault'));
+    await actAndSettle(() => button(label).click());
+  };
+  await copy(t('fileTree.copyPathFromVault'));
+  expect(writeText).toHaveBeenLastCalledWith('n.md');
+  expect(document.querySelector('[role="menu"]')).toBeNull();
+  await copy(t('fileTree.copyPathAbsolute'));
+  expect(writeText).toHaveBeenLastCalledWith('/vault/n.md');
+  await menu(folder.id);
+  const reveal = button(t('fileTree.revealInFinder')) ?? button(t('fileTree.revealInFileManager'));
+  await actAndSettle(() => reveal.click());
+  expect(opener.revealItemInDir).toHaveBeenCalledWith('/vault/A');
+  writeText.mockRejectedValueOnce(new Error('denied'));
+  await copy(t('fileTree.copyPathFromVault'));
+  expect(mounted!.container.querySelector('[role="alert"]')!.textContent).toBe(t('fileTree.copyFailed'));
 });
