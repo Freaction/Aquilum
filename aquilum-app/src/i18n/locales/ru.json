@@ -649,6 +649,10 @@
     "showRightSidebar": "Показать правую боковую панель"
   },
   "fileTree": {
+    "newNote": "Новая заметка",
+    "newFolder": "Новая папка",
+    "untitledFolder": "Новая папка",
+    "createFolderFailed": "Не удалось создать папку",
     "copyPath": "Скопировать путь",
     "copyPathFromVault": "От корня хранилища",
     "copyPathAbsolute": "Абсолютный путь",

@@ -47,7 +47,7 @@ export const FileTreeRow = memo(function FileTreeRow({
 }: FileTreeRowProps) {
   const isFolder = item.type === 'folder';
   const allowFileActions = isFolder || isMarkdownPath(item.id);
-  const canRowActions = allowFileActions || !!(actions.copyVaultPath || actions.copySystemPath || actions.revealInFileManager
+  const canRowActions = allowFileActions || !!(actions.createNoteIn || actions.createFolderIn || actions.copyVaultPath || actions.copySystemPath || actions.revealInFileManager
     || actions.chooseColor || actions.chooseIcon || actions.togglePin || actions.hidePath);
   const customIcon = iconName ? iconByName(iconName) : undefined;
   const menu = useContextMenu();

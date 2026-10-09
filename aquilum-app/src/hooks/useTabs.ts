@@ -90,9 +90,9 @@ export function useTabs(
     dispatch({ type: 'new-tab', tab: createEmptySessionTab() });
   }, [touch]);
 
-  const createNewFile = useCallback(async (preferredTitle?: string) => {
+  const createNewFile = useCallback(async (preferredTitle?: string, folder?: string) => {
     if (!workspacePath) return;
-    const uniquePath = await createUniqueFile(workspacePath, preferredTitle);
+    const uniquePath = await createUniqueFile(folder ?? workspacePath, preferredTitle);
     if (!uniquePath) return;
     touch();
     dispatch({ type: 'open-file', path: uniquePath, tabId: crypto.randomUUID() });

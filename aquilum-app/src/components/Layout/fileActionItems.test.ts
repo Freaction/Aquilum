@@ -36,4 +36,14 @@ describe('explorer file menu', () => {
     for (const item of [...items[0].children!, items[1]]) item.onSelect();
     for (const action of [copyVaultPath, copySystemPath, revealInFileManager]) expect(action).toHaveBeenCalledWith('/vault/photo.png');
   });
+
+  it('puts New note and New folder first when creation is available', () => {
+    const createNoteIn = vi.fn();
+    const createFolderIn = vi.fn();
+    const items = fileActionItems({ ...base, createNoteIn, createFolderIn }, '/vault/A');
+    expect(items.map(item => item.id).slice(0, 3)).toEqual(['new-note', 'new-folder', 'rename']);
+    items[0].onSelect(); items[1].onSelect();
+    expect(createNoteIn).toHaveBeenCalledWith('/vault/A');
+    expect(createFolderIn).toHaveBeenCalledWith('/vault/A');
+  });
 });

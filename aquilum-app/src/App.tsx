@@ -407,7 +407,7 @@ export default function App() {
           workspacePath={workspacePath}
           workspaceName={workspaceName}
           onFileSelect={openNote}
-          onCreateNote={createNewFile}
+          onCreateNote={(folder) => createNewFile(undefined, folder)}
           onLoadDirectory={loadDirectory}
           isOpen={leftSidebarVisible}
           onOpenSettings={settings.show}

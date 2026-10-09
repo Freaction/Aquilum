@@ -1,10 +1,12 @@
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FileText } from 'lucide';
-import type { WorkspaceItem } from '../../modules/documents/fileGateway';
+import { ensureDirectory, readDirectory, type WorkspaceItem } from '../../modules/documents/fileGateway';
 import { Button } from '../Common/Button';
 import { DeleteNotesDialog } from '../Common/DeleteNotesDialog';
 import { EmptyState } from '../Common/EmptyState';
+import { Menu } from '../Common/Menu';
+import { useContextMenu } from '../Common/useContextMenu';
 import { FileTree } from './FileTree';
 import { t } from '../../i18n';
 import { SidebarFooter } from './SidebarFooter';
@@ -24,7 +26,7 @@ import { useExplorerOverview } from '../../plugins/explorer/useExplorerOverview'
 import { colorForPath } from '../../plugins/explorer/appearance';
 import { ColorPopover } from '../../plugins/explorer/ColorPopover';
 import { IconPickerDialog } from '../../plugins/explorer/IconPickerDialog';
-import { relativePath } from '../../modules/paths';
+import { childPath, parentDirectory, relativePath } from '../../modules/paths';
 import { GitStatusBar } from '../../plugins/git/GitStatusBar';
 
 interface SidebarProps {
@@ -35,7 +37,7 @@ interface SidebarProps {
   workspacePath: string | null;
   workspaceName: string;
   onFileSelect: (path: string, options?: { disposition?: LinkDisposition }) => void;
-  onCreateNote: () => void | Promise<void>;
+  onCreateNote: (folder?: string) => void | Promise<void>;
   onLoadDirectory: (path: string) => Promise<boolean>;
   isOpen: boolean;
   onOpenSettings: () => void;
@@ -226,6 +228,39 @@ export const Sidebar = memo(function Sidebar({
     });
   });
 
+  // Новые элементы создаются в папке под курсором; для файла — в его папке, вне строк — в корне.
+  const folderFor = (path: string | null) => {
+    if (!path || !workspacePath) return workspacePath;
+    return rows.find(row => row.item.id === path)?.item.type === 'folder' ? path : parentDirectory(path);
+  };
+  const expandFolder = (folder: string) => {
+    if (folder !== workspacePath) setExpandedFolders(current => current.has(folder) ? current : new Set(current).add(folder));
+  };
+  const createNoteIn = useStableCallback(async (path: string | null) => {
+    const folder = folderFor(path);
+    if (!folder) return;
+    expandFolder(folder);
+    await onCreateNote(folder);
+  });
+  const createFolderIn = useStableCallback(async (path: string | null) => {
+    const folder = folderFor(path);
+    if (!folder) return;
+    try {
+      const taken = new Set((await readDirectory(folder)).map(item => item.name.toLowerCase()));
+      const base = t('fileTree.untitledFolder');
+      let name = base;
+      for (let index = 1; taken.has(name.toLowerCase()); index += 1) name = `${base} ${index}`;
+      const created = childPath(folder, name);
+      await ensureDirectory(created);
+      expandFolder(folder);
+      await onLoadDirectory(folder);
+      fileOps.rowActions.startRename(created);
+    } catch {
+      setPluginError(t('fileTree.createFolderFailed'));
+    }
+  });
+  const rootMenu = useContextMenu();
+
   const copyText = useStableCallback(async (text: string) => {
     try { await navigator.clipboard.writeText(text); }
     catch { setPluginError(t('fileTree.copyFailed')); }
@@ -244,6 +279,8 @@ export const Sidebar = memo(function Sidebar({
     ...fileOps.rowActions,
     toggleFolder,
     prefetchFolder,
+    createNoteIn,
+    createFolderIn,
     // меню включённых плагинов.
     chooseColor: plugins.fileColors.enabled && vault.data ? chooseColor : undefined,
     chooseIcon: plugins.fileIcons.enabled && vault.data ? chooseIcon : undefined,
@@ -254,7 +291,7 @@ export const Sidebar = memo(function Sidebar({
     copyVaultPath,
     copySystemPath,
     revealInFileManager,
-  }), [fileOps.rowActions, prefetchFolder, selectionActions, toggleFolder, plugins, vault.data, chooseColor, chooseIcon, togglePin, hidePath, isPinned, isHidden, copyVaultPath, copySystemPath, revealInFileManager]);
+  }), [fileOps.rowActions, prefetchFolder, selectionActions, toggleFolder, plugins, vault.data, chooseColor, chooseIcon, togglePin, hidePath, isPinned, isHidden, copyVaultPath, copySystemPath, revealInFileManager, createNoteIn, createFolderIn]);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -284,7 +321,15 @@ export const Sidebar = memo(function Sidebar({
     <aside className={`q-collapsible-panel q-sidebar ${isOpen ? '' : 'is-collapsed'}`} aria-hidden={!isOpen}>
       <div className="q-panel-header" data-tauri-drag-region aria-hidden="true">
       </div>
-      <div ref={contentRef} className="q-sidebar-content">
+      <div
+        ref={contentRef}
+        className="q-sidebar-content"
+        onContextMenu={(event) => {
+          // Пустое место дерева — создание в корне хранилища.
+          if (!workspacePath || (event.target as HTMLElement).closest('[data-file-id]')) return;
+          rootMenu.onContextMenu(event);
+        }}
+      >
         {!treeReady ? null : rows.length === 0 ? (
           <EmptyState icon={FileText} title={t('fileTree.empty')} compact>
             <Button size="s" onClick={() => void onCreateNote()}>
@@ -301,6 +346,19 @@ export const Sidebar = memo(function Sidebar({
           />
         )}
       </div>
+
+      {rootMenu.open && (
+        <Menu
+          open
+          position={rootMenu.position}
+          items={[
+            { id: 'new-note', label: t('fileTree.newNote'), onSelect: () => void createNoteIn(null) },
+            { id: 'new-folder', label: t('fileTree.newFolder'), onSelect: () => void createFolderIn(null) },
+          ]}
+          onClose={rootMenu.close}
+          ariaLabel={t('fileTree.folderActions')}
+        />
+      )}
 
       <DeleteNotesDialog
         targets={deleteTargets}

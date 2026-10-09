@@ -649,6 +649,10 @@
     "showRightSidebar": "Show the right sidebar"
   },
   "fileTree": {
+    "newNote": "New note",
+    "newFolder": "New folder",
+    "untitledFolder": "Untitled folder",
+    "createFolderFailed": "Could not create the folder",
     "copyPath": "Copy path",
     "copyPathFromVault": "From vault root",
     "copyPathAbsolute": "Absolute path",

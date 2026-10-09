@@ -12,6 +12,8 @@ export interface FileMenuActions {
   hidePath?: (path: string) => void;
   isPinned?: (path: string) => boolean;
   isHidden?: (path: string) => boolean;
+  createNoteIn?: (path: string) => void;
+  createFolderIn?: (path: string) => void;
   copyVaultPath?: (path: string) => void;
   copySystemPath?: (path: string) => void;
   revealInFileManager?: (path: string) => void;
@@ -22,11 +24,14 @@ export function renameItem(onSelect: () => void): MenuItem {
 }
 
 export function fileActionItems(actions: FileMenuActions, path: string, allowFileActions = true): MenuItem[] {
-  const items: MenuItem[] = allowFileActions ? [
+  const items: MenuItem[] = [];
+  if (actions.createNoteIn) items.push({ id: 'new-note', label: t('fileTree.newNote'), onSelect: () => actions.createNoteIn!(path) });
+  if (actions.createFolderIn) items.push({ id: 'new-folder', label: t('fileTree.newFolder'), onSelect: () => actions.createFolderIn!(path) });
+  if (allowFileActions) items.push(
     renameItem(() => actions.startRename(path)),
     { id: 'duplicate', label: t('common.duplicate'), onSelect: () => actions.duplicateFile(path) },
     { id: 'delete', label: t('common.delete'), onSelect: () => actions.requestDelete(path) },
-  ] : [];
+  );
   const copyItems = [
     actions.copyVaultPath && { id: 'copy-vault-path', label: t('fileTree.copyPathFromVault'), onSelect: () => actions.copyVaultPath!(path) },
     actions.copySystemPath && { id: 'copy-system-path', label: t('fileTree.copyPathAbsolute'), onSelect: () => actions.copySystemPath!(path) },
