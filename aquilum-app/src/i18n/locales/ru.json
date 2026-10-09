@@ -279,11 +279,15 @@
       "allowWriteHint": "Без этого агент может только читать и искать",
       "allowWriteLabel": "Изменение заметок",
       "connection": "Подключение",
+      "stdioServer": "Режим stdio-сервера",
+      "executable": "Исполняемый файл",
+      "stdioServerHint": "Запуск приложения как самостоятельного MCP-сервера — без HTTP, без порта, работает в AppImage. Установите AQUILUM_WORKSPACE для выбора базы знаний.",
       "copied": "Скопировано",
       "copy": "Копировать",
       "claudeHint": "Выполните команду в терминале",
       "codexHint": "Добавьте в ~/.codex/config.toml",
-      "geminiHint": "Добавьте в ~/.gemini/settings.json"
+      "geminiHint": "Добавьте в ~/.gemini/settings.json",
+      "stdioHint": "Запуск приложения как MCP-сервера через stdin/stdout — идеально для AppImage"
     },
     "system": {
       "autostart": "Автозапуск",

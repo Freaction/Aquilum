@@ -61,6 +61,10 @@ pub fn run_mcp_stdio_bridge() -> i32 {
     mcp::run_stdio_bridge(env!("AQUILUM_APP_IDENTIFIER"))
 }
 
+pub fn run_mcp_stdio_server() -> i32 {
+    mcp::run_stdio_server(env!("AQUILUM_APP_IDENTIFIER"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -191,6 +195,7 @@ pub fn run() {
             mcp::commands::get_mcp_status,
             mcp::commands::apply_mcp_settings,
             mcp::commands::set_active_note,
+            mcp::commands::get_stdio_executable_path,
             export::commands::export_pdf,
             export::commands::pdf_export_is_native
         ])

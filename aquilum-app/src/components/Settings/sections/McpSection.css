@@ -43,3 +43,31 @@
   line-height: var(--q-font-line-height-normal);
   white-space: pre;
 }
+
+.q-mcp-stdio-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-gap-md);
+}
+
+.q-mcp-stdio-section__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-gap-sm);
+}
+
+.q-mcp-stdio-exec {
+  margin: 0;
+  padding: var(--q-gap-lg);
+  overflow-x: auto;
+  border: var(--q-border-1) solid var(--q-block-border);
+  border-radius: var(--q-block-radius);
+  background: var(--q-block-bg);
+  color: var(--q-text-secondary);
+  font-family: var(--q-font-family-mono);
+  font-size: var(--q-font-size-ui-sm);
+  line-height: var(--q-font-line-height-normal);
+  white-space: normal;
+  word-break: break-all;
+  width: 100%;
+}

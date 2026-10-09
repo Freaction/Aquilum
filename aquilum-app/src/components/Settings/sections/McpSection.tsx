@@ -3,6 +3,7 @@ import {
   applyMcpSettings,
   createMcpToken,
   getMcpStatus,
+  getStdioExecutablePath,
   type McpStatus,
 } from '../../../modules/mcp';
 import type { AppConfig, McpSettings } from '../../../modules/settings';
@@ -47,6 +48,45 @@ function snippets(settings: McpSettings, executable: string): Snippet[] {
         {
           mcpServers: {
             aquilum: { httpUrl: url, headers: { Authorization: bearer } },
+          },
+        },
+        null,
+        2,
+      ),
+    },
+  ];
+}
+
+function stdioServerSnippets(executable: string): Snippet[] {
+  return [
+    {
+      title: 'Claude Code',
+      hint: t('settings.mcp.stdioHint'),
+      code: [
+        'claude mcp add aquilum',
+        `  --command "${executable.replace(/\\/g, '\\\\')}"`,
+        '  --args ["--mcp-stdio-server"]',
+      ].join('\n'),
+    },
+    {
+      title: 'Codex CLI',
+      hint: t('settings.mcp.codexHint'),
+      code: [
+        '[mcp_servers.aquilum]',
+        `command = "${executable.replace(/\\/g, '\\\\')}"`,
+        'args = ["--mcp-stdio-server"]',
+      ].join('\n'),
+    },
+    {
+      title: 'Gemini CLI',
+      hint: t('settings.mcp.geminiHint'),
+      code: JSON.stringify(
+        {
+          mcpServers: {
+            aquilum: {
+              command: executable.replace(/\\/g, '\\\\'),
+              args: ['--mcp-stdio-server'],
+            },
           },
         },
         null,
@@ -103,12 +143,19 @@ export function McpSection({ config }: { config: AppConfig }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [portDraft, setPortDraft] = useState<number | null>(null);
   const [tokenDraft, setTokenDraft] = useState<string | null>(null);
+  const [stdioExecutable, setStdioExecutable] = useState<string>('');
   const restart = useMcpRestart(setStatus);
   const mcp = config.mcp;
 
   useEffect(() => {
     void getMcpStatus().then(setStatus).catch((error) => {
       console.error('Failed to read MCP status', error);
+    });
+  }, []);
+
+  useEffect(() => {
+    void getStdioExecutablePath().then(setStdioExecutable).catch((error) => {
+      console.error('Failed to read stdio executable path', error);
     });
   }, []);
 
@@ -212,6 +259,28 @@ export function McpSection({ config }: { config: AppConfig }) {
           ))}
         </Section>
       ) : null}
+
+      <Section title={t('settings.mcp.stdioServer')}>
+        <div className="q-mcp-stdio-section">
+          <div className="q-mcp-stdio-section__info">
+            <span className="q-settings-row__label">{t('settings.mcp.executable')}</span>
+            <span className="q-settings-row__description">{t('settings.mcp.stdioServerHint')}</span>
+          </div>
+          <pre className="q-mcp-stdio-exec">
+            {stdioExecutable ? `${stdioExecutable} --mcp-stdio-server` : ''}
+          </pre>
+        </div>
+        {stdioServerSnippets(stdioExecutable).map((snippet) => (
+          <div className="q-mcp-snippet" key={snippet.title}>
+            <Row label={snippet.title} description={snippet.hint}>
+              <TextButton onClick={() => copy(snippet)}>
+                {copied === snippet.title ? t('settings.mcp.copied') : t('settings.mcp.copy')}
+              </TextButton>
+            </Row>
+            <pre className="q-mcp-snippet__code">{snippet.code}</pre>
+          </div>
+        ))}
+      </Section>
     </>
   );
 }

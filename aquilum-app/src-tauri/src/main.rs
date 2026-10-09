@@ -1,8 +1,12 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 
 fn main() {
-    if std::env::args().any(|argument| argument == "--mcp-stdio") {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--mcp-stdio") {
         std::process::exit(aquilum_app_lib::run_mcp_stdio_bridge());
+    }
+    if args.iter().any(|a| a == "--mcp-stdio-server") {
+        std::process::exit(aquilum_app_lib::run_mcp_stdio_server());
     }
     aquilum_app_lib::run()
 }
