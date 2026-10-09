@@ -44,7 +44,7 @@ function ensureStripChrome(root: HTMLElement): void {
     layout.append(corner, colStrip, body);
     scroll.insertBefore(layout, scroll.firstChild);
     const addRow = scroll.querySelector('.q-md-table-add-row');
-    if (addRow) scroll.appendChild(addRow);
+    if (addRow) tableHost.appendChild(addRow);
 }
 
 export function paintStripLabels(root: HTMLElement, model: TableModel): void {

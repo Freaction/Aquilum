@@ -104,6 +104,7 @@ pub fn rename(
 fn rename_now(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, FileCommandError> {
     let notes = notes_under(from);
     let renamed = rename_with_links(&core.search, from, to)?;
+    relocate_plugin_data(core, from, to);
     let relocation = relocated(&notes, from, to);
     follow_moves(core, &relocation);
     let history = &core.history;
@@ -135,6 +136,7 @@ pub fn move_across(core: &Core, from: &Path, to: &Path) -> Result<(), FileComman
 fn move_across_now(core: &Core, from: &Path, to: &Path) -> Result<(), FileCommandError> {
     let notes = notes_under(from);
     rename_file_impl(from, to)?;
+    relocate_plugin_data(core, from, to);
     let relocation = relocated(&notes, from, to);
     follow_moves(core, &relocation);
     paths_changed(core, vec![from.to_path_buf(), to.to_path_buf()]);
@@ -152,6 +154,7 @@ pub fn trash(
 
 fn trash_now(core: &Core, workspace: &Path, path: &Path) -> Result<PathBuf, FileCommandError> {
     let moved = move_to_trash_impl(workspace, path)?;
+    remove_plugin_data(workspace, path);
     let notes = markdown_moves(&moved.files);
     let history = &core.history;
     for (note, trashed_at) in &notes {
@@ -216,6 +219,44 @@ pub fn name_version(
         announce_history(core, path);
     }
     named
+}
+
+fn plugin_path(path: &Path) -> PathBuf {
+    match (path.parent(), path.file_name()) {
+        (Some(parent), Some(name)) => crate::search::paths::canonical_path(parent).join(name),
+        _ => crate::search::paths::canonical_path(path),
+    }
+}
+
+fn relocate_plugin_data(core: &Core, from: &Path, to: &Path) {
+    use crate::search::paths::{slash_path, strip_root};
+    let from = plugin_path(from);
+    let to = plugin_path(to);
+    // Как история: первый известный Core корень, содержащий исходный путь.
+    let Some((root, from_rel)) = core.known_roots().into_iter().find_map(|root| {
+        let relative = strip_root(&root, &from)?;
+        Some((root.clone(), slash_path(relative)))
+    }) else { return; };
+    let result = match strip_root(&root, &to) {
+        Some(relative) => crate::plugins::vault_data::relocate(&root, &from_rel, &slash_path(relative)),
+        None => Err(crate::plugins::error::PluginError::Invalid {
+            message: "перенос данных между хранилищами не определён контрактом relocate".to_owned(),
+        }),
+    };
+    if let Err(error) = result {
+        eprintln!("[aquilum:plugins] не удалось перенести данные {}: {error}", from.display());
+    }
+}
+
+fn remove_plugin_data(workspace: &Path, path: &Path) {
+    use crate::search::paths::{canonical_path, slash_path, strip_root};
+    let root = canonical_path(workspace);
+    let path = plugin_path(path);
+    if let Some(relative) = strip_root(&root, &path) {
+        if let Err(error) = crate::plugins::vault_data::remove(&root, &slash_path(relative)) {
+            eprintln!("[aquilum:plugins] не удалось удалить данные {}: {error}", path.display());
+        }
+    }
 }
 
 fn paths_changed(core: &Core, paths: Vec<PathBuf>) {
@@ -298,6 +339,60 @@ fn removed<'a>(notes: impl Iterator<Item = &'a PathBuf>) -> Relocation {
 mod tests {
     use super::{notes_under, relocated, removed, NoteMove};
     use std::fs;
+
+    #[test]
+    fn renaming_a_folder_moves_its_plugin_color() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(directory.path()).unwrap();
+        fs::create_dir(root.join("app-data")).unwrap();
+        let core = crate::Core::open(&root.join("app-data"), std::sync::Arc::new(|_: crate::CoreEvent| {}));
+        core.ui_state.resolve_workspace(root.to_str().unwrap(), 0).unwrap();
+        fs::create_dir(root.join("Проекты")).unwrap();
+        fs::create_dir(root.join(".aquilum")).unwrap();
+        let data_path = root.join(".aquilum/plugins.json");
+        fs::write(&data_path, r#"{"version":1,"colors":{"Проекты":"blue","Проекты/А.md":"red"}}"#).unwrap();
+        super::rename(&core, &root.join("Проекты"), &root.join("Архив")).unwrap();
+        let data: serde_json::Value = serde_json::from_str(&fs::read_to_string(data_path).unwrap()).unwrap();
+        assert_eq!(data["colors"], serde_json::json!({"Архив":"blue", "Архив/А.md":"red"}));
+        core.shutdown();
+    }
+
+    #[test]
+    fn moving_and_trashing_update_plugin_data() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(directory.path()).unwrap();
+        fs::create_dir(root.join("app-data")).unwrap();
+        let core = crate::Core::open(&root.join("app-data"), std::sync::Arc::new(|_: crate::CoreEvent| {}));
+        core.ui_state.resolve_workspace(root.to_str().unwrap(), 0).unwrap();
+        fs::create_dir(root.join("A")).unwrap();
+        let mut data = crate::plugins::vault_data::VaultPluginData::default();
+        data.colors.insert("A".to_owned(), "blue".to_owned());
+        crate::plugins::vault_data::save(&root, &data).unwrap();
+        super::move_across(&core, &root.join("A"), &root.join("B")).unwrap();
+        assert_eq!(crate::plugins::vault_data::load(&root).unwrap().colors.get("B").unwrap(), "blue");
+        super::trash(&core, &root, &root.join("B")).unwrap();
+        assert!(crate::plugins::vault_data::load(&root).unwrap().colors.is_empty());
+        core.shutdown();
+    }
+
+    #[test]
+    fn plugin_io_failures_do_not_break_rename_move_or_trash() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(directory.path()).unwrap();
+        fs::create_dir(root.join("app-data")).unwrap();
+        let core = crate::Core::open(&root.join("app-data"), std::sync::Arc::new(|_: crate::CoreEvent| {}));
+        core.ui_state.resolve_workspace(root.to_str().unwrap(), 0).unwrap();
+        fs::create_dir(root.join("A")).unwrap();
+        fs::write(root.join(".aquilum"), "blocked").unwrap();
+        super::rename(&core, &root.join("A"), &root.join("B")).unwrap();
+        assert!(root.join("B").is_dir());
+        super::move_across(&core, &root.join("B"), &root.join("C")).unwrap();
+        assert!(root.join("C").is_dir());
+        super::trash(&core, &root, &root.join("C")).unwrap();
+        assert!(!root.join("C").exists());
+        assert_eq!(fs::read_to_string(root.join(".aquilum")).unwrap(), "blocked");
+        core.shutdown();
+    }
 
     #[test]
     fn a_note_moves_as_itself() {

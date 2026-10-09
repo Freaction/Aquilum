@@ -2,7 +2,7 @@ import { type EditorState, type Range } from '@codemirror/state';
 import { Decoration } from '@codemirror/view';
 import { resolveVaultAssetUrl } from '../../../../modules/docs/vaultAssets';
 import { cachedAttachmentUrl } from '../../../../modules/docs/vaultAttachments';
-import type { LivePreviewConfig } from '../livePreviewConfig';
+import { revealAtCaretFacet, type LivePreviewConfig } from '../livePreviewConfig';
 import { findImageEmbeds } from './constructs';
 import { imageSourcePos } from './focus';
 import { ImageEmbedWidget } from './widget';
@@ -13,7 +13,7 @@ export function collectImageEmbedDecorations(
 ): Range<Decoration>[] {
   if (!config) return [];
 
-  const source = imageSourcePos(state);
+  const source = state.facet(revealAtCaretFacet) ? imageSourcePos(state) : null;
   const docLength = state.doc.length;
   const ranges: Range<Decoration>[] = [];
 

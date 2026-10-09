@@ -1,0 +1,17 @@
+.q-cursor-trail {
+  position: absolute;
+  height: var(--q-caret-width);
+  background: var(--q-text-accent);
+  transform-origin: left center;
+  pointer-events: none;
+  animation: q-cursor-trail-fade 150ms ease-out forwards;
+}
+
+@keyframes q-cursor-trail-fade {
+  from { opacity: 0.6; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-cursor-trail { display: none; }
+}

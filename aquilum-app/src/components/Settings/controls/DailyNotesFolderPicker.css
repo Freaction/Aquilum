@@ -1,0 +1,7 @@
+.q-daily-folder { position: relative; width: 100%; }
+.q-daily-folder__input { width: 100%; outline: none; }
+.q-daily-folder__popup { position: absolute; top: 100%; left: 0; right: 0; z-index: var(--q-z-popover); background: var(--q-dialog-bg); border: 0; border-radius: 6px; box-shadow: var(--q-elevation-float), var(--q-shadow-ring); }
+.q-daily-folder__popup p { padding: 4px 8px; margin: 0; font-size: var(--q-font-size-ui-sm); }
+.q-daily-folder__options { max-height: 240px; overflow-y: auto; }
+.q-daily-folder__option { display: block; width: 100%; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; padding: 6px 8px; overflow-wrap: anywhere; cursor: pointer; }
+.q-daily-folder__option:hover, .q-daily-folder__option[data-active="true"] { background: var(--q-bg-accent); color: var(--q-text-on-accent); }

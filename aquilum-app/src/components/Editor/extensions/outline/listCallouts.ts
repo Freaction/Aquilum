@@ -1,3 +1,4 @@
+import { syntaxTree } from '@codemirror/language';
 import { type Extension, type Range, type Text } from '@codemirror/state';
 import {
     Decoration,
@@ -7,7 +8,10 @@ import {
     type ViewUpdate,
     WidgetType,
 } from '@codemirror/view';
+import { previewCaret, revealAtCaretFacet } from '../livePreviewConfig';
 import { shouldRevealSyntax } from '../livePreviewVisibility';
+import { codeBlocks } from '../codeBlock/blocks';
+import { ensureEditorTree } from '../ensureEditorTree';
 import { matchOutlineItem } from './constructs';
 
 const DEFAULT_LIST_CALLOUTS = [
@@ -105,23 +109,25 @@ export function buildListCalloutDecorations(
 
 function listCalloutPreview(): Extension {
     return ViewPlugin.fromClass(class {
-        decorations: DecorationSet;
+        decorations: DecorationSet = Decoration.none;
 
         constructor(view: EditorView) {
+            this.read(view);
+        }
+
+        read(view: EditorView) {
+            const blocks = codeBlocks(ensureEditorTree(view), view.state.doc, view.visibleRanges);
             this.decorations = buildListCalloutDecorations(
                 view.state.doc,
                 view.visibleRanges,
-                view.state.selection.main.head,
-            );
+                previewCaret(view.state),
+            ).update({ filter: from => !blocks.some(block => from >= block.from && from <= block.end) });
         }
 
         update(update: ViewUpdate) {
-            if (update.docChanged || update.selectionSet || update.viewportChanged) {
-                this.decorations = buildListCalloutDecorations(
-                    update.state.doc,
-                    update.view.visibleRanges,
-                    update.state.selection.main.head,
-                );
+            if (update.docChanged || update.selectionSet || update.viewportChanged || syntaxTree(update.state) !== syntaxTree(update.startState)
+                || update.state.facet(revealAtCaretFacet) !== update.startState.facet(revealAtCaretFacet)) {
+                this.read(update.view);
             }
         }
     }, {

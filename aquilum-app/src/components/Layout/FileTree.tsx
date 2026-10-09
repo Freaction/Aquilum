@@ -36,6 +36,11 @@ export const FileTree = memo(function FileTree({
             guideDepths={row.guideDepths}
             renaming={renamingPath === row.item.id}
             actions={actions}
+            isHidden={row.isHidden}
+            color={row.color}
+            colorBackground={row.colorBackground}
+            iconName={row.iconName}
+            count={row.count}
           />
         );
       })}

@@ -1,7 +1,7 @@
 import type { Text } from '@codemirror/state';
 import { parseMarkdownTable, serializeMarkdownTable } from './markdown';
 import type { TableModel } from './model';
-import { isSeparatorRow, splitTableRow } from './rows';
+import { isSeparatorRow, splitTableRow, tableCellParser } from './rows';
 
 export interface TableRange {
     from: number;
@@ -11,11 +11,14 @@ export interface TableRange {
 }
 
 export function sanitizeCellValue(value: string): string {
-    return value
-        .replace(/\r\n?/g, '\n')
-        .replace(/\n/g, ' ')
-        .replace(/\|/g, '∣')
-        .trimEnd();
+    const normalized = value.replace(/\r\n?/g, '\n').replace(/\n/g, ' ');
+    const tree = tableCellParser.parse(normalized);
+    return normalized.replace(/(\\*)\|/g, (match, slashes: string, offset: number) => {
+        if (slashes.length % 2 === 1) return match;
+        let node = tree.resolveInner(offset + slashes.length, 1);
+        while (node.parent && node.name !== 'WikiLink' && node.name !== 'InlineCode') node = node.parent;
+        return slashes + (node.name === 'WikiLink' || node.name === 'InlineCode' ? '\\|' : '∣');
+    }).trimEnd();
 }
 
 export function serializeTable(model: TableModel): string {

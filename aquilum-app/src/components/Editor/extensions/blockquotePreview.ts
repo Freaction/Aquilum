@@ -1,3 +1,4 @@
+import { revealAtCaretFacet } from './livePreviewConfig';
 import type { EditorState } from '@codemirror/state';
 import { Decoration, EditorView } from '@codemirror/view';
 import type { Tree } from '@lezer/common';
@@ -76,7 +77,7 @@ export function collectBlockquoteDecorations(
         const startLine = doc.lineAt(node.from).number;
         let endLine = doc.lineAt(Math.min(node.to, doc.length)).number;
         while (endLine > startLine && !/^>/.test(doc.line(endLine).text)) endLine -= 1;
-        const focused = sel.from <= doc.line(endLine).to && sel.to >= doc.line(startLine).from;
+        const focused = state.facet(revealAtCaretFacet) && sel.from <= doc.line(endLine).to && sel.to >= doc.line(startLine).from;
 
         const barLines: number[] = [];
         for (let lineNo = startLine; lineNo <= endLine; lineNo += 1) {

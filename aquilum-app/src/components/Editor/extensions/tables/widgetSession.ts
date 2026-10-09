@@ -1,4 +1,5 @@
 import type { EditorView } from '@codemirror/view';
+import { advancedTablesConfig, transformTable } from './advancedTables';
 import { focusAfterTable } from './apply';
 import { TableCellEditor, type CellFlush, type CellNavAction } from './cellEditor';
 import { closeTableContextMenu } from './contextMenu';
@@ -117,6 +118,7 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
         this.resizeObserver.observe(this.root);
         document.addEventListener('mousemove', this.onDocumentMove);
         document.addEventListener('mouseup', this.onDocumentUp);
+        this.root.addEventListener('focusout', this.onTableBlur);
     }
 
     private readonly onDocumentMove = (event: MouseEvent): void => {
@@ -427,6 +429,7 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
         this.resizeObserver.disconnect();
         document.removeEventListener('mousemove', this.onDocumentMove);
         document.removeEventListener('mouseup', this.onDocumentUp);
+        this.root.removeEventListener('focusout', this.onTableBlur);
         this.syncSelectionClearListener(false);
         this.docFlush.cancel();
         closeTableContextMenu();
@@ -466,6 +469,11 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
 
         openWidgetStructureMenu(event.clientX, event.clientY, cell, this.tableModel, {
             canMerge: canMergeSelection(this),
+            ...(this.view.state.facet(advancedTablesConfig)?.enabled ? { advanced: {
+                format: () => this.transform(),
+                sort: (descending: boolean) => this.transform(cell.col, descending),
+                readOnly: this.view.state.readOnly,
+            } } : {}),
             actions: {
                 onMerge: () => {
                     if (mergeSelection(this)) clearTableSelection(this);
@@ -484,6 +492,7 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
         if (flushed) this.commitFlushed(flushed);
         this.docFlush.flushNow();
         focusAfterTable(this.view, this.widget.blockTo);
+        this.onTableBlur();
     }
 
     commitCell(cell: CellRef, value: string): { prev: string; next: string } {
@@ -570,8 +579,33 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
         this.docFlush.clearDirty();
     }
 
+    private transform(column?: number, descending = false): void {
+        if (this.disposed || this.view.state.readOnly) return;
+        this.absorbActiveCell();
+        this.docFlush.flushNow();
+        queueMicrotask(() => {
+            if (!this.disposed) void transformTable(this.view, this.widget.from, this.root, column, descending);
+        });
+    }
+
+    private formatQueued = false;
+    private onTableBlur = (): void => {
+        if (this.formatQueued) return;
+        this.formatQueued = true;
+        queueMicrotask(() => {
+            this.formatQueued = false;
+            if (this.disposed || !this.view.state.facet(advancedTablesConfig)?.formatOnLeave) return;
+            const focused = document.activeElement;
+            if (this.root.contains(focused) || focused?.closest('[role="menu"]')) return;
+            this.transform();
+        });
+    };
+
     private onCellDone(cell: CellRef, action: CellNavAction, value: string): void {
+        const advanced = this.view.state.facet(advancedTablesConfig);
+        if (action === 'escape' && advanced?.enabled && advanced.formatOnLeave) this.docFlush.markDirty();
         handleCellNavigation(this, cell, action, value);
+        if (action === 'blur') this.onTableBlur();
     }
 
     private commitFlushed(flushed: CellFlush): void {

@@ -22,6 +22,7 @@ export interface FileRenameResult extends FileSnapshot {
 
 type FileErrorCode =
   | 'io'
+  | 'not_found'
   | 'invalid_utf8'
   | 'conflict'
   | 'already_exists'

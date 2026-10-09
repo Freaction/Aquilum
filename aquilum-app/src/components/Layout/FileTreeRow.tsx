@@ -9,6 +9,8 @@ import { Menu } from '../Common/Menu';
 import { t } from '../../i18n';
 import { titleWhenClipped } from '../Common/titleWhenClipped';
 import { useContextMenu } from '../Common/useContextMenu';
+import { iconByName } from '../../plugins/explorer/icons';
+import type { ColorToken } from '../../plugins/vaultData';
 
 interface FileTreeRowProps {
   item: WorkspaceItem;
@@ -20,6 +22,11 @@ interface FileTreeRowProps {
   guideDepths: string;
   renaming: boolean;
   actions: FileTreeActions;
+  isHidden?: boolean;
+  color?: ColorToken;
+  colorBackground?: boolean;
+  iconName?: string;
+  count?: number;
 }
 
 export const FileTreeRow = memo(function FileTreeRow({
@@ -32,9 +39,16 @@ export const FileTreeRow = memo(function FileTreeRow({
   guideDepths,
   renaming,
   actions,
+  isHidden,
+  color,
+  colorBackground,
+  iconName,
+  count,
 }: FileTreeRowProps) {
   const isFolder = item.type === 'folder';
-  const canRowActions = isFolder || isMarkdownPath(item.id);
+  const allowFileActions = isFolder || isMarkdownPath(item.id);
+  const canRowActions = allowFileActions || !!(actions.chooseColor || actions.chooseIcon || actions.togglePin || actions.hidePath);
+  const customIcon = iconName ? iconByName(iconName) : undefined;
   const menu = useContextMenu();
 
   const itemClass = [
@@ -42,6 +56,9 @@ export const FileTreeRow = memo(function FileTreeRow({
     active ? 'active' : '',
     selected ? 'selected' : '',
     renaming ? 'renaming' : '',
+    isHidden ? 'is-hidden' : '',
+    color ? 'q-file-colored' : '',
+    color && colorBackground ? 'q-file-colored-background' : '',
   ].filter(Boolean).join(' ');
 
   return (
@@ -51,7 +68,7 @@ export const FileTreeRow = memo(function FileTreeRow({
       data-file-type={item.type}
       data-file-name={item.name}
       data-renaming={renaming ? '' : undefined}
-      style={{ '--q-file-depth': depth } as CSSProperties}
+      style={{ '--q-file-depth': depth, '--q-file-color': color ? `var(--q-${color}-500)` : undefined } as CSSProperties}
     >
       {parseGuideDepths(guideDepths).map((guideDepth) => (
         <div
@@ -98,19 +115,21 @@ export const FileTreeRow = memo(function FileTreeRow({
               ? <Icon icon={LoaderCircle} className="q-file-icon__spinner" />
               : expanded ? <Icon icon={ChevronDown} /> : <Icon icon={ChevronRight} />)}
           </span>
+          {customIcon && <span className="q-file-custom-icon" aria-hidden="true"><Icon icon={customIcon} /></span>}
           <span
             className="q-file-name"
             onMouseEnter={(event) => titleWhenClipped(event.currentTarget, item.name)}
           >
             {item.name}
           </span>
+          {isFolder && count !== undefined && <span className="q-file-count">{count}</span>}
         </button>
       )}
       {canRowActions && menu.open && (
         <Menu
           open
           position={menu.position}
-          items={fileActionItems(actions, item.id)}
+          items={fileActionItems(actions, item.id, allowFileActions)}
           onClose={menu.close}
           ariaLabel={isFolder ? t('fileTree.folderActions') : t('fileTree.fileActions')}
         />

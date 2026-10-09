@@ -51,5 +51,18 @@ const tableDecorationField = StateField.define<DecorationSet>({
 
 export const tablePreview: Extension = [
     tableDecorationField,
+    EditorView.editorAttributes.of((view) => {
+        const selection = view.state.selection;
+        if (selection.ranges.length !== 1 || !selection.main.empty) return null;
+        const head = selection.main.head;
+        const tables = view.state.field(tableDecorationField).iter();
+        while (tables.value) {
+            if (tables.from === head || tables.to === head) {
+                return { class: 'q-md-table-boundary-caret' };
+            }
+            tables.next();
+        }
+        return null;
+    }),
     EditorView.atomicRanges.of((view) => view.state.field(tableDecorationField)),
 ];

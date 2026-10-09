@@ -6,7 +6,7 @@ export function shouldRevealSyntax(
   from: number,
   to: number,
 ): boolean {
-  if (to < from) return false;
+  if (head < 0 || to < from) return false;
   const caret = Math.max(0, Math.min(head, doc.length));
   const caretLine = doc.lineAt(caret);
   const ownerOnCaretLine = to > caretLine.from && from < caretLine.to;

@@ -71,7 +71,7 @@ impl SearchService {
         ))
     }
 
-    fn ready_metadata_path(&self, workspace: &str) -> Option<PathBuf> {
+    pub(crate) fn ready_metadata_path(&self, workspace: &str) -> Option<PathBuf> {
         self.with_index(workspace, |open| {
             let status = open.progress.snapshot();
             Ok((status.state == SearchIndexState::Ready && !status.updating)

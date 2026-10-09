@@ -1,5 +1,6 @@
 import { t } from '../i18n';
-import { SHORTCUTS, type ShortcutToken } from './shortcuts';
+import type { AppConfig } from '../modules/settings';
+import { effectiveShortcut, SHORTCUTS, type ShortcutToken } from './shortcuts';
 
 interface ShortcutCatalogEntry {
   label: string;
@@ -11,7 +12,7 @@ interface ShortcutCatalogGroup {
   items: ShortcutCatalogEntry[];
 }
 
-export function shortcutCatalog(): ShortcutCatalogGroup[] {
+export function shortcutCatalog(config?: AppConfig | null): ShortcutCatalogGroup[] {
   return [
     {
       title: t('settings.shortcuts.global'),
@@ -24,6 +25,9 @@ export function shortcutCatalog(): ShortcutCatalogGroup[] {
         { label: t('settings.shortcuts.zoomIn'), shortcut: SHORTCUTS.ZOOM_IN },
         { label: t('settings.shortcuts.zoomOut'), shortcut: SHORTCUTS.ZOOM_OUT },
         { label: t('settings.shortcuts.zoomReset'), shortcut: SHORTCUTS.ZOOM_RESET },
+        { label: t('shortcuts.openTodayNote'), shortcut: effectiveShortcut(config, 'OPEN_TODAY_NOTE') },
+        { label: t('shortcuts.toggleFullWidth'), shortcut: effectiveShortcut(config, 'TOGGLE_FULL_WIDTH') },
+        { label: t('shortcuts.toggleReadingMode'), shortcut: effectiveShortcut(config, 'TOGGLE_READING_MODE') },
       ],
     },
     {

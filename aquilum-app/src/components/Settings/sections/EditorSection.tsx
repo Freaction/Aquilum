@@ -9,6 +9,7 @@ import { t } from '../../../i18n';
 import { FontSettingsRows } from '../FontSettingsRows';
 import { Row } from '../Row';
 import { Section } from '../Section';
+import { ShortcutInput } from '../controls/ShortcutInput';
 import { NumberControl } from '../controls/NumberControl';
 import type { SettingsSectionProps } from '../types';
 
@@ -38,16 +39,28 @@ export function EditorSection({ config, onChange }: SettingsSectionProps) {
         </Row>
       </Section>
       <Section title={t('settings.editor.layout')}>
-        <Row label={t('settings.editor.maxWidth')} description={t('settings.editor.maxWidthHint')}>
-          <NumberControl
-            ariaLabel={t('settings.editor.maxWidthAria')}
-            value={config.editor.maxWidthCh ?? DEFAULT_EDITOR_MAX_WIDTH_CH}
-            min={40}
-            max={120}
-            step={1}
-            onChange={(maxWidthCh) => patchEditor({ maxWidthCh })}
+        <Row label={t('settings.editor.fullWidth')} description={t('settings.editor.fullWidthHint')}>
+          <Switch
+            checked={config.editor.fullWidth ?? false}
+            label={t('settings.editor.fullWidth')}
+            onChange={(fullWidth) => patchEditor({ fullWidth })}
           />
         </Row>
+        <Row label={t('settings.editor.fullWidthShortcut')}>
+          <ShortcutInput config={config} id="TOGGLE_FULL_WIDTH" value={config.editor.fullWidthShortcut} label={t('settings.editor.fullWidthShortcut')} onChange={fullWidthShortcut => patchEditor({ fullWidthShortcut })} />
+        </Row>
+        {!config.editor.fullWidth && (
+          <Row label={t('settings.editor.maxWidth')} description={t('settings.editor.maxWidthHint')}>
+            <NumberControl
+              ariaLabel={t('settings.editor.maxWidthAria')}
+              value={config.editor.maxWidthCh ?? DEFAULT_EDITOR_MAX_WIDTH_CH}
+              min={40}
+              max={120}
+              step={1}
+              onChange={(maxWidthCh) => patchEditor({ maxWidthCh })}
+            />
+          </Row>
+        )}
       </Section>
       <Section title={t('settings.editor.tabs')}>
         <Row

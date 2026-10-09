@@ -1,3 +1,6 @@
+import type { AppConfig } from '../modules/settings';
+import { isMacOs } from '../modules/platform';
+
 export interface ShortcutToken {
   code?: string;
   key: string;
@@ -115,6 +118,9 @@ export const SHORTCUTS = {
     display: '↵',
     shift: true,
   },
+  OPEN_TODAY_NOTE: { code: 'KeyD', key: 'D', primary: true, shift: true },
+  TOGGLE_FULL_WIDTH: { code: 'KeyW', key: 'W', primary: true, alt: true },
+  TOGGLE_READING_MODE: { code: 'KeyE', key: 'E', primary: true, shift: true },
 } as const satisfies Record<string, ShortcutToken>;
 
 export const ZOOM_IN_ALIASES: readonly ShortcutToken[] = [
@@ -151,5 +157,35 @@ export function shortcutModifiers(shortcut: ShortcutToken): string[] {
 }
 
 export function formatShortcut(shortcut: ShortcutToken, separator = ' + '): string {
-  return [...shortcutModifiers(shortcut), shortcut.display ?? shortcut.key].join(separator);
+  const key = shortcut.display ?? shortcut.key;
+  if (isMacOs()) {
+    return `${shortcut.primary ? '⌘' : ''}${shortcut.alt ? '⌥' : ''}${shortcut.shift ? '⇧' : ''}${key}`;
+  }
+  return [...shortcutModifiers(shortcut), key].join(separator);
+}
+
+export type ConfigurableShortcut = 'OPEN_TODAY_NOTE' | 'TOGGLE_READING_MODE' | 'TOGGLE_FULL_WIDTH';
+
+export function effectiveShortcut(config: AppConfig | null | undefined, id: keyof typeof SHORTCUTS): ShortcutToken {
+  if (id === 'OPEN_TODAY_NOTE') return config?.plugins?.calendar.openTodayShortcut ?? SHORTCUTS[id];
+  if (id === 'TOGGLE_READING_MODE') return config?.plugins?.readingMode.shortcut ?? SHORTCUTS[id];
+  if (id === 'TOGGLE_FULL_WIDTH') return config?.editor.fullWidthShortcut ?? SHORTCUTS[id];
+  return SHORTCUTS[id];
+}
+
+export function shortcutConflict(config: AppConfig, id: ConfigurableShortcut, candidate: ShortcutToken): keyof typeof SHORTCUTS | undefined {
+  return (Object.keys(SHORTCUTS) as (keyof typeof SHORTCUTS)[]).find(other => {
+    if (other === id) return false;
+    const shortcuts: readonly ShortcutToken[] = [
+      SHORTCUTS[other], effectiveShortcut(config, other),
+      ...(other === 'ZOOM_IN' ? ZOOM_IN_ALIASES : []),
+    ];
+    return shortcuts.some(shortcut => {
+      const sameKey = shortcut.code && candidate.code
+        ? shortcut.code === candidate.code
+        : shortcut.key.toUpperCase() === candidate.key.toUpperCase();
+      return sameKey && Boolean(shortcut.primary) === Boolean(candidate.primary)
+        && Boolean(shortcut.alt) === Boolean(candidate.alt) && Boolean(shortcut.shift) === Boolean(candidate.shift);
+    });
+  });
 }

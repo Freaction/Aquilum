@@ -1,5 +1,15 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ShortcutToken {
+    pub code: String,
+    pub key: String,
+    pub primary: bool,
+    pub alt: bool,
+    pub shift: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Bm25fParams {
@@ -78,6 +88,8 @@ pub struct EditorSettings {
     pub save_debounce_ms: u32,
     pub line_height: f32,
     pub max_width_ch: u32,
+    pub full_width: bool,
+    pub full_width_shortcut: Option<ShortcutToken>,
     pub smart_dashes: bool,
     pub list_callouts: bool,
     pub auto_link_title: bool,
@@ -94,6 +106,8 @@ impl Default for EditorSettings {
             save_debounce_ms: 1000,
             line_height: 1.8,
             max_width_ch: 65,
+            full_width: false,
+            full_width_shortcut: None,
             smart_dashes: true,
             list_callouts: true,
             auto_link_title: true,
@@ -208,6 +222,7 @@ impl Default for McpSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppConfig {
+    pub plugins: crate::plugins::settings::PluginSettings,
     pub analysis: AnalysisSettings,
     pub mcp: McpSettings,
     pub trash: TrashSettings,
@@ -217,8 +232,35 @@ pub struct AppConfig {
     pub reader: ReaderSettings,
     pub ui: UiSettings,
     pub templates: TemplateSettings,
+    pub daily_notes: DailyNotesSettings,
     pub files: FilesSettings,
     pub updates: UpdateSettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DailyNotesSettings {
+    pub folder: String,
+    pub format: String,
+    pub template: String,
+    pub open_on_startup: bool,
+    pub words_per_dot: u32,
+    pub week_start: String,
+    pub confirm_before_create: bool,
+}
+
+impl Default for DailyNotesSettings {
+    fn default() -> Self {
+        Self {
+            folder: String::new(),
+            format: "YYYY-MM-DD".to_string(),
+            template: String::new(),
+            open_on_startup: false,
+            words_per_dot: 250,
+            week_start: "locale".to_string(),
+            confirm_before_create: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

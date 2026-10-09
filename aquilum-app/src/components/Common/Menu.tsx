@@ -7,6 +7,7 @@ import './Menu.css';
 export interface MenuItem {
   id: string;
   label: string;
+  shortcut?: string;
   disabled?: boolean;
   checked?: boolean;
   icon?: IconNode;
@@ -49,14 +50,14 @@ export function Menu({
   useLayoutEffect(() => {
     const menu = menuRef.current;
     if (!open || !position || !menu) return;
+    const height = Math.max(0, window.innerHeight - 2 * VIEWPORT_MARGIN_PX);
+    menu.style.maxWidth = `${Math.max(0, window.innerWidth - 2 * VIEWPORT_MARGIN_PX)}px`;
+    menu.style.maxHeight = `${height}px`;
+    menu.style.overflowY = 'auto';
     const rect = menu.getBoundingClientRect();
-    if (rect.right > window.innerWidth) {
-      menu.style.left = `${Math.max(VIEWPORT_MARGIN_PX, position.left - rect.width)}px`;
-    }
-    if (rect.bottom > window.innerHeight) {
-      menu.style.top = `${Math.max(VIEWPORT_MARGIN_PX, position.top - rect.height)}px`;
-    }
-  }, [open, position]);
+    menu.style.left = `${Math.max(VIEWPORT_MARGIN_PX, Math.min(position.left, window.innerWidth - rect.width - VIEWPORT_MARGIN_PX))}px`;
+    menu.style.top = `${Math.max(VIEWPORT_MARGIN_PX, Math.min(position.top, window.innerHeight - rect.height - VIEWPORT_MARGIN_PX))}px`;
+  }, [open, position, items]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,7 +74,10 @@ export function Menu({
       onClose();
     };
 
-    const handleReposition = () => onClose();
+    const handleReposition = (event: Event) => {
+      if (event.target instanceof Node && menuRef.current?.contains(event.target)) return;
+      onClose();
+    };
 
     window.addEventListener('mousedown', handlePointerDown);
     window.addEventListener('keydown', handleKeyDown, true);
@@ -123,6 +127,7 @@ export function Menu({
             </span>
           )}
           <span className="q-menu__item-label">{item.label}</span>
+          {item.shortcut && <kbd className="q-menu__item-shortcut">{item.shortcut}</kbd>}
           {showCheck && item.checked && (
             <Icon icon={Check} className="q-menu__item-check" />
           )}

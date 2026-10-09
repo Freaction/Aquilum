@@ -1,5 +1,7 @@
-import { RangeSetBuilder } from '@codemirror/state';
+import { RangeSetBuilder, StateEffect } from '@codemirror/state';
 import { Decoration, EditorView } from '@codemirror/view';
+import { previewCaret } from './livePreviewConfig';
+import { coloredTagsFacet, tagColor } from './plugins/coloredTags';
 import { shouldRevealSyntax } from './livePreviewVisibility';
 import { viewportCollector, type ViewportCollector } from './viewportScan';
 
@@ -8,7 +10,7 @@ const hashtagDecoration = Decoration.mark({
   tagName: 'span',
 });
 
-const HASHTAG_RE = /(?:^|\s)(#[a-zA-Zа-яА-Я0-9_]+)(?=\s|$)/g;
+const HASHTAG_RE = /(?:^|\s)(#[a-zA-Zа-яА-Я0-9_]+(?:\/[a-zA-Zа-яА-Я0-9_]+)*)(?=\s|$)/g;
 
 type Accumulator = {
   builder: RangeSetBuilder<Decoration>;
@@ -17,7 +19,7 @@ type Accumulator = {
 export const hashtagCollector: ViewportCollector<Accumulator> = {
   id: 'hashtags',
   scan: 'lines',
-  triggers: { doc: true, selection: true, viewport: true },
+  triggers: { doc: true, selection: true, viewport: true, effects: [StateEffect.reconfigure] },
 
   begin: () => ({ builder: new RangeSetBuilder<Decoration>() }),
 
@@ -28,8 +30,13 @@ export const hashtagCollector: ViewportCollector<Accumulator> = {
       const leadingSpace = match[0].length - match[1].length;
       const from = line.from + match.index + leadingSpace;
       const to = from + match[1].length;
-      if (!shouldRevealSyntax(state.doc, state.selection.main.head, from, to)) {
-        builder.add(from, to, hashtagDecoration);
+      if (!shouldRevealSyntax(state.doc, previewCaret(state), from, to)) {
+        const settings = state.facet(coloredTagsFacet);
+        builder.add(from, to, settings ? Decoration.mark({
+          class: 'q-cm-hashtag q-cm-hashtag--colored',
+          tagName: 'span',
+          attributes: { style: `--q-tag-color: ${tagColor(match[1].slice(1), settings)}` },
+        }) : hashtagDecoration);
       }
       match = HASHTAG_RE.exec(line.text);
     }

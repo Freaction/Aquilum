@@ -14,6 +14,30 @@ function stateWith(doc: string): EditorState {
     });
 }
 
+it('keeps escaped wiki aliases and inline code in one cell through parse and serialize', () => {
+    const doc = '| link | code |\n| --- | --- |\n| [[Note\\|alias]] | `a\\|b` |';
+    const model = parseMarkdownTable(doc)!;
+    expect(model.cells[1]).toEqual(['[[Note\\|alias]]', '`a\\|b`']);
+    expect(serializeTable(model)).toContain(String.raw`[[Note\|alias]]`);
+    expect(parseMarkdownTable(serializeTable(model))!.cells).toEqual(model.cells);
+});
+
+it('splits every unescaped pipe even inside wiki links and inline code', () => {
+    expect(splitTableRow('| [[a|b]] | `a|b` |')).toEqual(['[[a', 'b]]', '`a', 'b`']);
+    expect(splitTableRow(String.raw`| a\|b | c |`)).toEqual([String.raw`a\|b`, 'c']);
+    expect(splitTableRow(String.raw`a\|`)).toEqual([String.raw`a\|`]);
+});
+
+it('escapes raw pipes in entered wiki aliases and inline code when saving a cell', () => {
+    const model = parseMarkdownTable('| link | code |\n| --- | --- |\n| note | code |')!;
+    const updated = setCell(setCell(model, 1, 0, '[[Note|alias]]'), 1, 1, '`a|b`');
+    const saved = serializeTable(updated);
+    expect(saved).toContain(String.raw`[[Note\|alias]]`);
+    expect(saved).toContain(String.raw`a\|b`);
+    expect(parseMarkdownTable(saved)!.cells[1]).toEqual([String.raw`[[Note\|alias]]`, '`a\\|b`']);
+    expect(sanitizeCellValue('outside|text')).toBe('outside∣text');
+});
+
 describe('table constructs', () => {
     it('splits pipe rows and detects separators', () => {
         expect(splitTableRow('| A | B |')).toEqual(['A', 'B']);
