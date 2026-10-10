@@ -105,6 +105,9 @@ export const FileTreeRow = memo(function FileTreeRow({
               actions.selectFile(item.id, primary, event.shiftKey);
             }
           }}
+          onAuxClick={(event) => {
+            if (event.button === 1 && !isFolder) actions.openInNewTab(item.id);
+          }}
           onContextMenu={(event) => {
             if (!canRowActions) return;
             actions.focusRow(item.id);

@@ -16,6 +16,11 @@ export const SHORTCUTS = {
     key: 'N',
     primary: true,
   },
+  NEW_TAB: {
+    code: 'KeyT',
+    key: 'T',
+    primary: true,
+  },
   GLOBAL_SEARCH: {
     code: 'KeyO',
     key: 'O',

@@ -274,6 +274,7 @@ function BacklinksPanelComponent({
               key={`${link.path}:${link.offset}`}
               label={link.title}
               onClick={(event) => onOpenBacklink(link, dispositionFromEvent(event))}
+              onAuxClick={(event) => { if (event.button === 1) onOpenBacklink(link, 'new-tab'); }}
             />
           ))}
           {!isAnalysis && linkResult?.mode === 'outgoing' && linkResult.items.map((link, index) => (
@@ -281,6 +282,7 @@ function BacklinksPanelComponent({
               key={`${link.target}:${index}`}
               label={link.title}
               onClick={(event) => onOpenOutgoing(link, dispositionFromEvent(event))}
+              onAuxClick={(event) => { if (event.button === 1) onOpenOutgoing(link, 'new-tab'); }}
             />
           ))}
           {isGraphAnalysis && analysisItems?.map((result) => {
@@ -296,6 +298,7 @@ function BacklinksPanelComponent({
                   ? `${result.title}\n${analysisReasonLabel}: ${result.reasons.join(', ')}`
                   : result.title}
                 onClick={(event) => onOpenAnalysis(result, dispositionFromEvent(event))}
+                onAuxClick={(event) => { if (event.button === 1) onOpenAnalysis(result, 'new-tab'); }}
                 onMouseEnter={showHover}
                 onMouseLeave={clearWikiHover}
                 onFocus={showHover}

@@ -226,6 +226,9 @@ export default function App() {
       if (matchesShortcut(event, SHORTCUTS.NEW_FILE)) {
         event.preventDefault();
         void createNewFile();
+      } else if (matchesShortcut(event, SHORTCUTS.NEW_TAB)) {
+        event.preventDefault();
+        newTab();
       } else if (matchesShortcut(event, SHORTCUTS.NEW_FROM_TEMPLATE)) {
         event.preventDefault();
         templates.toggle();
@@ -246,7 +249,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [createNewFile, search.toggle, templates.toggle, toggleFocusMode, readingModeEnabled, config, updateConfig]);
+  }, [createNewFile, newTab, search.toggle, templates.toggle, toggleFocusMode, readingModeEnabled, config, updateConfig]);
 
   const handleTemplateSelect = useCallback(async (template: NoteTemplate) => {
     const content = await readTemplate(template);
