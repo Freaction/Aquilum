@@ -273,6 +273,14 @@ const THEMES: [&str; 3] = ["system", "light", "dark"];
 const LANGUAGES: [&str; 2] = ["ru", "en"];
 const READER_FLOWS: [&str; 2] = ["paginated", "scrolled"];
 const HISTORY_DAYS: [u32; 4] = [0, 30, 90, 365];
+const ACCENT_PALETTES: [(&str, &str); 6] = [
+    ("Aquilum", "#1471eb"),
+    ("Violet", "#7c3aed"),
+    ("Dracula", "#6441a5"),
+    ("VS Code", "#005fb8"),
+    ("Forest", "#2e7d32"),
+    ("Graphite", "#5d6268"),
+];
 
 const INTER: &str = "Inter";
 const QUATTRO: &str = "iA Writer Quattro";
@@ -392,6 +400,31 @@ fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
             c.ui.primary_color = format!("#{r:02x}{g:02x}{b:02x}");
         }
     }));
+    let selected_palette = ACCENT_PALETTES
+        .iter()
+        .position(|(_, color)| color.eq_ignore_ascii_case(&config.ui.primary_color))
+        .map_or(0, |index| index + 1);
+    display.insert(
+        display.len() - 1,
+        row(
+            t("settings.ui.palette"),
+            None,
+            Control::Dropdown {
+                options: std::iter::once(t("theme.custom"))
+                    .chain(ACCENT_PALETTES.iter().map(|(name, _)| (*name).to_owned()))
+                    .collect(),
+                selected: selected_palette,
+            },
+            |c, v| {
+                if let Some((_, color)) = index(v)
+                    .checked_sub(1)
+                    .and_then(|i| ACCENT_PALETTES.get(i))
+                {
+                    c.ui.primary_color = (*color).to_owned();
+                }
+            },
+        ),
+    );
     vec![
         Block { title: t("settings.ui.display"), rows: display },
         Block { title: t("settings.font.section"), rows: fonts },
@@ -999,6 +1032,36 @@ mod tests {
         let Some(Setter::Config(set)) = theme.setter else { panic!("тема пишется в настройки") };
         set(&mut config, &Value::Index(2));
         assert_eq!(config.ui.theme, "dark");
+        let palette = ui(&config, &ctx)
+            .remove(0)
+            .rows
+            .into_iter()
+            .find(|row| {
+                matches!(&row.control, Control::Dropdown { options, .. } if options.iter().any(|option| option == "Aquilum"))
+            })
+            .unwrap();
+        assert!(matches!(
+            palette.control,
+            Control::Dropdown { selected: 1, .. }
+        ));
+        let Some(Setter::Config(set)) = palette.setter else {
+            panic!("палитра записывается в настройки")
+        };
+        set(&mut config, &Value::Index(2));
+        assert_eq!(config.ui.primary_color, "#7c3aed");
+        config.ui.primary_color = "#e05a2b".to_owned();
+        let palette = ui(&config, &ctx)
+            .remove(0)
+            .rows
+            .into_iter()
+            .find(|row| {
+                matches!(&row.control, Control::Dropdown { options, .. } if options.iter().any(|option| option == "Aquilum"))
+            })
+            .unwrap();
+        assert!(matches!(
+            palette.control,
+            Control::Dropdown { selected: 0, .. }
+        ));
         assert!(blocks(Section::Analysis, &config, &ctx).len() == 2);
         config.analysis.enable_bm25f = false;
         assert!(blocks(Section::Analysis, &config, &ctx).len() == 1);

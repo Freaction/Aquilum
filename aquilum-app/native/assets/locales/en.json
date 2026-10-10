@@ -141,7 +141,8 @@
   "theme": {
     "light": "Light",
     "dark": "Dark",
-    "system": "System"
+    "system": "System",
+    "custom": "Custom"
   },
   "common": {
     "decrease": "Decrease",
@@ -197,7 +198,8 @@
       "homePage": "Home page",
       "homePageHint": "Note name for the home button. Empty — no button",
       "homePageAria": "Home page note name",
-      "primaryColor": "Accent color"
+      "primaryColor": "Accent color",
+      "palette": "Accent palette"
     },
     "editor": {
       "lineHeight": "Line height",
