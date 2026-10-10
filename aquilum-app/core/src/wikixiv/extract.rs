@@ -98,7 +98,8 @@ pub fn has_enough_text(word_count: usize) -> bool {
 }
 
 fn title_from_path(path: &str) -> Option<String> {
-    let stem = Path::new(path)
+    let normalized = path.replace('\\', "/");
+    let stem = Path::new(&normalized)
         .file_stem()
         .and_then(|value| value.to_str())
         .map(str::trim)
@@ -261,6 +262,7 @@ mod tests {
     #[test]
     fn title_from_path_strips_extension() {
         assert_eq!(title_from_path(r"C:\vault\Accordion.md").as_deref(), Some("Accordion"));
+        assert_eq!(title_from_path(r"notes\Accordion.md").as_deref(), Some("Accordion"));
         assert_eq!(title_from_path("__empty_tab__1"), None);
     }
 

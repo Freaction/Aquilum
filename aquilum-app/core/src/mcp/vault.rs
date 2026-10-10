@@ -111,6 +111,9 @@ impl Vault {
         if trimmed.is_empty() {
             return Err("Пустой путь".to_owned());
         }
+        if !cfg!(windows) && is_windows_absolute_path(trimmed) {
+            return Err(format!("Путь должен быть внутри базы знаний: {input}"));
+        }
         if Path::new(trimmed).is_absolute() {
             let path = crate::search::paths::canonical_path(Path::new(trimmed));
             return self.ensure_inside(path);
@@ -149,6 +152,17 @@ impl Vault {
             .filter(|path| Self::title(path).to_lowercase() == needle)
             .collect()
     }
+}
+
+fn is_windows_absolute_path(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let has_drive_prefix = bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && matches!(bytes[2], b'/' | b'\\');
+    let has_rooted_separator = value.starts_with('\\');
+
+    has_drive_prefix || has_rooted_separator
 }
 
 #[cfg(test)]
@@ -190,6 +204,9 @@ mod tests {
         assert!(vault.note_path("../secrets.md").is_err());
         assert!(vault.note_path("Проекты/../../secrets.md").is_err());
         assert!(vault.note_path("C:/Windows/system.ini").is_err());
+        assert!(vault.note_path(r"C:\Windows\system.ini").is_err());
+        assert!(vault.note_path(r"\\server\share\secrets.md").is_err());
+        assert!(vault.note_path(r"\Windows\system.ini").is_err());
         assert!(vault.note_path("/etc/passwd").is_err());
     }
 

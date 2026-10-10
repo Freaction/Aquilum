@@ -492,10 +492,11 @@ mod tests {
             "совпавший путь уходит в различитель, и операция сама называет это место"
         );
 
-        let restored = restore_from_trash_impl(directory.path(), &trash.join(".1").join("А.md")).unwrap();
+        let trashed = crate::search::paths::canonical_path(&trash.join(".1").join("А.md"));
+        let restored = restore_from_trash_impl(directory.path(), &trashed).unwrap();
         assert_eq!(
             restored.files,
-            vec![(trash.join(".1").join("А.md"), restored.root.clone())]
+            vec![(trashed, restored.root.clone())]
         );
     }
 }

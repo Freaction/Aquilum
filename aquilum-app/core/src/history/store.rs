@@ -88,7 +88,18 @@ pub fn versions(dir: &Path) -> Vec<VersionFile> {
         .filter_map(|(file_name, _)| parse_version(file_name))
         .collect::<Vec<_>>();
     versions.sort_by(|left, right| {
-        (left.at_ms, &left.device, &left.id).cmp(&(right.at_ms, &right.device, &right.id))
+        (
+            left.at_ms,
+            &left.device,
+            left.source != Source::Start,
+            &left.id,
+        )
+            .cmp(&(
+                right.at_ms,
+                &right.device,
+                right.source != Source::Start,
+                &right.id,
+            ))
     });
     versions
 }
@@ -309,6 +320,29 @@ mod tests {
         assert_eq!(dir.join(&found[2].id), clash);
         assert_eq!(found[2].at_ms, 20_001, "совпавшее имя сдвигает миллисекунду, а не перезаписывает файл");
         assert_eq!(latest_text(&dir).as_deref(), Some("тот же миг"));
+    }
+
+    #[test]
+    fn same_millisecond_start_precedes_edits_without_changing_device_order() {
+        let directory = tempfile::tempdir().unwrap();
+        let dir = history_dir(directory.path(), Path::new("Идея.md"));
+        let at = UNIX_EPOCH + Duration::from_millis(20_000);
+        let snapshot = |text: &str, source| Snapshot {
+            text: text.to_owned(),
+            source,
+            at,
+        };
+        write_version(&dir, "bbbb", &snapshot("старт", Source::Start)).unwrap();
+        write_version(&dir, "bbbb", &snapshot("правка", Source::Me)).unwrap();
+        write_version(&dir, "aaaa", &snapshot("другое устройство", Source::Agent)).unwrap();
+
+        let found = versions(&dir);
+
+        assert_eq!(
+            found.iter().map(|version| version.source).collect::<Vec<_>>(),
+            [Source::Agent, Source::Start, Source::Me]
+        );
+        assert_eq!(latest_text(&dir).as_deref(), Some("правка"));
     }
 
     #[test]
