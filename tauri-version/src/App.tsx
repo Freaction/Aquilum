@@ -1,3 +1,4 @@
+import { useTauriEvent } from "./hooks/useTauriEvent";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { EditorPane } from "./components/Editor/EditorPane";
 import { Titlebar } from "./components/Layout/Titlebar";
@@ -220,6 +221,8 @@ export default function App() {
   useEffect(() => {
     keepVersionsOf(tabs.map((tab) => tab.tabId));
   }, [tabs]);
+
+  useTauriEvent('close-tab', () => { if (activeTab) closeTab(activeTab.path); });
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {

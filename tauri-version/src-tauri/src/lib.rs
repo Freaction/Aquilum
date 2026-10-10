@@ -96,7 +96,13 @@ pub fn run() {
     });
 
     builder
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == "close-tab" {
+                let _ = app.emit("close-tab", ());
+            }
+        })
         .setup(|app| {
+            replace_close_window_item(app.handle())?;
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
             migration::migrate_legacy_data(&app_data_dir);
@@ -277,4 +283,25 @@ fn allow_pinch_gestures(window: &tauri::WebviewWindow) {
             eprintln!("[aquilum:input] pinch gestures stay disabled: {error}");
         }
     });
+}
+
+/// В меню macOS по умолчанию Cmd+W закрывает всё окно; здесь он закрывает активную вкладку.
+fn replace_close_window_item(app: &tauri::AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, MenuItemKind};
+    let menu = Menu::default(app)?;
+    for item in menu.items()? {
+        let MenuItemKind::Submenu(submenu) = item else { continue };
+        for entry in submenu.items()? {
+            let is_close = entry.as_predefined_menuitem()
+                .and_then(|p| p.text().ok())
+                .as_deref() == Some("Close Window");
+            if is_close {
+                submenu.remove(&entry)?;
+                let close_tab = MenuItem::with_id(app, "close-tab", "Закрыть вкладку", true, Some("CmdOrCtrl+W"))?;
+                submenu.append(&close_tab)?;
+            }
+        }
+    }
+    app.set_menu(menu)?;
+    Ok(())
 }
