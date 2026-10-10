@@ -1,6 +1,11 @@
-import { RangeSetBuilder, type Text } from '@codemirror/state';
+import { Facet, RangeSetBuilder, type Text } from '@codemirror/state';
 import { Decoration, type DecorationSet } from '@codemirror/view';
 import type { CodeBlockShape } from './blocks';
+
+// Code Styler использует тот же генератор для видимых строк и заменяет базовый слой.
+export const codeBlockLineDecorationsFacet = Facet.define<boolean, boolean>({
+  combine: values => values.every(Boolean),
+});
 
 const LINE_CLASS = 'q-md-code-line';
 

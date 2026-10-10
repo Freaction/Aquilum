@@ -27,6 +27,12 @@ import { smartDashExtension } from './smartDash';
 import { pageSearchExtension } from './pageSearch';
 import { noteSuggestExtension } from './suggest';
 import { bodySetup } from './bodySetup';
+import { DEFAULT_PLUGIN_SETTINGS, type PluginSettings } from '../../../modules/settings';
+import { coloredTagsExtension } from './plugins/coloredTags';
+import { cursorTrailExtension } from './plugins/cursorTrail';
+import { readingModeExtension } from './plugins/readingMode';
+import { codeStylerExtension } from './plugins/codeStyler';
+import { advancedTablesConfig } from './tables/advancedTables';
 import type { LinkDisposition, WikiLinkResolver } from '../../../modules/links';
 
 export function useEditorExtensions(
@@ -41,6 +47,7 @@ export function useEditorExtensions(
     notePath: () => string = () => '',
     linkSuggest = true,
     linkSuggestMinChars = 2,
+    plugins: PluginSettings = DEFAULT_PLUGIN_SETTINGS,
 ) {
     return useMemo(() => {
         return [
@@ -85,6 +92,12 @@ export function useEditorExtensions(
             pageSearchExtension,
             EditorView.lineWrapping,
             placeholder("Начните писать текст..."),
+            // выключенные плагины не добавляют расширения.
+            ...(plugins.coloredTags.enabled ? coloredTagsExtension(plugins.coloredTags) : []),
+            ...(plugins.cursorTrail.enabled ? [cursorTrailExtension] : []),
+            ...(plugins.readingMode.enabled ? readingModeExtension() : []),
+            ...(plugins.codeStyler.enabled ? [codeStylerExtension(plugins.codeStyler)] : []),
+            ...(plugins.advancedTables.enabled ? [advancedTablesConfig.of(plugins.advancedTables)] : []),
         ];
-    }, [autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath]);
+    }, [plugins, autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath]);
 }

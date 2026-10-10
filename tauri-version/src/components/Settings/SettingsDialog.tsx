@@ -24,7 +24,7 @@ export function SettingsDialog({
   onHomePageChange,
   onClose,
 }: SettingsDialogProps) {
-  const { config, isLoading, persist } = useSettingsPersist();
+  const { config, persist } = useSettingsPersist();
   const [storedSection, setSection] = useLocalState<SettingsSectionId>('aquilum_settings_section', 'ui');
   const section = settingsSections().some(({ id }) => id === storedSection) ? storedSection : 'ui';
 
@@ -40,7 +40,7 @@ export function SettingsDialog({
         <SettingsNav section={section} onSelect={setSection} />
 
         <ScrollArea className="q-settings-content">
-          {section !== 'shortcuts' && (isLoading || !config) ? (
+          {section !== 'shortcuts' && !config ? (
             <div className="q-settings-loading">{t('settings.loading')}</div>
           ) : (
             <SettingsForm

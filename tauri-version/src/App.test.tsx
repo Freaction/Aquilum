@@ -3,8 +3,22 @@ import { act } from 'preact/test-utils';
 import { useEffect, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { editorMarkdownSupport } from './components/Editor/extensions/markdownConfig';
+import { bodySetup } from './components/Editor/extensions/bodySetup';
+import { WidgetSession } from './components/Editor/extensions/tables/widgetSession';
+import { findTablesInDoc } from './components/Editor/extensions/tables/constructs';
+import { renderTableWidgetDom } from './components/Editor/extensions/tables/widgetDom';
+import { getReadingMode, setReadingMode } from './plugins/editor/readingMode';
+import { legacyConfig } from './plugins/testFixtures';
+import { DEFAULT_PLUGIN_SETTINGS } from './modules/settings';
 import { actAndSettle, mountDom, type MountedDom } from './testing/mountDom';
 
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => undefined) }));
+vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async () => () => {}) }));
+
+const settingsState = vi.hoisted(() => ({ config: null as any, updateConfig: vi.fn() }));
 const editorLifecycle: string[] = [];
 const graphLifecycle: string[] = [];
 const workspaceState = vi.hoisted(() => ({
@@ -133,14 +147,15 @@ vi.mock('./components/Settings/SettingsDialog', () => ({
   SettingsDialog: ({ open }: { open: boolean }) => <div id="settings-dialog" data-open={open} />,
 }));
 
-vi.mock('./modules/settings', () => ({
+vi.mock('./modules/settings', async importOriginal => ({
+  ...await importOriginal<typeof import('./modules/settings')>(),
   DEFAULT_LIVE_TABS: 3,
   useSettingsStore: () => ({
-    config: null,
+    config: settingsState.config,
     isLoading: false,
     error: null,
     loadConfig: () => Promise.resolve(),
-    updateConfig: vi.fn(),
+    updateConfig: settingsState.updateConfig,
   }),
 }));
 
@@ -209,6 +224,8 @@ describe('App editor lifecycle', () => {
     graphLifecycle.length = 0;
     workspaceState.files = [];
     workspaceState.workspaceReady = false;
+    settingsState.config = null;
+    setReadingMode(false);
     vi.clearAllMocks();
   });
 
@@ -267,6 +284,69 @@ describe('App editor lifecycle', () => {
 
     expect(shortcut.defaultPrevented).toBe(true);
     expect(attribute('search-dialog', 'data-open')).toBe('true');
+  });
+
+
+  it('toggles full width with physical Meta+Alt+KeyW from an editor', async () => {
+    settingsState.config = { ...legacyConfig(), plugins: structuredClone(DEFAULT_PLUGIN_SETTINGS) };
+    settingsState.updateConfig.mockImplementation(async next => { settingsState.config = next; renderer!.update(<App />); });
+    await renderWithSession();
+    const view = new EditorView({ parent: document.body, state: EditorState.create({ doc: 'note', extensions: [bodySetup, editorMarkdownSupport] }) });
+    try {
+      view.focus();
+      for (const fullWidth of [true, false]) {
+        const event = new KeyboardEvent('keydown', { code: 'KeyW', key: 'ц', metaKey: true, altKey: true, bubbles: true, cancelable: true });
+        await actAndSettle(() => { view.contentDOM.dispatchEvent(event); });
+        expect(event.defaultPrevented).toBe(true);
+        expect(settingsState.config.editor.fullWidth).toBe(fullWidth);
+      }
+    } finally { view.destroy(); }
+  });
+
+  it('toggles reading mode from CodeMirror and a focused nested table cell', async () => {
+    settingsState.config = { ...legacyConfig(), plugins: structuredClone(DEFAULT_PLUGIN_SETTINGS) };
+    settingsState.config.plugins.readingMode.enabled = true;
+    await renderWithSession();
+    const doc = '| name |\n| --- |\n| value |';
+    const view = new EditorView({ parent: document.body, state: EditorState.create({ doc, extensions: [bodySetup, editorMarkdownSupport] }) });
+    const table = findTablesInDoc(view.state.doc)[0];
+    const root = renderTableWidgetDom(table.model);
+    view.dom.append(root);
+    const session = new WidgetSession(view, { from: 0, contentTo: table.contentTo, blockTo: table.to }, table.model, root);
+    root.addEventListener('keydown', event => session.onKeyDown(event));
+    const toggle = async (target: HTMLElement, expected: boolean) => {
+      target.focus();
+      const event = new KeyboardEvent('keydown', { code: 'KeyE', key: 'E', metaKey: true, shiftKey: true, bubbles: true, cancelable: true });
+      await actAndSettle(() => { target.dispatchEvent(event); });
+      expect(event.defaultPrevented).toBe(true);
+      expect(getReadingMode()).toBe(expected);
+    };
+    try {
+      await toggle(view.contentDOM, true);
+      session.openCellEditor({ row: 1, col: 0 });
+      const nested = EditorView.findFromDOM(root.querySelector('.cm-editor')!)!;
+      await toggle(nested.contentDOM, false);
+      await toggle(nested.contentDOM, true);
+    } finally { session.dispose(); view.destroy(); root.remove(); }
+  });
+
+
+  it('uses configured reading and width shortcuts and releases their defaults', async () => {
+    settingsState.config = { ...legacyConfig(), plugins: structuredClone(DEFAULT_PLUGIN_SETTINGS) };
+    settingsState.config.editor.fullWidthShortcut = { code: 'KeyJ', key: 'J', primary: true, alt: true, shift: false };
+    settingsState.config.plugins.readingMode.enabled = true;
+    settingsState.config.plugins.readingMode.shortcut = { code: 'KeyK', key: 'K', primary: true, alt: true, shift: false };
+    settingsState.updateConfig.mockImplementation(async next => { settingsState.config = next; renderer!.update(<App />); });
+    await renderWithSession();
+    const press = (code: string, modifiers = {}) => actAndSettle(() => { window.dispatchEvent(new KeyboardEvent('keydown', { code, key: code.slice(3), metaKey: true, altKey: true, cancelable: true, ...modifiers })); });
+    await press('KeyW');
+    await press('KeyE', { altKey: false, shiftKey: true });
+    expect(settingsState.config.editor.fullWidth).toBe(false);
+    expect(getReadingMode()).toBe(false);
+    await press('KeyJ');
+    expect(settingsState.config.editor.fullWidth).toBe(true);
+    await press('KeyK');
+    expect(getReadingMode()).toBe(true);
   });
 
   it('opens search from a new tab', async () => {

@@ -1,3 +1,5 @@
+import { tableCellParser } from './rows';
+import { linkLabelRange } from '../links/flow';
 import { t } from '../../../../i18n';
 import { Plus } from 'lucide';
 import { createIconElement } from '../../../Common/iconElement';
@@ -30,18 +32,41 @@ export function setWrapperText(wrapper: HTMLElement, text: string): void {
         return;
     }
 
-    const wikiLink = text.match(/^\s*\[\[([^\]|]+)(?:\|([^\]]+))?\]\]\s*$/);
-    if (!wikiLink) {
-        wrapper.textContent = text;
-        return;
-    }
-
-    const target = wikiLink[1].trim();
-    const link = document.createElement('span');
-    link.className = 'q-md-link q-md-table-wiki-link';
-    link.dataset.wikiTarget = target;
-    link.textContent = wikiLink[2]?.trim() || target;
-    wrapper.appendChild(link);
+    const display = text.replace(/\\\|/g, '|');
+    let offset = 0;
+    tableCellParser.parse(display).iterate({
+        enter(node) {
+            if (node.name === 'InlineCode') {
+                const marks = node.node.getChildren('CodeMark');
+                if (marks.length < 2) return false;
+                wrapper.append(document.createTextNode(display.slice(offset, node.from)));
+                const code = document.createElement('span');
+                code.className = 'q-md-code';
+                code.textContent = display.slice(marks[0].to, marks[marks.length - 1].from);
+                wrapper.append(code);
+                offset = node.to;
+                return false;
+            }
+            if (['FencedCode', 'CodeBlock', 'Image'].includes(node.name)) return false;
+            const wiki = node.name === 'WikiLink';
+            if (!wiki && node.name !== 'Link') return;
+            const target = node.node.getChild(wiki ? 'WikiLinkTarget' : 'URL');
+            const label = wiki ? node.node.getChild('WikiLinkAlias') ?? target : linkLabelRange(node.node);
+            if (!target || !label) return;
+            wrapper.append(document.createTextNode(display.slice(offset, node.from)));
+            const link = document.createElement('a');
+            link.className = 'q-md-link q-md-table-link';
+            const destination = display.slice(target.from, target.to).trim();
+            if (wiki) link.dataset.wikiTarget = destination;
+            else link.dataset.externalUrl = destination;
+            link.href = wiki ? '#' : destination;
+            link.textContent = display.slice(label.from, label.to).trim() || destination;
+            wrapper.append(link);
+            offset = node.to;
+            return false;
+        },
+    });
+    wrapper.append(document.createTextNode(display.slice(offset)));
 }
 
 function buildRow(model: TableModel, row: number): HTMLTableRowElement {
@@ -94,7 +119,6 @@ function syncTrackWidths(root: HTMLElement, model: TableModel): void {
     const withChrome =
         `calc(${content}px + var(--q-md-table-corner-width, var(--q-space-24)) + var(--q-gap-xs))`;
     root.style.setProperty('--q-md-table-layout-min-width', withChrome);
-    root.style.setProperty('--q-md-table-band-width', explicit ? withChrome : '100%');
 }
 
 function placeSelectionOverlay(root: HTMLElement): void {

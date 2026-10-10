@@ -2,6 +2,7 @@ import { useCallback, useState, type MouseEvent, type RefObject } from 'react';
 import { BookOpen, Table2, Tags } from 'lucide';
 import type { EditorView } from '@codemirror/view';
 import { t } from '../../../i18n';
+import { useSettingsStore } from '../../../modules/settings';
 import type { MenuItem } from '../../Common/Menu';
 import { useSelectionMenu } from '../../Common/useSelectionMenu';
 import { insertClipboardAsLink } from '../extensions/links';
@@ -13,6 +14,7 @@ export function useEditorBodyMenu(
     bodyRef: RefObject<EditorView | null>,
     autoLinkTitle: boolean,
 ) {
+    const { config, updateConfig } = useSettingsStore();
     const getView = useCallback(() => bodyRef.current, [bodyRef]);
     const selectionMenu = useSelectionMenu(getView);
     const [frontmatterDisabled, setFrontmatterDisabled] = useState(false);
@@ -57,6 +59,15 @@ export function useEditorBodyMenu(
     }, [bodyRef, openSelectionMenu]);
 
     const items: MenuItem[] = [
+        {
+            id: 'toggle-editor-width',
+            label: t(config?.editor.fullWidth ? 'editor.widthReadable' : 'editor.widthFull'),
+            disabled: !config,
+            onSelect: () => {
+                if (!config) return;
+                void updateConfig({ ...config, editor: { ...config.editor, fullWidth: !config.editor.fullWidth } });
+            },
+        },
         selectionMenu.copy,
         {
             id: 'paste',

@@ -4,7 +4,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--q-gap-xs);
-  min-width: 8rem;
+  width: max-content;
+  min-width: min(8rem, calc(100vw - var(--q-space-16)));
+  max-width: calc(100vw - var(--q-space-16));
+  box-sizing: border-box;
   padding: var(--q-gap-xs);
   border-radius: var(--q-radius-xl);
   background: var(--q-dialog-bg);
@@ -32,12 +35,10 @@
 .q-menu__item-label {
   display: flex;
   align-items: center;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: var(--q-size-20);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   color: var(--q-text-secondary);
 }
 
@@ -93,4 +94,19 @@
 
 .q-menu__item:disabled .q-menu__item-check {
   color: var(--q-text-disabled);
+}
+
+.q-menu__item-shortcut {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--q-text-tertiary);
+  font: inherit;
+  white-space: nowrap;
+}
+
+.q-menu__item-submenu {
+  flex-shrink: 0;
+  width: var(--q-size-16);
+  height: var(--q-size-16);
+  color: var(--q-icon-muted);
 }

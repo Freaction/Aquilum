@@ -116,6 +116,15 @@ fn invalid_utf8_is_rejected() {
 }
 
 #[test]
+fn missing_snapshot_has_a_distinct_code_from_other_io_errors() {
+    let dir = tempfile::tempdir().unwrap();
+    let error = read_file_snapshot_impl(&dir.path().join("missing.md")).unwrap_err();
+    assert_eq!(serde_json::to_value(error).unwrap()["code"], "not_found");
+    let denied = FileCommandError::from(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+    assert_eq!(serde_json::to_value(denied).unwrap()["code"], "io");
+}
+
+#[test]
 fn command_error_has_a_stable_serialized_code() {
     let error = FileCommandError::AlreadyExists {
         path: "note.md".to_owned(),

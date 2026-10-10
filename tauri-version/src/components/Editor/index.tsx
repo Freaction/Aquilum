@@ -71,7 +71,8 @@ export function Editor({
     if (!await renameTo(draft)) titleRef.current?.setValue(title);
   };
 
-  const editorSettings = useSettingsStore().config?.editor;
+  const { config } = useSettingsStore();
+  const editorSettings = config?.editor;
   const smartDashes = editorSettings?.smartDashes ?? true;
   const listCallouts = editorSettings?.listCallouts ?? true;
   const autoLinkTitle = editorSettings?.autoLinkTitle ?? true;
@@ -143,6 +144,7 @@ export function Editor({
     currentNotePath,
     linkSuggest,
     linkSuggestMinChars,
+    config?.plugins,
   );
   const extensions = useMemo(
     () => (isReady ? [baseExtensions, syncExtension] : []),

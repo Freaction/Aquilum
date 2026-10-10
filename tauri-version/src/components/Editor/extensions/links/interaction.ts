@@ -63,7 +63,7 @@ export function linkInteraction(
   onOpenExternal: (url: string) => void,
 ) {
   const activateLink = (event: MouseEvent, view: EditorView): boolean => {
-    if (event.button !== 0) return false;
+    if (event.button !== 0 && event.button !== 1) return false;
     const target = event.target as HTMLElement;
     if (!target.closest?.('.q-md-link')) return false;
 
@@ -74,10 +74,11 @@ export function linkInteraction(
     if (wikiTarget) {
       event.preventDefault();
       event.stopPropagation();
-      onOpenWiki(wikiTarget, event.ctrlKey || event.metaKey ? 'new-tab' : 'current');
+      onOpenWiki(wikiTarget, event.button === 1 || event.ctrlKey || event.metaKey ? 'new-tab' : 'current');
       return true;
     }
 
+    if (event.button !== 0) return false;
     const url = externalUrlAt(view.state, pos);
     if (!url) return false;
     if (!readerRefLinkClickAllowed(view.state, pos, url)) return false;

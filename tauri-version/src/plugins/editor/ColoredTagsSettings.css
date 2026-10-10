@@ -1,0 +1,6 @@
+.q-colored-tags-settings__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--q-gap-sm);
+}

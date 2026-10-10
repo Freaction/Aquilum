@@ -1,7 +1,7 @@
 import { EditorView } from '@codemirror/view';
 
 export const tableTheme = EditorView.theme({
-    '&.q-md-table-interaction > .cm-scroller > .cm-cursorLayer': {
+    '&.q-md-table-interaction > .cm-scroller > .cm-cursorLayer, &.q-md-table-boundary-caret > .cm-scroller > .cm-cursorLayer': {
         display: 'none',
     },
     '&.q-md-table-interaction > .cm-scroller > .cm-selectionLayer': {
@@ -208,7 +208,7 @@ export const tableTheme = EditorView.theme({
         opacity: '1',
     },
     '.q-md-table-add-row': {
-        width: 'var(--q-md-table-band-width, 100%)',
+        width: '100%',
         height: 'var(--q-space-20)',
         borderTop: 'none',
         cursor: 'pointer',

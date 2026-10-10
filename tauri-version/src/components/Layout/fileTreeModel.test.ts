@@ -59,3 +59,40 @@ describe('file tree model', () => {
     expect(unloadedExpandedFolders(rows, new Map([[folder.id, []]]))).toEqual([]);
   });
 });
+
+describe('explorer filters in visible rows', () => {
+  const options = { workspacePath: 'C:/vault', hidden: new Set(['folder']), pinned: new Set<string>(), showHidden: false };
+  const directories = new Map([[folder.id, [childFile, nested]], [nested.id, [nestedFile]]]);
+  const expanded = new Set([folder.id, nested.id]);
+
+  it('hides matching folders with all descendants and matching files', () => {
+    const rows = buildVisibleFileRows([folder, rootFile], directories, expanded, new Set(), options);
+    expect(rows.map(row => row.item.id)).toEqual([rootFile.id]);
+    const files = buildVisibleFileRows([folder, rootFile], directories, expanded, new Set(), { ...options, hidden: new Set(['folder/child.md']) });
+    expect(files.map(row => row.item.id)).toEqual([folder.id, nested.id, nestedFile.id, rootFile.id]);
+  });
+
+  it('shows hidden rows and marks descendants without changing counts', () => {
+    const rows = buildVisibleFileRows([folder, rootFile], directories, expanded, new Set(), { ...options, showHidden: true });
+    expect(rows.map(row => [row.item.id, row.isHidden])).toEqual([
+      [folder.id, true], [nested.id, true], [nestedFile.id, true], [childFile.id, true], [rootFile.id, false],
+    ]);
+  });
+
+  it('puts pinned folders before other folders and pinned files before other files in each folder', () => {
+    const otherFolder: WorkspaceItem = { id: 'C:/vault/other', name: 'other', type: 'folder' };
+    const otherFile: WorkspaceItem = { id: 'C:/vault/other.md', name: 'other', type: 'file' };
+    const rows = buildVisibleFileRows([folder, otherFolder, rootFile, otherFile], directories, expanded, new Set(), {
+      ...options, hidden: new Set(), pinned: new Set(['other', 'other.md', 'folder/nested']),
+    });
+    expect(rows.map(row => row.item.id)).toEqual([otherFolder.id, folder.id, nested.id, nestedFile.id, childFile.id, otherFile.id, rootFile.id]);
+    expect(rows.find(row => row.item.id === otherFile.id)?.depth).toBe(0);
+  });
+
+  it('keeps the input arrays unchanged and respects exact path boundaries', () => {
+    const roots = [folder, rootFile];
+    const rows = buildVisibleFileRows(roots, directories, expanded, new Set(), { ...options, hidden: new Set(['fold']) });
+    expect(rows.map(row => row.item.id)).toContain(folder.id);
+    expect(roots).toEqual([folder, rootFile]);
+  });
+});

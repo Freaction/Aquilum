@@ -1,3 +1,4 @@
+import { useTauriEvent } from "./hooks/useTauriEvent";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { EditorPane } from "./components/Editor/EditorPane";
 import { Titlebar } from "./components/Layout/Titlebar";
@@ -13,12 +14,15 @@ import { SearchDialog } from "./components/Search/SearchDialog";
 import { TemplateDialog } from "./components/Templates/TemplateDialog";
 import { WorkspaceDialog } from "./components/Workspace/WorkspaceDialog";
 import { BacklinksPanel } from "./components/Backlinks/BacklinksPanel";
+import { useDailyNoteStartup } from "./modules/dailyNotes/useDailyNoteStartup";
+import { useOpenTodayNote } from "./plugins/calendar/useOpenTodayNote";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { useTabs } from "./hooks/useTabs";
 import { useNavigationHistory } from "./hooks/useNavigationHistory";
 import { useLiveTabs } from "./hooks/useLiveTabs";
 import { useLocalState } from "./modules/workspace/uiPersist";
-import { matchesShortcut, SHORTCUTS } from "./config/shortcuts";
+import { effectiveShortcut, matchesShortcut, SHORTCUTS } from "./config/shortcuts";
+import { setReadingMode, toggleReadingMode } from "./plugins/editor/readingMode";
 import { openExternalUrl } from "./modules/openExternalUrl";
 import { revealAppWindow } from "./modules/windowReveal";
 import { beginOpenTrace } from "./modules/perf/openTrace";
@@ -34,7 +38,7 @@ import {
 } from "./modules/links";
 import { DEFAULT_LIVE_TABS, useSettingsStore } from "./modules/settings";
 import { installUpdateOnStartup } from "./modules/updates";
-import { resolveLocale } from "./i18n";
+import { resolveLocale, t } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
 import { isMarkdownPath } from "./modules/documents/fileGateway";
 import { fileStem } from "./modules/paths";
@@ -128,7 +132,9 @@ export default function App() {
     canGoForward,
   } = useNavigationHistory(workspacePath);
 
-  const { config, loadConfig } = useSettingsStore();
+  const { config, loadConfig, updateConfig } = useSettingsStore();
+  const readingModeEnabled = config?.plugins.readingMode.enabled ?? false;
+  useEffect(() => { if (!readingModeEnabled) setReadingMode(false); }, [readingModeEnabled]);
 
   const liveTabIds = useLiveTabs(tabs, activeTabId, config?.editor.liveTabs ?? DEFAULT_LIVE_TABS);
   const livePanes = liveTabIds.flatMap((tabId) => {
@@ -165,6 +171,8 @@ export default function App() {
     }
     activateFile(path, { disposition });
   }, [activateFile, activeFile, push]);
+  const todayNoteError = useOpenTodayNote(workspacePath, workspaceReady && sessionReady && Boolean(config), config?.plugins?.calendar?.enabled ?? true, openNote, config);
+  const dailyNoteError = useDailyNoteStartup(workspacePath, workspaceReady && sessionReady, config?.dailyNotes, openNote);
 
   const handleOpenExternalUrl = useCallback((url: string) => {
     void openExternalUrl(url).catch((error) => {
@@ -214,11 +222,16 @@ export default function App() {
     keepVersionsOf(tabs.map((tab) => tab.tabId));
   }, [tabs]);
 
+  useTauriEvent('close-tab', () => { if (activeTab) closeTab(activeTab.path); });
+
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
       if (matchesShortcut(event, SHORTCUTS.NEW_FILE)) {
         event.preventDefault();
         void createNewFile();
+      } else if (matchesShortcut(event, SHORTCUTS.NEW_TAB)) {
+        event.preventDefault();
+        newTab();
       } else if (matchesShortcut(event, SHORTCUTS.NEW_FROM_TEMPLATE)) {
         event.preventDefault();
         templates.toggle();
@@ -228,12 +241,18 @@ export default function App() {
       } else if (matchesShortcut(event, SHORTCUTS.FOCUS_MODE)) {
         event.preventDefault();
         toggleFocusMode();
+      } else if (config && matchesShortcut(event, effectiveShortcut(config, 'TOGGLE_FULL_WIDTH'))) {
+        event.preventDefault();
+        void updateConfig({ ...config, editor: { ...config.editor, fullWidth: !config.editor.fullWidth } });
+      } else if (readingModeEnabled && matchesShortcut(event, effectiveShortcut(config, 'TOGGLE_READING_MODE'))) {
+        event.preventDefault();
+        toggleReadingMode();
       }
     };
 
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [createNewFile, search.toggle, templates.toggle, toggleFocusMode]);
+  }, [createNewFile, newTab, search.toggle, templates.toggle, toggleFocusMode, readingModeEnabled, config, updateConfig]);
 
   const handleTemplateSelect = useCallback(async (template: NoteTemplate) => {
     const content = await readTemplate(template);
@@ -394,7 +413,7 @@ export default function App() {
           workspacePath={workspacePath}
           workspaceName={workspaceName}
           onFileSelect={openNote}
-          onCreateNote={createNewFile}
+          onCreateNote={(folder) => createNewFile(undefined, folder)}
           onLoadDirectory={loadDirectory}
           isOpen={leftSidebarVisible}
           onOpenSettings={settings.show}
@@ -403,6 +422,8 @@ export default function App() {
         />
 
         <div className="q-app-main">
+          {dailyNoteError && <p role="alert">{t(dailyNoteError)}</p>}
+          {todayNoteError && <p role="alert">{t(todayNoteError)}</p>}
           <Titlebar
             activeFile={activeFile}
             openFiles={openFiles}
@@ -481,6 +502,7 @@ export default function App() {
           </div>
         </div>
         <BacklinksPanel
+          onOpenNote={openNote}
           workspacePath={workspacePath}
           documentPath={activeFile}
           activeTabId={activeTabId}

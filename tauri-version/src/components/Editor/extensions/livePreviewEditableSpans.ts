@@ -1,5 +1,6 @@
 import type { EditorState, Range, Text } from '@codemirror/state';
 import { Decoration, WidgetType } from '@codemirror/view';
+import { revealAtCaretFacet } from './livePreviewConfig';
 import { editorHasFocus } from './editorFocus';
 import { findBookCallouts } from './bookCallout/constructs';
 import { findReaderQuotes, readerQuoteEditEntryPos } from './readerQuote/constructs';
@@ -17,6 +18,7 @@ export function selectionIntersectsEditablePreview(
   state: EditorState,
   span: EditablePreviewSpan,
 ): boolean {
+  if (!state.facet(revealAtCaretFacet)) return false;
   const sel = state.selection.main;
   return sel.from <= span.to && sel.to >= span.from;
 }
@@ -90,7 +92,7 @@ export function collectPreviewReplaceDecorations<T extends { from: number; to: n
   for (let i = 0; i < spans.length; i += 1) {
     const span = spans[i]!;
     if (span.from < 0 || span.to > docLen || span.from >= span.to) continue;
-    if (editorHasFocus(state) && isEditing(state, span)) continue;
+    if (state.facet(revealAtCaretFacet) && editorHasFocus(state) && isEditing(state, span)) continue;
 
     ranges.push(
       Decoration.replace({

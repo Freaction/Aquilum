@@ -1,5 +1,7 @@
 import { memo, useEffect, useRef, type MouseEvent } from 'react';
-import { History } from 'lucide';
+import { History, CalendarDays } from 'lucide';
+import { CalendarPanel } from '../Calendar/CalendarPanel';
+import { DEFAULT_DAILY_NOTES_SETTINGS } from '../../modules/dailyNotes';
 import { Icon } from '../Common/Icon';
 import { t } from '../../i18n';
 import {
@@ -18,7 +20,7 @@ import {
 } from '../../modules/links';
 import { isMarkdownPath } from '../../modules/documents/fileGateway';
 import { openExternalUrl } from '../../modules/openExternalUrl';
-import { useSettingsStore } from '../../modules/settings';
+import { DEFAULT_PLUGIN_SETTINGS, useSettingsStore } from '../../modules/settings';
 import { useWikixivSources, setWikiHover, clearWikiHover } from '../../modules/wikixiv';
 import { isEmptyTabPath } from '../../modules/ui-state';
 import { useLocalState } from '../../modules/workspace/uiPersist';
@@ -34,17 +36,19 @@ import { HistoryList } from '../History/HistoryList';
 import { SidebarDocumentItem } from './SidebarDocumentItem';
 import './BacklinksPanel.css';
 
-type PanelMode = LinkMode | 'analysis' | 'history';
+type PanelMode = LinkMode | 'analysis' | 'history' | 'calendar';
 
-const PANEL_MODES: readonly string[] = ['backlinks', 'outgoing', 'analysis', 'history'] satisfies PanelMode[];
+const PANEL_MODES: readonly string[] = ['backlinks', 'outgoing', 'analysis', 'history', 'calendar'] satisfies PanelMode[];
 
-function resolvePanelMode(stored: string, sourcesAvailable: boolean): PanelMode {
+function resolvePanelMode(stored: string, sourcesAvailable: boolean, calendarEnabled: boolean): PanelMode {
   if (!PANEL_MODES.includes(stored)) return 'backlinks';
+  if (stored === 'calendar' && !calendarEnabled) return 'backlinks';
   if (stored === 'analysis' && !sourcesAvailable) return 'backlinks';
   return stored as PanelMode;
 }
 
 interface BacklinksPanelProps {
+  onOpenNote: (path: string) => void;
   workspacePath: string | null;
   documentPath: string | null;
   activeTabId: string | null;
@@ -74,12 +78,14 @@ function BacklinksPanelComponent({
   onOpenBacklink,
   onOpenOutgoing,
   onOpenAnalysis,
+  onOpenNote,
 }: BacklinksPanelProps) {
   const { config } = useSettingsStore();
   const sidebarMethods = enabledSidebarMethods(config?.analysis);
   const sourcesAvailable = sidebarMethods.length > 0;
   const [storedMode, setMode] = useLocalState<string>('aquilum_backlinks_mode', 'backlinks');
-  const mode = resolvePanelMode(storedMode, sourcesAvailable);
+  const calendarSettings = config?.plugins?.calendar ?? DEFAULT_PLUGIN_SETTINGS.calendar;
+  const mode = resolvePanelMode(storedMode, sourcesAvailable, calendarSettings.enabled);
   const [sourceMethod, setSourceMethod] = useLocalState<SidebarSourceMethod>(
     'aquilum_analysis_method',
     'bm25f',
@@ -94,6 +100,7 @@ function BacklinksPanelComponent({
   );
   const isAnalysis = mode === 'analysis';
   const isHistory = mode === 'history';
+  const isCalendar = mode === 'calendar';
   const isWixiv = isAnalysis && activeSourceMethod === 'wixiv';
   useHorizontalWheelScroll(chipRowRef, isAnalysis, sidebarMethods.length);
 
@@ -109,7 +116,7 @@ function BacklinksPanelComponent({
     documentPath,
     indexReady,
     indexRevision,
-    isOpen && hasDocument && !isAnalysis && !isHistory,
+    isOpen && hasDocument && !isAnalysis && !isHistory && !isCalendar,
   );
   const {
     items: analysisItems,
@@ -199,8 +206,13 @@ function BacklinksPanelComponent({
           >
             <Icon icon={History} />
           </IconButton>
+          {calendarSettings.enabled && <IconButton label={t('calendar.title')} className="q-backlinks__mode-button" aria-pressed={isCalendar} onClick={() => setMode('calendar')}>
+            <Icon icon={CalendarDays} />
+          </IconButton>}
         </div>
       </div>
+
+      {isCalendar && isOpen && <CalendarPanel indexRevision={indexRevision} workspacePath={workspacePath} documentPath={documentPath} settings={config?.dailyNotes ?? DEFAULT_DAILY_NOTES_SETTINGS} calendarSettings={calendarSettings} onOpenNote={onOpenNote} />}
 
       {isAnalysis && (
         <div className="q-backlinks__chips">
@@ -231,7 +243,7 @@ function BacklinksPanelComponent({
         </div>
       )}
 
-      {hasDocument && !isHistory && (
+      {hasDocument && !isHistory && !isCalendar && (
         <div className="q-backlinks__content">
           <header className="q-backlinks__header">
             <h2>{heading}</h2>
@@ -262,6 +274,7 @@ function BacklinksPanelComponent({
               key={`${link.path}:${link.offset}`}
               label={link.title}
               onClick={(event) => onOpenBacklink(link, dispositionFromEvent(event))}
+              onAuxClick={(event) => { if (event.button === 1) onOpenBacklink(link, 'new-tab'); }}
             />
           ))}
           {!isAnalysis && linkResult?.mode === 'outgoing' && linkResult.items.map((link, index) => (
@@ -269,6 +282,7 @@ function BacklinksPanelComponent({
               key={`${link.target}:${index}`}
               label={link.title}
               onClick={(event) => onOpenOutgoing(link, dispositionFromEvent(event))}
+              onAuxClick={(event) => { if (event.button === 1) onOpenOutgoing(link, 'new-tab'); }}
             />
           ))}
           {isGraphAnalysis && analysisItems?.map((result) => {
@@ -284,6 +298,7 @@ function BacklinksPanelComponent({
                   ? `${result.title}\n${analysisReasonLabel}: ${result.reasons.join(', ')}`
                   : result.title}
                 onClick={(event) => onOpenAnalysis(result, dispositionFromEvent(event))}
+                onAuxClick={(event) => { if (event.button === 1) onOpenAnalysis(result, 'new-tab'); }}
                 onMouseEnter={showHover}
                 onMouseLeave={clearWikiHover}
                 onFocus={showHover}

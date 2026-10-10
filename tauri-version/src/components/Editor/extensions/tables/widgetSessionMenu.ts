@@ -7,6 +7,9 @@ import {
     TableCellsMerge,
     TableCellsSplit,
     Trash2,
+    ListOrdered,
+    ArrowUp,
+    ArrowDown,
 } from 'lucide';
 import { t } from '../../../../i18n';
 import { cellIsMerged, type CellRef } from './model';
@@ -30,12 +33,15 @@ export function openWidgetStructureMenu(
     options: {
         canMerge: boolean;
         actions: WidgetStructureMenuActions;
+        advanced?: { format: () => void; sort: (descending: boolean) => void; readOnly: boolean };
     },
 ): void {
     const col = cell.col;
     const currentAlign = columnAlign(model, col);
     const merged = cellIsMerged(model, cell.row, col);
 
+    const advanced = options.advanced;
+    const sortDisabled = advanced?.readOnly || model.merges.some(merge => merge.top !== merge.bottom);
     showTableContextMenu(x, y, [
         {
             id: 'merge',
@@ -92,5 +98,10 @@ export function openWidgetStructureMenu(
             icon: Trash2,
             onSelect: options.actions.onDeleteTable,
         },
+        ...(advanced ? [
+            { id: 'format', label: t('plugins.advancedTables.format'), icon: ListOrdered, disabled: advanced.readOnly, onSelect: advanced.format },
+            { id: 'sort-ascending', label: t('plugins.advancedTables.sortAscending'), icon: ArrowUp, disabled: sortDisabled, onSelect: () => advanced.sort(false) },
+            { id: 'sort-descending', label: t('plugins.advancedTables.sortDescending'), icon: ArrowDown, disabled: sortDisabled, onSelect: () => advanced.sort(true) },
+        ] : []),
     ]);
 }

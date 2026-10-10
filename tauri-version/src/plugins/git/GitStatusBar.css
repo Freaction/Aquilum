@@ -1,0 +1,27 @@
+.q-git-status {
+  padding: var(--q-gap-sm) var(--q-gap-md);
+  border-top: var(--q-border-1) solid var(--q-border-subtle);
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-git-status__row {
+  display: flex;
+  align-items: center;
+  gap: var(--q-gap-xs);
+}
+
+.q-git-status__branch {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-git-status__counts { white-space: nowrap; }
+.q-git-status__error { overflow-wrap: anywhere; color: var(--q-text-danger); }
+.q-git-status__error ul { margin: var(--q-gap-xs) 0; padding-left: var(--q-gap-lg); }
+.q-git-status__spinner { animation: q-git-spin 1s linear infinite; }
+@keyframes q-git-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .q-git-status__spinner { animation: none; } }

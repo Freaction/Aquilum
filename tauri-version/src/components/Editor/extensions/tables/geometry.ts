@@ -42,10 +42,18 @@ function syncCornerWidth(root: HTMLElement): void {
 }
 
 function syncAddColHeight(root: HTMLElement): void {
-    const layout = root.querySelector('.q-md-table-layout') as HTMLElement | null;
+    const table = root.querySelector('.q-md-table-editor') as HTMLElement | null;
+    const scroll = root.querySelector('.q-md-table-scroll');
     const addCol = root.querySelector('.q-md-table-add-col') as HTMLElement | null;
-    if (!layout || !addCol) return;
-    addCol.style.height = `${Math.round(layout.getBoundingClientRect().height)}px`;
+    const addRow = root.querySelector('.q-md-table-add-row') as HTMLElement | null;
+    if (!table || !scroll || !addCol || !addRow) return;
+    const rect = table.getBoundingClientRect();
+    const width = measuredSize(rect.width);
+    addRow.style.width = width == null ? table.style.width : `${width}px`;
+    const height = measuredSize(rect.height);
+    if (height == null) return;
+    addCol.style.height = `${height}px`;
+    addCol.style.marginTop = `${Math.max(0, rect.top - scroll.getBoundingClientRect().top)}px`;
 }
 
 export function syncStripSizes(root: HTMLElement, model: TableModel): void {

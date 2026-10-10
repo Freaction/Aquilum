@@ -1,6 +1,7 @@
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
 import type { FileMenuActions } from './fileActionItems';
-import { comparablePath } from '../../modules/paths';
+import { comparablePath, relativePath } from '../../modules/paths';
+import type { ColorToken } from '../../plugins/vaultData';
 
 export interface VisibleFileRow {
   item: WorkspaceItem;
@@ -9,6 +10,18 @@ export interface VisibleFileRow {
   expanded: boolean;
   loading: boolean;
   guideDepths: string;
+  isHidden?: boolean;
+  color?: ColorToken;
+  colorBackground?: boolean;
+  iconName?: string;
+  count?: number;
+}
+
+export interface ExplorerTreeOptions {
+  workspacePath: string;
+  hidden: ReadonlySet<string>;
+  pinned: ReadonlySet<string>;
+  showHidden: boolean;
 }
 
 export interface FileTreeActions extends FileMenuActions {
@@ -30,16 +43,31 @@ export function buildVisibleFileRows(
   directories: ReadonlyMap<string, WorkspaceItem[]>,
   expandedFolders: ReadonlySet<string>,
   loadingDirectories: ReadonlySet<string>,
+  explorer?: ExplorerTreeOptions,
 ): VisibleFileRow[] {
   const rows: VisibleFileRow[] = [];
 
   const visit = (items: readonly WorkspaceItem[], depth: number, continuingGuides: number[]) => {
     const guideDepths = continuingGuides.join(',');
 
-    items.forEach((item, index) => {
+    const visible = items.map(item => {
+      const path = explorer ? relativePath(explorer.workspacePath, item.id) : '';
+      let ancestor = path;
+      let isHidden = false;
+      while (ancestor) {
+        if (explorer?.hidden.has(ancestor)) { isHidden = true; break; }
+        ancestor = ancestor.includes('/') ? ancestor.slice(0, ancestor.lastIndexOf('/')) : '';
+      }
+      return { item, path, isHidden };
+    }).filter(row => !row.isHidden || explorer?.showHidden);
+    if (explorer) visible.sort((a, b) => (
+      Number(a.item.type !== 'folder') - Number(b.item.type !== 'folder')
+      || Number(explorer.pinned.has(b.path)) - Number(explorer.pinned.has(a.path))
+    ));
+    visible.forEach(({ item, isHidden }, index) => {
       const isFolder = item.type === 'folder';
       const expanded = isFolder && expandedFolders.has(item.id);
-      const isLast = index === items.length - 1;
+      const isLast = index === visible.length - 1;
 
       rows.push({
         item,
@@ -48,6 +76,7 @@ export function buildVisibleFileRows(
         expanded,
         loading: isFolder && loadingDirectories.has(item.id),
         guideDepths,
+        isHidden,
       });
 
       if (expanded) {

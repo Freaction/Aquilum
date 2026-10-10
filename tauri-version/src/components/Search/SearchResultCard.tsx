@@ -27,6 +27,7 @@ export function SearchResultCard({
       aria-selected={selected}
       className={`q-search-result ${selected ? 'is-selected' : ''}`}
       onClick={(event) => onSelect(event.ctrlKey || event.metaKey)}
+      onAuxClick={(event) => { if (event.button === 1) onSelect(true); }}
       onMouseEnter={onHover}
       data-result-path={result.path}
     >

@@ -1,0 +1,6 @@
+.q-explorer-filter-settings { display: grid; gap: var(--q-space-4); }
+.q-explorer-filter { padding-block: var(--q-space-3); border-bottom: var(--q-border-1) solid var(--q-border-default); }
+.q-explorer-filter-pattern { color: var(--q-text-secondary); overflow-wrap: anywhere; }
+.q-explorer-filter-actions { display: flex; flex-wrap: wrap; gap: var(--q-space-2); }
+.q-explorer-filter-editor { margin-block: var(--q-space-3); }
+.q-explorer-filter-error { color: var(--q-red-500); overflow-wrap: anywhere; }

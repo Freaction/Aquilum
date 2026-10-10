@@ -9,7 +9,7 @@ import { dataviewDataReady, dataviewPrefetchExtension } from './dataview/prefetc
 import { collectImageEmbedDecorations } from './image/decorations';
 import { setImageSource } from './image/focus';
 import { setFrontmatterExpanded } from './frontmatterUi';
-import { livePreviewConfigFacet } from './livePreviewConfig';
+import { livePreviewConfigFacet, revealAtCaretFacet } from './livePreviewConfig';
 import { collectReaderQuoteDecorations } from './readerQuote/decorations';
 
 function collectLivePreviewWidgetDecorations(
@@ -34,7 +34,8 @@ const livePreviewWidgetField = StateField.define<DecorationSet>({
   create: (state) => buildLivePreviewWidgetDecorations(state),
   update: (value, tr) => {
     if (
-      tr.docChanged
+      tr.state.facet(revealAtCaretFacet) !== tr.startState.facet(revealAtCaretFacet)
+      || tr.docChanged
       || tr.selection
       || syntaxTree(tr.state) !== syntaxTree(tr.startState)
       || tr.effects.some((effect) => effect.is(setFrontmatterExpanded)

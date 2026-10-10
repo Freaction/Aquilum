@@ -66,15 +66,21 @@ export class TableWidget extends WidgetType {
         bindWidgetSession(root, session);
         root.addEventListener('mousedown', (event) => {
             if (event.button !== 0) return;
-            const link = (event.target as HTMLElement | null)?.closest<HTMLElement>('.q-md-table-wiki-link');
-            const wikiTarget = link?.dataset.wikiTarget;
-            if (!wikiTarget) return;
+            if (!(event.target as HTMLElement | null)?.closest('.q-md-table-link')) return;
             event.preventDefault();
             event.stopImmediatePropagation();
-            view.state.facet(livePreviewConfigFacet)?.onOpenWikiLink(
-                wikiTarget,
+        });
+        root.addEventListener('click', (event) => {
+            const link = (event.target as HTMLElement | null)?.closest<HTMLElement>('.q-md-table-link');
+            if (!link || event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const config = view.state.facet(livePreviewConfigFacet);
+            if (link.dataset.wikiTarget) config?.onOpenWikiLink(
+                link.dataset.wikiTarget,
                 event.ctrlKey || event.metaKey ? 'new-tab' : 'current',
             );
+            else if (link.dataset.externalUrl) config?.onOpenExternalUrl(link.dataset.externalUrl);
         });
         root.addEventListener('mousedown', (event) => session.onMouseDown(event));
         root.addEventListener('keydown', (event) => session.onKeyDown(event));

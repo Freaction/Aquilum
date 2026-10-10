@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BacklinksPanel } from './BacklinksPanel';
 
 const linkMocks = vi.hoisted(() => ({
+  calendarEnabled: true,
   backlink: {
     path: 'C:\\notes\\Source.md',
     title: 'Source',
@@ -23,10 +24,12 @@ const linkMocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('../../i18n', () => ({ t: (key: string) => key }));
-vi.mock('../../modules/settings', () => ({
+vi.mock('../../i18n', () => ({ t: (key: string) => key, getLocale: () => 'en' }));
+vi.mock('../../modules/settings', async importOriginal => ({
+  ...await importOriginal<typeof import('../../modules/settings')>(),
   useSettingsStore: () => ({
     config: {
+      plugins: { calendar: { enabled: linkMocks.calendarEnabled, showWeekNumbers: false, weekly: { enabled: false, folder: '', format: 'gggg-[W]ww', template: '' } } },
       analysis: {
         enableBm25f: true,
         enableAdamicAdar: true,
@@ -78,6 +81,7 @@ describe('BacklinksPanel', () => {
   let renderer: MountedDom | null = null;
 
   beforeEach(() => {
+    linkMocks.calendarEnabled = true;
     try {
       localStorage.clear();
     } catch {}
@@ -104,6 +108,7 @@ describe('BacklinksPanel', () => {
           onOpenBacklink={onOpenBacklink}
           onOpenOutgoing={onOpenOutgoing}
           onOpenAnalysis={onOpenAnalysis}
+          onOpenNote={vi.fn()}
         />,
       );
     });
@@ -111,13 +116,13 @@ describe('BacklinksPanel', () => {
     const panel = renderer!.container;
     const modeButtons = [...panel.querySelectorAll<HTMLButtonElement>('.q-backlinks__mode-button')];
     const pressed = () => modeButtons.map((button) => button.getAttribute('aria-pressed'));
-    expect(pressed()).toEqual(['true', 'false', 'false', 'false']);
+    expect(pressed()).toEqual(['true', 'false', 'false', 'false', 'false']);
     expect(panel.querySelector('h2')?.textContent).toBe('backlinks.mentionsTitle');
     expect(panel.querySelector('.q-sidebar-document-item__title')?.textContent).toBe('Source');
 
     act(() => modeButtons[1].click());
 
-    expect(pressed()).toEqual(['false', 'true', 'false', 'false']);
+    expect(pressed()).toEqual(['false', 'true', 'false', 'false', 'false']);
     expect(panel.querySelector('h2')?.textContent).toBe('backlinks.outgoingTitle');
     const outgoingButton = panel.querySelector<HTMLElement>('.q-sidebar-document-item')!;
     expect(panel.querySelector('.q-sidebar-document-item__title')?.textContent).toBe('Target');
@@ -128,4 +133,16 @@ describe('BacklinksPanel', () => {
     expect(onOpenOutgoing).toHaveBeenCalledWith(linkMocks.outgoing, 'new-tab');
     expect(onOpenBacklink).not.toHaveBeenCalled();
   });
+  it('hides a disabled calendar and falls back from the stored calendar mode', () => {
+    linkMocks.calendarEnabled = false;
+    localStorage.setItem('aquilum_backlinks_mode', JSON.stringify('calendar'));
+    act(() => {
+      renderer = mountDom(<BacklinksPanel workspacePath="/vault" documentPath="/vault/Current.md" activeTabId={null} indexReady indexRevision={1} isOpen onOpenBacklink={vi.fn()} onOpenOutgoing={vi.fn()} onOpenAnalysis={vi.fn()} onOpenNote={vi.fn()} />);
+    });
+    const panel = renderer!.container;
+    expect(panel.querySelector('[aria-label="calendar.title"]')).toBeNull();
+    expect(panel.querySelector('h2')?.textContent).toBe('backlinks.mentionsTitle');
+    expect(panel.querySelector('[aria-label="backlinks.backlinksTab"]')?.getAttribute('aria-pressed')).toBe('true');
+  });
+
 });

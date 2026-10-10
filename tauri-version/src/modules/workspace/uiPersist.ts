@@ -169,3 +169,8 @@ export function saveNavigationHistory(
   }
   writeJson(navigationKey(workspacePath), { entries, index } satisfies StoredNavigationHistory);
 }
+
+// режим просмотра скрытых элементов сохраняется для каждого хранилища.
+export function useExplorerShowHidden(workspacePath: string | null) {
+  return useLocalState(workspaceStorageKey('aquilum_explorer_show_hidden', workspacePath ?? ''), false);
+}

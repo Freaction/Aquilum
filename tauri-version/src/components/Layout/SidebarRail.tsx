@@ -1,7 +1,11 @@
-import { House, Network, PanelLeft, Settings } from 'lucide';
+import { BookOpen, House, Network, PanelLeft, Settings } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { t } from '../../i18n';
+import { usePluginEnabled } from '../../plugins/registry';
+import { toggleReadingMode, useReadingMode } from '../../plugins/editor/readingMode';
+import { useSettingsStore } from '../../modules/settings';
+import { effectiveShortcut, formatShortcut } from '../../config/shortcuts';
 import './SidebarRail.css';
 
 interface SidebarRailProps {
@@ -19,6 +23,9 @@ export function SidebarRail({
   onOpenHome,
   onOpenSettings,
 }: SidebarRailProps) {
+  const { config } = useSettingsStore();
+  const readingModeEnabled = usePluginEnabled('readingMode');
+  const readingMode = useReadingMode();
   return (
     <aside className="q-sidebar-rail" aria-label={t('rail.toolbar')}>
       <div className="q-panel-header q-sidebar-rail-header" data-tauri-drag-region>
@@ -50,6 +57,16 @@ export function SidebarRail({
             onClick={onOpenGraph}
           >
             <Icon icon={Network} />
+          </IconButton>
+        )}
+        {readingModeEnabled && (
+          <IconButton
+            label={`${t(readingMode ? 'plugins.readingMode.disable' : 'plugins.readingMode.enable')} (${formatShortcut(effectiveShortcut(config, 'TOGGLE_READING_MODE'))})`}
+            size="medium"
+            aria-pressed={readingMode}
+            onClick={toggleReadingMode}
+          >
+            <Icon icon={BookOpen} />
           </IconButton>
         )}
         {onOpenSettings && (

@@ -9,7 +9,7 @@ import {
 } from '@codemirror/view';
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { stateFrontmatterRange, setFrontmatterExpanded } from './frontmatterUi';
-import { livePreviewConfigFacet, type LivePreviewConfig } from './livePreviewConfig';
+import { livePreviewConfigFacet, previewCaret, type LivePreviewConfig } from './livePreviewConfig';
 import { markOpenStage } from '../../../modules/perf/openTrace';
 import { livePreviewWidgetExtension } from './livePreviewWidgets';
 import { ensureEditorTree, visibleTreeRanges } from './ensureEditorTree';
@@ -90,7 +90,7 @@ export function collectCollapseRanges(
   ],
   editableSpans = collectEditablePreviewSpans(state.doc),
 ): { from: number; to: number }[] {
-  const head = state.selection.main.head;
+  const head = previewCaret(state);
   const charAt = (pos: number) => state.doc.sliceString(pos, pos + 1);
   const slice = (a: number, b: number) => state.doc.sliceString(a, b);
   const fmRange = stateFrontmatterRange(state);
@@ -152,7 +152,7 @@ function buildLivePreviewDecorations(
   const decs: { from: number; to: number; dec: Decoration }[] = [];
   const targets = new Set<string>();
   const { state } = view;
-  const head = state.selection.main.head;
+  const head = previewCaret(state);
   const charAt = (pos: number) => state.sliceDoc(pos, pos + 1);
   const slice = (from: number, to: number) => state.sliceDoc(from, to);
   const fmRange = stateFrontmatterRange(state);

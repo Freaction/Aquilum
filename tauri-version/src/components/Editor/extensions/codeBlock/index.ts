@@ -1,8 +1,8 @@
 import { syntaxTree } from '@codemirror/language';
-import { ViewPlugin, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
+import { Decoration, ViewPlugin, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
 import { ensureEditorTree, visibleTreeRanges } from '../ensureEditorTree';
 import { codeBlocks } from './blocks';
-import { codeBlockDecorations } from './decorations';
+import { codeBlockDecorations, codeBlockLineDecorationsFacet } from './decorations';
 import { CodeGrammarLoader } from './grammars';
 import { codeHighlighting } from './highlight';
 import { codeBlockTheme } from './theme';
@@ -17,7 +17,8 @@ const codeBlockPlugin = ViewPlugin.fromClass(class {
 
   update(update: ViewUpdate): void {
     const treeChanged = syntaxTree(update.state) !== syntaxTree(update.startState);
-    if (!update.docChanged && !update.viewportChanged && !treeChanged) return;
+    const stylingChanged = update.state.facet(codeBlockLineDecorationsFacet) !== update.startState.facet(codeBlockLineDecorationsFacet);
+    if (!update.docChanged && !update.viewportChanged && !treeChanged && !stylingChanged) return;
     this.decorations = this.rebuild(update.view, update.docChanged || treeChanged);
   }
 
@@ -29,7 +30,7 @@ const codeBlockPlugin = ViewPlugin.fromClass(class {
     const tree = ensureEditorTree(view, allowParse);
     const blocks = codeBlocks(tree, view.state.doc, visibleTreeRanges(view, tree.length));
     this.grammars.sync(view, tree, blocks);
-    return codeBlockDecorations(view.state.doc, blocks);
+    return view.state.facet(codeBlockLineDecorationsFacet) ? codeBlockDecorations(view.state.doc, blocks) : Decoration.none;
   }
 }, {
   decorations: (plugin) => plugin.decorations,

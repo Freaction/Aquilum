@@ -8,6 +8,7 @@ pub mod history;
 pub mod link_title;
 pub mod mcp;
 pub mod migration;
+pub mod plugins;
 pub mod search;
 pub mod settings;
 pub mod ui_state;

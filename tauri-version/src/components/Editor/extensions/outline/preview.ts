@@ -1,3 +1,4 @@
+import { syntaxTree } from '@codemirror/language';
 import { type Range, type Text } from '@codemirror/state';
 import {
     Decoration,
@@ -9,7 +10,10 @@ import {
 } from '@codemirror/view';
 import { createTaskCheckbox } from '../../../Common/taskCheckbox';
 import { findTaskMark, markText, TASK_MARK_LENGTH } from '../../../../modules/documents/taskCheckbox';
+import { previewCaret, revealAtCaretFacet } from '../livePreviewConfig';
 import { shouldRevealSyntax } from '../livePreviewVisibility';
+import { codeBlocks } from '../codeBlock/blocks';
+import { ensureEditorTree } from '../ensureEditorTree';
 import {
     analyzeOutlineLines,
     continuationIndent,
@@ -177,7 +181,8 @@ export const outlinePreview = ViewPlugin.fromClass(class {
     }
 
     update(update: ViewUpdate) {
-        if (update.docChanged || update.selectionSet || update.viewportChanged) {
+        if (update.docChanged || update.selectionSet || update.viewportChanged || syntaxTree(update.state) !== syntaxTree(update.startState)
+                || update.state.facet(revealAtCaretFacet) !== update.startState.facet(revealAtCaretFacet)) {
             this.read(update.view);
         }
     }
@@ -186,10 +191,12 @@ export const outlinePreview = ViewPlugin.fromClass(class {
         const built = buildOutlineDecorations(
             view.state.doc,
             view.visibleRanges,
-            view.state.selection.main.head,
+            previewCaret(view.state),
         );
-        this.decorations = built.decorations;
-        this.continuationIndents = built.continuationIndents;
+        const blocks = codeBlocks(ensureEditorTree(view), view.state.doc, view.visibleRanges);
+        const filter = (from: number) => !blocks.some(block => from >= block.from && from <= block.end);
+        this.decorations = built.decorations.update({ filter });
+        this.continuationIndents = built.continuationIndents.update({ filter });
     }
 }, {
     decorations: plugin => plugin.decorations,

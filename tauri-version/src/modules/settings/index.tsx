@@ -1,8 +1,10 @@
+import type { ShortcutToken } from '../../config/shortcuts';
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { setTheme, type Theme } from '../theme';
 import { setLanguage } from '../../i18n';
 import { setFilesFolder } from '../docs/vaultFiles';
+import { DEFAULT_DAILY_NOTES_SETTINGS, type DailyNotesSettings } from '../dailyNotes';
 import { pxToRem } from '../scaling';
 import { fontStack, IA_WRITER_QUATTRO, knownFont, type FontFamily } from '../../fonts/catalog';
 
@@ -36,6 +38,8 @@ interface EditorSettings extends FontSettings {
   saveDebounceMs: number;
   lineHeight: number;
   maxWidthCh: number;
+  fullWidth: boolean;
+  fullWidthShortcut: ShortcutToken | null;
   smartDashes: boolean;
   listCallouts: boolean;
   autoLinkTitle: boolean;
@@ -93,6 +97,52 @@ interface HistorySettings {
   retentionDays: number;
 }
 
+export interface PluginSettings {
+  calendar: { enabled: boolean; openTodayShortcut: ShortcutToken | null; showWeekNumbers: boolean; weekly: { enabled: boolean; folder: string; format: string; template: string } };
+  folderCounts: { enabled: boolean; showAllFiles: boolean; hideZero: boolean };
+  fileColors: { enabled: boolean; cascade: boolean; background: boolean };
+  fileIcons: { enabled: boolean };
+  explorerFilters: { enabled: boolean };
+  coloredTags: { enabled: boolean; mixNested: boolean; tagColors: Record<string, string> };
+  cursorTrail: { enabled: boolean };
+  codeStyler: { enabled: boolean; lineNumbers: boolean; copyButton: boolean; header: boolean };
+  readingMode: { enabled: boolean; shortcut: ShortcutToken | null };
+  advancedTables: { enabled: boolean; formatOnLeave: boolean };
+  gitSync: { enabled: boolean; commitMessage: string; commitDateFormat: string; autoBackupMinutes: number; pullOnOpen: boolean; push: boolean; syncMethod: 'merge' | 'rebase' };
+}
+
+export const DEFAULT_PLUGIN_SETTINGS: PluginSettings = {
+  calendar: { enabled: true, openTodayShortcut: null, showWeekNumbers: false, weekly: { enabled: false, folder: '', format: 'gggg-[W]ww', template: '' } },
+  folderCounts: { enabled: false, showAllFiles: false, hideZero: true },
+  fileColors: { enabled: false, cascade: false, background: false },
+  fileIcons: { enabled: false },
+  explorerFilters: { enabled: false },
+  coloredTags: { enabled: false, mixNested: true, tagColors: {} },
+  cursorTrail: { enabled: false },
+  codeStyler: { enabled: false, lineNumbers: false, copyButton: true, header: true },
+  readingMode: { enabled: false, shortcut: null },
+  advancedTables: { enabled: false, formatOnLeave: false },
+  gitSync: { enabled: false, commitMessage: 'vault backup: {{date}}', commitDateFormat: 'YYYY-MM-DD HH:mm:ss', autoBackupMinutes: 0, pullOnOpen: false, push: true, syncMethod: 'merge' },
+};
+
+export function withPluginDefaults(plugins?: PluginSettings): PluginSettings {
+  return {
+    calendar: { ...DEFAULT_PLUGIN_SETTINGS.calendar, ...plugins?.calendar,
+      weekly: { ...DEFAULT_PLUGIN_SETTINGS.calendar.weekly, ...plugins?.calendar?.weekly } },
+    folderCounts: { ...DEFAULT_PLUGIN_SETTINGS.folderCounts, ...plugins?.folderCounts },
+    fileColors: { ...DEFAULT_PLUGIN_SETTINGS.fileColors, ...plugins?.fileColors },
+    fileIcons: { ...DEFAULT_PLUGIN_SETTINGS.fileIcons, ...plugins?.fileIcons },
+    explorerFilters: { ...DEFAULT_PLUGIN_SETTINGS.explorerFilters, ...plugins?.explorerFilters },
+    coloredTags: { ...DEFAULT_PLUGIN_SETTINGS.coloredTags, ...plugins?.coloredTags,
+      tagColors: { ...plugins?.coloredTags?.tagColors } },
+    cursorTrail: { ...DEFAULT_PLUGIN_SETTINGS.cursorTrail, ...plugins?.cursorTrail },
+    codeStyler: { ...DEFAULT_PLUGIN_SETTINGS.codeStyler, ...plugins?.codeStyler },
+    readingMode: { ...DEFAULT_PLUGIN_SETTINGS.readingMode, ...plugins?.readingMode },
+    advancedTables: { ...DEFAULT_PLUGIN_SETTINGS.advancedTables, ...plugins?.advancedTables },
+    gitSync: { ...DEFAULT_PLUGIN_SETTINGS.gitSync, ...plugins?.gitSync },
+  };
+}
+
 export interface AppConfig {
   analysis: AnalysisSettings;
   mcp: McpSettings;
@@ -103,6 +153,8 @@ export interface AppConfig {
   reader: ReaderSettings;
   ui: UiSettings;
   templates: { folder: string };
+  dailyNotes: DailyNotesSettings;
+  plugins: PluginSettings;
   files: { folder: string };
   updates: { auto: boolean };
 }
@@ -139,8 +191,10 @@ function withKnownFonts(config: AppConfig): AppConfig {
   return {
     ...config,
     ui: knownFont('ui', config.ui),
-    editor: knownFont('editor', config.editor),
+    editor: { ...knownFont('editor', config.editor), fullWidthShortcut: config.editor.fullWidthShortcut ?? null },
     reader: knownFont('reader', config.reader),
+    dailyNotes: { ...DEFAULT_DAILY_NOTES_SETTINGS, ...config.dailyNotes },
+    plugins: withPluginDefaults(config.plugins),
   };
 }
 
@@ -208,7 +262,7 @@ function applySettingsToDom(config: AppConfig) {
   root.style.setProperty('--q-editor-line-height', String(config.editor.lineHeight));
   root.style.setProperty(
     '--q-editor-max-width',
-    `${config.editor.maxWidthCh}ch`,
+    config.editor.fullWidth ? 'none' : `${config.editor.maxWidthCh}ch`,
   );
   applyPrimaryColor(root, config.ui.primaryColor);
 }

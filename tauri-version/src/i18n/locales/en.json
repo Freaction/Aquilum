@@ -1,5 +1,23 @@
 {
+  "calendar": {
+    "title": "Calendar",
+    "previous": "Previous month",
+    "next": "Next month",
+    "today": "Today",
+    "noWorkspace": "Open a knowledge base to use daily notes.",
+    "words": "Words: {{count}}",
+    "tasks": "Unfinished tasks",
+    "error": "Could not read or create the daily note. Check the folder, date format, template, and file access.",
+    "retry": "Retry",
+    "createTitle": "Create daily note?",
+    "createDescription": "New note for {{date}}.",
+    "create": "Create",
+    "creating": "Creating…",
+    "startupError": "Could not open today's daily note. Check daily note settings and file access."
+  },
   "editor": {
+    "widthFull": "Full-width text",
+    "widthReadable": "Readable text width",
     "resetUiStateWarning": "The reset forgets open tabs, the list of knowledge bases, home pages and book reading positions; notes, history and settings stay.",
     "restart": "Restart",
     "stateUnavailable": "Open tabs and positions in notes are not being saved right now: {{reason}}",
@@ -75,6 +93,8 @@
     "create": "create",
     "matches": {
       "one": "{{count}} match",
+      "few": "{{count}} matches",
+      "many": "{{count}} matches",
       "other": "{{count}} matches"
     }
   },
@@ -156,6 +176,202 @@
     "paste": "Paste",
     "selectAll": "Select all"
   },
+  "plugins": {
+    "title": "Plugins",
+    "enabled": "Enabled",
+    "settings": "Plugin settings",
+    "back": "Back to plugins",
+    "builtinMcp": {
+      "name": "REST API and MCP — built in",
+      "description": "External tools can already connect through the built-in MCP server.",
+      "settings": "MCP settings"
+    },
+    "calendar": {
+      "name": "Calendar",
+      "description": "Open and create daily and weekly notes from a calendar.",
+      "dailyNotes": "Daily note settings",
+      "openTodayShortcut": "Open today’s note shortcut",
+      "showWeekNumbers": "Show week numbers",
+      "weeklyEnabled": "Weekly notes",
+      "weeklyFolder": "Weekly note folder",
+      "weeklyFormat": "Weekly note format",
+      "weeklyTemplate": "Weekly note template",
+      "weeklyFormatHint": "Use gggg-[W]ww for Sunday weeks or GGGG-[W]WW for ISO weeks.",
+      "weekNumbers": "Weeks",
+      "weekNumbersShort": "Wk",
+      "createWeekTitle": "Create weekly note?",
+      "week": "Week {{number}}",
+      "createWeekDescription": "Create a weekly note for the week starting {{date}}?",
+      "openTodayError": "Could not open today’s note."
+    },
+    "folderCounts": {
+      "name": "Note counts",
+      "description": "Show the number of notes inside each folder.",
+      "showAllFiles": "Count all files",
+      "hideZero": "Hide zero counts"
+    },
+    "fileColors": {
+      "name": "File colors",
+      "description": "Color files and folders in the explorer.",
+      "cascade": "Inherit folder colors",
+      "background": "Color the background",
+      "choose": "Color…",
+      "pickerTitle": "File color",
+      "none": "No color",
+      "close": "Close",
+      "colors": {
+        "red": "Red",
+        "amber": "Amber",
+        "green": "Green",
+        "teal": "Teal",
+        "blue": "Blue",
+        "purple": "Purple",
+        "pink": "Pink",
+        "gray": "Gray"
+      }
+    },
+    "fileIcons": {
+      "name": "File icons",
+      "description": "Choose icons for files and folders.",
+      "choose": "Icon…",
+      "pickerTitle": "Icon",
+      "search": "Search icons",
+      "recent": "Recent",
+      "remove": "Remove icon",
+      "empty": "No icons found",
+      "close": "Close"
+    },
+    "explorerFilters": {
+      "name": "Explorer filters",
+      "filterName": "Name",
+      "description": "Hide or pin files and folders using rules.",
+      "pin": "Pin",
+      "unhide": "Unhide",
+      "hiddenByFilter": "This item is hidden by a filter or its parent. Edit the hide filters in plugin settings.",
+      "pinnedByFilter": "This item is pinned by another filter. Edit that filter in settings.",
+      "unpin": "Unpin",
+      "hide": "Hide",
+      "showHidden": "Show hidden",
+      "overviewError": "Could not refresh the explorer",
+      "saveError": "Could not save explorer settings",
+      "hideList": "Hidden",
+      "pinList": "Pinned",
+      "active": "Active",
+      "kind": "Rule kind",
+      "target": "Targets",
+      "pattern": "Pattern",
+      "patternType": "Pattern type",
+      "path": "Path",
+      "tag": "Tag",
+      "files": "Files",
+      "folders": "Folders",
+      "both": "Files and folders",
+      "strict": "Exact match",
+      "wildcard": "Wildcard",
+      "regex": "Regular expression",
+      "addHide": "Add hide rule",
+      "addPin": "Add pin rule",
+      "edit": "Edit",
+      "remove": "Remove",
+      "save": "Save",
+      "cancel": "Cancel",
+      "invalidPattern": "Enter a nonempty pattern. Exact paths must be relative, without empty segments, . or .., backslashes, colons or control characters.",
+      "noWorkspace": "Open a vault to configure filters.",
+      "loading": "Loading filters…"
+    },
+    "coloredTags": {
+      "name": "Colored tags",
+      "description": "Give tags consistent colors in the editor.",
+      "mixNested": "Mix nested tag colors",
+      "mixOn": "Mix with root",
+      "mixOff": "Use root color",
+      "tag": "Tag",
+      "color": "Color",
+      "add": "Pin color",
+      "remove": "Reset color",
+      "colors": {"red":"Red","amber":"Amber","green":"Green","teal":"Teal","blue":"Blue","purple":"Purple","pink":"Pink","gray":"Gray"}
+    },
+    "cursorTrail": {
+      "name": "Cursor trail",
+      "description": "Show a short trail when the cursor jumps."
+    },
+    "codeStyler": {
+      "name": "Code Styler",
+      "description": "Add headers, line numbers and a copy button to code blocks.",
+      "lineNumbers": "Line numbers",
+      "copyButton": "Copy button",
+      "header": "Block header",
+      "on": "On",
+      "off": "Off",
+      "copy": "Copy code",
+      "copied": "Code copied",
+      "copyFailed": "Could not copy code"
+    },
+    "readingMode": {
+      "shortcut": "Reading mode shortcut",
+      "name": "Reading mode",
+      "description": "Switch all tabs between editing and reading.",
+      "enable": "Enable reading mode in all tabs",
+      "disable": "Return all tabs to editing"
+    },
+    "advancedTables": {
+      "name": "Advanced Tables",
+      "description": "Format Markdown tables and sort their rows.",
+      "formatOnLeave": "Format when leaving the table",
+      "on": "On",
+      "off": "Off",
+      "format": "Format table",
+      "sortAscending": "Sort ascending",
+      "sortDescending": "Sort descending",
+      "failed": "Could not change table"
+    },
+    "gitSync": {
+      "name": "Git sync",
+      "description": "Back up and sync your vault through Git.",
+      "sync": "Sync vault",
+      "loading": "Loading Git…",
+      "unavailable": "Git unavailable",
+      "status": "{{ahead}} ahead, {{behind}} behind, {{changed}} changed files",
+      "commitMessage": "Commit message",
+      "commitDateFormat": "Commit date format",
+      "autoBackupMinutes": "Backup interval (minutes)",
+      "autoBackupHint": "0 turns automatic backups off.",
+      "pullOnOpen": "Pull when opening the vault",
+      "push": "Push backups to remote",
+      "syncMethod": "Sync method",
+      "merge": "Merge",
+      "rebase": "Rebase",
+      "errors": {
+        "not_a_repository": "This vault is not a Git repository",
+        "git_not_found": "Git is not installed",
+        "conflict": "Resolve Git conflicts before syncing",
+        "auth": "Git authentication failed",
+        "failed": "Git operation failed",
+        "task": "Git task failed"
+      }
+    },
+    "import": {
+      "button": "Import from Obsidian",
+      "noObsidian": "Open a vault containing an .obsidian folder to import settings.",
+      "importing": "Importing…",
+      "report": "Import report",
+      "imported": "Imported",
+      "overwritten": "Existing values replaced by Obsidian",
+      "skipped": "Skipped",
+      "empty": "No settings were imported.",
+      "reasons": {
+        "unsupported_plugin": "No built-in equivalent",
+        "covered_by_mcp": "Covered by the built-in MCP server",
+        "invalid_data": "Invalid plugin data",
+        "read_failed": "Could not read plugin data",
+        "invalid_field": "Unsupported setting value",
+        "invalid_path": "Invalid relative path",
+        "unsupported_icon": "Only Lucide (Li) icons are supported",
+        "invalid_color": "Invalid color",
+        "front_matter": "Front matter filters are not supported"
+      }
+    }
+  },
   "settings": {
     "title": "Settings",
     "close": "Close settings",
@@ -166,6 +382,8 @@
       "editor": "Editor",
       "reader": "Reader",
       "search": "Search",
+      "dailyNotes": "Daily notes",
+      "plugins": "Plugins",
       "templates": "Templates",
       "files": "Files",
       "analysis": "Analysis",
@@ -201,6 +419,9 @@
     "editor": {
       "lineHeight": "Line height",
       "layout": "Layout",
+      "fullWidthShortcut": "Full-width text shortcut",
+      "fullWidth": "Full-width text",
+      "fullWidthHint": "Use all available space in the editor",
       "maxWidth": "Editor width, ch",
       "maxWidthHint": "Maximum width of the text column",
       "maxWidthAria": "Editor width",
@@ -308,6 +529,27 @@
       "updatesUnavailable": "Updates are only available in the installed app, not in a development build.",
       "updatesFailed": "Could not check: {{message}}"
     },
+    "dailyNotes": {
+      "folderRoot": "Vault root",
+      "folderLoading": "Loading folders…",
+      "folderError": "Some folders could not be read.",
+      "folderRetry": "Retry",
+      "section": "Daily notes",
+      "folder": "Daily notes folder",
+      "folderHint": "Relative to the vault. Leave empty to use the vault root.",
+      "format": "Filename format",
+      "formatHint": "For example, YYYY-MM-DD or YYYY/MM/DD. Use [brackets] for literal text.",
+      "template": "Template",
+      "templateHint": "Markdown file path relative to the vault. Supports {{date}} and {{time}}. Leave empty for a blank note.",
+      "openOnStartup": "Open today's note on startup",
+      "wordsPerDot": "Words per dot",
+      "wordsPerDotHint": "Up to five dots per day. 0 hides the word count indicator.",
+      "weekStart": "Start week on",
+      "locale": "Language default",
+      "monday": "Monday",
+      "sunday": "Sunday",
+      "confirmBeforeCreate": "Confirm before creating a note"
+    },
     "templates": {
       "section": "Note templates",
       "folder": "Templates folder path",
@@ -341,6 +583,8 @@
       "year": "After a year",
       "files": {
         "one": "{{count}} file",
+        "few": "{{count}} files",
+        "many": "{{count}} files",
         "other": "{{count}} files"
       },
       "bytes": "{{value}} B",
@@ -356,6 +600,9 @@
       "year": "A year"
     },
     "shortcuts": {
+      "recording": "Press a shortcut…",
+      "reset": "Reset",
+      "conflict": "This shortcut is already assigned. Choose another combination.",
       "global": "Global",
       "newTab": "New tab",
       "newFromTemplate": "New note from a template",
@@ -402,6 +649,17 @@
     "showRightSidebar": "Show the right sidebar"
   },
   "fileTree": {
+    "newNote": "New note",
+    "newFolder": "New folder",
+    "untitledFolder": "Untitled folder",
+    "createFolderFailed": "Could not create the folder",
+    "copyPath": "Copy path",
+    "copyPathFromVault": "From vault root",
+    "copyPathAbsolute": "Absolute path",
+    "revealInFinder": "Show in Finder",
+    "revealInFileManager": "Show in file manager",
+    "copyFailed": "Could not copy to the clipboard",
+    "revealFailed": "Could not show the item in the file manager",
     "renameAria": "New file name",
     "fileActions": "File actions",
     "folderActions": "Folder actions",
@@ -409,6 +667,8 @@
     "noFolder": "No folder open",
     "dragCount": {
       "one": "{{count}} note",
+      "few": "{{count}} notes",
+      "many": "{{count}} notes",
       "other": "{{count}} notes"
     }
   },
@@ -489,10 +749,14 @@
     "retry": "Try again",
     "notes": {
       "one": "{{count}} note",
+      "few": "{{count}} notes",
+      "many": "{{count}} notes",
       "other": "{{count}} notes"
     },
     "edges": {
       "one": "{{count}} link",
+      "few": "{{count}} links",
+      "many": "{{count}} links",
       "other": "{{count}} links"
     },
     "errors": {
@@ -542,5 +806,10 @@
     "forgetConfirm": "Remove",
     "forgetPending": "Removing…",
     "listFailed": "Could not read the list of knowledge bases: {{reason}}"
+  },
+  "shortcuts": {
+    "openTodayNote": "Open today’s note",
+    "toggleFullWidth": "Toggle full / readable width",
+    "toggleReadingMode": "Toggle reading mode in all tabs"
   }
 }
