@@ -396,7 +396,26 @@
     "hideSidebar": "Hide the left sidebar",
     "showSidebar": "Show the left sidebar",
     "home": "Open the home page",
-    "graph": "Open the link graph"
+    "graph": "Open the link graph",
+    "boards": "Open Kanban boards"
+  },
+  "kanban": {
+    "untitled": "Untitled",
+    "title": "Kanban",
+    "newBoard": "New board",
+    "newBoardName": "New board",
+    "view": "View",
+    "loading": "Loading board…",
+    "indexing": "The search index is still building. Reopen the board to retry.",
+    "noWorkspace": "Open a knowledge base to use boards",
+    "noBoards": "No boards yet",
+    "boards": "Kanban boards",
+    "noColumns": "This view has no columns",
+    "noCards": "No cards",
+    "movePrevious": "Move to previous column",
+    "moveNext": "Move to next column",
+    "addCard": "Add card",
+    "unassigned": "Unassigned"
   },
   "titlebar": {
     "hideRightSidebar": "Hide the right sidebar",

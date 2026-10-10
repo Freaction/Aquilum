@@ -13,8 +13,6 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
 
-/// What the core tells its host: the Tauri shell turns each event into a frontend event with the
-/// same name, a native UI would route it into its event loop.
 #[derive(Clone, Serialize)]
 #[serde(untagged)]
 pub enum CoreEvent {
@@ -45,8 +43,6 @@ impl CoreEvent {
     }
 }
 
-/// Receives core events. Implementations must not block and must not call back into the core
-/// synchronously: events are sent from the core's own threads, sometimes while it holds locks.
 pub trait EventSink: Send + Sync {
     fn emit(&self, event: CoreEvent);
 }
@@ -57,7 +53,6 @@ impl<F: Fn(CoreEvent) + Send + Sync> EventSink for F {
     }
 }
 
-/// A background task of the host died before finishing (panic or shutdown).
 #[derive(Debug)]
 pub struct TaskFailed(pub String);
 
@@ -67,7 +62,6 @@ impl std::fmt::Display for TaskFailed {
     }
 }
 
-/// Every service of the app, wired together, with no knowledge of the UI that hosts it.
 pub struct Core {
     pub settings: SettingsManager,
     pub ui_state: UiStateService,
@@ -76,15 +70,12 @@ pub struct Core {
     pub documents: DocumentHub,
     pub wikixiv: WikixivService,
     pub watcher: WorkspaceWatcher,
-    /// The note open in the UI, reported by the host; MCP tools use it for «эта заметка».
     pub active_note: ActiveNote,
     pub mcp: McpServer,
     events: Arc<dyn EventSink>,
 }
 
 impl Core {
-    /// Opens all stores under `app_data_dir`, which the host picks: the Tauri shell passes its own
-    /// app data directory, so the data stays where previous versions kept it.
     pub fn open(app_data_dir: &Path, events: Arc<dyn EventSink>) -> Arc<Self> {
         let core = Arc::new_cyclic(|this: &Weak<Core>| {
             let changed = Arc::clone(&events);
@@ -104,7 +95,11 @@ impl Core {
             Core {
                 settings: SettingsManager::new(app_data_dir),
                 ui_state: UiStateService::open(&app_data_dir.join("ui-state.sqlite3")),
-                search: SearchService::new(app_data_dir.join("search-v2"), notifier, index_notifier),
+                search: SearchService::new(
+                    app_data_dir.join("search-v2"),
+                    notifier,
+                    index_notifier,
+                ),
                 history: HistoryService::new(app_data_dir),
                 documents: DocumentHub::new(&app_data_dir.join("documents.sqlite3")),
                 wikixiv: WikixivService::new(),
@@ -122,13 +117,10 @@ impl Core {
         self.events.emit(event);
     }
 
-    /// Starts, restarts or stops the MCP server to match the saved settings.
     pub fn apply_mcp_settings(self: &Arc<Self>) -> McpStatus {
         self.mcp.apply(self, &self.settings.get_config().mcp)
     }
 
-    /// Stops background work before the host exits: unsaved edits are written, MCP and the
-    /// watcher stop.
     pub fn shutdown(&self) {
         self.documents.flush_all(self);
         self.mcp.shutdown();
@@ -140,16 +132,25 @@ impl Core {
     }
 
     fn ingest_watch(&self, batch: WatchBatch) {
-        if batch.scope >= WatchScope::Structure {
+        if batch.scope >= WatchScope::Structure
+            || batch.paths.iter().any(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("base"))
+            })
+        {
             self.emit(CoreEvent::WorkspaceChanged(path_names(&batch.paths)));
         }
         self.documents.reconcile_paths(self, &batch.paths);
-        self.search.ingest_watch(batch.paths, batch.scope == WatchScope::Rescan);
+        self.search
+            .ingest_watch(batch.paths, batch.scope == WatchScope::Rescan);
     }
 }
 
 fn path_names(paths: &[PathBuf]) -> Vec<String> {
-    paths.iter().map(|path| path.to_string_lossy().into_owned()).collect()
+    paths
+        .iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect()
 }
 
 #[cfg(test)]

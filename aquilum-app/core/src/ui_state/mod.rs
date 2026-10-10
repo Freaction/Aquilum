@@ -1,3 +1,4 @@
+pub mod base;
 pub mod cleanup;
 pub mod database;
 #[cfg(test)]

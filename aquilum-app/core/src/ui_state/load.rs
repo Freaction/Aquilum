@@ -28,7 +28,7 @@ impl UiStateDatabase {
             .map(|value| parse_uuid_column(value, 0))
             .transpose()?;
         let mut tab_query = self.connection.prepare(
-            "SELECT t.tab_id, t.document_id, t.kind, t.position, d.relative_path
+            "SELECT t.tab_id, t.document_id, t.kind, t.position, CASE WHEN t.kind = 'base' THEN t.relative_path ELSE d.relative_path END
              FROM tabs t LEFT JOIN documents d
                  ON d.workspace_id = t.workspace_id AND d.id = t.document_id
              WHERE t.workspace_id = ?1 AND t.window_id = ?2
@@ -74,18 +74,22 @@ impl UiStateDatabase {
                  WHERE workspace_id = ?1 AND window_id = ?2",
                 params![workspace_id.to_string(), window_id],
                 |row| {
-                    Ok(match (
-                        row.get::<_, Option<f64>>(0)?,
-                        row.get::<_, Option<f64>>(1)?,
-                        row.get::<_, Option<f64>>(2)?,
-                    ) {
-                        (Some(center_x), Some(center_y), Some(scale)) => Some(GraphCameraState {
-                            center_x,
-                            center_y,
-                            scale,
-                        }),
-                        _ => None,
-                    })
+                    Ok(
+                        match (
+                            row.get::<_, Option<f64>>(0)?,
+                            row.get::<_, Option<f64>>(1)?,
+                            row.get::<_, Option<f64>>(2)?,
+                        ) {
+                            (Some(center_x), Some(center_y), Some(scale)) => {
+                                Some(GraphCameraState {
+                                    center_x,
+                                    center_y,
+                                    scale,
+                                })
+                            }
+                            _ => None,
+                        },
+                    )
                 },
             )
             .optional()?

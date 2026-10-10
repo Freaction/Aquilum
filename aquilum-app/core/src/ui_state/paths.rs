@@ -34,6 +34,19 @@ pub fn normalize_relative(path: &str) -> Result<String, UiStateError> {
     Ok(parts.join("/"))
 }
 
+pub fn normalize_base_relative(path: &str) -> Result<String, UiStateError> {
+    let relative = normalize_relative(path)?;
+    if !Path::new(&relative)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("base"))
+    {
+        return Err(UiStateError::InvalidInput {
+            message: "base path must have a .base extension".into(),
+        });
+    }
+    Ok(relative)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{canonical_workspace, normalize_relative};

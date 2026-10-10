@@ -31,24 +31,41 @@ impl Recording {
 fn open_core() -> (tempfile::TempDir, Arc<Core>, Arc<Recording>) {
     let directory = tempfile::tempdir().unwrap();
     let events = Arc::new(Recording::default());
-    let core = Core::open(&directory.path().join("data"), Arc::clone(&events) as Arc<dyn EventSink>);
+    let core = Core::open(
+        &directory.path().join("data"),
+        Arc::clone(&events) as Arc<dyn EventSink>,
+    );
     (directory, core, events)
 }
 
 #[test]
 fn the_frontend_receives_the_same_event_names_and_payloads_as_before() {
-    let saved = CoreEvent::DocumentSaved(DocumentEvent { path: "a.md".into(), version: 3 });
+    let saved = CoreEvent::DocumentSaved(DocumentEvent {
+        path: "a.md".into(),
+        version: 3,
+    });
     assert_eq!(saved.name(), "document-saved");
-    assert_eq!(serde_json::to_value(&saved).unwrap(), json!({ "path": "a.md", "version": 3 }));
+    assert_eq!(
+        serde_json::to_value(&saved).unwrap(),
+        json!({ "path": "a.md", "version": 3 })
+    );
 
-    let note = CoreEvent::Navigate(Navigation::Note { path: "a.md".into(), disposition: Disposition::NewTab });
+    let note = CoreEvent::Navigate(Navigation::Note {
+        path: "a.md".into(),
+        disposition: Disposition::NewTab,
+    });
     assert_eq!(note.name(), "mcp-navigate");
     assert_eq!(
         serde_json::to_value(&note).unwrap(),
         json!({ "kind": "note", "path": "a.md", "disposition": "new-tab" })
     );
-    let workspace = CoreEvent::Navigate(Navigation::Workspace { path: "base".into() });
-    assert_eq!(serde_json::to_value(&workspace).unwrap(), json!({ "kind": "workspace", "path": "base" }));
+    let workspace = CoreEvent::Navigate(Navigation::Workspace {
+        path: "base".into(),
+    });
+    assert_eq!(
+        serde_json::to_value(&workspace).unwrap(),
+        json!({ "kind": "workspace", "path": "base" })
+    );
 
     let changed = CoreEvent::WorkspaceChanged(vec!["a.md".into()]);
     assert_eq!(changed.name(), "workspace-changed");
@@ -64,11 +81,21 @@ fn a_replaced_document_announces_the_change_before_the_save() {
     events.clear();
 
     core.documents
-        .replace_text(&core, &note, "первая строка\nвторая\n", SYSTEM_CLIENT, Source::Me, None)
+        .replace_text(
+            &core,
+            &note,
+            "первая строка\nвторая\n",
+            SYSTEM_CLIENT,
+            Source::Me,
+            None,
+        )
         .unwrap();
 
     assert_eq!(events.names(), ["document-changed", "document-saved"]);
-    assert_eq!(fs::read_to_string(&note).unwrap(), "первая строка\nвторая\n");
+    assert_eq!(
+        fs::read_to_string(&note).unwrap(),
+        "первая строка\nвторая\n"
+    );
 }
 
 #[test]
@@ -80,7 +107,16 @@ fn a_document_whose_file_vanished_reports_it_missing_instead_of_saved() {
     fs::remove_file(&note).unwrap();
     events.clear();
 
-    core.documents.replace_text(&core, &note, "новый текст\n", SYSTEM_CLIENT, Source::Me, None).unwrap();
+    core.documents
+        .replace_text(
+            &core,
+            &note,
+            "новый текст\n",
+            SYSTEM_CLIENT,
+            Source::Me,
+            None,
+        )
+        .unwrap();
 
     let names = events.names();
     assert!(names.contains(&"document-missing"), "{names:?}");
@@ -97,6 +133,20 @@ fn trashing_a_note_announces_the_removal() {
 
     gate::trash(&core, &workspace, &note).unwrap();
 
-    assert!(events.names().contains(&"notes-relocated"), "{:?}", events.names());
+    assert!(
+        events.names().contains(&"notes-relocated"),
+        "{:?}",
+        events.names()
+    );
     assert!(!Path::new(&note).exists());
+}
+
+#[test]
+fn base_content_writes_notify_the_host_to_refresh_the_board() {
+    let (_directory, core, events) = open_core();
+    core.ingest_watch(crate::files::watcher::WatchBatch::new(
+        vec![std::path::PathBuf::from("Board.BASE")],
+        crate::files::watcher::WatchScope::Content,
+    ));
+    assert_eq!(events.names(), vec!["workspace-changed"]);
 }

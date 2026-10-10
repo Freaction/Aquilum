@@ -1,9 +1,9 @@
 use super::error::FileCommandError;
 use super::models::{FileSnapshot, FileWriteResult};
+use crate::search::paths::same_path;
 use atomic_write_file::AtomicWriteFile;
 use std::fs;
 use std::io::{ErrorKind, Write};
-use crate::search::paths::same_path;
 use std::path::Path;
 
 pub fn hash_bytes(bytes: &[u8]) -> String {
@@ -31,15 +31,20 @@ pub fn read_text(path: &Path) -> std::io::Result<String> {
 }
 
 fn snapshot_of(bytes: Vec<u8>) -> Result<FileSnapshot, FileCommandError> {
+    let mut snapshot = raw_snapshot_of(bytes)?;
+    snapshot.content = normalize_line_endings(snapshot.content);
+    Ok(snapshot)
+}
+
+fn raw_snapshot_of(bytes: Vec<u8>) -> Result<FileSnapshot, FileCommandError> {
     let hash = hash_bytes(&bytes);
     let raw = String::from_utf8(bytes).map_err(|error| FileCommandError::InvalidUtf8 {
         message: error.to_string(),
     })?;
-    let content = normalize_line_endings(raw);
-    let text_hash = hash_bytes(content.as_bytes());
+    let text_hash = hash_bytes(normalize_line_endings(raw.clone()).as_bytes());
 
     Ok(FileSnapshot {
-        content,
+        content: raw,
         hash,
         text_hash,
     })
@@ -49,13 +54,15 @@ pub fn read_file_snapshot_impl(path: &Path) -> Result<FileSnapshot, FileCommandE
     snapshot_of(fs::read(path)?)
 }
 
+pub(crate) fn read_raw_file_snapshot_impl(path: &Path) -> Result<FileSnapshot, FileCommandError> {
+    raw_snapshot_of(fs::read(path)?)
+}
+
 pub fn read_file_hash_impl(path: &Path) -> Result<String, FileCommandError> {
     Ok(hash_bytes(&fs::read(path)?))
 }
 
-pub fn read_file_stat_impl(
-    path: &Path,
-) -> Result<super::models::FileStat, FileCommandError> {
+pub fn read_file_stat_impl(path: &Path) -> Result<super::models::FileStat, FileCommandError> {
     let meta = fs::metadata(path)?;
     if !meta.is_file() {
         return Err(FileCommandError::Io {
@@ -125,10 +132,7 @@ pub fn create_binary_file_impl(
     })
 }
 
-pub fn create_file_impl(
-    path: &Path,
-    content: &str,
-) -> Result<FileWriteResult, FileCommandError> {
+pub fn create_file_impl(path: &Path, content: &str) -> Result<FileWriteResult, FileCommandError> {
     create_binary_file_impl(path, content.as_bytes())
 }
 

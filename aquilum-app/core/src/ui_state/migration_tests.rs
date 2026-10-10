@@ -45,9 +45,7 @@ const VERSION_ONE: &str = "CREATE TABLE workspaces (
 fn version_one_allows_new_file_beside_missing_tombstone_after_migration() {
     let connection = Connection::open_in_memory().expect("database");
     connection
-        .execute_batch(
-            VERSION_ONE,
-        )
+        .execute_batch(VERSION_ONE)
         .expect("legacy schema");
     let workspace_id = Uuid::new_v4().to_string();
     connection
@@ -72,7 +70,7 @@ fn version_one_allows_new_file_beside_missing_tombstone_after_migration() {
     let version = connection
         .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
         .expect("version");
-    assert_eq!(version, 8);
+    assert_eq!(version, 9);
 }
 
 #[test]
@@ -105,9 +103,7 @@ fn unavailable_database_does_not_prevent_service_creation() {
 fn migration_preserves_foreign_keys_and_cascades() {
     let connection = Connection::open_in_memory().expect("database");
     connection
-        .execute_batch(
-            &format!("PRAGMA foreign_keys = ON; {VERSION_ONE}"),
-        )
+        .execute_batch(&format!("PRAGMA foreign_keys = ON; {VERSION_ONE}"))
         .expect("legacy schema");
     let workspace_id = Uuid::new_v4().to_string();
     let document_id = Uuid::new_v4().to_string();
@@ -153,6 +149,8 @@ fn upgrading_from_five_keeps_the_session_and_adds_the_graph_camera() {
              ALTER TABLE sessions DROP COLUMN graph_center_y;
              ALTER TABLE sessions DROP COLUMN graph_scale;
              ALTER TABLE workspaces DROP COLUMN home_page;
+             ALTER TABLE tabs DROP COLUMN relative_path;
+             DROP TABLE base_view_states;
              PRAGMA user_version = 5;",
         )
         .expect("roll the schema back to five");
@@ -193,7 +191,7 @@ fn upgrading_from_five_keeps_the_session_and_adds_the_graph_camera() {
         .expect("version");
 
     assert_eq!(row, ("tab".to_owned(), None, None, None));
-    assert_eq!(version, 8);
+    assert_eq!(version, 9);
 }
 
 #[test]
@@ -247,9 +245,11 @@ fn a_fresh_database_is_created_at_the_latest_version_without_dead_tables() {
     let version = connection
         .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
         .expect("version");
-    assert_eq!(version, 8);
+    assert_eq!(version, 9);
     assert!(
-        !schema_shape(&connection).iter().any(|line| line.contains("document_versions")),
+        !schema_shape(&connection)
+            .iter()
+            .any(|line| line.contains("document_versions")),
         "новая база не создаёт таблицу, которую потом удаляет миграция"
     );
 }
@@ -293,4 +293,79 @@ fn reset_sets_aside_a_database_that_was_open_and_in_use() {
 
     assert!(service.list_workspaces().unwrap().is_empty());
     assert!(dir.path().join("ui-state.sqlite3.broken-42").exists());
+}
+
+#[test]
+fn upgrading_from_eight_preserves_document_and_graph_tabs_and_adds_base_paths() {
+    let connection = Connection::open_in_memory().unwrap();
+    connection.execute_batch(VERSION_ONE).unwrap();
+    super::migrations::v1_to_v2::migrate_v1_to_v2(&connection).unwrap();
+    super::migrations::v2_to_v3::migrate_v2_to_v3(&connection).unwrap();
+    super::migrations::v3_to_v4::migrate_v3_to_v4(&connection).unwrap();
+    super::migrations::v4_to_v5::migrate_v4_to_v5(&connection).unwrap();
+    super::migrations::v5_to_v6::migrate_v5_to_v6(&connection).unwrap();
+    super::migrations::v6_to_v7::migrate_v6_to_v7(&connection).unwrap();
+    super::migrations::v7_to_v8::migrate_v7_to_v8(&connection).unwrap();
+    let workspace = Uuid::new_v4().to_string();
+    let document = Uuid::new_v4().to_string();
+    connection
+        .execute(
+            "INSERT INTO workspaces(id, path, last_seen_ms) VALUES(?1, 'vault', 1)",
+            [&workspace],
+        )
+        .unwrap();
+    connection
+        .execute(
+            "INSERT INTO documents(id, workspace_id, relative_path) VALUES(?1, ?2, 'note.md')",
+            params![document, workspace],
+        )
+        .unwrap();
+    connection.execute("INSERT INTO sessions(workspace_id, window_id, epoch, updated_at_ms, active_tab_id) VALUES(?1, 'main', 'epoch', 1, 'graph')", [&workspace]).unwrap();
+    connection
+        .execute(
+            "INSERT INTO tabs VALUES(?1, 'main', 'note', ?2, 'document', 0)",
+            params![workspace, document],
+        )
+        .unwrap();
+    connection
+        .execute(
+            "INSERT INTO tabs VALUES(?1, 'main', 'graph', NULL, 'graph', 1)",
+            [&workspace],
+        )
+        .unwrap();
+    migrate(&connection).unwrap();
+    let mut query = connection
+        .prepare("SELECT kind, document_id, relative_path FROM tabs ORDER BY position")
+        .unwrap();
+    let tabs = query
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(
+        tabs,
+        [
+            ("document".into(), Some(document), None),
+            ("graph".into(), None, None)
+        ]
+    );
+    connection.execute("INSERT INTO tabs(workspace_id, window_id, tab_id, kind, position, relative_path) VALUES(?1, 'main', 'base', 'base', 2, 'board.base')", [&workspace]).unwrap();
+    let version: i64 = connection
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap();
+    let active: String = connection
+        .query_row(
+            "SELECT active_tab_id FROM sessions WHERE workspace_id = ?1",
+            [&workspace],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(active, "graph");
+    assert_eq!(version, 9);
 }

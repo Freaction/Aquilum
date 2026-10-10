@@ -8,6 +8,23 @@ use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
 impl SearchService {
+    pub fn base_rows(
+        &self,
+        workspace: &str,
+    ) -> Result<Option<Vec<crate::bases::BaseRow>>, SearchError> {
+        let found = self.with_index(workspace, |open| {
+            let status = open.progress.snapshot();
+            if status.state != SearchIndexState::Ready || status.updating {
+                return Ok(None);
+            }
+            super::bases::read(&Connection::open(&open.metadata_path)?, &open.root).map(Some)
+        });
+        match found {
+            Err(SearchError::Unavailable { .. }) => Ok(None),
+            found => found,
+        }
+    }
+
     pub fn note_fields(
         &self,
         workspace: &str,
@@ -74,11 +91,12 @@ impl SearchService {
     fn ready_metadata_path(&self, workspace: &str) -> Option<PathBuf> {
         self.with_index(workspace, |open| {
             let status = open.progress.snapshot();
-            Ok((status.state == SearchIndexState::Ready && !status.updating)
-                .then(|| open.metadata_path.clone()))
+            Ok(
+                (status.state == SearchIndexState::Ready && !status.updating)
+                    .then(|| open.metadata_path.clone()),
+            )
         })
         .ok()
         .flatten()
     }
 }
-

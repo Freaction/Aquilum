@@ -28,7 +28,9 @@ pub fn setup() -> (UiStateDatabase, Uuid, Uuid, Uuid) {
 #[test]
 fn lists_known_workspaces_most_recently_seen_first() {
     let (mut database, _workspace_id, _document_id, _epoch) = setup();
-    database.resolve_workspace("C:/archive", 9).expect("archive");
+    database
+        .resolve_workspace("C:/archive", 9)
+        .expect("archive");
     database.resolve_workspace("C:/drafts", 5).expect("drafts");
 
     let paths = database
@@ -66,7 +68,10 @@ fn listed_paths_drop_the_windows_verbatim_prefix() {
         display_workspace(r"\\?\D:\База знаний копия\NeuroNet"),
         r"D:\База знаний копия\NeuroNet"
     );
-    assert_eq!(display_workspace(r"\\?\UNC\server\share"), r"\\server\share");
+    assert_eq!(
+        display_workspace(r"\\?\UNC\server\share"),
+        r"\\server\share"
+    );
     assert_eq!(display_workspace("/home/user/notes"), "/home/user/notes");
 }
 
@@ -106,6 +111,7 @@ pub fn batch(
                 tab_id,
                 document_id: Some(document_id),
                 kind: TabKind::Document,
+                relative_path: None,
                 position: 0,
             }]),
         }),
@@ -275,4 +281,90 @@ fn a_session_without_a_graph_camera_reports_none() {
         .expect("session");
 
     assert_eq!(reopened.graph_camera, None);
+}
+
+#[test]
+fn base_view_selection_survives_reopen_and_is_scoped_and_clamped() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("state.sqlite3");
+    let mut database = UiStateDatabase::open(&path).unwrap();
+    let workspace = database.resolve_workspace("first", 1).unwrap();
+    let other = database.resolve_workspace("second", 1).unwrap();
+    database
+        .save_base_view(workspace, "Boards/tasks.base", 4)
+        .unwrap();
+    assert_eq!(
+        database
+            .load_base_view(workspace, "Boards/tasks.base", 7)
+            .unwrap(),
+        4
+    );
+    assert_eq!(
+        database
+            .load_base_view(workspace, "Boards/tasks.base", 2)
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        database
+            .load_base_view(workspace, "Boards/tasks.base", 0)
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        database
+            .load_base_view(workspace, "Boards/other.base", 7)
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        database
+            .load_base_view(other, "Boards/tasks.base", 7)
+            .unwrap(),
+        0
+    );
+    for invalid in ["../tasks.base", "tasks.md", "", "/tasks.base"] {
+        assert!(database.save_base_view(workspace, invalid, 0).is_err());
+        assert!(database.load_base_view(workspace, invalid, 2).is_err());
+    }
+    drop(database);
+    let database = UiStateDatabase::open(&path).unwrap();
+    assert_eq!(
+        database
+            .load_base_view(workspace, "Boards/tasks.base", 7)
+            .unwrap(),
+        4
+    );
+}
+
+#[test]
+fn base_tabs_round_trip_without_creating_document_identity() {
+    let (mut database, workspace_id, document_id, epoch) = setup();
+    let mut input = batch(workspace_id, document_id, epoch, 1, 0);
+    let tab = &mut input.session.as_mut().unwrap().tabs.as_mut().unwrap()[0];
+    tab.kind = TabKind::Base;
+    tab.document_id = None;
+    tab.relative_path = Some("Boards/tasks.BASE".into());
+    input.views.clear();
+    super::validation::validate_batch(&input).unwrap();
+    assert!(database.save_batch(&input).unwrap());
+    let loaded = database.load_session(workspace_id, "main").unwrap();
+    assert_eq!(loaded.tabs[0].kind, TabKind::Base);
+    assert_eq!(loaded.tabs[0].document_id, None);
+    assert_eq!(
+        loaded.tabs[0].relative_path.as_deref(),
+        Some("Boards/tasks.BASE")
+    );
+    let count: i64 = database
+        .connection
+        .query_row("SELECT COUNT(*) FROM documents", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 1);
+    let tab = &mut input.session.as_mut().unwrap().tabs.as_mut().unwrap()[0];
+    tab.document_id = Some(document_id);
+    assert!(super::validation::validate_batch(&input).is_err());
+    let tab = &mut input.session.as_mut().unwrap().tabs.as_mut().unwrap()[0];
+    tab.document_id = None;
+    tab.relative_path = None;
+    assert!(super::validation::validate_batch(&input).is_err());
 }

@@ -33,6 +33,7 @@ pub struct OpenSessionInput {
 #[serde(rename_all = "snake_case")]
 pub enum TabKind {
     Document,
+    Base,
     Empty,
     Graph,
 }
@@ -41,6 +42,7 @@ impl TabKind {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Document => "document",
+            Self::Base => "base",
             Self::Empty => "empty",
             Self::Graph => "graph",
         }
@@ -49,6 +51,7 @@ impl TabKind {
     pub fn parse(value: &str, index: usize) -> rusqlite::Result<Self> {
         match value {
             "document" => Ok(Self::Document),
+            "base" => Ok(Self::Base),
             "empty" => Ok(Self::Empty),
             "graph" => Ok(Self::Graph),
             value => Err(rusqlite::Error::FromSqlConversionFailure(
@@ -70,6 +73,8 @@ pub struct TabState {
     pub document_id: Option<Uuid>,
     pub kind: TabKind,
     pub position: i64,
+    #[serde(default)]
+    pub relative_path: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]

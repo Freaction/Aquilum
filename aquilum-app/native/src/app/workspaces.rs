@@ -169,6 +169,7 @@ impl App {
         if self.tree.root().is_some_and(|current| workspaces::same_path(current, &path)) {
             return Outcome::default();
         }
+        self.invalidate_kanban();
         self.leave_note();
         if let Some(session) = &mut self.session {
             session.save(&self.workspace.core, &mut self.tabs);

@@ -1,5 +1,6 @@
 use super::error::UiStateError;
 use super::models::{OpenSessionInput, SaveStateBatchInput, TabKind};
+use super::paths::normalize_base_relative;
 use std::collections::HashSet;
 
 fn invalid(message: impl Into<String>) -> UiStateError {
@@ -34,10 +35,20 @@ pub fn validate_batch(input: &SaveStateBatchInput) -> Result<(), UiStateError> {
             match (&tab.kind, tab.document_id) {
                 (TabKind::Document, None)
                 | (TabKind::Empty, Some(_))
-                | (TabKind::Graph, Some(_)) => {
+                | (TabKind::Graph, Some(_))
+                | (TabKind::Base, Some(_)) => {
                     return Err(invalid("tab kind does not match document id"));
                 }
                 _ => {}
+            }
+            if tab.kind == TabKind::Base {
+                normalize_base_relative(
+                    tab.relative_path
+                        .as_deref()
+                        .ok_or_else(|| invalid("base tab path is missing"))?,
+                )?;
+            } else if tab.relative_path.is_some() {
+                return Err(invalid("only base tabs have a persisted path"));
             }
         }
         if session.tabs.is_some()

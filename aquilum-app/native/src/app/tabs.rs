@@ -24,7 +24,13 @@ impl App {
                 self.rename_field = Some(field);
                 widgets.push(widget.erased());
             } else {
-                let icon = tab.graph.then_some(crate::ui::icons::NETWORK);
+                let icon = if tab.graph {
+                    Some(crate::ui::icons::NETWORK)
+                } else if tab.is_base() {
+                    Some(crate::ui::icons::COLUMNS)
+                } else {
+                    None
+                };
                 widgets.push(TabButton::new(tab.id, &title, tab.id == active, tab.path.is_some(), icon).erased());
             }
         }
@@ -83,6 +89,9 @@ impl App {
         if let Some((layer, _)) = self.suggest_layer.take() {
             root.remove_layer(layer);
         }
+        if !self.tabs.active().is_base() {
+            self.invalidate_kanban();
+        }
         for _ in 0..self.tabs.tabs().len().max(1) {
             let tab = self.tabs.active().clone();
             if tab.graph && self.tree.root().is_some() {
@@ -90,6 +99,14 @@ impl App {
                 self.tree.set_active(root, None);
                 self.show_graph(root);
                 self.show_page(root, 4);
+                break;
+            }
+            if tab.is_base() {
+                let Some(path) = tab.path.clone() else { break };
+                self.leave_note();
+                self.tree.set_active(root, Some(path));
+                self.show_kanban(root);
+                self.show_page(root, 5);
                 break;
             }
             let Some(path) = tab.path else {
@@ -150,6 +167,9 @@ impl App {
     }
 
     pub(super) fn open_in(&mut self, root: &mut RenderRoot, path: PathBuf, new_tab: bool) -> bool {
+        if path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("base")) {
+            return self.open_base(root, path, new_tab);
+        }
         if path.extension().is_none_or(|ext| !ext.eq_ignore_ascii_case("md")) {
             return false;
         }

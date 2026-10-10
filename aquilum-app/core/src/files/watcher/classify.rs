@@ -22,12 +22,19 @@ pub fn classify(result: notify::Result<Event>) -> Option<WatchBatch> {
     let paths = event
         .paths
         .into_iter()
-        .filter(|path| is_markdown(path))
+        .filter(|path| is_watched_file(path))
         .collect::<Vec<_>>();
     if paths.is_empty() {
         return None;
     }
     Some(WatchBatch::new(paths, scope))
+}
+
+fn is_watched_file(path: &std::path::Path) -> bool {
+    is_markdown(path)
+        || path
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("base"))
 }
 
 fn is_structural(kind: &EventKind) -> bool {
@@ -115,5 +122,21 @@ mod tests {
         .unwrap();
         assert_eq!(batch.scope, WatchScope::Structure);
         assert_eq!(batch.paths, vec![PathBuf::from("Заметка.md")]);
+    }
+
+    #[test]
+    fn base_writes_and_case_insensitive_extensions_are_classified() {
+        for path in ["board.base", "BOARD.BASE", "note.MD"] {
+            let batch = classify(written(&[path])).unwrap();
+            assert_eq!(batch.scope, WatchScope::Content);
+            assert_eq!(batch.paths, vec![PathBuf::from(path)]);
+        }
+        let batch = classify(event(
+            EventKind::Modify(ModifyKind::Name(notify::event::RenameMode::Both)),
+            &["board.base.tmp", "board.BASE"],
+        ))
+        .unwrap();
+        assert_eq!(batch.scope, WatchScope::Structure);
+        assert_eq!(batch.paths, vec![PathBuf::from("board.BASE")]);
     }
 }

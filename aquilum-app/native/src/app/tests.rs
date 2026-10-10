@@ -161,6 +161,17 @@ impl Harness {
 }
 
 #[test]
+fn opening_base_tab_uses_kanban_page_without_opening_markdown_note() {
+    let mut h = Harness::new();
+    let path = h.vault.path().join("board.BASE");
+    std::fs::write(&path, "views: []").unwrap();
+    assert!(h.app.open_in(&mut h.root, path.clone(), true));
+    assert!(h.app.tabs.active().is_base());
+    assert_eq!(h.app.tabs.active().path.as_deref(), Some(path.as_path()));
+    assert!(h.app.note.is_none());
+}
+
+#[test]
 fn settings_dialog_applies_changes() {
     let mut h = Harness::new();
     h.click(242.0, 578.0);

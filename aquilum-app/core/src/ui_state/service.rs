@@ -31,9 +31,12 @@ impl UiStateService {
     }
 
     pub fn reset(&self, now_ms: i64) -> Result<(), UiStateError> {
-        let mut storage = self.storage.lock().map_err(|error| UiStateError::Database {
-            message: error.to_string(),
-        })?;
+        let mut storage = self
+            .storage
+            .lock()
+            .map_err(|error| UiStateError::Database {
+                message: error.to_string(),
+            })?;
         *storage = Storage::Unavailable("сбрасывается".to_owned());
         let set_aside = set_aside_database(&self.path, now_ms);
         *storage = open_storage(&self.path);
@@ -134,6 +137,28 @@ impl UiStateService {
             let deleted = database.purge_missing(cutoff_ms, PURGE_BATCH)?;
             database.incremental_vacuum(VACUUM_PAGES)?;
             Ok(deleted)
+        })
+    }
+
+    pub fn load_base_view(
+        &self,
+        workspace_id: Uuid,
+        relative_path: &str,
+        view_count: usize,
+    ) -> Result<usize, UiStateError> {
+        self.with_database(|database| {
+            database.load_base_view(workspace_id, relative_path, view_count)
+        })
+    }
+
+    pub fn save_base_view(
+        &self,
+        workspace_id: Uuid,
+        relative_path: &str,
+        selected_view: usize,
+    ) -> Result<(), UiStateError> {
+        self.with_database(|database| {
+            database.save_base_view(workspace_id, relative_path, selected_view)
         })
     }
 

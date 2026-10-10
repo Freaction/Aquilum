@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod base_service_tests;
+mod bases;
 pub mod inline;
 pub mod parse;
 pub mod query;

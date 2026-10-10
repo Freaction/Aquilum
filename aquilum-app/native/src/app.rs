@@ -6,6 +6,7 @@ mod embeds;
 mod editor_requests;
 mod graph_page;
 mod history;
+mod kanban;
 mod note_page;
 mod panel;
 mod reader;
@@ -150,6 +151,7 @@ pub struct App {
     updater: crate::updater::Updater,
     update_shown: crate::updater::Status,
     update_layer: Option<WidgetId>,
+    kanban: kanban::KanbanState,
 }
 
 impl App {
@@ -219,6 +221,7 @@ impl App {
             updater: crate::updater::Updater::new(Arc::clone(&workspace_wake)),
             update_shown: crate::updater::Status::Idle,
             update_layer: None,
+            kanban: kanban::KanbanState::default(),
         };
         crate::cover::set_waker(Arc::clone(&app.workspace.wake));
         app.start_index();
@@ -278,6 +281,7 @@ impl App {
         let note = self.note_widget();
         let graph = self.graph_widget();
         let graph_active = self.tabs.active().graph && self.tree.root().is_some();
+        let kanban = self.kanban_widget().unwrap_or_else(|| NewWidget::new(masonry::widgets::SizedBox::empty()).erased());
         let parts = ui::RootParts {
             workspace_name: &workspace_name,
             note,
@@ -293,6 +297,8 @@ impl App {
             has_analysis: !self.panel_methods().is_empty(),
             graph,
             graph_active,
+            kanban,
+            kanban_active: self.tabs.active().is_base() && self.tree.root().is_some(),
         };
         let (widget, chrome) = ui::root(self.tree.widget(), parts);
         self.chrome = Some(chrome);
@@ -302,7 +308,7 @@ impl App {
     pub fn title(&self) -> String {
         match &self.note {
             Some(note) => format!("{} — Aquilum", note.path.file_stem().unwrap_or_default().to_string_lossy()),
-            None => "Aquilum".to_owned(),
+            None => self.tabs.active().title().map(|title| format!("{title} — Aquilum")).unwrap_or_else(|| "Aquilum".to_owned()),
         }
     }
 
@@ -330,6 +336,14 @@ impl App {
         if self.is_graph_widget(id) {
             let title = self.on_graph_action(root, id, &action);
             return Outcome { title, ..Outcome::default() };
+        }
+        if self.kanban_picker_open() {
+            self.on_board_picker_action(root, id);
+            return Outcome::default();
+        }
+        if self.is_kanban_widget(id) {
+            self.on_kanban_action(root, id, &action);
+            return Outcome { title: true, ..Outcome::default() };
         }
         if let Some(outcome) = self.on_panel_action(root, id, &action) {
             return outcome;
@@ -431,6 +445,9 @@ impl App {
         } else if Some(id) == chrome.graph_button && action.downcast_ref::<Pressed>().is_some() {
             self.open_graph(root);
             return true;
+        } else if Some(id) == chrome.kanban_button && action.downcast_ref::<Pressed>().is_some() {
+            self.open_boards(root);
+            return false;
         } else if Some(id) == chrome.home_button
             && action.downcast_ref::<Pressed>().is_some()
             && let Some(home) = self.home.clone()
@@ -458,9 +475,11 @@ impl App {
         self.on_panel_results(root);
         self.on_search_results(root);
         self.on_home_resolved(root);
+        self.on_kanban_results(root);
         self.on_graph_results(root);
         self.on_update(root);
         let mut links_changed = false;
+        let mut kanban_index_workspace = false;
         let mut history_changed = false;
         let mut changed = Vec::new();
         let mut navigations = Vec::new();
@@ -468,8 +487,9 @@ impl App {
             match event {
                 CoreEvent::Navigate(navigation) => navigations.push(navigation),
                 CoreEvent::WorkspaceChanged(paths) => changed.extend(paths.into_iter().map(PathBuf::from)),
-                CoreEvent::LinksChanged(_) => {
+                CoreEvent::LinksChanged(revision) => {
                     links_changed = true;
+                    kanban_index_workspace |= self.tree.root().is_some_and(|root| root == Path::new(&revision.workspace_path));
                     if let Some(embeds) = &self.embeds {
                         embeds.forget_queries();
                     }
@@ -500,7 +520,11 @@ impl App {
                 _ => {}
             }
         }
+        if kanban_index_workspace && let Some(workspace) = self.tree.root().map(Path::to_path_buf) {
+            self.kanban_index_changed(&workspace);
+        }
         if !changed.is_empty() {
+            self.kanban_paths_changed(&changed);
             if let Some(embeds) = &self.embeds {
                 embeds.forget_paths(&changed);
             }

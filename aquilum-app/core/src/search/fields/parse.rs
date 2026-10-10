@@ -1,4 +1,4 @@
-use super::value::Field;
+use super::value::{Field, FieldKind};
 use crate::search::analyzer::{frontmatter_unquote, frontmatter_yaml};
 use std::iter::Peekable;
 use std::str::Lines;
@@ -32,11 +32,16 @@ fn note_fields_from_yaml(yaml: &str) -> Vec<Field> {
         }
         let value = value.trim();
         found.push(if is_block_marker(value) {
-            Field::scalar(key.to_owned(), block_scalar(&mut lines))
+            Field::stored(
+                key.to_owned(),
+                FieldKind::Text,
+                block_scalar(&mut lines),
+                None,
+            )
         } else if let Some(items) = inline_list(value) {
             Field::list(key.to_owned(), items)
         } else {
-            Field::scalar(key.to_owned(), frontmatter_unquote(value))
+            yaml_scalar(key.to_owned(), value)
         });
     }
     found
@@ -45,8 +50,20 @@ fn note_fields_from_yaml(yaml: &str) -> Vec<Field> {
 pub fn scalar_or_list(key: String, value: &str) -> Field {
     match inline_list(value) {
         Some(items) => Field::list(key, items),
-        None => Field::scalar(key, frontmatter_unquote(value)),
+        None => yaml_scalar(key, value),
     }
+}
+
+fn yaml_scalar(key: String, raw: &str) -> Field {
+    let mut field = Field::scalar(key, frontmatter_unquote(raw));
+    if let Ok(value) = serde_yaml_ng::from_str::<serde_yaml_ng::Value>(raw) {
+        field.kind = match value {
+            serde_yaml_ng::Value::Bool(_) => FieldKind::Bool,
+            serde_yaml_ng::Value::Number(_) => FieldKind::Number,
+            _ => FieldKind::Text,
+        };
+    }
+    field
 }
 
 fn list_item(trimmed: &str) -> Option<String> {
@@ -128,7 +145,21 @@ mod tests {
         assert_eq!(field(BOOK, "Путь к файлу").kind, FieldKind::Text);
         let note = "---\nrating: 4.5\npages: 0/0\n---\n";
         assert_eq!(field(note, "rating").kind, FieldKind::Number);
-        assert_eq!(field(note, "pages").kind, FieldKind::Text, "«0/0» — не число");
+        assert_eq!(
+            field(note, "pages").kind,
+            FieldKind::Text,
+            "«0/0» — не число"
+        );
+    }
+
+    #[test]
+    fn quoted_numeric_boolean_and_block_strings_keep_text_kind() {
+        let text = "---\nrank: \"2\"\ndone: 'true'\nnumber: 2\nboolean: true\nblock: |\n  2\n---\n";
+        assert_eq!(field(text, "rank").kind, FieldKind::Text);
+        assert_eq!(field(text, "done").kind, FieldKind::Text);
+        assert_eq!(field(text, "block").kind, FieldKind::Text);
+        assert_eq!(field(text, "number").kind, FieldKind::Number);
+        assert_eq!(field(text, "boolean").kind, FieldKind::Bool);
     }
 
     #[test]
@@ -151,7 +182,10 @@ mod tests {
         let tags = field("---\ntags: []\n---\n", "tags");
         assert_eq!(tags.kind, FieldKind::List);
         assert!(tags.items.is_empty());
-        assert_eq!(tags.text, "", "пустой список не считается заполненным полем");
+        assert_eq!(
+            tags.text, "",
+            "пустой список не считается заполненным полем"
+        );
     }
 
     #[test]
@@ -161,7 +195,8 @@ mod tests {
         assert_eq!(tags.kind, FieldKind::List);
         assert_eq!(tags.items, vec!["fiction", "classic sci-fi"]);
         assert_eq!(
-            field(note, "author").text, "Ефремов",
+            field(note, "author").text,
+            "Ефремов",
             "ключ после списка читается как обычно"
         );
     }

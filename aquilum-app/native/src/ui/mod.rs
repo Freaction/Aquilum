@@ -15,6 +15,7 @@ pub mod update;
 pub mod search;
 pub mod settings;
 pub mod icons;
+pub mod kanban;
 pub mod text;
 pub mod theme;
 pub mod titlebar;
@@ -74,6 +75,8 @@ pub struct Chrome {
     pub home_button: Option<WidgetId>,
     pub graph_page: Handle<widgets::Slot>,
     pub graph_button: Option<WidgetId>,
+    pub kanban_page: Handle<widgets::Slot>,
+    pub kanban_button: Option<WidgetId>,
 }
 
 pub fn rescale(root: &mut masonry::app::RenderRoot, scale: f64) {
@@ -124,6 +127,8 @@ pub struct RootParts<'a> {
     pub home: bool,
     pub graph: Option<NewWidget<dyn Widget>>,
     pub graph_active: bool,
+    pub kanban: NewWidget<dyn Widget>,
+    pub kanban_active: bool,
 }
 
 pub fn home_widget(show: bool) -> (NewWidget<dyn Widget>, Option<WidgetId>) {
@@ -197,7 +202,7 @@ fn new_tab_view() -> (NewWidget<Flex>, WidgetId, WidgetId, WidgetId) {
 }
 
 pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<impl Widget>, Chrome) {
-    let RootParts { workspace_name, note, sidebar_open, tabs, empty_tab, vault_open, vault_error, panel_open, panel_mode, has_analysis, focus_mode, home, graph, graph_active } = parts;
+    let RootParts { workspace_name, note, sidebar_open, tabs, empty_tab, vault_open, vault_error, panel_open, panel_mode, has_analysis, focus_mode, home, graph, graph_active, kanban, kanban_active } = parts;
     let t = theme::current();
 
     let toggle = NewWidget::new(IconButton::new(icons::PANEL_LEFT, "Скрыть левую боковую панель"));
@@ -210,9 +215,13 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
     let mut tools = Flex::column().cross_axis_alignment(CrossAxisAlignment::Center);
     tools = tools.with_fixed(home);
     let mut graph_button = None;
+    let mut kanban_button = None;
     if !focus_mode {
         let button = NewWidget::new(IconButton::new(icons::NETWORK, i18n::t("rail.graph")));
         graph_button = Some(button.id());
+        tools = tools.with_fixed(button);
+        let button = NewWidget::new(IconButton::new(icons::COLUMNS, i18n::t("rail.boards")));
+        kanban_button = Some(button.id());
         tools = tools.with_fixed(button);
     }
     if focus_mode {
@@ -278,7 +287,10 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
     };
     let graph_page = widgets::Slot::new(graph.unwrap_or_else(|| NewWidget::new(SizedBox::empty()).erased()));
     let graph_handle = Handle::of(&graph_page);
-    let pages = IndexedStack::new().with(note_page).with(empty).with(version_page).with(no_vault).with(graph_page).with_active_child(active);
+    let kanban_page = widgets::Slot::new(kanban);
+    let kanban_handle = Handle::of(&kanban_page);
+    let active = if vault_open && kanban_active { 5 } else { active };
+    let pages = IndexedStack::new().with(note_page).with(empty).with(version_page).with(no_vault).with(graph_page).with(kanban_page).with_active_child(active);
     let pages = NewWidget::new(pages);
     let pages_handle = Handle::of(&pages);
     let main = Flex::column()
@@ -317,6 +329,8 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
         home_button,
         graph_page: graph_handle,
         graph_button,
+        kanban_page: kanban_handle,
+        kanban_button,
     };
     (NewWidget::new(window), chrome)
 }
@@ -365,6 +379,8 @@ mod snapshot {
             tabs,
             graph: None,
             graph_active: false,
+            kanban: masonry::core::NewWidget::new(masonry::widgets::SizedBox::empty()).erased(),
+            kanban_active: false,
             empty_tab: false,
             vault_open: true,
             vault_error: None,

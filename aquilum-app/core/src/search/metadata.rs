@@ -17,7 +17,7 @@ pub struct FileState {
 pub type Fingerprint = (i64, i64);
 pub type PathKey = [u8; 16];
 
-const SCHEMA_VERSION: i64 = 12;
+const SCHEMA_VERSION: i64 = 13;
 
 const DOCUMENTS_DDL: &str = "CREATE TABLE IF NOT EXISTS documents (
            path TEXT PRIMARY KEY,
@@ -59,6 +59,7 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
             "DROP TABLE IF EXISTS wiki_links;
              DROP TABLE IF EXISTS wiki_documents;
              DROP TABLE IF EXISTS note_fields;
+             DROP TABLE IF EXISTS base_note_fields;
              DROP TABLE IF EXISTS documents;
              {DOCUMENTS_DDL};
              PRAGMA user_version={SCHEMA_VERSION};"
@@ -71,7 +72,7 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
         if version < 11 {
             connection.execute_batch(ADD_CREATED_COLUMNS)?;
         }
-        if version < 12 {
+        if version < 13 {
             connection.execute_batch(REINDEX_FOR_FIELDS)?;
         }
         connection.execute_batch(&format!("PRAGMA user_version={SCHEMA_VERSION};"))?;
@@ -134,8 +135,9 @@ pub fn current(
     transaction: &Transaction<'_>,
     path: &str,
 ) -> Result<Option<FileState>, SearchError> {
-    let mut statement = transaction
-        .prepare(&format!("SELECT {FILE_STATE_COLUMNS} FROM documents WHERE path=?1"))?;
+    let mut statement = transaction.prepare(&format!(
+        "SELECT {FILE_STATE_COLUMNS} FROM documents WHERE path=?1"
+    ))?;
     let mut rows = statement.query([path])?;
     match rows.next()? {
         Some(row) => Ok(Some(file_state(row, 0)?)),
@@ -203,9 +205,34 @@ mod tests {
         assert_eq!(state.fingerprint, (42, 7));
         assert_eq!(
             state.analyzer_version, 0,
-            "схема 12 сбрасывает версию анализатора, чтобы заполнить поля frontmatter"
+            "схема 13 сбрасывает версию анализатора, чтобы заполнить типизированные поля Bases"
         );
         assert_eq!(state.created.nanos, 0);
         assert_eq!(state.created.source, CreatedSource::ModifiedTime);
+    }
+
+    #[test]
+    fn upgrade_from_twelve_reindexes_notes_for_typed_bases_without_losing_metadata() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("metadata.sqlite3");
+        let connection = open(&path).unwrap();
+        connection.execute("INSERT INTO documents(path, modified_ns, size, content_hash, analyzer_version) VALUES('/vault/note.md', 42, 7, x'00', 10)", []).unwrap();
+        connection
+            .execute_batch("DROP TABLE base_note_fields; PRAGMA user_version=12;")
+            .unwrap();
+        drop(connection);
+        let connection = open(&path).unwrap();
+        let state = load(&connection)
+            .unwrap()
+            .remove(&key("/vault/note.md"))
+            .unwrap();
+        assert_eq!(state.fingerprint, (42, 7));
+        assert_eq!(state.analyzer_version, 0);
+        let count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM base_note_fields", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0);
     }
 }

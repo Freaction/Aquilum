@@ -35,6 +35,7 @@ pub const SCHEMA: &str = "CREATE TABLE workspaces (
          document_id TEXT,
          kind TEXT NOT NULL,
          position INTEGER NOT NULL,
+         relative_path TEXT,
          PRIMARY KEY(workspace_id, window_id, tab_id),
          FOREIGN KEY(workspace_id, window_id)
              REFERENCES sessions(workspace_id, window_id) ON DELETE CASCADE,
@@ -58,6 +59,13 @@ pub const SCHEMA: &str = "CREATE TABLE workspaces (
          PRIMARY KEY(workspace_id, window_id, document_id, pane_id),
          FOREIGN KEY(workspace_id, document_id)
              REFERENCES documents(workspace_id, id) ON DELETE CASCADE
+     );
+     CREATE TABLE base_view_states (
+         workspace_id TEXT NOT NULL,
+         relative_path TEXT NOT NULL,
+         selected_view INTEGER NOT NULL CHECK(selected_view >= 0),
+         PRIMARY KEY(workspace_id, relative_path),
+         FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
      );
      CREATE TABLE reader_states (
          workspace_id TEXT NOT NULL,

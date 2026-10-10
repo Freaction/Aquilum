@@ -5,6 +5,7 @@ use rusqlite::{params, Connection, Transaction};
 use std::path::Path;
 
 pub fn open_schema(connection: &Connection) -> Result<(), SearchError> {
+    super::bases::open_schema(connection)?;
     connection.execute_batch(
         "CREATE TABLE IF NOT EXISTS note_fields (
            path TEXT NOT NULL,
@@ -28,6 +29,7 @@ pub fn index_document(
     body: &str,
 ) -> Result<(), SearchError> {
     remove_document(transaction, path)?;
+    super::bases::index(transaction, path, body)?;
     let found = indexed_fields(body);
     if found.is_empty() {
         return Ok(());
@@ -55,6 +57,7 @@ pub fn index_document(
 }
 
 pub fn remove_document(transaction: &Transaction<'_>, path: &Path) -> Result<(), SearchError> {
+    super::bases::remove(transaction, path)?;
     transaction.execute(
         "DELETE FROM note_fields WHERE path=?1",
         [path.to_string_lossy().as_ref()],
@@ -104,7 +107,12 @@ mod tests {
         let mut connection = Connection::open_in_memory().unwrap();
         open_schema(&connection).unwrap();
         let transaction = connection.transaction().unwrap();
-        index_document(&transaction, Path::new("C:/vault/Заметка.md"), "просто текст").unwrap();
+        index_document(
+            &transaction,
+            Path::new("C:/vault/Заметка.md"),
+            "просто текст",
+        )
+        .unwrap();
         transaction.commit().unwrap();
         assert_eq!(count(&connection), 0);
     }

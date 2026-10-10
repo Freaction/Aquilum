@@ -163,4 +163,15 @@ mod tests {
         assert_eq!(numbered(Path::new("/база/папка"), 2), Path::new("/база/папка (2)"));
         assert_eq!(numbered(Path::new("/база/.скрытый"), 1), Path::new("/база/ (1).скрытый"));
     }
+
+    #[test]
+    fn rename_target_keeps_card_in_its_folder_and_preserves_markdown_extension() {
+        assert_eq!(
+            rename_target(Path::new("/база/папка/Старая.md"), "Новая: карточка?"),
+            Some((
+                PathBuf::from("/база/папка/Новая карточка.md"),
+                "Новая карточка".to_owned()
+            ))
+        );
+    }
 }

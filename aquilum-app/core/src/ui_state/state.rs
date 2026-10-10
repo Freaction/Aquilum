@@ -66,15 +66,16 @@ impl UiStateDatabase {
                 )?;
                 for tab in tabs {
                     transaction.execute(
-                        "INSERT INTO tabs(workspace_id, window_id, tab_id, document_id, kind, position)
-                         VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
+                        "INSERT INTO tabs(workspace_id, window_id, tab_id, document_id, kind, position, relative_path)
+                         VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                         params![
                             input.workspace_id.to_string(),
                             input.window_id,
                             tab.tab_id.to_string(),
                             tab.document_id.map(|id| id.to_string()),
                             tab.kind.as_str(),
-                            tab.position
+                            tab.position,
+                            tab.relative_path
                         ],
                     )?;
                 }
