@@ -43,6 +43,7 @@ pub struct HeroView {
     pub position: f64,
     pub book: Option<BookView>,
     pub viewport: f64,
+    pub motion_enabled: bool,
 }
 
 pub struct HeroIds {
@@ -103,7 +104,7 @@ pub fn hero(view: HeroView) -> (NewWidget<Hero>, HeroIds) {
         }
         bar = bar.with_fixed(divider()).with_fixed(remove);
         let bar = NewWidget::new(ActionBar { row: NewWidget::new(bar).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4)))).to_pod() });
-        let widget = PageCover::new(visual, view.position, bar, button.take());
+        let widget = PageCover::new(visual, view.position, view.motion_enabled, bar, button.take());
         ids.cover = Some(Handle::of(&widget));
         widget
     });
@@ -296,6 +297,7 @@ pub struct PageCover {
     show_actions: bool,
     baked: Option<(BakeKey, ImageBrush)>,
     clock: f64,
+    motion_enabled: bool,
 }
 
 type BakeKey = (u16, u16, usize, u64, i64);
@@ -342,8 +344,8 @@ fn cover_body(painter: &mut Painter<'_>, bounds: Rect, visual: &Visual, position
 }
 
 impl PageCover {
-    fn new(visual: Visual, position: f64, actions: NewWidget<ActionBar>, book: Option<NewWidget<TextButton>>) -> NewWidget<Self> {
-        NewWidget::new(PageCover { visual, position, repositioning: false, drag: None, actions: actions.to_pod(), book: book.map(NewWidget::to_pod), show_actions: false, baked: None, clock: 0.0 })
+    fn new(visual: Visual, position: f64, motion_enabled: bool, actions: NewWidget<ActionBar>, book: Option<NewWidget<TextButton>>) -> NewWidget<Self> {
+        NewWidget::new(PageCover { visual, position, repositioning: false, drag: None, actions: actions.to_pod(), book: book.map(NewWidget::to_pod), show_actions: false, baked: None, clock: 0.0, motion_enabled })
     }
 
     pub fn refresh(this: &mut WidgetMut<'_, Self>) {
@@ -381,6 +383,9 @@ impl PageCover {
     }
 
     fn motion(&self) -> Option<&'static str> {
+        if !self.motion_enabled {
+            return None;
+        }
         match &self.visual {
             Visual::Pattern(id) if cover::animated(id) => Some(id),
             _ => None,

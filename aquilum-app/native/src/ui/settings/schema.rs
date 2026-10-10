@@ -392,6 +392,12 @@ fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
             c.ui.primary_color = format!("#{r:02x}{g:02x}{b:02x}");
         }
     }));
+    display.push(row(
+        t("settings.ui.animatedCovers"),
+        Some(t("settings.ui.animatedCoversHint")),
+        Control::Switch(config.ui.animations),
+        |c, v| c.ui.animations = flag(v),
+    ));
     vec![
         Block { title: t("settings.ui.display"), rows: display },
         Block { title: t("settings.font.section"), rows: fonts },
@@ -999,6 +1005,10 @@ mod tests {
         let Some(Setter::Config(set)) = theme.setter else { panic!("тема пишется в настройки") };
         set(&mut config, &Value::Index(2));
         assert_eq!(config.ui.theme, "dark");
+        let animations = ui(&config, &ctx).remove(0).rows.pop().unwrap();
+        let Some(Setter::Config(set)) = animations.setter else { panic!("анимация пишется в настройки") };
+        set(&mut config, &Value::Bool(false));
+        assert!(!config.ui.animations);
         assert!(blocks(Section::Analysis, &config, &ctx).len() == 2);
         config.analysis.enable_bm25f = false;
         assert!(blocks(Section::Analysis, &config, &ctx).len() == 1);

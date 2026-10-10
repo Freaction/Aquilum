@@ -50,8 +50,8 @@ mod touchpad {
             false
         }
 
-        pub fn update(&self) -> (f32, f32) {
-            (0.0, 0.0)
+        pub fn update(&self) -> (f32, f32, f32) {
+            (0.0, 0.0, 1.0)
         }
     }
 }

@@ -54,6 +54,7 @@ impl App {
         if !has_cover && !is_book {
             return None;
         }
+        let config = self.workspace.core.settings.get_config();
         let root = self.tree.root();
         let cover = has_cover.then(|| {
             let value = fields.text(PAGE_COVER);
@@ -73,7 +74,13 @@ impl App {
                 .unwrap_or_else(images::default_book_cover),
             has_file: fields.text(BOOK_FILE).is_some_and(|f| !f.trim().is_empty()),
         });
-        Some(HeroView { cover, position: parse_position(fields.text(PAGE_COVER_POSITION)), book, viewport: self.window.height })
+        Some(HeroView {
+            cover,
+            position: parse_position(fields.text(PAGE_COVER_POSITION)),
+            book,
+            viewport: self.window.height,
+            motion_enabled: cover::motion_enabled(config.ui.animations, crate::system::prefers_reduced_motion()),
+        })
     }
 
     pub(super) fn hero_key(&self) -> Option<Vec<String>> {

@@ -40,6 +40,7 @@ softbuffer = "0.4.8"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 accesskit_macos = "=0.26.3"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSAccessibility", "NSWorkspace"] }
 objc2 = "0.6"
 objc2-foundation = "0.3"
 objc2-av-foundation = { version = "0.3", features = ["objc2-core-media", "objc2-core-video", "objc2-core-graphics"] }

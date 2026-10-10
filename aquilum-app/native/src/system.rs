@@ -1,5 +1,15 @@
 use std::process::Command;
 
+#[cfg(target_os = "macos")]
+pub fn prefers_reduced_motion() -> bool {
+    objc2_app_kit::NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn prefers_reduced_motion() -> bool {
+    false
+}
+
 pub fn open(target: &str) {
     let mut command = if cfg!(target_os = "windows") {
         let mut command = Command::new("explorer");

@@ -427,6 +427,7 @@ impl App {
                     || before.ui.font.font_weight != after.ui.font.font_weight
                     || before.ui.font.font_size_base != after.ui.font.font_size_base
                     || before.ui.primary_color != after.ui.primary_color
+                    || before.ui.animations != after.ui.animations
                     || before.editor.font.font_family != after.editor.font.font_family
                     || before.editor.font.font_weight != after.editor.font.font_weight
                     || before.editor.font.font_size_base != after.editor.font.font_size_base

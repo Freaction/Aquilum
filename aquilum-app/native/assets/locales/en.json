@@ -197,7 +197,9 @@
       "homePage": "Home page",
       "homePageHint": "Note name for the home button. Empty — no button",
       "homePageAria": "Home page note name",
-      "primaryColor": "Accent color"
+      "primaryColor": "Accent color",
+      "animatedCovers": "Animate cover patterns",
+      "animatedCoversHint": "System reduced motion disables animation on macOS."
     },
     "editor": {
       "lineHeight": "Line height",

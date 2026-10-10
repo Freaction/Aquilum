@@ -696,6 +696,7 @@ mod snapshot {
                         position: 30.0,
                         book: book.then(|| super::book::BookView { cover: crate::images::default_book_cover(), has_file: false }),
                         viewport: f64::from(H),
+                        motion_enabled: true,
                     }),
                     resolver: None,
                 });

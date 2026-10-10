@@ -2,7 +2,7 @@ mod css;
 mod motion;
 mod raster;
 
-pub use motion::{animated, paint as paint_motion};
+pub use motion::{animated, enabled as motion_enabled, paint as paint_motion};
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, OnceLock};

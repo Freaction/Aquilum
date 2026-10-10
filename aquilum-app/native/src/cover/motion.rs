@@ -23,6 +23,10 @@ pub fn animated(id: &str) -> bool {
     matches!(id, "city" | "dreams" | "tunnel")
 }
 
+pub fn enabled(setting: bool, prefers_reduced_motion: bool) -> bool {
+    setting && !prefers_reduced_motion
+}
+
 pub fn paint(painter: &mut Painter<'_, impl PaintSink + ?Sized>, id: &str, bounds: Rect, seconds: f64, viewport_height: f64) {
     match id {
         "city" => city(painter, bounds, seconds),
@@ -141,4 +145,14 @@ fn tunnel(painter: &mut Painter<'_, impl PaintSink + ?Sized>, bounds: Rect, seco
     let at = Affine::translate(bounds.origin().to_vec2());
     painter.fill(&floor.grid(w, h, TUNNEL_TILE * f, -TUNNEL_TILE + TUNNEL_TILE * f), TUNNEL_STREAK).transform(at).draw();
     painter.fill(&ceiling.grid(w, h, TUNNEL_TILE * f, -TUNNEL_TILE * f), TUNNEL_STREAK).transform(at).draw();
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn motion_requires_the_setting_and_system_permission() {
+        assert!(super::enabled(true, false));
+        assert!(!super::enabled(false, false));
+        assert!(!super::enabled(true, true));
+    }
 }

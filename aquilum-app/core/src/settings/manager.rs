@@ -86,6 +86,7 @@ mod tests {
         assert_eq!(config.editor.font.font_family, "iA Writer Quattro");
         assert_eq!(config.editor.save_debounce_ms, 1000);
         assert!(config.analysis.enable_bm25f);
+        assert!(config.ui.animations);
     }
 
     #[test]
