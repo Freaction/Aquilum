@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
 const repoRoot = resolve(projectRoot, '..');
 const artifactsRoot = join(repoRoot, '.artifacts');
-const buildRoot = join(artifactsRoot, 'cargo-release');
+const buildRoot = join(artifactsRoot, 'native-bundle');
 const releaseRepo = 'Freaction/Aquilum';
 
 const packageJson = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8'));
@@ -30,9 +30,14 @@ if (!process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
   throw new Error('TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not set in this terminal.\nRun (current session only):\n  set TAURI_SIGNING_PRIVATE_KEY_PASSWORD=your-password\nOr permanently:\n  setx TAURI_SIGNING_PRIVATE_KEY_PASSWORD "your-password"\n  (then open a new terminal)');
 }
 
-execFileSync(process.execPath, ['scripts/tauri.mjs', 'build'], {
+execFileSync(process.execPath, ['scripts/sync-icons.mjs'], { cwd: projectRoot, stdio: 'inherit' });
+if (existsSync(buildRoot)) {
+  await rm(buildRoot, { recursive: true, force: true });
+}
+execFileSync(process.execPath, ['scripts/bundle-native.mjs', 'build', '--bundles', 'nsis'], {
   cwd: projectRoot,
   stdio: 'inherit',
+  env: { ...process.env, CARGO_TARGET_DIR: buildRoot },
 });
 
 if (existsSync(releaseRoot)) {
@@ -40,7 +45,7 @@ if (existsSync(releaseRoot)) {
 }
 await mkdir(releaseRoot, { recursive: true });
 
-const tauriConfig = JSON.parse(await readFile(join(projectRoot, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+const tauriConfig = JSON.parse(await readFile(join(projectRoot, 'native', 'tauri.conf.json'), 'utf8'));
 const productName = tauriConfig.productName || 'Aquilum';
 const setupCandidates = [
   `${productName}_${version}_x64-setup.exe`,

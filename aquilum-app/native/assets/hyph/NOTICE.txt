@@ -1,0 +1,7 @@
+Hyphenation patterns from the hyph-utf8 project (https://github.com/hyphenation/tex-hyphen).
+
+hyph-ru: Copyright (C) 1999-2003 Alexander I. Lebedev. Licence: LPPL (https://latex-project.org/lppl/).
+
+hyph-en-us: Copyright (C) 1990, 2004, 2005 Gerard D.C. Kuiken.
+Copying and distribution of this file, with or without modification, are permitted in any medium
+without royalty provided the copyright notice and this notice are preserved.

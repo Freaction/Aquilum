@@ -1,0 +1,55 @@
+.q-cover-pattern--chevron {
+  background-color: #444;
+  background-image:
+    linear-gradient(63deg, #999 23%, transparent 23%),
+    linear-gradient(63deg, transparent 74%, #999 78%),
+    linear-gradient(63deg, transparent 34%, #999 38%, #999 58%, transparent 62%);
+  background-position: 7px 0, 0 0, 0 0;
+  background-size: 16px 48px;
+}
+
+.q-cover-pattern--tartan {
+  background-color: #d50000;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8) 50px, transparent 0, transparent 100px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5) 50px, transparent 0, transparent 100px);
+}
+
+.q-cover-pattern--plaid {
+  --q-cover-plaid:
+    transparent, transparent 50px,
+    #808 50px, #808 53px,
+    transparent 53px, transparent 63px,
+    #808 63px, #808 66px,
+    transparent 66px, transparent 116px,
+    rgba(0, 0, 0, 0.5) 116px, rgba(0, 0, 0, 0.5) 166px,
+    rgba(255, 255, 255, 0.2) 166px, rgba(255, 255, 255, 0.2) 169px,
+    rgba(0, 0, 0, 0.5) 169px, rgba(0, 0, 0, 0.5) 179px,
+    rgba(255, 255, 255, 0.2) 179px, rgba(255, 255, 255, 0.2) 182px,
+    rgba(0, 0, 0, 0.5) 182px, rgba(0, 0, 0, 0.5) 232px,
+    transparent 232px;
+  background-color: #66a3ff;
+  background-image:
+    repeating-linear-gradient(var(--q-cover-plaid)),
+    repeating-linear-gradient(270deg, var(--q-cover-plaid));
+}
+
+.q-cover-pattern--stripes {
+  background-color: #f5e9be;
+  background-image:
+    linear-gradient(90deg, rgba(255, 225, 132, 0.7) 50%, transparent 50%),
+    linear-gradient(90deg, rgba(32, 113, 120, 0.3) 50%, transparent 50%),
+    linear-gradient(90deg, rgba(255, 150, 102, 0.3) 50%, transparent 50%),
+    linear-gradient(90deg, rgba(23, 76, 79, 0.1) 50%, transparent 50%);
+  background-size: 70px 70px, 50px 50px, 30px 30px, 10px 10px;
+}
+
+.q-cover-pattern--zigzag {
+  background:
+    linear-gradient(135deg, #eceddc 25%, transparent 25%) -40px 0,
+    linear-gradient(225deg, #eceddc 25%, transparent 25%) -39px 0,
+    linear-gradient(315deg, #eceddc 25%, transparent 25%),
+    linear-gradient(45deg, #eceddc 25%, transparent 25%);
+  background-size: 80px 80px;
+  background-color: #ec173a;
+}

@@ -1,0 +1,19 @@
+.q-cover-pattern--moire {
+  --q-cover-moire-light: #ffc28a;
+  --q-cover-moire-wine: #940040;
+  --q-cover-moire-rings:
+    var(--q-cover-moire-light) 0% 5%, var(--q-cover-moire-wine) 6% 15%,
+    var(--q-cover-moire-light) 16% 25%, var(--q-cover-moire-wine) 26% 35%,
+    var(--q-cover-moire-light) 36% 45%, var(--q-cover-moire-wine) 46% 55%,
+    var(--q-cover-moire-light) 56% 65%, var(--q-cover-moire-wine) 66% 75%,
+    var(--q-cover-moire-light) 76% 85%, var(--q-cover-moire-wine) 86% 95%,
+    transparent 96%;
+  background-color: var(--q-cover-moire-light);
+  background-image:
+    radial-gradient(50% 50% at 100% 0, var(--q-cover-moire-rings)),
+    radial-gradient(50% 50% at 0 100%, var(--q-cover-moire-rings)),
+    radial-gradient(50% 50%, var(--q-cover-moire-rings)),
+    radial-gradient(50% 50%, var(--q-cover-moire-rings));
+  background-position: 0 0, 0 0, 0 0, 34px 34px;
+  background-size: 68px 68px;
+}

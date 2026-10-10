@@ -1,0 +1,16 @@
+.q-cover-pattern--cubes {
+  --q-cover-cube-light: #f2f2f2;
+  --q-cover-cube-mid: #cdcbcc;
+  --q-cover-cube-dark: #999;
+  --q-cover-cube-wedge: 0 120deg, transparent 0;
+  background-color: #f2f2f2;
+  background-image:
+    conic-gradient(at calc(250% / 3) calc(100% / 3), var(--q-cover-cube-dark) var(--q-cover-cube-wedge)),
+    conic-gradient(from -120deg at calc(50% / 3) calc(100% / 3), var(--q-cover-cube-mid) var(--q-cover-cube-wedge)),
+    conic-gradient(from 120deg at calc(100% / 3) calc(250% / 3), var(--q-cover-cube-light) var(--q-cover-cube-wedge)),
+    conic-gradient(from 120deg at calc(200% / 3) calc(250% / 3), var(--q-cover-cube-light) var(--q-cover-cube-wedge)),
+    conic-gradient(from -180deg at calc(100% / 3) 50%, var(--q-cover-cube-mid) 60deg, var(--q-cover-cube-light) var(--q-cover-cube-wedge)),
+    conic-gradient(from 60deg at calc(200% / 3) 50%, var(--q-cover-cube-light) 60deg, var(--q-cover-cube-dark) var(--q-cover-cube-wedge)),
+    conic-gradient(from -60deg at 50% calc(100% / 3), var(--q-cover-cube-light) 120deg, var(--q-cover-cube-mid) 0 240deg, var(--q-cover-cube-dark) 0);
+  background-size: 145.5px 84px;
+}

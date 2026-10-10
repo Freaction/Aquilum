@@ -1,0 +1,262 @@
+:root {
+  --q-font-weight-ui-base: var(--q-font-weight-normal);
+  --q-font-weight-ui-medium: min(calc(var(--q-font-weight-ui-base) + 100), var(--q-font-weight-bold));
+  --q-font-weight-ui-strong: min(calc(var(--q-font-weight-ui-base) + 200), var(--q-font-weight-bold));
+
+  --q-sidebar-width: var(--q-size-224);
+  --q-sidebar-rail-width: var(--q-size-40);
+  --q-backlinks-width: var(--q-size-320);
+  --q-sidebar-bg: var(--q-bg-surface-raised);
+  --q-sidebar-border: var(--q-border-subtle);
+  --q-sidebar-text: var(--q-text-secondary);
+  --q-sidebar-icon: var(--q-icon-muted);
+  --q-sidebar-icon-hover: var(--q-icon-secondary);
+  --q-sidebar-icon-size: var(--q-size-20);
+  --q-sidebar-item-gap: var(--q-space-6);
+  --q-sidebar-item-padding: var(--q-space-6);
+  --q-sidebar-item-radius: var(--q-rounded-lg);
+  --q-sidebar-item-hover-bg: var(--q-black-alpha-06);
+  --q-sidebar-item-active-bg: var(--q-black-alpha-06);
+  --q-sidebar-tree-indent: var(--q-space-12);
+  --q-sidebar-tree-guide: var(--q-border-emphasis);
+  --q-sidebar-font-size: var(--q-font-size-ui-base);
+  --q-sidebar-font-family: var(--q-font-family-ui);
+  --q-sidebar-font-weight: var(--q-font-weight-ui-base);
+
+  --q-tabs-height: var(--q-size-40);
+  --q-tabs-bg: var(--q-bg-surface);
+  --q-tabs-border: var(--q-border-subtle);
+  --q-tabs-font-size: var(--q-font-size-ui-base);
+  --q-tabs-font-family: var(--q-font-family-ui);
+  --q-tabs-font-weight: var(--q-font-weight-ui-base);
+  --q-tab-content-height: var(--q-size-24);
+  --q-tab-gap: var(--q-space-6);
+  --q-tab-bg: transparent;
+  --q-tab-bg-active: var(--q-bg-elevated);
+  --q-tab-bg-hover: var(--q-black-alpha-06);
+  --q-tab-text: var(--q-text-tertiary);
+  --q-tab-text-active: var(--q-text-secondary);
+  --q-tab-border: var(--q-border-subtle);
+  --q-tab-min-width: 8rem;
+  --q-tab-max-width: 23rem;
+  --q-window-close-bg-hover: #ff3c29;
+  --q-window-close-bg-active: #e63524;
+  --q-window-control-width: 2.875rem;
+  --q-titlebar-controls-inset: calc(var(--q-window-control-width) * 3);
+  --q-icon-button-bg-hover: var(--q-bg-surface-overlay);
+  --q-icon-button-bg-active: var(--q-bg-surface-overlay);
+  --q-icon-button-icon: var(--q-icon-secondary);
+  --q-icon-button-icon-hover: var(--q-icon-primary);
+
+  --q-button-height: var(--q-size-36);
+  --q-button-gap: var(--q-space-12);
+  --q-button-padding-y: var(--q-space-8);
+  --q-button-padding-x: var(--q-space-12);
+  --q-button-radius: var(--q-rounded-lg);
+  --q-button-font-size: var(--q-font-size-ui-base);
+  --q-button-line-height: 1.25rem;
+  --q-button-icon-size: var(--q-size-16);
+
+  --q-button-s-height: var(--q-size-28);
+  --q-button-s-padding-y: var(--q-padding-2xs);
+  --q-button-s-padding-x: var(--q-padding-md);
+  --q-button-s-radius: var(--q-rounded-xl);
+  --q-button-s-gap: var(--q-space-8);
+  --q-button-s-line-height: var(--q-size-20);
+
+  --q-button-xs-height: var(--q-size-24);
+  --q-button-xs-padding-y: var(--q-padding-4xs);
+  --q-button-xs-padding-x: calc(var(--q-padding-2xs) + var(--q-padding-xs));
+  --q-button-xs-radius: var(--q-rounded-xl);
+  --q-button-xs-gap: var(--q-space-6);
+  --q-button-xs-line-height: var(--q-size-20);
+  --q-button-highlight-width: 1.5px;
+  --q-button-shine-fill-default: 0.14;
+  --q-button-shine-fill-hover: 0.24;
+  --q-button-shine-ring-default: 0.24;
+  --q-button-shine-ring-hover: 0.32;
+
+  --q-editor-bg: var(--q-bg-primary);
+  --q-editor-text: color-mix(in srgb, var(--q-text-primary) calc(var(--q-editor-text-opacity) * 100%), transparent);
+  --q-editor-text-opacity: var(--q-opacity-90);
+  --q-editor-font-family: var(--q-font-family-editor);
+  --q-editor-font-size: var(--q-font-size-16);
+  --q-editor-font-weight: var(--q-font-weight-normal);
+  --q-editor-line-height: var(--q-font-line-height-prose);
+  --q-editor-max-width: 65ch;
+  --q-editor-padding-x: var(--q-space-24);
+  --q-editor-padding-y: var(--q-space-32);
+  --q-editor-scroll-past-end: 675px;
+  --q-editor-tab-size: 4;
+  --q-editor-list-indent-width: var(--q-space-24);
+  --q-editor-list-padding-inline-start: var(--q-space-12);
+  --q-editor-list-marker-color: var(--q-text-muted);
+  --q-editor-table-border: var(--q-border-solid);
+  --q-editor-table-cell-padding: var(--q-space-8);
+  --q-editor-table-add-bg: var(--q-bg-surface);
+  --q-editor-table-add-border: var(--q-border-default);
+  --q-editor-table-handle: var(--q-icon-faint);
+  --q-editor-table-selection-bg: var(--q-selection-bg);
+  --q-editor-heading-font: var(--q-font-family-heading);
+  --q-editor-heading-weight: var(--q-font-weight-bold);
+  --q-editor-heading-1-size: calc(var(--q-editor-font-size) * 24 / 14);
+  --q-editor-heading-2-size: calc(var(--q-editor-font-size) * 16 / 14);
+  --q-editor-heading-3-size: var(--q-editor-font-size);
+  --q-editor-heading-4-size: var(--q-editor-font-size);
+  --q-editor-heading-5-size: var(--q-editor-font-size);
+  --q-editor-heading-6-size: var(--q-editor-font-size);
+  --q-editor-code-font: var(--q-font-family-mono);
+  --q-editor-code-bg: var(--q-gray-100);
+  --q-editor-code-radius: var(--q-rounded-sm);
+  --q-editor-code-keyword: var(--q-purple-600);
+  --q-editor-code-string: var(--q-green-700);
+  --q-editor-code-number: var(--q-amber-700);
+  --q-editor-code-comment: var(--q-gray-500);
+  --q-editor-code-function: var(--q-blue-600);
+  --q-editor-code-type: var(--q-teal-700);
+  --q-editor-code-property: var(--q-pink-600);
+  --q-editor-placeholder-color: var(--q-text-tertiary);
+
+  --q-block-bg: var(--q-bg-surface-raised);
+  --q-block-border: var(--q-gray-150);
+  --q-block-divider: var(--q-border-default);
+  --q-block-radius: var(--q-rounded-2xl);
+  --q-block-padding: var(--q-space-12);
+
+  --q-empty-state-width: 15.625rem;
+  --q-empty-state-padding-y: var(--q-space-24);
+  --q-empty-state-gap: var(--q-space-12);
+  --q-empty-state-icon-container: var(--q-size-48);
+  --q-empty-state-icon-size: var(--q-size-48);
+
+  --q-search-width: 41rem;
+  --q-search-height: 70vh;
+  --q-search-box-height: var(--q-size-48);
+  --q-search-key-hint-color: var(--q-text-tertiary);
+  --q-search-result-height: 6.75rem;
+  --q-search-result-radius: var(--q-rounded-xl);
+  --q-search-result-bg: var(--q-bg-surface-subtle);
+  --q-search-result-bg-hover: var(--q-bg-surface-hover);
+  --q-search-result-border: var(--q-border-subtle);
+  --q-search-match-bg: var(--q-bg-search-match);
+  --q-page-search-max-width: 30rem;
+  --q-page-search-height: var(--q-size-28);
+
+  --q-input-width: 11.625rem;
+  --q-input-icon-size: var(--q-size-20);
+  --q-input-content-height: var(--q-size-20);
+  --q-input-gap: var(--q-space-6);
+  --q-input-padding-x: var(--q-space-6);
+  --q-input-padding-y: var(--q-space-4);
+
+  --q-dialog-padding: var(--q-space-12);
+  --q-dialog-gap: var(--q-space-8);
+  --q-dialog-radius: var(--q-rounded-2xl);
+  --q-dialog-bg: var(--q-bg-canvas);
+  --q-dialog-overlay-bg: var(--q-bg-overlay-subtle);
+  --q-dialog-border: var(--q-border-subtle);
+  --q-dialog-shadow: var(--q-elevation-float);
+
+  --q-confirm-dialog-width: 20.5rem;
+  --q-workspace-dialog-width: var(--q-size-448);
+  --q-workspace-dialog-max-height: var(--q-size-512);
+  --q-workspace-row-radius: var(--q-radius-lg);
+  --q-workspace-row-height: var(--q-size-48);
+  --q-workspace-row-gutter: var(--q-space-8);
+  --q-workspace-row-bg-hover: var(--q-bg-surface-hover);
+  --q-workspace-row-border: var(--q-border-subtle);
+
+  --q-settings-width: 90vw;
+  --q-settings-height: 85vh;
+  --q-settings-max-width: 1100px;
+  --q-settings-max-height: 1000px;
+  --q-settings-nav-width: var(--q-size-224);
+  --q-settings-row-text-min-height: 2.375rem;
+
+  --q-book-actions-bg: var(--q-bg-scrim);
+  --q-book-actions-border: var(--q-border-contrast-inverse);
+  --q-book-actions-divider: var(--q-icon-quiet);
+
+  --q-book-gutter: var(--q-space-12);
+  --q-book-cover-height: clamp(11.625rem, 20.7vh, 15rem);
+  --q-book-cover-radius: var(--q-rounded-2xl);
+  --q-book-thumb-height: calc(
+    11.5rem + (var(--q-book-cover-height) - 11.625rem) * 36 / 54
+  );
+  --q-book-thumb-radius: 12px;
+  --q-book-thumb-border: var(--q-border-subtle);
+  --q-book-thumb-shadow:
+    0 10px 20px var(--q-shadow-lg),
+    0 6.3px 24.7px var(--q-shadow-md),
+    0 1.8px 7.3px var(--q-shadow-sm);
+  --q-book-thumb-action-inset: 5px;
+  --q-book-z-cover: 1;
+  --q-book-z-controls: 10;
+  --q-book-z-star: 10;
+  --q-book-z-thumbnail: 20;
+  --q-book-z-cover-repositioning: 30;
+  --q-book-content-gap: var(--q-space-56);
+  --q-reader-nav-width: clamp(2.5rem, 8vw, 4.5rem);
+  --q-reader-progress-height: 3px;
+
+  --q-switch-width: 2.375rem;
+  --q-switch-height: 1.375rem;
+  --q-switch-handle-size: var(--q-size-16);
+  --q-switch-handle-inset: var(--q-unit-3);
+  --q-switch-handle-travel: calc(
+    var(--q-switch-width) - var(--q-switch-handle-size) - var(--q-switch-handle-inset) * 2
+  );
+
+  --q-graph-backdrop: var(--q-bg-primary);
+  --q-graph-node: var(--q-bg-accent);
+  --q-graph-node-rim: var(--q-bg-primary);
+  --q-graph-edge: var(--q-border-solid);
+  --q-graph-edge-active: var(--q-bg-accent);
+  --q-graph-heat-cold: var(--q-text-muted);
+  --q-graph-heat-hot: var(--q-bg-warning);
+  --q-graph-label: var(--q-text-secondary);
+  --q-graph-label-focus: var(--q-text-primary);
+  --q-graph-label-halo: var(--q-bg-primary);
+  --q-graph-status-bg: var(--q-bg-surface-raised);
+  --q-graph-status-fg: var(--q-text-primary);
+  --q-graph-settings-width: 15rem;
+  --q-graph-settings-bg: var(--q-bg-surface-raised);
+
+  --q-book-callout-cover-bg: var(--q-gray-150);
+
+  --q-list-callout-highlight: color-mix(in srgb, var(--q-yellow-alpha-main) 50%, var(--q-amber-600));
+  --q-list-callout-question: var(--q-amber-600);
+  --q-list-callout-important: var(--q-red-600);
+  --q-list-callout-idea: var(--q-purple-600);
+  --q-list-callout-info: var(--q-teal-600);
+  --q-list-callout-success: var(--q-green-700);
+  --q-list-callout-muted: var(--q-gray-500);
+}
+
+[data-theme="dark"] {
+  --q-editor-code-bg: var(--q-bg-sunken);
+  --q-block-bg: var(--q-white-alpha-03);
+  --q-block-border: var(--q-border-subtle);
+  --q-block-divider: var(--q-white-alpha-08);
+  --q-book-callout-cover-bg: var(--q-bg-surface);
+  --q-editor-code-keyword: var(--q-purple-300);
+  --q-editor-code-string: var(--q-green-300);
+  --q-editor-code-number: var(--q-amber-300);
+  --q-editor-code-comment: var(--q-gray-450);
+  --q-editor-code-function: var(--q-blue-300);
+  --q-editor-code-type: var(--q-teal-300);
+  --q-editor-code-property: var(--q-pink-300);
+  --q-dialog-bg: var(--q-gray-750);
+  --q-dialog-border: var(--q-border-default);
+  --q-dialog-overlay-bg: var(--q-bg-overlay);
+  --q-graph-status-bg: var(--q-gray-900);
+  --q-graph-status-fg: var(--q-gray-50);
+  --q-graph-settings-bg: var(--q-bg-surface);
+  --q-list-callout-highlight: var(--q-yellow-alpha-main);
+  --q-list-callout-question: var(--q-amber-400);
+  --q-list-callout-important: var(--q-red-400);
+  --q-list-callout-idea: var(--q-purple-300);
+  --q-list-callout-info: var(--q-teal-300);
+  --q-list-callout-success: var(--q-green-300);
+  --q-list-callout-muted: var(--q-gray-400);
+}

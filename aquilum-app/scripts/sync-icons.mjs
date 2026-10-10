@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(scriptsDir, '..');
 const source = join(projectRoot, 'Aquilum-logo.png');
-const output = join(projectRoot, 'src-tauri', 'icons');
+const output = join(projectRoot, 'native', 'icons');
 // `tauri icon` does not produce byte-identical files (icon.icns differs on every run), so icons are
 // regenerated only when the logo itself changed; the hash of the logo they were built from is kept.
 const sourceHashPath = join(output, '.source-hash');

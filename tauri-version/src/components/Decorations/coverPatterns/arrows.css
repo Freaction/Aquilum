@@ -1,0 +1,10 @@
+.q-cover-pattern--arrows {
+  --q-cover-arrow-dark: linear-gradient(335deg, #b00 23px, transparent 23px);
+  --q-cover-arrow-light: linear-gradient(155deg, #d00 23px, transparent 23px);
+  background-color: #c0c0c0;
+  background-image:
+    var(--q-cover-arrow-dark), var(--q-cover-arrow-light),
+    var(--q-cover-arrow-dark), var(--q-cover-arrow-light);
+  background-position: 0 2px, 4px 35px, 29px 31px, 34px 6px;
+  background-size: 58px 58px;
+}

@@ -1,0 +1,21 @@
+.q-cover-pattern--ripples {
+  --q-cover-ripples-gold: #ac953e;
+  --q-cover-ripples-yellow: #ffbe40;
+  --q-cover-ripples-teal: #accec0;
+  --q-cover-ripples-cyan: #61a6ab;
+  --q-cover-ripples-wave:
+    transparent 25%,
+    rgba(0, 0, 0, 0.53) 47%, var(--q-cover-ripples-gold) 53% 147%,
+    var(--q-cover-ripples-yellow) 153% 247%, var(--q-cover-ripples-gold) 253% 347%,
+    var(--q-cover-ripples-yellow) 353% 447%, var(--q-cover-ripples-gold) 453% 547%,
+    rgba(0, 0, 0, 0.53) 553%, transparent 575%;
+  background-color: var(--q-cover-ripples-yellow);
+  background-image:
+    radial-gradient(calc(25% / 3) calc(25% / 4) at 50% 100%, var(--q-cover-ripples-wave)),
+    radial-gradient(calc(25% / 3) calc(25% / 4) at 50% 100%, var(--q-cover-ripples-wave)),
+    radial-gradient(calc(25% / 3) calc(25% / 4) at 50% 0%, var(--q-cover-ripples-wave)),
+    radial-gradient(calc(25% / 3) calc(25% / 4) at 50% 0%, var(--q-cover-ripples-wave)),
+    repeating-linear-gradient(90deg, var(--q-cover-ripples-teal) calc(25% / -6) calc(25% / 6), var(--q-cover-ripples-cyan) 0 calc(25% / 2));
+  background-position: 0 0, 42px 63px, 42px 0, 0 63px, 0 0;
+  background-size: 84px 126px;
+}

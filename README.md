@@ -21,7 +21,7 @@
 
 Aquilum opens a folder you choose and works directly with the `.md` files inside it. There is no required account, proprietary note format, or cloud database. Notes and attachments remain usable in other tools, and you can back them up or synchronize them with any service you trust.
 
-The desktop interface is built with Tauri and React; disk access, indexing, search, and queries run in Rust. The result is a responsive workspace that keeps its source of truth on your computer.
+The desktop interface is native: it is written in Rust on Masonry, winit and vello_cpu, without a WebView, and disk access, indexing, search, and queries run in Rust too. The previous interface on Tauri and React is kept in [tauri-version](tauri-version) for reference. The result is a responsive workspace that keeps its source of truth on your computer.
 
 ## A tour of Aquilum
 
@@ -206,7 +206,7 @@ Report bugs and suggest improvements in [Issues](https://github.com/Freaction/Aq
 
 ## Source code and license
 
-This repository contains the Aquilum source code, Windows installers, update manifests, and screenshots. Build instructions are in [DEVELOPMENT.md](DEVELOPMENT.md) (Russian) and [aquilum-app/README.md](aquilum-app/README.md); architecture notes live in [knowledge base](knowledge%20base).
+This repository contains the Aquilum source code, Windows installers, update manifests, and screenshots. Build instructions are in [DEVELOPMENT.md](DEVELOPMENT.md) (Russian) and [aquilum-app/README.md](aquilum-app/README.md); the previous Tauri version is in [tauri-version](tauri-version); architecture notes live in [knowledge base](knowledge%20base).
 
 Copyright © 2026 Dmitriy Chaplinskiy.
 

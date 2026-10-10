@@ -1,0 +1,22 @@
+[package]
+name = "masonry-probe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Отдельный workspace: Masonry берётся из git и тянет свои версии Parley и vello.
+[workspace]
+
+[dependencies]
+# Основная ветка xilem: бэкенд vello_cpu есть только там. Ревизия зафиксирована.
+masonry = { git = "https://github.com/linebender/xilem", rev = "271a27a6d4a930f7878d404f9014e3c50a3a9b88", default-features = false }
+masonry_imaging = { git = "https://github.com/linebender/xilem", rev = "271a27a6d4a930f7878d404f9014e3c50a3a9b88", default-features = false, features = ["imaging_vello_cpu"] }
+imaging_vello_cpu = "0.0.1"
+winit = "=0.31.0-beta.3"
+softbuffer = "0.4.8"
+arboard = { version = "3", default-features = false }
+
+[profile.release]
+lto = "thin"
+codegen-units = 8
+strip = true

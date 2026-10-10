@@ -1,0 +1,27 @@
+.q-cover-pattern--dreams {
+  overflow: hidden;
+  background: #021027;
+}
+
+.q-cover-pattern--dreams::before {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 30%, #123b69, transparent 70%);
+  content: '';
+}
+
+.q-cover-pattern--dreams .q-cover-pattern__particle {
+  position: absolute;
+  bottom: -10%;
+  display: block;
+  border-radius: 50%;
+  background: radial-gradient(circle, hsl(180deg 100% 80%), hsl(180deg 100% 80% / 0) 65%);
+  animation: q-cover-dreams-rise linear infinite;
+}
+
+@keyframes q-cover-dreams-rise {
+  from { transform: translateY(10vh) scale(0.5); opacity: 0; }
+  15% { opacity: 0.9; }
+  85% { opacity: 0.7; }
+  to { transform: translateY(-120vh) scale(1.8); opacity: 0; }
+}

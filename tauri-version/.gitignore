@@ -1,0 +1,35 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+
+# Local env
+*.local
+.env
+.env.*
+!.env.example
+
+# Build outputs live in repo-root /.artifacts/ (see knowledge base/build-artifacts-separation.md).
+# Keep these as a safety net if something is created inside this directory by mistake.
+dist
+dist-ssr
+.build
+releases
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

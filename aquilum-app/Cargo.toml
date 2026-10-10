@@ -1,0 +1,12 @@
+[workspace]
+members = ["core", "native"]
+exclude = ["src-tauri"]
+resolver = "2"
+
+[profile.release]
+lto = "thin"
+codegen-units = 8
+strip = true
+
+[patch."https://github.com/linebender/xilem"]
+masonry_core = { path = "native/vendor/masonry_core" }

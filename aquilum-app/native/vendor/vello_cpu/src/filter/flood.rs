@@ -1,0 +1,56 @@
+// Copyright 2025 the Vello Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+//! Flood filter implementation.
+
+use super::FilterEffect;
+use crate::filter::context::ScratchBuffer;
+use vello_common::filter::flood::Flood;
+use vello_common::pixmap::Pixmap;
+
+impl FilterEffect for Flood {
+    fn execute_lowp(&self, pixmap: &mut Pixmap, _filter_scratch: &mut ScratchBuffer) {
+        pixmap.data_mut().fill(self.color.premultiply().to_rgba8());
+    }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::color::AlphaColor;
+    use crate::filter::context::ScratchBuffer;
+    use vello_common::color::{PremulRgba8, Srgb};
+
+    /// Test flood with semi-transparent color - verifies correct premultiplication.
+    #[test]
+    fn test_flood_semi_transparent_lowp() {
+        let mut pixmap = Pixmap::new(2, 2);
+        let mut filter_scratch = ScratchBuffer::new();
+
+        // Semi-transparent white (50% alpha)
+        let color = AlphaColor {
+            components: [1.0, 1.0, 1.0, 0.5],
+            cs: std::marker::PhantomData::<Srgb>,
+        };
+        let flood = Flood::new(color);
+        flood.execute_lowp(&mut pixmap, &mut filter_scratch);
+
+        // RGB should be premultiplied by alpha: 255 * 0.5 = 127-128
+        for y in 0..2 {
+            for x in 0..2 {
+                let pixel = pixmap.sample(x, y);
+                assert_eq!(
+                    pixel,
+                    PremulRgba8 {
+                        r: 128,
+                        g: 128,
+                        b: 128,
+                        a: 128
+                    }
+                );
+            }
+        }
+    }
+
+}

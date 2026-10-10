@@ -1,0 +1,104 @@
+.q-cover-pattern--notebook {
+  background-color: #fff;
+  background-image:
+    linear-gradient(90deg, transparent 79px, #abced4 79px, #abced4 81px, transparent 81px),
+    linear-gradient(#eee 0.1em, transparent 0.1em);
+  background-size: 100% 1.2em;
+}
+
+.q-cover-pattern--dotgrid {
+  --q-cover-dot: radial-gradient(#000 3px, transparent 4px);
+  --q-cover-fold: transparent 75px, #a4a4a4 75px, #a4a4a4 76px, transparent 76px, transparent 109px;
+  background-color: #fff;
+  background-image:
+    var(--q-cover-dot),
+    var(--q-cover-dot),
+    linear-gradient(#fff 4px, transparent 0),
+    linear-gradient(45deg, var(--q-cover-fold)),
+    linear-gradient(-45deg, var(--q-cover-fold));
+  background-position: 54px 55px, 0 0, 0 0, 0 0, 0 0;
+  background-size: 109px 109px, 109px 109px, 100% 6px, 109px 109px, 109px 109px;
+}
+
+.q-cover-pattern--blueprint {
+  --q-cover-blueprint-major: rgba(255, 255, 255, 0.5) 2px, transparent 2px;
+  --q-cover-blueprint-minor: rgba(255, 255, 255, 0.28) 1px, transparent 1px;
+  background-color: #269;
+  background-image:
+    linear-gradient(var(--q-cover-blueprint-major)),
+    linear-gradient(90deg, var(--q-cover-blueprint-major)),
+    linear-gradient(var(--q-cover-blueprint-minor)),
+    linear-gradient(90deg, var(--q-cover-blueprint-minor));
+  background-position: -2px -2px, -2px -2px, -1px -1px, -1px -1px;
+  background-size: 103px 103px, 103px 103px, 20.6px 20.6px, 20.6px 20.6px;
+}
+
+.q-cover-pattern--neon {
+  --q-cover-neon-hatch:
+    transparent, transparent 4px,
+    rgba(255, 255, 255, 0.1) 4px, rgba(255, 255, 255, 0.1) 8px;
+  --q-cover-neon-tick:
+    transparent, transparent 20px,
+    rgba(100, 250, 250, 0.2) 20px, rgba(100, 250, 250, 0.2) 21px,
+    transparent 21px, transparent 29px,
+    rgba(100, 250, 250, 0.2) 29px, rgba(100, 250, 250, 0.2) 30px,
+    transparent 30px, transparent 50px;
+  background-color: #000;
+  background-image:
+    repeating-linear-gradient(transparent, transparent 50px, rgba(0, 255, 255, 0.25) 50px, rgba(0, 255, 255, 0.25) 100px),
+    repeating-linear-gradient(90deg, rgba(0, 255, 255, 0.25), rgba(0, 255, 255, 0.25) 50px, transparent 50px, transparent 100px),
+    repeating-linear-gradient(135deg, var(--q-cover-neon-hatch)),
+    repeating-linear-gradient(45deg, var(--q-cover-neon-hatch)),
+    repeating-linear-gradient(var(--q-cover-neon-tick)),
+    repeating-linear-gradient(90deg, var(--q-cover-neon-tick));
+}
+
+.q-cover-pattern--lattice {
+  --q-cover-lattice-far: transparent 65%, hsl(205, 80%, 40%), transparent 70%;
+  --q-cover-lattice-near: transparent 30%, hsl(205, 80%, 40%), transparent 35%;
+  background-color: #222;
+  background-image:
+    linear-gradient(25deg, var(--q-cover-lattice-far)),
+    linear-gradient(-25deg, var(--q-cover-lattice-far)),
+    linear-gradient(-25deg, var(--q-cover-lattice-near)),
+    linear-gradient(25deg, var(--q-cover-lattice-near)),
+    linear-gradient(65deg, var(--q-cover-lattice-far)),
+    linear-gradient(-65deg, var(--q-cover-lattice-far)),
+    linear-gradient(-65deg, var(--q-cover-lattice-near)),
+    linear-gradient(65deg, var(--q-cover-lattice-near));
+  background-size:
+    64px 25.6px, 64px 25.6px, 64px 25.6px, 64px 25.6px,
+    25.6px 64px, 25.6px 64px, 25.6px 64px, 25.6px 64px;
+}
+
+.q-cover-pattern--quilt {
+  --q-cover-quilt-cream: rgba(255, 239, 195, 0.4);
+  --q-cover-quilt-lemon: rgba(232, 222, 103, 0.4);
+  --q-cover-quilt-sage: rgba(192, 204, 171, 0.5);
+  --q-cover-quilt-clay: rgba(229, 113, 82, 0.2);
+  --q-cover-quilt-band:
+    transparent 35%, var(--q-cover-quilt-cream) 35%, var(--q-cover-quilt-cream) 45%,
+    transparent 45%, transparent 55%, var(--q-cover-quilt-lemon) 55%,
+    var(--q-cover-quilt-lemon) 70%, transparent 70%;
+  --q-cover-quilt-hair:
+    transparent 55%, var(--q-cover-quilt-cream) 55%,
+    var(--q-cover-quilt-cream) 60%, transparent 60%;
+  --q-cover-quilt-wide:
+    transparent 10%, var(--q-cover-quilt-lemon) 10%,
+    var(--q-cover-quilt-lemon) 35%, transparent 35%;
+  background-color: #ffefc3;
+  background-image:
+    linear-gradient(90deg, transparent 93%, var(--q-cover-quilt-sage) 93%),
+    linear-gradient(90deg, var(--q-cover-quilt-lemon) 5%, transparent 5%),
+    linear-gradient(var(--q-cover-quilt-lemon) 5%, transparent 5%),
+    linear-gradient(transparent 90%, var(--q-cover-quilt-clay) 90%),
+    linear-gradient(var(--q-cover-quilt-band)),
+    linear-gradient(90deg, var(--q-cover-quilt-band)),
+    linear-gradient(var(--q-cover-quilt-hair)),
+    linear-gradient(90deg, var(--q-cover-quilt-hair)),
+    linear-gradient(transparent 20%, var(--q-cover-quilt-sage) 20%, var(--q-cover-quilt-sage) 80%, transparent 80%),
+    linear-gradient(90deg, transparent 20%, var(--q-cover-quilt-clay) 20%, var(--q-cover-quilt-clay) 80%, transparent 80%),
+    linear-gradient(var(--q-cover-quilt-wide)),
+    linear-gradient(90deg, var(--q-cover-quilt-wide));
+  background-size: 140px 140px;
+}

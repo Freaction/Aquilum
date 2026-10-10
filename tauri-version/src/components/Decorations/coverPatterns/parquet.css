@@ -1,0 +1,8 @@
+.q-cover-pattern--parquet {
+  background-color: #753;
+  background-image:
+    linear-gradient(45deg, #dca 12%, transparent 0, transparent 88%, #dca 0),
+    linear-gradient(135deg, transparent 37%, #a85 0, #a85 63%, transparent 0),
+    linear-gradient(45deg, transparent 37%, #dca 0, #dca 63%, transparent 0);
+  background-size: 25px 25px;
+}

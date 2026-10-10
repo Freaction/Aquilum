@@ -1,0 +1,10 @@
+.q-cover-pattern--weave {
+  background-color: #192a44;
+  background-image:
+    linear-gradient(45deg, transparent 37.5%, #f2b84b 37.5% 62.5%, transparent 62.5%),
+    linear-gradient(-45deg, transparent 37.5%, #ed6a5a 37.5% 62.5%, transparent 62.5%),
+    linear-gradient(45deg, transparent 37.5%, #55b8a6 37.5% 62.5%, transparent 62.5%),
+    linear-gradient(-45deg, transparent 37.5%, #7e6bbd 37.5% 62.5%, transparent 62.5%);
+  background-position: 0 0, 0 0, 12px 12px, 12px 12px;
+  background-size: 24px 24px;
+}

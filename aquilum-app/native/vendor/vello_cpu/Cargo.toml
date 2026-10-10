@@ -1,0 +1,32 @@
+[package]
+name = "vello_cpu"
+version = "0.3.0"
+edition = "2024"
+description = "Форк vello_cpu 0.3.0 под Aquilum"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/linebender/vello"
+
+[features]
+default = ["std", "png", "text"]
+std = ["vello_common/std", "glifo?/std"]
+png = ["std", "vello_common/png", "glifo?/png"]
+text = ["dep:glifo"]
+multithreading = ["std", "dep:rayon", "dep:thread_local", "dep:ordered-channel", "dep:crossbeam-channel", "vello_common/multithreading"]
+
+[dependencies]
+aq_trace = { path = "../aq_trace" }
+bytemuck = { version = "1.25.0", features = ["derive"] }
+crossbeam-channel = { version = "0.5.15", optional = true }
+glifo = { path = "../glifo", optional = true, default-features = false }
+hashbrown = { version = "0.17.1", default-features = false, features = ["default-hasher"] }
+ordered-channel = { version = "1.2.0", optional = true, features = ["crossbeam-channel"] }
+rayon = { version = "1.12.0", optional = true }
+thread_local = { version = "1.1.9", optional = true }
+vello_common = { version = "0.3.0", default-features = false }
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ["cfg(disable_dispatch_sse4_2)", "cfg(disable_dispatch_avx2)", "cfg(disable_dispatch_avx512)"]
+
+[dev-dependencies]
+fearless_simd = { version = "0.7.0", default-features = false, features = ["force_support_fallback"] }

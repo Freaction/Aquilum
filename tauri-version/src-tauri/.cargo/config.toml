@@ -1,0 +1,9 @@
+# Target directory is NOT set here on purpose.
+# scripts/tauri.ps1 creates a junction:
+#   src-tauri/target  →  ../../.artifacts/cargo-dev   (dev)
+#   src-tauri/target  →  ../../.artifacts/cargo-release (build)
+# Tauri ACL files are read via src-tauri/target/...; a separate CARGO_TARGET_DIR
+# would desync those paths and break `tauri dev` / `tauri build`.
+
+[build]
+target-dir = "target"

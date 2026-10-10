@@ -1,0 +1,6 @@
+[package]
+name = "aq_trace"
+version = "0.1.0"
+edition = "2024"
+description = "Зоны времени кадра Aquilum в формате Chrome Trace"
+license = "AGPL-3.0-only"

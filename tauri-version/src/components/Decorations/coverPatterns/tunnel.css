@@ -1,0 +1,57 @@
+.q-cover-pattern--tunnel {
+  --q-cover-tunnel-streak: #a2cef4;
+  --q-cover-tunnel-fog: #6084d7;
+  --q-cover-tunnel-tile: 44px;
+  overflow: hidden;
+  perspective: 84px;
+  perspective-origin: 50% 50%;
+  background: linear-gradient(
+    var(--q-cover-tunnel-fog) 25%,
+    var(--q-cover-tunnel-streak) 50%,
+    var(--q-cover-tunnel-streak) 50%,
+    var(--q-cover-tunnel-fog) 100%
+  );
+}
+
+.q-cover-pattern--tunnel::before,
+.q-cover-pattern--tunnel::after {
+  content: '';
+  position: absolute;
+  left: -50%;
+  width: 200%;
+  height: 130%;
+  background-image:
+    linear-gradient(var(--q-cover-tunnel-streak) 2px, transparent 2px),
+    linear-gradient(90deg, var(--q-cover-tunnel-streak) 2px, transparent 2px);
+  background-size: var(--q-cover-tunnel-tile) var(--q-cover-tunnel-tile);
+  background-position: -1px -1px, -1px -1px;
+  animation: q-cover-tunnel-floor 2s linear infinite;
+}
+
+.q-cover-pattern--tunnel::before {
+  bottom: -30%;
+  transform: rotateX(85deg);
+}
+
+.q-cover-pattern--tunnel::after {
+  top: -30%;
+  transform: rotateX(-85deg);
+  animation-name: q-cover-tunnel-ceiling;
+}
+
+@keyframes q-cover-tunnel-floor {
+  from { background-position: 0 calc(var(--q-cover-tunnel-tile) * -1), 0 0; }
+  to { background-position: 0 0, var(--q-cover-tunnel-tile) 0; }
+}
+
+@keyframes q-cover-tunnel-ceiling {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 calc(var(--q-cover-tunnel-tile) * -1), var(--q-cover-tunnel-tile) 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-cover-pattern--tunnel::before,
+  .q-cover-pattern--tunnel::after {
+    animation: none;
+  }
+}

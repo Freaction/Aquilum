@@ -1,0 +1,17 @@
+:root {
+  --q-elevation-md: 0 4px 6px -1px var(--q-shadow-md), 0 2px 4px -2px var(--q-shadow-sm);
+
+  --q-shadow-ring: 0 0 0 var(--q-border-1) var(--q-border-default);
+
+  --q-shadow-focus-ring:
+    0 0 0 var(--q-border-1) var(--q-border-focus),
+    0 0 0 var(--q-border-4) var(--q-border-focus-ring);
+
+  --q-elevation-float:
+    0 0.9375rem 1.875rem var(--q-shadow-lg),
+    0 0.2125rem 0.41875rem var(--q-shadow-md),
+    0 var(--q-unit-1) var(--q-unit-2) var(--q-shadow-sm);
+
+  --q-shadow-action: 0 2px 6px var(--q-shadow-md);
+  --q-shadow-action-xs: 0 2px 3px var(--q-shadow-md);
+}

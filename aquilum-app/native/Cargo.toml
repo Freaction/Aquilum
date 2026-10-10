@@ -1,0 +1,72 @@
+[package]
+name = "aquilum-native"
+version = "0.2.6"
+description = "Aquilum native UI (Masonry on winit + vello_cpu), no WebView"
+authors = ["Dmitriy Chaplinskiy"]
+license = "AGPL-3.0-only"
+edition = "2024"
+workspace = ".."
+
+[features]
+installed = []
+
+[dependencies]
+aquilum-core = { path = "../core" }
+# Основная ветка xilem: Masonry без релиза больше года, бэкенды под vello_cpu только там.
+# Ревизия зафиксирована, обновлять пачками.
+masonry = { git = "https://github.com/linebender/xilem", rev = "271a27a6d4a930f7878d404f9014e3c50a3a9b88", default-features = false }
+# 0.31 — бета, версия зафиксирована точно: API между бетами ломается.
+winit = "=0.31.0-beta.3"
+vello_cpu = { path = "vendor/vello_cpu", features = ["multithreading"] }
+rayon = "1.12"
+arboard = { version = "3", default-features = false, features = ["image-data"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1.23.5", features = ["v4"] }
+rfd = "0.16"
+pulldown-cmark = { version = "0.13", default-features = false }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+bytemuck = "1"
+flate2 = "1"
+roxmltree = "0.21"
+base64 = "0.22"
+minisign-verify = "0.2"
+foldhash = "0.2"
+aq_trace = { path = "vendor/aq_trace" }
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+softbuffer = "0.4.8"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+accesskit_macos = "=0.26.3"
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-av-foundation = { version = "0.3", features = ["objc2-core-media", "objc2-core-video", "objc2-core-graphics"] }
+objc2-core-media = "0.3"
+objc2-core-video = "0.3"
+objc2-core-graphics = "0.3"
+objc2-core-foundation = "0.3"
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+accesskit_unix = "=0.22.1"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-core = "0.62"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11", "Win32_Graphics_DirectManipulation", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Graphics_Gdi", "Win32_Graphics_Imaging", "Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_System_Registry", "Win32_UI_Input_Pointer", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+# Под accesskit 0.24 из Masonry: та же версия, что у accesskit_winit 0.32.
+accesskit_windows = "=0.32.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gstreamer = "0.24"
+gstreamer-app = "0.24"
+gstreamer-video = "0.24"
+
+[build-dependencies]
+# Шрифты фронтенда лежат в WOFF2, а fontique читает только TTF/OTF: распаковка при сборке.
+wuff = "0.2.9"
+# Переименование семейства кириллической половины Inter (см. build.rs).
+write-fonts = { version = "0.54", features = ["read"] }
+
+[dev-dependencies]
+tempfile = "3"

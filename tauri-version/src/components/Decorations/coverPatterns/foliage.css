@@ -1,0 +1,25 @@
+.q-cover-pattern--foliage {
+  --q-cover-foliage-red: #a31e39;
+  --q-cover-foliage-green: #31570e;
+  --q-cover-foliage-white: #ffffff;
+  --q-cover-foliage-leaf:
+    transparent, var(--q-cover-foliage-white) 1deg 79deg, transparent 81deg;
+  --q-cover-foliage-leaf0: conic-gradient(from 140deg at 50% 87.5%, var(--q-cover-foliage-leaf));
+  --q-cover-foliage-leaf1: conic-gradient(from 140deg at 50% 81.25%, var(--q-cover-foliage-leaf));
+  --q-cover-foliage-leaf2: conic-gradient(from 140deg at 50% 75%, var(--q-cover-foliage-leaf));
+  --q-cover-foliage-spot: conic-gradient(at 10% 20%, transparent 75%, var(--q-cover-foliage-white) 0);
+  background-color: var(--q-cover-foliage-red);
+  background-image:
+    var(--q-cover-foliage-leaf0), var(--q-cover-foliage-leaf0),
+    var(--q-cover-foliage-leaf1), var(--q-cover-foliage-leaf1),
+    var(--q-cover-foliage-leaf2), var(--q-cover-foliage-leaf2),
+    var(--q-cover-foliage-spot), var(--q-cover-foliage-spot),
+    repeating-conic-gradient(from 45deg, var(--q-cover-foliage-red) 0 25%, var(--q-cover-foliage-green) 0 50%);
+  background-position:
+    0 calc(-46px / 4), 46px calc(3 * 46px / 4),
+    0 0, 46px 46px,
+    0 calc(46px / 4), 46px calc(5 * 46px / 4),
+    calc(-46px / 10) 46px, calc(9 * 46px / 10) calc(2 * 46px),
+    0 0;
+  background-size: calc(2 * 46px) calc(2 * 46px);
+}

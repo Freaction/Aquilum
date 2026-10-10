@@ -1,0 +1,17 @@
+.q-cover-pattern--hearts {
+  font-size: 8px;
+  --q-cover-heart-red: #e83a25;
+  --q-cover-heart-green: #98cc96;
+  background-color: #ffe9a3;
+  background-image:
+    linear-gradient(135deg, var(--q-cover-heart-red) 1.2em, transparent 1.2em),
+    linear-gradient(-135deg, var(--q-cover-heart-red) 1.2em, transparent 1.2em),
+    radial-gradient(circle at 7.16em 7.4em, var(--q-cover-heart-red) 1.02em, transparent 1.044em),
+    radial-gradient(circle at 0.84em 7.4em, var(--q-cover-heart-red) 1.02em, transparent 1.044em),
+    linear-gradient(135deg, var(--q-cover-heart-green) 1.2em, transparent 1.2em),
+    linear-gradient(-135deg, var(--q-cover-heart-green) 1.2em, transparent 1.2em),
+    radial-gradient(circle at 7.16em 7.4em, var(--q-cover-heart-green) 1.02em, transparent 1.044em),
+    radial-gradient(circle at 0.84em 7.4em, var(--q-cover-heart-green) 1.02em, transparent 1.044em);
+  background-position: 0 4em, 0 4em, 0 -4em, 0 -4em, 4em 0, 4em 0, 4em 0, 4em 0;
+  background-size: 8em 8em;
+}

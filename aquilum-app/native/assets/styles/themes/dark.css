@@ -1,0 +1,56 @@
+/* Generated from variables.json — do not edit. Run: npm run tokens:sync */
+[data-theme="dark"] {
+    color-scheme: dark;
+    --q-bg-accent-subtle: var(--q-blue-alpha-20);
+    --q-bg-canvas: var(--q-gray-950);
+    --q-bg-inverse: var(--q-white-alpha-main);
+    --q-bg-inverse-muted: var(--q-white-alpha-80);
+    --q-bg-inverse-subdued: var(--q-white-alpha-70);
+    --q-bg-overlay: var(--q-black-alpha-60);
+    --q-bg-overlay-subtle: var(--q-black-alpha-32);
+    --q-bg-scrim: var(--q-black-alpha-70);
+    --q-bg-search-match: var(--q-pink-alpha-40);
+    --q-bg-surface: var(--q-gray-850);
+    --q-bg-surface-active: var(--q-white-alpha-10);
+    --q-bg-surface-hover: var(--q-white-alpha-08);
+    --q-bg-surface-overlay: var(--q-white-alpha-10);
+    --q-bg-surface-raised: var(--q-gray-800);
+    --q-bg-surface-subtle: var(--q-white-alpha-06);
+    --q-border-contrast: var(--q-white-alpha-70);
+    --q-border-contrast-inverse: var(--q-white-alpha-12);
+    --q-border-default: var(--q-white-alpha-12);
+    --q-border-emphasis: var(--q-white-alpha-10);
+    --q-border-solid: var(--q-gray-600);
+    --q-border-subtle: var(--q-white-alpha-05);
+    --q-icon-disabled: var(--q-white-alpha-32);
+    --q-icon-faint: var(--q-white-alpha-50);
+    --q-icon-inverse: var(--q-black-alpha-main);
+    --q-icon-inverse-muted: var(--q-black-alpha-60);
+    --q-icon-muted: var(--q-white-alpha-70);
+    --q-icon-primary: var(--q-white-alpha-80);
+    --q-icon-quiet: var(--q-white-alpha-12);
+    --q-icon-secondary: var(--q-white-alpha-70);
+    --q-icon-soft: var(--q-white-alpha-20);
+    --q-shadow-lg: var(--q-black-alpha-50);
+    --q-shadow-md: var(--q-black-alpha-40);
+    --q-shadow-sm: var(--q-black-alpha-30);
+    --q-text-disabled: var(--q-white-alpha-40);
+    --q-text-inverse: var(--q-black-alpha-main);
+    --q-text-muted: var(--q-white-alpha-30);
+    --q-text-primary: var(--q-white-alpha-90);
+    --q-text-secondary: var(--q-white-alpha-80);
+    --q-text-tertiary: var(--q-white-alpha-60);
+
+    /* App dark overrides (component chrome) */
+    --q-icon-tertiary: var(--q-white-alpha-60);
+    --q-scrollbar-thumb: var(--q-white-alpha-10);
+    --q-scrollbar-thumb-hover: var(--q-white-alpha-20);
+    --q-selection-bg: color-mix(in srgb, var(--q-caret-color) 25%, transparent);
+    --q-selection-match-bg: var(--q-purple-alpha-60);
+    --q-sidebar-item-hover-bg: var(--q-bg-surface-hover);
+    --q-sidebar-item-active-bg: var(--q-bg-surface-hover);
+    --q-search-result-bg: var(--q-white-alpha-03);
+    --q-tab-bg-hover: var(--q-white-alpha-06);
+    --q-editor-bg: var(--q-gray-900);
+    --q-tab-bg-active: var(--q-editor-bg);
+}

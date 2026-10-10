@@ -1,0 +1,13 @@
+.q-cover-pattern--origami {
+  --q-cover-origami-blue: #0011ff;
+  --q-cover-origami-green: #67917a;
+  --q-cover-origami-lens: transparent 52%, var(--q-cover-origami-blue) 54% 57%, transparent 59%;
+  background-color: var(--q-cover-origami-green);
+  background-image:
+    radial-gradient(farthest-side at -33.33% 50%, var(--q-cover-origami-lens)),
+    radial-gradient(farthest-side at 50% 133.33%, var(--q-cover-origami-lens)),
+    radial-gradient(farthest-side at 133.33% 50%, var(--q-cover-origami-lens)),
+    radial-gradient(farthest-side at 50% -33.33%, var(--q-cover-origami-lens));
+  background-position: 0 48px, 48px 0, 0 0, 0 0;
+  background-size: 20.57px 96px, 96px 20.57px, 20.57px 96px, 96px 20.57px;
+}

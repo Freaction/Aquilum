@@ -1,0 +1,23 @@
+[package]
+name = "masonry_core"
+version = "0.4.0"
+edition = "2024"
+description = "Форк masonry_core (xilem 271a27a) под Aquilum"
+license = "Apache-2.0"
+repository = "https://github.com/linebender/xilem"
+
+[dependencies]
+aq_trace = { path = "../aq_trace" }
+accesskit = "0.24.0"
+anymap3 = "1.0.1"
+anymore = "1.0.0"
+cursor-icon = "1.2.0"
+dpi = "0.1.2"
+imaging = "0.0.1"
+kurbo = "0.13.1"
+parley = { version = "0.8.0", features = ["accesskit"] }
+peniko = "0.6.1"
+smallvec = "1.15.1"
+tracing = { version = "0.1.44", default-features = false, features = ["default"] }
+tree_arena = { git = "https://github.com/linebender/xilem", rev = "271a27a6d4a930f7878d404f9014e3c50a3a9b88" }
+ui-events = { version = "0.3.0", default-features = false, features = ["kurbo"] }

@@ -1,0 +1,8 @@
+.q-cover-pattern--polka {
+  background-color: #f6ead8;
+  background-image:
+    radial-gradient(circle, #d94c66 0 8px, transparent 8.5px),
+    radial-gradient(circle, #d94c66 0 8px, transparent 8.5px);
+  background-position: 0 0, 18px 18px;
+  background-size: 36px 36px;
+}

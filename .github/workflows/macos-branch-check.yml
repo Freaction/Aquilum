@@ -28,28 +28,28 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: aquilum-app/package-lock.json
+          cache-dependency-path: tauri-version/package-lock.json
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: aquilum-app/src-tauri -> target
+          workspaces: tauri-version/src-tauri -> target
           key: branch-check
 
       - name: Install frontend dependencies
-        working-directory: aquilum-app
+        working-directory: tauri-version
         run: npm ci
 
       - name: Build the app with the PDF export check
-        working-directory: aquilum-app
+        working-directory: tauri-version
         env:
           VITE_E2E_PDF: /tmp/aquilum-e2e.pdf
         run: npx tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
       - name: Install the app
         run: |
-          ditto aquilum-app/src-tauri/target/release/bundle/macos/Aquilum.app /Applications/Aquilum.app
+          ditto tauri-version/src-tauri/target/release/bundle/macos/Aquilum.app /Applications/Aquilum.app
           data="$HOME/Library/Application Support/com.dmitriy.aquilum-app"
           mkdir -p "$data"
           echo '{"updates":{"auto":false}}' > "$data/settings.json"

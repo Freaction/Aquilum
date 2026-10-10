@@ -1,0 +1,10 @@
+.q-cover-pattern--quadrants {
+  background-image: conic-gradient(
+    from 45deg,
+    #020681 0 90deg,
+    #000337 90deg 180deg,
+    #0818ff 180deg 270deg,
+    #0f9bfe 270deg 360deg
+  );
+  background-size: 1em 1em;
+}

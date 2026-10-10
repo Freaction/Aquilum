@@ -1,31 +1,37 @@
 # Aquilum
 
-## Development
+Нативное приложение: Rust, Masonry, winit и vello_cpu, без WebView. Код окна — `native/`, общее ядро (файлы, поиск, история, MCP) — `core/`.
+
+## Разработка
+
+```powershell
+native\run.bat
+```
+
+Собирает release и запускает окно. Если окно уже открыто, оно закрывается штатно, с сохранением, и запускается новая сборка.
+
+Пересборка на лету при правке кода: `native\scripts\watch.ps1`.
+
+## Проверка
+
+```powershell
+cargo test -p aquilum-native
+cargo test -p aquilum-core
+```
+
+## Релиз
 
 ```powershell
 npm install
-npm run tauri dev
-```
-
-## Verification
-
-```powershell
-npm test
-cd src-tauri
-cargo test
-```
-
-## Release
-
-```powershell
 npm run release
 ```
 
-Финальные файлы: `../.artifacts/releases/<version>/` (отсюда запускай `.exe`).
+Собирает нативное приложение с фичей `installed` (автообновление, автозапуск) и упаковывает его в установщик по `native/tauri.conf.json` через CLI Tauri. Установщик ставится туда же, куда ставилась версия на Tauri, и обновляет её. Подпись — тот же ключ minisign, `latest.json` в прежнем формате.
 
-Кэши разделены:
-- `../.artifacts/cargo-dev/` — `npm run tauri dev`
-- `../.artifacts/cargo-release/` — фабрика `npm run release` (не для ручного запуска)
-- `../.artifacts/dist/` — production-фронт внутри сборки
+Финальные файлы: `../.artifacts/releases/<version>/`.
 
-Подробности: `../knowledge base/build-artifacts-separation.md`.
+Кэши:
+- `../.artifacts/cargo-native/` — разработка и тесты;
+- `../.artifacts/native-bundle/` — сборка релиза.
+
+Прежняя версия на Tauri лежит в `../tauri-version/` и нужна только для сверки возможностей.

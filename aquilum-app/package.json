@@ -5,54 +5,13 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "check:colors": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/find-hardcoded-colors.ps1",
-    "check:colors:strict": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/find-hardcoded-colors.ps1 -Strict",
-    "migrate:created": "node scripts/migrate-created.mjs",
-    "tokens:sync": "node scripts/sync-figma-tokens.mjs",
-    "tokens:diff": "node scripts/tokens-diff.mjs",
-    "check:tokens": "node scripts/audit-design-tokens.mjs",
-    "check:tokens:strict": "node scripts/audit-design-tokens.mjs --strict",
-    "check:figma-names": "node scripts/audit-figma-token-names.mjs",
-    "check:figma-names:strict": "node scripts/audit-figma-token-names.mjs --strict",
-    "icons:sync": "node scripts/sync-icons.mjs",
-    "preview": "vite preview",
     "release": "node scripts/release-github.mjs",
     "release:local": "node scripts/build-release.mjs",
-    "publish:source": "node scripts/publish-source.mjs",
-    "tauri": "node scripts/tauri.mjs",
-    "tauri:build": "node scripts/tauri.mjs build"
-  },
-  "dependencies": {
-    "@codemirror/autocomplete": "^6.20.3",
-    "@codemirror/collab": "^6.1.1",
-    "@codemirror/commands": "^6.10.4",
-    "@codemirror/lang-markdown": "^6.5.0",
-    "@codemirror/language": "^6.12.4",
-    "@codemirror/language-data": "^6.5.2",
-    "@codemirror/merge": "^6.12.2",
-    "@codemirror/search": "^6.7.1",
-    "@codemirror/state": "^6.7.1",
-    "@codemirror/view": "^6.43.6",
-    "@lezer/common": "^1.5.2",
-    "@lezer/highlight": "^1.2.3",
-    "@lezer/markdown": "^1.7.1",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-autostart": "^2.5.1",
-    "@tauri-apps/plugin-dialog": "^2.7.1",
-    "@tauri-apps/plugin-opener": "^2",
-    "lucide": "^1.24.0",
-    "preact": "^11.0.0"
+    "bundle": "node scripts/bundle-native.mjs build",
+    "icons:sync": "node scripts/sync-icons.mjs",
+    "publish:source": "node scripts/publish-source.mjs"
   },
   "devDependencies": {
-    "@preact/preset-vite": "^2.10.6",
-    "@tauri-apps/cli": "^2",
-    "happy-dom": "^20.14.5",
-    "typescript": "~5.8.3",
-    "vite": "^7.0.4",
-    "vitest": "^4.1.10"
+    "@tauri-apps/cli": "2.11.4"
   }
 }

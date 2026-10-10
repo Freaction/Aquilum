@@ -1,0 +1,23 @@
+:root {
+  --q-duration-fast: 100ms;
+  --q-duration-normal: 200ms;
+  --q-duration-slower: 500ms;
+
+  --q-ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --q-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --q-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --q-ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
+
+  --q-z-header: 300;
+  --q-z-modal: 500;
+  --q-z-popover: 600;
+  --q-z-drag: 800;
+  --q-z-system: 900;
+
+  --q-opacity-0: 0;
+  --q-opacity-50: 0.5;
+  --q-opacity-60: 0.6;
+  --q-opacity-90: 0.9;
+
+  --q-base-font-size: 16px;
+}

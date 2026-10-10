@@ -1,0 +1,23 @@
+[package]
+name = "glifo"
+version = "0.4.0"
+edition = "2024"
+description = "Форк glifo 0.4.0 под Aquilum"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/linebender/vello"
+
+[features]
+default = ["std"]
+std = ["foldhash/std", "vello_common/std", "skrifa/std"]
+png = ["std", "dep:png", "vello_common/png"]
+
+[dependencies]
+bytemuck = { version = "1.25.0", features = ["derive"] }
+foldhash = { version = "0.2.0", default-features = false }
+hashbrown = { version = "0.17.1", default-features = false, features = ["default-hasher", "raw-entry"] }
+log = "0.4.29"
+peniko = { version = "0.6.1", default-features = false }
+png = { version = "0.18.1", optional = true }
+skrifa = { version = "0.44.0", default-features = false, features = ["autohint_shaping"] }
+smallvec = "1.15.1"
+vello_common = { version = "0.3.0", default-features = false }

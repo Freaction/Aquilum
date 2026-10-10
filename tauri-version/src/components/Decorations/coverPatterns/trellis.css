@@ -1,0 +1,13 @@
+.q-cover-pattern--trellis {
+  --q-cover-trellis-navy: #1a144a;
+  --q-cover-trellis-green: #2eb044;
+  --q-cover-trellis-dash: conic-gradient(var(--q-cover-trellis-navy) 25%, transparent 0);
+  background-color: var(--q-cover-trellis-navy);
+  background-image:
+    var(--q-cover-trellis-dash),
+    var(--q-cover-trellis-dash),
+    repeating-conic-gradient(transparent 0 25%, var(--q-cover-trellis-navy) 0 50%),
+    radial-gradient(50% 50%, var(--q-cover-trellis-green) 98%, var(--q-cover-trellis-navy));
+  background-position: 0 0, 0 0, 45px 0, 0 0;
+  background-size: 90px 4.7px, 4.7px 90px, 90px 90px, 45px 45px;
+}

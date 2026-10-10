@@ -1,0 +1,172 @@
+// Copyright 2025 the Vello Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+// After you edit the crate's doc comment, run this command, then check
+// README.md for any missing links
+// cargo rdme --workspace-project=vello_cpu
+
+//! Vello CPU is a 2D graphics rendering engine written in Rust for devices with no
+//! or underpowered GPUs.
+//!
+//! We also develop:
+//!
+//! 1. [Vello GPU](https://crates.io/crates/vello_gpu), which shares Vello CPU's
+//!    architecture but moves rasterization and compositing to the GPU.
+//! 2. [Vello Research], an experimental, high-performance, compute-centric GPU
+//!    renderer.
+//!
+//! ## Usage
+//!
+//! To use Vello CPU, you need to:
+//!
+//! - Create a [`RenderContext`][], a 2D drawing context for a fixed-size scene
+//!   area.
+//! - For each object in your scene:
+//!   - Set how the object will be painted, using
+//!     [`set_paint`][RenderContext::set_paint].
+//!   - Set the shape to be drawn for that object, using methods like
+//!     [`fill_path`][RenderContext::fill_path],
+//!     [`stroke_path`][RenderContext::stroke_path], or
+//!     [`glyph_run`][RenderContext::glyph_run].
+//! - Render it to an image using [`RenderContext::render`][].
+//!
+//! ```rust
+//! use vello_cpu::{RenderContext, Resources, Pixmap};
+//! use vello_cpu::{color::{palette::css, PremulRgba8}, kurbo::Rect};
+//! let width = 10;
+//! let height = 5;
+//! let mut context = RenderContext::new(width, height);
+//! let mut resources = Resources::new();
+//! context.set_paint(css::MAGENTA);
+//! context.fill_rect(&Rect::from_points((3., 1.), (7., 4.)));
+//!
+//! let mut target = Pixmap::new(width, height);
+//! // While calling `flush` is only strictly necessary if you are rendering using
+//! // multiple threads, it is recommended to always do this.
+//! context.flush();
+//! context.render(&mut target, &mut resources);
+//!
+//! let expected_render = b"\
+//!     0000000000\
+//!     0001111000\
+//!     0001111000\
+//!     0001111000\
+//!     0000000000";
+//! let magenta = css::MAGENTA.premultiply().to_rgba8();
+//! let transparent = PremulRgba8 {r: 0, g: 0, b: 0, a: 0};
+//! let mut result = Vec::new();
+//! for pixel in target.data() {
+//!     if *pixel == magenta {
+//!         result.push(b'1');
+//!     } else if *pixel == transparent {
+//!         result.push(b'0');
+//!     } else {
+//!          panic!("Got unexpected pixel value {pixel:?}");
+//!     }
+//! }
+//! assert_eq!(&result, expected_render);
+//! ```
+//!
+//! See the
+//! [examples](https://github.com/linebender/vello/tree/main/vello_cpu/examples) for
+//! more complete demonstrations of Vello CPU's API.
+//!
+//! ## Features
+//!
+//! - `std` (enabled by default): Get floating point functions from the standard
+//!   library (likely using your target's libc).
+//! - `png`(enabled by default): Allow loading [`Pixmap`]s from PNG images. Also
+//!   required for rendering glyphs with an embedded PNG. Implies `std`.
+//! - `multithreading`: Enable multi-threaded rendering. Implies `std`.
+//! - `text` (enabled by default): Enables glyph rendering
+//!   ([`glyph_run`][RenderContext::glyph_run]).
+//!
+//! ## Current state
+//!
+//! Vello CPU is a solid CPU-only 2D renderer with broad, reliable feature support.
+//! It provides excellent performance across a wide range of workloads, with
+//! optimized SIMD implementations for all major architectures. The renderer is
+//! still under active development, however, and a few limitations remain:
+//!
+//! - Complex filter graphs are currently not supported at all and will panic. In
+//!   multi-threaded mode, even simple filters are currently unsupported.
+//! - Parts of the API and its documentation are still suboptimal, for example the
+//!   [`Resources`][] lifecycle.
+//! - Some exposed features remain experimental and are not recommended for use,
+//!   including glyph caching. Experimental APIs are identified in their method
+//!   documentation.
+//! - There is still more room for performance improvements, in particular on x86
+//!   systems and also for multi-threaded rendering.
+//!
+//! With that said, we are continuously improving Vello CPU and will address these
+//! and other limitations in future releases.
+//!
+//! ## Performance
+//!
+//! Performance benchmarks can be found
+//! [here](https://laurenzv.github.io/vello_chart/), As can be seen, Vello CPU
+//! achieves compelling performance on both, aarch64 and x86 platforms. We also have
+//! SIMD optimizations for WASM SIMD, meaning that you can expect good performance
+//! there as well.
+//!
+//! ## Implementation
+//!
+//! If you want to gain a better understanding of Vello CPU and the sparse strips
+//! paradigm, you can take a look at the
+//! [accompanying master's thesis](https://ethz.ch/content/dam/ethz/special-interest/infk/inst-pls/plf-dam/documents/StudentProjects/MasterTheses/2025-Laurenz-Thesis.pdf)
+//! that was written on the topic. Note that parts of the descriptions might become
+//! outdated as the implementation changes, but it should give a good overview
+//! nevertheless.
+//!
+//! [Vello Research]:
+//!   https://github.com/linebender/vello/tree/main/research/vello_research
+// LINEBENDER LINT SET - lib.rs - v3
+// See https://linebender.org/wiki/canonical-lints/
+// These lints shouldn't apply to examples or tests.
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+// These lints shouldn't apply to examples.
+#![warn(clippy::print_stdout, clippy::print_stderr)]
+// Targeting e.g. 32-bit means structs containing usize can give false positives for 64-bit.
+#![cfg_attr(target_pointer_width = "64", warn(clippy::trivially_copy_pass_by_ref))]
+// END LINEBENDER LINT SET
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![forbid(unsafe_code)]
+#![expect(
+    clippy::cast_possible_truncation,
+    reason = "We cast u16s to u8 in various places where we know for sure that it's < 256"
+)]
+#![no_std]
+
+extern crate alloc;
+extern crate core;
+#[cfg(feature = "std")]
+extern crate std;
+
+mod render;
+
+mod coarse;
+mod dispatch;
+mod filter;
+mod record;
+#[cfg(feature = "text")]
+mod text;
+mod util;
+
+#[doc(hidden)]
+pub mod fine;
+#[doc(hidden)]
+pub mod region;
+#[doc(hidden)]
+pub mod span;
+
+pub use render::{
+    PixelFormat, RasterizerSettings, RenderContext, RenderSettings, Resources, TargetInit,
+};
+// Note: The first one is not something that should be
+// exposed, but is currently needed by vello_tests.
+#[cfg(feature = "text")]
+pub use glifo::Glyph;
+#[cfg(feature = "text")]
+pub use text::{CpuGlyphRunBackend, GlyphRunBuilder};
+pub use vello_common::reexports::cpu::*;
+

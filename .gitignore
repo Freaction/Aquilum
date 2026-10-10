@@ -19,9 +19,14 @@ node_modules/
 /aquilum-app/dist-ssr/
 /aquilum-app/.build/
 /aquilum-app/releases/
-/aquilum-app/src-tauri/target/
+/aquilum-app/packaging/target/
 /aquilum-app/core/target/
 /aquilum-app/core/Cargo.lock
+/tauri-version/dist/
+/tauri-version/dist-ssr/
+/tauri-version/.build/
+/tauri-version/releases/
+/tauri-version/src-tauri/target/
 
 coverage/
 *.tsbuildinfo
@@ -38,10 +43,13 @@ coverage/
 /dataview/
 
 # Отладочные черновики разбора frontmatter
-aquilum-app/tmp-fm.*
+tauri-version/tmp-fm.*
 
 # История заметок Aquilum: локальная, в git не идёт
 .aquilum/
 
 # Рабочая копия публичного репозитория релизов
 /release-repo-update/
+
+# Корзина приложения в базе знаний (служебная папка Aquilum)
+.trash/

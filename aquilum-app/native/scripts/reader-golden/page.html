@@ -1,0 +1,100 @@
+<!doctype html>
+<meta charset="utf-8">
+<body>
+<script>
+const report = message => fetch('/log', { method: 'POST', body: String(message) })
+addEventListener('error', event => report(event.message + ' ' + (event.filename ?? '') + ':' + (event.lineno ?? '')))
+addEventListener('unhandledrejection', event => report(event.reason?.stack ?? event.reason))
+</script>
+<script type="module">
+import { makeBook } from '/foliate/view.js'
+import * as CFI from '/foliate/epubcfi.js'
+
+const SAMPLES = 40
+const RANGES = 8
+
+const loadInIframe = url => new Promise((resolve, reject) => {
+  const frame = document.createElement('iframe')
+  frame.style.display = 'none'
+  frame.onload = () => resolve(frame)
+  frame.onerror = reject
+  frame.src = url
+  document.body.append(frame)
+})
+
+const textNodes = doc => {
+  const root = doc.body ?? doc.documentElement
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_CDATA_SECTION)
+  const nodes = []
+  while (walker.nextNode()) nodes.push(walker.currentNode)
+  return nodes
+}
+
+const middle = node => {
+  let offset = Math.floor(node.nodeValue.length / 2)
+  const code = node.nodeValue.charCodeAt(offset)
+  if (code >= 0xdc00 && code <= 0xdfff) offset -= 1
+  return offset
+}
+
+const spread = (count, limit) => {
+  if (count <= limit) return [...Array(count).keys()]
+  return [...Array(limit).keys()].map(i => Math.floor(i * (count - 1) / (limit - 1)))
+}
+
+const sample = (doc, base) => {
+  const nodes = textNodes(doc)
+  const points = spread(nodes.length, SAMPLES).map(i => {
+    const node = nodes[i]
+    const offset = middle(node)
+    const range = doc.createRange()
+    range.setStart(node, offset)
+    range.collapse(true)
+    return { cfi: CFI.joinIndir(base, CFI.fromRange(range)), after: node.nodeValue.slice(offset, offset + 24) }
+  })
+  const ranges = spread(Math.max(0, nodes.length - 4), RANGES).map(i => {
+    const [a, b] = [nodes[i], nodes[i + 3]]
+    const range = doc.createRange()
+    range.setStart(a, middle(a))
+    range.setEnd(b, middle(b))
+    const text = range.toString()
+    return { cfi: CFI.joinIndir(base, CFI.fromRange(range)), text: text.slice(0, 48), length: text.length }
+  })
+  const text = (doc.body ?? doc.documentElement).textContent
+  return { base, mediaType: doc.contentType, nodes: nodes.length, length: text.length, points, ranges }
+}
+
+const resolve = (cfi, docs) => {
+  const parts = CFI.parse(cfi)
+  const index = CFI.fake.toIndex((parts.parent ?? parts).shift())
+  const doc = docs[index]
+  if (!doc) return { cfi, error: `нет секции ${index}` }
+  const range = CFI.toRange(doc, parts)
+  const text = range.toString()
+  return { cfi, index, text: text.slice(0, 60), length: text.length, after: (range.startContainer.nodeValue ?? '').slice(range.startOffset, range.startOffset + 24) }
+}
+
+const list = await (await fetch('/list')).json()
+const results = []
+for (const [i, entry] of list.entries()) {
+  report(`книга ${i + 1}/${list.length}: ${entry.file}`)
+  const result = { file: entry.file, sections: [], saved: [], error: null }
+  try {
+    const blob = await (await fetch(`/book/${i}`)).blob()
+    const book = await makeBook(new File([blob], entry.file.split('/').pop()))
+    const docs = []
+    for (const [index, section] of book.sections.entries()) {
+      const frame = await loadInIframe(await section.load())
+      const doc = frame.contentDocument
+      docs.push(doc)
+      result.sections.push(sample(doc, section.cfi ?? CFI.fake.fromIndex(index)))
+    }
+    for (const cfi of entry.saved) result.saved.push(resolve(cfi, docs))
+    for (const frame of document.querySelectorAll('iframe')) frame.remove()
+  } catch (error) {
+    result.error = String(error?.stack ?? error)
+  }
+  results.push(result)
+}
+await fetch('/result', { method: 'POST', body: JSON.stringify(results) })
+</script>

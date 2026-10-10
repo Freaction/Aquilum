@@ -5,7 +5,7 @@ description = "Aquilum core: documents, files, search, history and settings with
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"
 edition = "2021"
-workspace = "../src-tauri"
+workspace = ".."
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

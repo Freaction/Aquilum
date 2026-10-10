@@ -1,0 +1,34 @@
+/* Generated from variables.json — do not edit. Run: npm run tokens:sync */
+:root {
+    --q-font-family-editor: 'iA Writer Mono', monospace;
+    --q-font-family-heading: var(--q-font-family-editor);
+    --q-font-family-mono: 'iA Writer Mono', monospace;
+    --q-font-family-ui: 'Inter', sans-serif;
+    --q-font-letter-spacing-normal: 0em;
+    --q-font-letter-spacing-tight: -0.025em;
+    --q-font-letter-spacing-tighter: -0.05em;
+    --q-font-letter-spacing-wide: 0.025em;
+    --q-font-letter-spacing-wider: 0.05em;
+    --q-font-line-height-loose: 1.75;
+    --q-font-line-height-none: 1;
+    --q-font-line-height-normal: 1.5;
+    --q-font-line-height-prose: 1.45;
+    --q-font-line-height-relaxed: 1.625;
+    --q-font-line-height-snug: 1.375;
+    --q-font-line-height-tight: 1.2;
+    --q-font-size-10: 0.625rem;
+    --q-font-size-12: var(--q-unit-12);
+    --q-font-size-14: 0.875rem;
+    --q-font-size-16: var(--q-unit-16);
+    --q-font-size-24: var(--q-unit-24);
+    --q-font-size-ui-base: var(--q-font-size-14);
+    --q-font-size-ui-lg: var(--q-font-size-16);
+    --q-font-size-ui-sm: var(--q-font-size-12);
+    --q-font-size-ui-xs: var(--q-font-size-10);
+    --q-font-weight-bold: 700;
+    --q-font-weight-extrabold: 800;
+    --q-font-weight-light: 300;
+    --q-font-weight-medium: 500;
+    --q-font-weight-normal: 400;
+    --q-font-weight-semibold: 600;
+}

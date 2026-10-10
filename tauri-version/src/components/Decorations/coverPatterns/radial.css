@@ -1,0 +1,96 @@
+.q-cover-pattern--scales {
+  --q-cover-scale: transparent 9px, #613 10px, transparent 11px;
+  background-color: #8a3;
+  background-image:
+    radial-gradient(circle at 0% 50%, var(--q-cover-scale)),
+    radial-gradient(at 100% 100%, var(--q-cover-scale));
+  background-position: 0 10px, 0 0;
+  background-size: 20px 20px;
+}
+
+.q-cover-pattern--ruby {
+  --q-cover-ruby-dot: radial-gradient(hsl(0, 100%, 27%) 4%, hsl(0, 100%, 18%) 9%, transparent 9%);
+  --q-cover-ruby-halo: radial-gradient(hsla(0, 100%, 30%, 0.8) 20%, transparent);
+  --q-cover-ruby-ring: radial-gradient(hsl(0, 100%, 20%) 35%, transparent 60%);
+  --q-cover-ruby-shade: radial-gradient(hsla(0, 100%, 15%, 0.7), transparent);
+  --q-cover-ruby-seam: transparent 49%, #000 50%, transparent 70%;
+  background-color: #300;
+  background-image:
+    var(--q-cover-ruby-dot), var(--q-cover-ruby-dot),
+    var(--q-cover-ruby-halo), var(--q-cover-ruby-halo),
+    var(--q-cover-ruby-ring), var(--q-cover-ruby-ring),
+    var(--q-cover-ruby-shade), var(--q-cover-ruby-shade),
+    linear-gradient(45deg, var(--q-cover-ruby-seam)),
+    linear-gradient(-45deg, var(--q-cover-ruby-seam));
+  background-position: 0 0, 50px 50px, 50px 0, 0 50px, 50px 0, 0 50px, 0 0, 50px 50px, 0 0, 0 0;
+  background-size: 100px 100px;
+}
+
+.q-cover-pattern--rings {
+  --q-cover-ring: radial-gradient(
+    closest-side,
+    transparent 75%,
+    #b6cc66 76%, #b6cc66 85%,
+    #edffdb 86%, #edffdb 94%,
+    #fff 95%, #fff 103%,
+    #d9e6a7 104%, #d9e6a7 112%,
+    #798b3c 113%, #798b3c 121%,
+    #fff 122%, #fff 130%,
+    #e0ead7 131%, #e0ead7 140%
+  );
+  background-color: #c8d3a7;
+  background-image: var(--q-cover-ring), var(--q-cover-ring);
+  background-position: 0 0, 55px 55px;
+  background-size: 110px 110px;
+}
+
+.q-cover-pattern--pineapple {
+  --q-cover-pine-top: radial-gradient(circle closest-side at 50px 50px, #fb8b24 3px, transparent 0);
+  --q-cover-pine-left: radial-gradient(circle closest-side at 40px 60px, #fb8b24 3px, transparent 0);
+  --q-cover-pine-right: radial-gradient(circle closest-side at 60px 60px, #fb8b24 3px, transparent 0);
+  --q-cover-pine-bottom: radial-gradient(circle closest-side at 50px 70px, #fb8b24 3px, transparent 0);
+  --q-cover-pine-body: radial-gradient(ellipse closest-side at 50px 60px, #f9a734 18px, transparent 0);
+  --q-cover-pine-leaf-1: radial-gradient(circle closest-side at 30px 40px, #f9d8d4 15px, transparent 0);
+  --q-cover-pine-leaf-2: radial-gradient(circle closest-side at 40px 35px, #36964c 15px, transparent 0);
+  --q-cover-pine-leaf-3: radial-gradient(circle closest-side at 70px 40px, #f9d8d4 15px, transparent 0);
+  --q-cover-pine-leaf-4: radial-gradient(circle closest-side at 60px 35px, #286e38 15px, transparent 0);
+  background-color: #f9d8d4;
+  background-image:
+    var(--q-cover-pine-top), var(--q-cover-pine-top),
+    var(--q-cover-pine-left), var(--q-cover-pine-left),
+    var(--q-cover-pine-right), var(--q-cover-pine-right),
+    var(--q-cover-pine-bottom), var(--q-cover-pine-bottom),
+    var(--q-cover-pine-body), var(--q-cover-pine-body),
+    var(--q-cover-pine-leaf-1), var(--q-cover-pine-leaf-1),
+    var(--q-cover-pine-leaf-2), var(--q-cover-pine-leaf-2),
+    var(--q-cover-pine-leaf-3), var(--q-cover-pine-leaf-3),
+    var(--q-cover-pine-leaf-4), var(--q-cover-pine-leaf-4);
+  background-position:
+    0 0, 100px 115px, 0 0, 100px 115px, 0 0, 100px 115px,
+    0 0, 100px 115px, 0 0, 100px 115px, 0 0, 100px 115px,
+    0 0, 100px 115px, 0 0, 100px 115px, 0 0, 100px 115px;
+  background-size: 180px 210px;
+}
+
+.q-cover-pattern--fan {
+  --q-cover-fan-edge: #e9f1df 0.1556em, transparent 0.1556em;
+  background-color: #add8e6;
+  background-image:
+    radial-gradient(circle at right,
+      transparent 0.3333em, #e9f1df 0.3333em, #e9f1df 0.4889em,
+      transparent 0.4889em, transparent 0.8222em, #e9f1df 0.8222em, #e9f1df 0.9778em,
+      transparent 0.9778em, transparent 1.3111em, #e9f1df 1.3111em, #e9f1df 1.4667em,
+      transparent 1.4667em),
+    radial-gradient(circle at left,
+      transparent 0.5778em, #e9f1df 0.5778em, #e9f1df 0.7333em,
+      transparent 0.7333em, transparent 1.0667em, #e9f1df 1.0667em, #e9f1df 1.2222em,
+      transparent 1.2222em),
+    linear-gradient(to right top, var(--q-cover-fan-edge)),
+    linear-gradient(to left top, var(--q-cover-fan-edge)),
+    linear-gradient(to right bottom, var(--q-cover-fan-edge)),
+    linear-gradient(to left bottom, var(--q-cover-fan-edge));
+  background-position:
+    0 0, 0 3.0514em,
+    1.2222em 0.1556em, 1.2222em 0.1556em, 1.2222em 0.1556em, 1.2222em 0.1556em;
+  background-size: 2.8em 2.8em;
+}
