@@ -132,6 +132,6 @@ jobs:
       - name: Tests
         if: always()
         working-directory: aquilum-app
-        run: cargo test -p aquilum-native
+        run: cargo test --workspace
         env:
           DISPLAY: ':99'
