@@ -1109,12 +1109,27 @@ impl LayoutCtx<'_> {
     }
 }
 
+impl LayoutCtx<'_> {
+    pub fn scale_factor(&self) -> f64 {
+        self.global_state.scale_factor
+    }
+
+    pub fn request_scroll_by(&mut self, dy: f64) {
+        self.global_state.scroll_shifts.push((self.widget_state.id, dy));
+    }
+}
+
 impl ComposeCtx<'_> {
     /// Requests that [`Widget::paint`](crate::core::Widget::paint) runs again, e.g. when a
     /// widget that paints only its visible part has been scrolled.
     pub fn request_paint_only(&mut self) {
         self.widget_state.request_paint = true;
         self.widget_state.needs_paint = true;
+    }
+
+    pub fn request_layout(&mut self) {
+        self.widget_state.request_layout = true;
+        self.widget_state.set_needs_layout(true);
     }
 
     /// The window size in logical pixels.
@@ -1674,6 +1689,14 @@ impl_context_method!(
         /// to the parent's border-box coordinate space.
         ///
         /// It behaves similarly as CSS transforms.
+        pub fn set_opacity(&mut self, opacity: f32) {
+            if self.widget_state.opacity != opacity {
+                self.widget_state.opacity = opacity;
+                self.widget_state.request_paint = true;
+                self.widget_state.needs_paint = true;
+            }
+        }
+
         pub fn set_transform(&mut self, transform: Affine) {
             self.widget_state.transform = transform;
             self.widget_state.transform_changed = true;

@@ -61,6 +61,10 @@ impl History {
         self.undo.push(edit);
     }
 
+    pub fn last_mut(&mut self) -> Option<&mut Edit> {
+        self.undo.last_mut()
+    }
+
     pub fn undo(&mut self) -> Option<Edit> {
         let edit = self.undo.pop()?;
         self.redo.push(edit.clone());

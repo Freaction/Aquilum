@@ -1,6 +1,6 @@
 # Замер памяти и простоя нативного окна Aquilum.
 #
-#   powershell -File native\scripts\measure.ps1 [-Exe путь] [-Threads 0,2,4] [-BenchFrames 300] [-Idle 10] [-File заметка.md]
+#   powershell -File native\scripts\measure.ps1 [-Exe путь] [-Threads 0,2,4] [-Idle 10] [-File заметка.md]
 #
 # Прототип на Freya (probes/freya) меряется тем же скриптом:
 #   measure.ps1 -Exe <freya-probe.exe> -Threads 0 -Size 1646x981 -Env FREYA_RENDERER=software -Label freya-software
@@ -11,7 +11,6 @@
 param(
   [string]$Exe = "$PSScriptRoot\..\..\..\.artifacts\cargo-native\release\aquilum-native.exe",
   [int[]]$Threads = @(0, 2, 4),
-  [int]$BenchFrames = 300,
   [int]$Idle = 10,
   [string]$Size = "2881x1717",
   [string]$File = "",
@@ -33,7 +32,7 @@ if ($Env) {
 foreach ($t in $Threads) {
   $metricsPath = Join-Path $env:TEMP "aquilum-native-metrics-$t.json"
   Remove-Item $metricsPath -ErrorAction SilentlyContinue
-  $argList = @("--size", $Size, "--threads", $t, "--bench-frames", $BenchFrames, "--metrics", "`"$metricsPath`"")
+  $argList = @("--size", $Size, "--threads", $t, "--metrics", "`"$metricsPath`"")
   $argList += @("--data-dir", "`"$(Join-Path $env:APPDATA com.dmitriy.aquilum-app.native-dev)`"")
   if ($File) { $argList += @("--file", "`"$File`"") }
   $argList += $ExtraArgs

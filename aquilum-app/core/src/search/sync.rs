@@ -16,7 +16,8 @@ use std::thread;
 use tantivy::{IndexWriter, Term};
 use walkdir::WalkDir;
 
-pub const INDEX_MEMORY_BUDGET: usize = 256_000_000;
+pub const INDEX_MEMORY_BUDGET: usize = 40_000_000;
+const INDEX_THREADS: usize = 2;
 const COMMIT_BATCH_SIZE: usize = 10_000;
 const PREPARE_BATCH_SIZE: usize = 64;
 
@@ -170,7 +171,7 @@ fn ensure_writer<'w>(
     index: &SearchIndex,
 ) -> Result<&'w mut IndexWriter, SearchError> {
     if slot.is_none() {
-        *slot = Some(index.index.writer(INDEX_MEMORY_BUDGET)?);
+        *slot = Some(index.index.writer_with_num_threads(INDEX_THREADS, INDEX_MEMORY_BUDGET)?);
     }
     slot.as_mut().ok_or_else(|| SearchError::task("index writer is missing"))
 }

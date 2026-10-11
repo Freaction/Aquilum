@@ -1,5 +1,7 @@
 use super::css::{Background, Extent, Gradient, Kind, Layer, RadialSize, Rgba, Val};
 
+const BACKGROUND_THREADS: usize = 2;
+
 type Premul = [f32; 4];
 
 fn premul(c: Rgba) -> Premul {
@@ -197,8 +199,7 @@ pub fn render(backgrounds: &[&Background], width: u32, height: u32, scale: f64) 
         .collect();
     let mut out = vec![0u8; (width * height * 4) as usize];
     let row = (width * 4) as usize;
-    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
-    let rows_per = (height as usize).div_ceil(threads).max(1);
+    let rows_per = (height as usize).div_ceil(BACKGROUND_THREADS).max(1);
     std::thread::scope(|scope| {
         for (chunk, rows) in out.chunks_mut(row * rows_per).enumerate() {
             let prepared = &prepared;

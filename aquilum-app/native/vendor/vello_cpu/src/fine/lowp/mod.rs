@@ -430,6 +430,12 @@ fn unpack_block<S: Simd>(simd: S, region: &mut Region<'_>, width: usize, scratch
     let scratch: &mut [f32] = cast_slice_mut(&mut scratch[..width * TILE_HEIGHT_COMPONENTS]);
     const CHUNK_LENGTH: usize = 16;
 
+    let bgra = region.bgra;
+    let order = u8x16::from_slice(simd, &[2, 1, 0, 3, 6, 5, 4, 7, 10, 9, 8, 11, 14, 13, 12, 15]);
+    let load = |src: &[u8]| {
+        let bytes = u8x16::from_slice(simd, src);
+        f32x4::from_bytes(if bgra { simd.swizzle_dyn_within_blocks_u8x16(bytes, order) } else { bytes })
+    };
     let [row0, row1, row2, row3] = region.areas();
     let row_len = width * COLOR_COMPONENTS;
     let mut row0 = &row0[..row_len];
@@ -446,10 +452,7 @@ fn unpack_block<S: Simd>(simd: S, region: &mut Region<'_>, width: usize, scratch
         let (src2, rest2) = row2.split_at(Tile::WIDTH as usize * COLOR_COMPONENTS);
         let (src3, rest3) = row3.split_at(Tile::WIDTH as usize * COLOR_COMPONENTS);
 
-        let r0 = f32x4::from_bytes(u8x16::from_slice(simd, src0));
-        let r1 = f32x4::from_bytes(u8x16::from_slice(simd, src1));
-        let r2 = f32x4::from_bytes(u8x16::from_slice(simd, src2));
-        let r3 = f32x4::from_bytes(u8x16::from_slice(simd, src3));
+        let (r0, r1, r2, r3) = (load(src0), load(src1), load(src2), load(src3));
         simd.store_four_interleaved_f32x4([r0, r1, r2, r3], col);
 
         row0 = rest0;
@@ -461,11 +464,15 @@ fn unpack_block<S: Simd>(simd: S, region: &mut Region<'_>, width: usize, scratch
 
 #[inline(always)]
 fn unpack_tail(region: &mut Region<'_>, x: usize, width: usize, scratch: &mut [u8]) {
+    let bgra = region.bgra;
     for y in 0..region.height {
         let row = &region.row_mut(y)[x * COLOR_COMPONENTS..(x + width) * COLOR_COMPONENTS];
         for (dx, pixel) in row.chunks_exact(COLOR_COMPONENTS).enumerate() {
             let idx = COLOR_COMPONENTS * (Tile::HEIGHT as usize * dx + usize::from(y));
             scratch[idx..idx + COLOR_COMPONENTS].copy_from_slice(pixel);
+            if bgra {
+                scratch.swap(idx, idx + 2);
+            }
         }
     }
 }

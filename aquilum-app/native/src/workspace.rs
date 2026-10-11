@@ -50,12 +50,8 @@ impl Workspace {
             None => core.ui_state.list_workspaces().ok().and_then(|known| known.into_iter().next()).map(|w| PathBuf::from(w.path)),
         };
         if let Some(root) = &root {
-            let now_ms = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_millis() as i64)
-                .unwrap_or_default();
-            if let Err(e) = core.ui_state.resolve_workspace(&root.to_string_lossy(), now_ms) {
-                eprintln!("база {} не запомнена: {e:?}", root.display());
+            if let Err(e) = core.ui_state.resolve_workspace(&root.to_string_lossy(), crate::dates::now_ms()) {
+                report!("база {} не запомнена: {e:?}", root.display());
             }
         }
         Ok(Workspace { core, data_dir, root, wake, events })
@@ -97,7 +93,7 @@ fn adopt_production_settings(data_dir: &Path) {
     if source.exists()
         && let Err(e) = std::fs::copy(&source, &target)
     {
-        eprintln!("настройки рабочей версии не скопированы: {e}");
+        report!("настройки рабочей версии не скопированы: {e}");
     }
 }
 

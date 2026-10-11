@@ -10,26 +10,9 @@ pub struct Epub {
     pub sections: Vec<(String, String)>,
 }
 
-fn percent_decode(text: &str) -> String {
-    let bytes = text.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%'
-            && let Some(byte) = text.get(i + 1..i + 3).and_then(|h| u8::from_str_radix(h, 16).ok())
-        {
-            out.push(byte);
-            i += 3;
-            continue;
-        }
-        out.push(bytes[i]);
-        i += 1;
-    }
-    String::from_utf8(out).unwrap_or_else(|_| text.to_owned())
-}
 
 fn join(base: &str, href: &str) -> String {
-    let href = percent_decode(href.split('#').next().unwrap_or(href));
+    let href = crate::paths::percent_decode(href.split('#').next().unwrap_or(href));
     let mut parts: Vec<&str> = base.split('/').filter(|p| !p.is_empty()).collect();
     for part in href.split('/') {
         match part {

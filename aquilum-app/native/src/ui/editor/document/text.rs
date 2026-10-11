@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::ops::Range;
 
 use masonry::core::{BrushIndex, StyleSet};
@@ -25,7 +26,9 @@ pub fn spec_layout(fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, s
             }
         }
         Font::Ui(px) => {
-            builder.push_default(StyleProperty::FontFamily(crate::ui::theme::ui_font("")));
+            let font = crate::ui::theme::ui_font_settings();
+            builder.push_default(StyleProperty::FontFamily(crate::ui::theme::ui_font(&font.family)));
+            builder.push_default(StyleProperty::FontWeight(FontWeight::new(font.weight)));
             builder.push_default(StyleProperty::FontSize(f32::from(px)));
         }
         Font::Mono(px) => {
@@ -39,9 +42,6 @@ pub fn spec_layout(fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, s
         builder.push_default(StyleProperty::FontWeight(FontWeight::BOLD));
     } else if let Some(weight) = spec.weight {
         builder.push_default(StyleProperty::FontWeight(FontWeight::new(weight)));
-    }
-    if spec.markdown {
-        markdown::style(&mut builder, &Block::Text, spec.text, None, fonts);
     }
     for link in spec.links {
         builder.push(StyleProperty::Brush(markdown::LINK), link.clone());
@@ -64,7 +64,7 @@ pub fn build(
     text: &str,
     underline: Option<Range<usize>>,
     width: Option<f32>,
-    markdown: Option<(&Fonts, &Block, Option<usize>)>,
+    markdown: Option<(&Fonts, &Block, Option<usize>, &HashSet<String>)>,
 ) -> (Layout<BrushIndex>, Decor) {
     let mut builder = lcx.ranged_builder(fcx, text, 1.0, true);
     for prop in styles.inner().values() {
@@ -74,7 +74,7 @@ pub fn build(
         builder.push_default(StyleProperty::OverflowWrap(OverflowWrap::Anywhere));
     }
     let decor = match markdown {
-        Some((fonts, block, caret)) => markdown::style(&mut builder, block, text, caret, fonts),
+        Some((fonts, block, caret, unresolved)) => markdown::style(&mut builder, block, text, caret, fonts, unresolved),
         None => Decor::default(),
     };
     if let Some(range) = underline {

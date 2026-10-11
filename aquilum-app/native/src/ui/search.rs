@@ -1,6 +1,6 @@
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
-    AccessCtx, AccessEvent, BrushIndex, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerButton,
+    AccessCtx, AccessEvent, BrushIndex, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
     PointerEvent, PropertiesMut, PropertiesRef, PropertySet, RegisterCtx, Update, UpdateCtx, Widget, WidgetId, WidgetMut,
     WidgetPod, render_text,
 };
@@ -11,13 +11,13 @@ use masonry::layout::{LenDef, LenReq, Length, SizeDef};
 use masonry::parley::style::StyleProperty;
 use masonry::parley::{Affinity, Cursor, FontWeight, Layout, LineHeight, Selection};
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
-use masonry::properties::{CaretColor, ContentColor, Gap, Padding, SelectionColor};
-use masonry::widgets::{Flex, Label};
+use masonry::properties::{Gap, Padding};
+use masonry::widgets::Flex;
 
 use super::handle::Handle;
 use super::icons::{self, Icon};
 use super::tokens::{number, size};
-use super::widgets::{IconButton, IconView};
+use super::widgets::{IconButton, IconView, Label, Leading, Paint, Press, Scale};
 use super::theme;
 use crate::i18n::t;
 
@@ -42,12 +42,12 @@ pub enum CardAction {
 pub struct ResultCard {
     data: CardData,
     selected: bool,
-    down: bool,
+    press: Press,
 }
 
 impl ResultCard {
     pub fn new(data: CardData, selected: bool) -> NewWidget<Self> {
-        NewWidget::new(ResultCard { data, selected, down: false })
+        NewWidget::new(ResultCard { data, selected, press: Press::default() })
     }
 
     pub fn set_selected(this: &mut WidgetMut<'_, Self>, selected: bool) {
@@ -94,20 +94,9 @@ impl Widget for ResultCard {
     type Action = CardAction;
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
-        match event {
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
-                self.down = true;
-                ctx.capture_pointer();
-            }
-            PointerEvent::Up(e) if e.button == Some(PointerButton::Primary) && self.down => {
-                self.down = false;
-                if ctx.is_hovered() {
-                    let m = e.state.modifiers;
-                    ctx.submit_action::<CardAction>(CardAction::Open { new_tab: m.ctrl() || m.meta() });
-                }
-            }
-            PointerEvent::Cancel(_) => self.down = false,
-            _ => {}
+        if let Some(e) = self.press.click(ctx, event) {
+            let m = e.state.modifiers;
+            ctx.submit_action::<CardAction>(CardAction::Open { new_tab: m.ctrl() || m.meta() });
         }
     }
 
@@ -260,22 +249,17 @@ pub struct SearchBox {
     pub clear: Handle<IconButton>,
 }
 
-pub fn search_box(query: &str) -> SearchBox {
-    let t = theme::current();
-    let font = theme::ui_font_settings();
-    let field = TextEditor::single_line(query)
-        .with_style(StyleProperty::FontFamily(theme::ui_font(&font.family)))
-        .with_style(StyleProperty::FontSize(size::FONT_SIZE_UI_BASE as f32))
-        .with_style(StyleProperty::LineHeight(LineHeight::Absolute(size::SIZE_20 as f32)));
-    let field = NewWidget::new(field).with_props(
-        PropertySet::new()
-            .with(ContentColor::new(t.text_primary))
-            .with(CaretColor { color: t.text_primary })
-            .with(SelectionColor { color: t.selection_bg }),
-    );
+/// Однострочное поле с подсказкой, пока оно пустое.
+pub fn field(query: &str, hint: String) -> (NewWidget<Placeholder>, Handle<TextEditor>, Handle<Placeholder>) {
+    let field = NewWidget::new(TextEditor::single_line(query).styled(|| super::style::ui_text(size::SIZE_20 as f32))).with_class(super::style::FIELD);
     let field_handle = Handle::of(&field);
-    let placeholder = NewWidget::new(Placeholder { field: field.to_pod(), hint: t_owned("search.title"), empty: query.is_empty() });
+    let placeholder = NewWidget::new(Placeholder { field: field.to_pod(), hint, empty: query.is_empty() });
     let placeholder_handle = Handle::of(&placeholder);
+    (placeholder, field_handle, placeholder_handle)
+}
+
+pub fn search_box(query: &str) -> SearchBox {
+    let (placeholder, field_handle, placeholder_handle) = field(query, t_owned("search.title"));
     let clear = NewWidget::new(IconButton::new(icons::X, t_owned("search.clear")));
     let clear_handle = Handle::of(&clear);
     let row = Flex::row()
@@ -300,11 +284,9 @@ pub fn empty_state(icon: Icon, title: &str, description: &str) -> NewWidget<Flex
 }
 
 pub fn empty_state_with(icon: Icon, title: &str, description: Option<&str>, action: Option<NewWidget<dyn Widget>>) -> NewWidget<Flex> {
-    let t = theme::current();
-    let line = (size::FONT_SIZE_UI_BASE * number::FONT_LINE_HEIGHT_SNUG) as f32;
-    let mut copy = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(centered(title, t.text_secondary, line));
+    let mut copy = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(centered(title, |t| t.text_secondary));
     if let Some(description) = description {
-        copy = copy.with_fixed(centered(description, t.text_tertiary, line));
+        copy = copy.with_fixed(centered(description, |t| t.text_tertiary));
     }
     let copy = NewWidget::new(copy).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_8))));
     let mut column = Flex::column()
@@ -322,36 +304,21 @@ pub fn empty_state_with(icon: Icon, title: &str, description: Option<&str>, acti
     )
 }
 
-fn centered(text: &str, color: masonry::peniko::Color, line: f32) -> NewWidget<Label> {
-    let font = theme::ui_font_settings();
-    let label = Label::new(text)
-        .with_text_alignment(masonry::TextAlign::Center)
-        .with_style(StyleProperty::FontFamily(theme::ui_font(&font.family)))
-        .with_style(StyleProperty::FontSize(size::FONT_SIZE_UI_BASE as f32))
-        .with_style(StyleProperty::LineHeight(LineHeight::Absolute(line)));
-    NewWidget::new(label).with_props(PropertySet::new().with(ContentColor::new(color)).with(masonry::properties::LineBreaking::WordWrap))
+fn centered(text: &str, paint: Paint) -> NewWidget<Label> {
+    NewWidget::new(Label::new(text, paint).leading(Leading::Times(number::FONT_LINE_HEIGHT_SNUG as f32)).centered())
 }
 
 fn hint(modifiers: &[&str], icon: Option<Icon>, text: &str) -> NewWidget<Flex> {
-    let t = theme::current();
-    let font = theme::ui_font_settings();
-    let small = |text: &str, color, weight: f32| {
-        let label = Label::new(text)
-            .with_style(StyleProperty::FontFamily(theme::ui_font(&font.family)))
-            .with_style(StyleProperty::FontSize(size::FONT_SIZE_UI_SM as f32))
-            .with_style(StyleProperty::FontWeight(FontWeight::new(weight)))
-            .with_style(StyleProperty::LineHeight(LineHeight::Absolute(size::SIZE_20 as f32)));
-        NewWidget::new(label).with_props(PropertySet::new().with(ContentColor::new(color)))
-    };
+    let small = |text: &str, paint: Paint| Label::new(text, paint).scale(Scale::Small).nowrap();
     let mut kbd = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center);
     for modifier in modifiers {
-        kbd = kbd.with_fixed(small(modifier, t.search_key_hint_color, 500.0));
+        kbd = kbd.with_fixed(NewWidget::new(small(modifier, |t| t.search_key_hint_color).weight(500.0)));
     }
     if let Some(icon) = icon {
         kbd = kbd.with_fixed(IconView::new(icon, size::FONT_SIZE_12, size::FONT_SIZE_12, 2.2, || theme::current().search_key_hint_color));
     }
     let kbd = NewWidget::new(kbd).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_2))));
-    let row = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(kbd).with_fixed(small(text, t.text_tertiary, font.weight));
+    let row = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(kbd).with_fixed(NewWidget::new(small(text, |t| t.text_tertiary)));
     NewWidget::new(row).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))))
 }
 

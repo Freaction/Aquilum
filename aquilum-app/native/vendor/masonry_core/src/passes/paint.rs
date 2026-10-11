@@ -245,6 +245,13 @@ fn paint_widget(
     let has_clip = state.clip_path.is_some();
     let paint_as_external = paint_layer_mode == PaintLayerMode::External;
 
+    let translucent = state.opacity < 1.0 && !is_stashed && !paint_as_external;
+    if translucent {
+        let mut group = GroupRef::new();
+        group.composite.alpha = state.opacity.max(0.0);
+        PaintSink::push_group(layer_collector.scene_mut(), group);
+    }
+
     if !is_stashed && !paint_as_external {
         let Some((pre_scene, scene, _)) = &mut scene_cache.get(&id) else {
             debug_panic!(
@@ -331,6 +338,9 @@ fn paint_widget(
         };
 
         append_visible(layer_collector.scene_mut(), post_scene, content_box_to_layer_transform, visible);
+        if translucent {
+            PaintSink::pop_group(layer_collector.scene_mut());
+        }
 
         if global_state.inspector_state.hovered_widget == Some(id) {
             const HOVER_FILL_COLOR: Color = Color::from_rgba8(60, 60, 250, 100);

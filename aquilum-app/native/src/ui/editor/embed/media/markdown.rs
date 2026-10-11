@@ -15,10 +15,31 @@ pub struct EmbedLine {
 }
 
 const VIDEO: [&str; 7] = ["mp4", "webm", "ogv", "ogg", "mov", "m4v", "mkv"];
+const IMAGE: [&str; 8] = ["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "svg"];
+
+fn has_extension(source: &str, list: &[&str]) -> bool {
+    let clean = source.split(['?', '#']).next().unwrap_or(source);
+    std::path::Path::new(clean).extension().is_some_and(|e| list.iter().any(|v| e.eq_ignore_ascii_case(v)))
+}
 
 pub fn is_video(source: &str) -> bool {
-    let clean = source.split(['?', '#']).next().unwrap_or(source);
-    std::path::Path::new(clean).extension().is_some_and(|e| VIDEO.iter().any(|v| e.eq_ignore_ascii_case(v)))
+    has_extension(source, &VIDEO)
+}
+
+pub fn is_embed(line: &str) -> bool {
+    let line = line.trim();
+    if let Some(inner) = line.strip_prefix("![[").and_then(|l| l.strip_suffix("]]")) {
+        let target = inner.split('|').next().unwrap_or_default().trim();
+        return !inner.contains(['[', ']']) && (has_extension(target, &IMAGE) || is_video(target));
+    }
+    let Some(rest) = line.strip_prefix("![") else { return false };
+    let Some(close) = rest.find(']') else { return false };
+    let Some(body) = rest[close + 1..].strip_prefix('(').and_then(|b| b.strip_suffix(')')) else { return false };
+    let body = body.trim();
+    match body.strip_prefix('<').and_then(|b| b.strip_suffix('>')) {
+        Some(source) => !source.is_empty() && !source.contains(['<', '>']),
+        None => !body.is_empty() && !body.contains(['(', ')']),
+    }
 }
 
 fn round(v: f64) -> f64 {
@@ -106,4 +127,9 @@ mod tests {
         assert_eq!(e.params.width, Some(300.0));
         assert_eq!(format(&e), "![300](a.png)");
     }
+}
+
+/// Строка встраивания для нового файла: ширина и выравнивание по центру.
+pub fn media_line(src: &str, width: Option<f64>) -> String {
+    format(&EmbedLine { src: src.to_owned(), wiki: false, params: ImageParams { width, align: Alignment::Center, crop: None } })
 }

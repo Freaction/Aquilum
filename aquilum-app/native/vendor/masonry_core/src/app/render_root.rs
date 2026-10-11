@@ -115,6 +115,8 @@ pub(crate) struct RenderRootState {
     /// in its border-box coordinate space.
     pub(crate) scroll_request_targets: Vec<(WidgetId, Rect)>,
 
+    pub(crate) scroll_shifts: Vec<(WidgetId, f64)>,
+
     /// List of ancestors of the currently hovered widget.
     pub(crate) hovered_path: Vec<WidgetId>,
 
@@ -349,6 +351,7 @@ impl RenderRoot {
                 focus_fallback: None,
                 window_focused: true,
                 scroll_request_targets: Vec::new(),
+                scroll_shifts: Vec::new(),
                 hovered_path: Vec::new(),
                 active_path: Vec::new(),
                 pointer_capture_target: None,
@@ -446,6 +449,38 @@ impl RenderRoot {
         let root_node = self.widget_arena.get_node_mut(self.root_id());
         invalidate_props_all_in(root_node);
 
+        self.run_rewrite_passes();
+    }
+
+    pub fn restyle(&mut self, default_properties: Arc<DefaultProperties>, fonts: bool) {
+        self.property_arena.default_properties = default_properties;
+
+        fn restyle_all_in(node: ArenaMut<'_, WidgetArenaNode>, fonts: bool) {
+            let children = node.children;
+            let widget = &mut *node.item.widget;
+            let state = &mut node.item.state;
+
+            state.request_update_props = true;
+            state.needs_update_props = true;
+            state.property_cache.invalidated = true;
+            if fonts {
+                state.request_layout = true;
+                state.set_needs_layout(true);
+            }
+            state.request_paint = true;
+            state.request_post_paint = true;
+            state.needs_paint = true;
+
+            let id = state.id;
+            recurse_on_children(id, widget, children, |node| {
+                restyle_all_in(node, fonts);
+            });
+        }
+        let root_node = self.widget_arena.get_node_mut(self.root_id());
+        restyle_all_in(root_node, fonts);
+        if fonts {
+            run_update_fonts_pass(self);
+        }
         self.run_rewrite_passes();
     }
 

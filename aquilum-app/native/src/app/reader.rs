@@ -63,9 +63,6 @@ fn parse_pages(value: &str) -> Option<(u32, u32)> {
     (total > 0).then_some((current, total))
 }
 
-fn now_ms() -> i64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64)
-}
 
 impl App {
     pub(super) fn open_reader(&mut self, root: &mut RenderRoot, opening: Opening) {
@@ -88,7 +85,7 @@ impl App {
         {
             self.write_book_fields(root, page, &[("pages", formatted.clone())]);
         }
-        let workspace_id = self.workspace.core.ui_state.resolve_workspace(&workspace.to_string_lossy(), now_ms()).ok();
+        let workspace_id = self.workspace.core.ui_state.resolve_workspace(&workspace.to_string_lossy(), crate::dates::now_ms()).ok();
         let cached = workspace_id.and_then(|id| self.workspace.core.ui_state.load_reader_state(id, &key).ok().flatten());
         let target = match (initial.filter(|c| !c.trim().is_empty()), cached) {
             (Some(cfi), _) => Target::Cfi(cfi),
@@ -97,7 +94,7 @@ impl App {
             _ => Target::Fraction(f64::from(current) / f64::from(total)),
         };
         let Some(session) = Session::open(file, target) else {
-            eprintln!("книга не открылась: {}", file.display());
+            report!("книга не открылась: {}", file.display());
             return;
         };
         let settings = reader_settings(&self.workspace.core.settings.get_config());
@@ -126,9 +123,9 @@ impl App {
             }
         }
         if text != snapshot.content
-            && let Err(error) = aquilum_core::files::gate::write(core, page, &text, Some(&snapshot.hash), aquilum_core::history::Source::Me, None)
+            && let Err(error) = aquilum_core::files::gate::write(core, page, &text, Some(&snapshot.hash), aquilum_core::history::Source::Reading, None)
         {
-            eprintln!("{} не сохранён: {error:?}", page.display());
+            report!("{} не сохранён: {error:?}", page.display());
         }
     }
 
@@ -159,7 +156,7 @@ impl App {
         } else if action.downcast_ref::<Pressed>().is_some() && id == state.ids.settings {
             self.toggle_reader_settings(root, &mut state);
         } else {
-            let (_, _) = self.on_binding(root, &mut state.bindings, id, action);
+            self.on_binding(root, &mut state.bindings, id, action);
             self.typing = None;
             let settings = reader_settings(&self.workspace.core.settings.get_config());
             root.edit_widget(state.layer, |mut w| ReaderView::set_settings(&mut w.downcast(), settings));
@@ -200,20 +197,20 @@ impl App {
     fn add_quote(&mut self, root: &mut RenderRoot, state: &ReaderState, text: &str, cfi: &str) {
         let Some(target) = state.target.clone() else { return };
         let Some(current) = self.note_text(&target) else { return };
-        let line = quotes::format(text, cfi, Some(&state.key), quotes::count(&current) + 1);
+        let line = quotes::format(text, cfi, Some(&state.key), quotes::find(&current).len() + 1);
         let next = quotes::append(&current, &line);
         if self.note.as_ref().is_some_and(|n| n.is(&target)) {
-            self.editor_text = next.clone();
+            self.editor_text = next;
             if let Some(note) = &mut self.note {
-                note.edit(next, std::time::Duration::ZERO);
-                note.save(&self.workspace.core);
+                note.edit(std::time::Duration::ZERO);
+                let _ = note.save(&self.workspace.core, &self.editor_text);
             }
             self.sync_body(root);
         } else {
             let core = &self.workspace.core;
             let hash = aquilum_core::files::document::read_file_snapshot_impl(&target).ok().map(|s| s.hash);
             if let Err(error) = aquilum_core::files::gate::write(core, &target, &next, hash.as_deref(), aquilum_core::history::Source::Me, None) {
-                eprintln!("{} не сохранён: {error:?}", target.display());
+                report!("{} не сохранён: {error:?}", target.display());
                 return;
             }
         }
@@ -248,9 +245,9 @@ impl App {
         }
         let current = ((fraction.clamp(0.0, 1.0) * f64::from(state.total)).round() as u32).min(state.total);
         if let Some(workspace_id) = state.workspace {
-            let input = SaveReaderStateInput { workspace_id, book_file: state.key.clone(), current: i64::from(current), cfi: Some(cfi.to_owned()), now_ms: now_ms() };
+            let input = SaveReaderStateInput { workspace_id, book_file: state.key.clone(), current: i64::from(current), cfi: Some(cfi.to_owned()), now_ms: crate::dates::now_ms() };
             if let Err(error) = self.workspace.core.ui_state.save_reader_state(&input) {
-                eprintln!("позиция чтения не сохранена: {error:?}");
+                report!("позиция чтения не сохранена: {error:?}");
             }
         }
         let Some(page) = state.page.clone() else { return };

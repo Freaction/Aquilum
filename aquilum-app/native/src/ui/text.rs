@@ -90,17 +90,10 @@ fn build(ctx: &mut PaintCtx<'_>, text: &str, width: f64, style: Style) -> Layout
     make(&truncated(lo))
 }
 
-/// Многострочная подпись шрифтом интерфейса: кегль из настроек, свой цвет, вес и высота
-/// строки — для заголовков и описаний в диалогах и настройках.
-pub fn label(text: &str, color: masonry::peniko::Color, weight: Option<f32>, line_height: f32) -> masonry::core::NewWidget<masonry::widgets::Label> {
-    use masonry::core::{NewWidget, PropertySet};
-    use masonry::properties::{ContentColor, LineBreaking};
-
-    let font = theme::ui_font_settings();
-    let label = masonry::widgets::Label::new(text)
-        .with_style(StyleProperty::FontFamily(theme::ui_font(&font.family)))
-        .with_style(StyleProperty::FontSize(font.size))
-        .with_style(StyleProperty::FontWeight(FontWeight::new(weight.unwrap_or(font.weight))))
-        .with_style(StyleProperty::LineHeight(LineHeight::Absolute(line_height)));
-    NewWidget::new(label).with_props(PropertySet::new().with(ContentColor::new(color)).with(LineBreaking::WordWrap))
+pub fn label(text: &str, paint: super::widgets::Paint, weight: Option<f32>, leading: super::widgets::Leading) -> masonry::core::NewWidget<super::widgets::Label> {
+    let label = super::widgets::Label::new(text, paint).leading(leading);
+    masonry::core::NewWidget::new(match weight {
+        Some(weight) => label.weight(weight),
+        None => label,
+    })
 }

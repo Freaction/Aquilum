@@ -1,7 +1,7 @@
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
     AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx,
-    Widget, WidgetMut, render_text,
+    UpdateCtx, Widget, WidgetMut, render_text,
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Point, Rect, RoundedRect, Size, Stroke};
@@ -16,19 +16,24 @@ use crate::i18n::t;
 pub struct UpdateSplash {
     installing: bool,
     percent: Option<f64>,
+    bar: crate::ui::widgets::Tween,
     title: Line,
     detail: Line,
 }
 
 impl UpdateSplash {
     pub fn new(installing: bool, percent: Option<f64>) -> NewWidget<Self> {
-        NewWidget::new(UpdateSplash { installing, percent, title: Line::default(), detail: Line::default() })
+        NewWidget::new(UpdateSplash { installing, percent, bar: crate::ui::widgets::Tween::new(percent.unwrap_or(0.0), crate::ui::widgets::FAST, crate::ui::widgets::EASE_OUT), title: Line::default(), detail: Line::default() })
     }
 
     pub fn set(this: &mut WidgetMut<'_, Self>, installing: bool, percent: Option<f64>) {
         if (this.widget.installing, this.widget.percent) != (installing, percent) {
             this.widget.installing = installing;
             this.widget.percent = percent;
+            let target = if installing { 100.0 } else { percent.unwrap_or(0.0) };
+            if this.widget.bar.set(target) {
+                this.ctx.request_anim_frame();
+            }
             this.ctx.request_paint_only();
             this.ctx.request_accessibility_update();
         }
@@ -47,6 +52,13 @@ impl UpdateSplash {
 
 impl Widget for UpdateSplash {
     type Action = masonry::core::NoAction;
+
+    fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
+        if self.bar.advance(interval) {
+            ctx.request_anim_frame();
+        }
+        ctx.request_paint_only();
+    }
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
 
@@ -85,7 +97,8 @@ impl Widget for UpdateSplash {
         if let Some(percent) = track {
             let bar = Rect::new(card.x0 + pad, y, card.x1 - pad, y + size::SIZE_4);
             painter.fill(RoundedRect::from_rect(bar, size::SIZE_4 / 2.0), tm.bg_surface_overlay).draw();
-            let value = Rect::new(bar.x0, bar.y0, bar.x0 + bar.width() * percent.clamp(0.0, 100.0) / 100.0, bar.y1);
+            let shown = if percent > 0.0 { self.bar.value() } else { 0.0 };
+            let value = Rect::new(bar.x0, bar.y0, bar.x0 + bar.width() * shown.clamp(0.0, 100.0) / 100.0, bar.y1);
             painter.fill(RoundedRect::from_rect(value, size::SIZE_4 / 2.0), tm.text_primary).draw();
         }
     }

@@ -1,11 +1,11 @@
 ﻿# Пересборка и перезапуск нативного окна при правке кода.
 #
 # Следит за исходниками окна, ядра, токенами стилей и переводами. После сохранения собирает
-# профиль native-watch (зависимости оптимизированы, своя сборка быстрая) и перезапускает окно:
+# профиль native-watch (оптимизация как в релизе, но без LTO — пересборка за секунды) и перезапускает окно:
 # старое закрывается штатно — дописывает несохранённое, запоминает размер, положение и
 # открытую заметку. Если сборка упала, старое окно остаётся работать.
 #
-# Запуск: native\watch.bat [аргументы окна]; без аргументов — последняя открытая база.
+# Запуск: npm run dev (из aquilum-app) или native\watch.bat [аргументы окна]; без аргументов — последняя открытая база.
 
 param([Parameter(ValueFromRemainingArguments = $true)][string[]]$AppArgs)
 
@@ -27,7 +27,7 @@ $cargoArgs = @(
     'build', '-p', 'aquilum-native', '--profile', 'native-watch',
     '--config', "profile.native-watch.inherits='dev'",
     '--config', "profile.native-watch.package.'*'.opt-level=3",
-    '--config', 'profile.native-watch.opt-level=1',
+    '--config', 'profile.native-watch.opt-level=3',
     '--config', 'profile.native-watch.debug-assertions=false',
     '--config', "profile.native-watch.debug='line-tables-only'"
 )

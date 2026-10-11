@@ -17,25 +17,15 @@ pub struct Session {
     pub camera: Option<(f64, f64, f64)>,
 }
 
-fn now_ms() -> i64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or_default()
-}
-
-pub fn relative(root: &Path, path: &Path) -> Option<String> {
-    let rest = path.strip_prefix(root).ok()?;
-    let parts: Vec<String> = rest.components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
-    (!parts.is_empty()).then(|| parts.join("/"))
-}
-
 impl Session {
     pub fn open(core: &Core, root: &Path) -> Option<(Session, Tabs)> {
-        let workspace_id = core.ui_state.resolve_workspace(&root.to_string_lossy(), now_ms()).ok()?;
+        let workspace_id = core.ui_state.resolve_workspace(&root.to_string_lossy(), crate::dates::now_ms()).ok()?;
         let epoch = Uuid::new_v4();
-        let input = OpenSessionInput { workspace_id, window_id: WINDOW_ID.into(), epoch, now_ms: now_ms() };
+        let input = OpenSessionInput { workspace_id, window_id: WINDOW_ID.into(), epoch, now_ms: crate::dates::now_ms() };
         let loaded = match core.ui_state.open_session(&input) {
             Ok(loaded) => loaded,
             Err(error) => {
-                eprintln!("сессия вкладок не открыта: {error:?}");
+                report!("сессия вкладок не открыта: {error:?}");
                 return None;
             }
         };
@@ -46,7 +36,7 @@ impl Session {
             .filter_map(|tab| match tab.kind {
                 TabKind::Empty => Some(Tab { id: tab.tab_id, path: None, document_id: None, graph: false }),
                 TabKind::Document => {
-                    let path = root.join(tab.relative_path?.replace('/', std::path::MAIN_SEPARATOR_STR));
+                    let path = crate::paths::absolute(&root, &tab.relative_path?);
                     path.is_file().then_some(Tab { id: tab.tab_id, path: Some(path), document_id: tab.document_id, graph: false })
                 }
                 TabKind::Graph => Some(Tab { id: tab.tab_id, path: None, document_id: None, graph: true }),
@@ -64,10 +54,10 @@ impl Session {
             if tab.document_id.is_some() {
                 continue;
             }
-            let Some(relative) = tab.path.as_deref().and_then(|p| relative(&self.root, p)) else { continue };
+            let Some(relative) = tab.path.as_deref().and_then(|p| crate::paths::relative(&self.root, p)) else { continue };
             match core.ui_state.resolve_document(self.workspace_id, &relative) {
                 Ok(document) => tab.document_id = Some(document),
-                Err(error) => eprintln!("заметка {relative} не записана в сессию: {error:?}"),
+                Err(error) => report!("заметка {relative} не записана в сессию: {error:?}"),
             }
         }
         let stored = tabs
@@ -94,13 +84,13 @@ impl Session {
             window_id: WINDOW_ID.into(),
             epoch: self.epoch,
             sequence: self.sequence,
-            now_ms: now_ms(),
+            now_ms: crate::dates::now_ms(),
             session: Some(SessionStateInput { active_tab_id: Some(tabs.active_id()), tabs: Some(stored) }),
             views: Vec::new(),
             graph_camera: None,
         };
         if let Err(error) = core.ui_state.save_batch(&batch) {
-            eprintln!("сессия вкладок не сохранена: {error:?}");
+            report!("сессия вкладок не сохранена: {error:?}");
         }
     }
 
@@ -112,18 +102,18 @@ impl Session {
             window_id: WINDOW_ID.into(),
             epoch: self.epoch,
             sequence: self.sequence,
-            now_ms: now_ms(),
+            now_ms: crate::dates::now_ms(),
             session: None,
             views: Vec::new(),
             graph_camera: Some(aquilum_core::ui_state::models::GraphCameraState { center_x: camera.0, center_y: camera.1, scale: camera.2 }),
         };
         if let Err(error) = core.ui_state.save_batch(&batch) {
-            eprintln!("камера графа не сохранена: {error:?}");
+            report!("камера графа не сохранена: {error:?}");
         }
     }
 
     pub fn document(&self, core: &Core, path: &Path) -> Option<Uuid> {
-        let relative = relative(&self.root, path)?;
+        let relative = crate::paths::relative(&self.root, path)?;
         core.ui_state.resolve_document(self.workspace_id, &relative).ok()
     }
 
@@ -147,13 +137,13 @@ impl Session {
             window_id: WINDOW_ID.into(),
             epoch: self.epoch,
             sequence: self.sequence,
-            now_ms: now_ms(),
+            now_ms: crate::dates::now_ms(),
             session: None,
             views: vec![view],
             graph_camera: None,
         };
         if let Err(error) = core.ui_state.save_batch(&batch) {
-            eprintln!("позиция заметки не сохранена: {error:?}");
+            report!("позиция заметки не сохранена: {error:?}");
         }
     }
 
@@ -164,9 +154,9 @@ impl Session {
 
     pub fn renamed(&self, core: &Core, tab: &Tab) {
         let (Some(document), Some(path)) = (tab.document_id, tab.path.as_deref()) else { return };
-        let Some(relative) = relative(&self.root, path) else { return };
+        let Some(relative) = crate::paths::relative(&self.root, path) else { return };
         if let Err(error) = core.ui_state.rename_document(document, &relative) {
-            eprintln!("переименование {relative} не записано в сессию: {error:?}");
+            report!("переименование {relative} не записано в сессию: {error:?}");
         }
     }
 }

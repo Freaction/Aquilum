@@ -1,6 +1,12 @@
 mod embeds;
+mod layout;
+#[cfg(feature = "memory-probe")]
+mod probe;
+#[cfg(test)]
+mod tests;
 mod text;
 
+use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -26,26 +32,56 @@ pub struct Embed {
     pub view: View,
 }
 
+#[derive(Default)]
+struct States {
+    list: Vec<markdown::State>,
+    ids: HashMap<markdown::State, u32>,
+}
+
+impl States {
+    fn id(&mut self, state: markdown::State) -> u32 {
+        *self.ids.entry(state).or_insert_with(|| {
+            self.list.push(state);
+            (self.list.len() - 1) as u32
+        })
+    }
+
+    fn get(&self, id: u32) -> Option<markdown::State> {
+        self.list.get(id as usize).copied()
+    }
+}
+
+static PLAIN: Decor = Decor { x: 0.0, inset: 0.0, pad: (0.0, 0.0), hang: None, codes: Vec::new(), tags: Vec::new(), links: Vec::new(), caret: None };
+
 pub struct Paragraph {
     pub start: usize,
     pub len: usize,
-    pub layout: Option<Layout<BrushIndex>>,
     pub top: f64,
     pub height: f64,
-    pub block: Block,
-    pub decor: Decor,
-    pub fold: Fold,
+    pub layout: Option<Box<Layout<BrushIndex>>>,
+    decor: Option<Box<Decor>>,
     pub embed: Option<Box<Embed>>,
-    lift: f64,
+    measured: Option<f32>,
+    embedded: Option<f32>,
+    lift: f32,
+    exact: bool,
+    pub fold: Fold,
+    state: u32,
+    pub block: Block,
 }
 
 impl Paragraph {
     fn new(start: usize, len: usize) -> Self {
-        Paragraph { start, len, layout: None, top: 0.0, height: 0.0, block: Block::Text, decor: Decor::default(), fold: Fold::None, embed: None, lift: 0.0 }
+        Paragraph { start, len, top: 0.0, height: 0.0, layout: None, decor: None, embed: None, measured: None, embedded: None, lift: 0.0, exact: false, fold: Fold::None, state: u32::MAX, block: Block::Text }
+    }
+
+    pub fn decor(&self) -> &Decor {
+        self.decor.as_deref().unwrap_or(&PLAIN)
     }
 
     pub fn origin(&self) -> Vec2 {
-        Vec2::new(self.decor.x, self.top + self.lift + self.decor.pad.0)
+        let decor = self.decor();
+        Vec2::new(decor.x, self.top + f64::from(self.lift) + decor.pad.0)
     }
 
     fn caret(&self, caret: Option<usize>) -> Option<usize> {
@@ -61,11 +97,49 @@ impl Paragraph {
     }
 
     pub fn layout(&self) -> &Layout<BrushIndex> {
-        self.layout.as_ref().expect("абзац сверстан")
+        self.layout.as_deref().expect("абзац сверстан")
     }
 
     fn text_height(&self) -> f64 {
-        f64::from(self.layout().height()) + self.decor.pad.0 + self.decor.pad.1
+        self.measured.map_or(0.0, f64::from)
+    }
+
+    fn unbuild(&mut self) {
+        self.layout = None;
+        self.decor = None;
+    }
+
+    fn near(&self, (top, bottom): (f64, f64)) -> bool {
+        self.top + self.height > top && self.top < bottom
+    }
+
+    fn forget(&mut self) {
+        self.unbuild();
+        self.measured = None;
+        self.exact = false;
+    }
+
+    fn estimate(&mut self, text: &str, line: f64, ch: f64, wrap: Option<f32>) {
+        let chars = text[self.range()].chars().count() as f64;
+        let lines = wrap.filter(|w| *w > 0.0).map_or(1.0, |w| (chars * ch / f64::from(w)).ceil().max(1.0));
+        self.measured = Some((lines * line) as f32);
+        self.exact = false;
+    }
+
+    fn build(&mut self, text: &str, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, width: Option<f32>, composing: Option<(usize, &str)>, markdown: Option<(&Fonts, Option<usize>, &HashSet<String>)>) {
+        let source = &text[self.range()];
+        let (text, underline) = match composing {
+            Some((at, preedit)) => {
+                let local = at - self.start;
+                (format!("{}{preedit}{}", &source[..local], &source[local..]), Some(local..local + preedit.len()))
+            }
+            None => (source.to_owned(), None),
+        };
+        let (layout, decor) = text::build(fcx, lcx, styles, &text, underline, width, markdown.map(|(fonts, local, unresolved)| (fonts, &self.block, local, unresolved)));
+        self.measured = Some((f64::from(layout.height()) + decor.pad.0 + decor.pad.1) as f32);
+        self.exact = true;
+        self.layout = Some(Box::new(layout));
+        self.decor = Some(Box::new(decor));
     }
 }
 
@@ -75,14 +149,29 @@ pub struct Document {
     width: Option<f32>,
     pub markdown: Option<Fonts>,
     pub resolver: Option<Arc<dyn Resolver>>,
+    unresolved: (Arc<HashSet<String>>, u64),
     pub editing: Option<(usize, (usize, usize))>,
     pub uncropped: Option<usize>,
     pub resized: Option<(usize, f64)>,
+    pub source: Option<usize>,
+    pub keep: (f64, f64),
+    pub pins: Vec<usize>,
+    shown: std::ops::RangeInclusive<usize>,
+    edits: Option<Vec<super::Edit>>,
+    anchor: Option<(usize, f64)>,
+    states: States,
+    dirty: Option<Range<usize>>,
+    pub rebroke: bool,
+    laid: Range<usize>,
+    held: Vec<usize>,
+    placed: bool,
+    shift: f64,
+    line: f64,
 }
 
 fn split(text: &str, base: usize) -> Vec<Paragraph> {
     let mut start = 0;
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(text.bytes().filter(|&b| b == b'\n').count() + 1);
     for (i, _) in text.match_indices('\n') {
         out.push(Paragraph::new(base + start, i - start));
         start = i + 1;
@@ -93,7 +182,18 @@ fn split(text: &str, base: usize) -> Vec<Paragraph> {
 
 impl Document {
     pub fn new(text: &str) -> Self {
-        Document { text: text.to_owned(), paragraphs: split(text, 0), width: None, markdown: None, resolver: None, editing: None, uncropped: None, resized: None }
+        Document { text: text.to_owned(), paragraphs: split(text, 0), width: None, markdown: None, resolver: None, unresolved: (Arc::default(), 0), editing: None, uncropped: None, resized: None, source: None, keep: (0.0, 0.0), pins: Vec::new(), shown: 0..=0, edits: None, anchor: None, states: States::default(), dirty: None, rebroke: false, laid: 0..0, held: Vec::new(), placed: false, shift: 0.0, line: 0.0 }
+    }
+
+    pub fn report_edits(&mut self) {
+        self.edits = Some(Vec::new());
+    }
+
+    pub fn changed(&mut self) -> super::TextAction {
+        match self.edits.as_mut() {
+            Some(edits) => super::TextAction::Edited(std::mem::take(edits)),
+            None => super::TextAction::Changed(self.text.clone()),
+        }
     }
 
     pub fn text(&self) -> &str {
@@ -124,10 +224,44 @@ impl Document {
         self.paragraphs.partition_point(|p| p.top <= y).saturating_sub(1)
     }
 
+    pub fn take_shift(&mut self) -> f64 {
+        std::mem::take(&mut self.shift)
+    }
+
+    pub fn anchor_at(&mut self, y: f64) {
+        let p = &self.paragraphs[self.at_y(y + 8.0)];
+        self.anchor = self.placed.then_some((p.start, p.top));
+    }
+
     pub fn set_text(&mut self, text: &str) {
+        self.anchor = None;
+        self.placed = false;
+        self.states = States::default();
+        if let Some(edits) = self.edits.as_mut() {
+            edits.clear();
+        }
         self.text = text.to_owned();
         self.paragraphs = split(text, 0);
+        self.laid = 0..0;
+        self.held.clear();
+        self.mark(0..self.paragraphs.len());
         self.classify();
+    }
+
+    fn mark(&mut self, range: Range<usize>) {
+        self.dirty = Some(match self.dirty.take() {
+            Some(dirty) => dirty.start.min(range.start)..dirty.end.max(range.end),
+            None => range,
+        });
+    }
+
+    pub fn set_callouts(&mut self, enabled: bool) {
+        if let Some(fonts) = self.markdown.as_mut()
+            && fonts.callouts != enabled
+        {
+            fonts.callouts = enabled;
+            self.invalidate_all();
+        }
     }
 
     pub fn set_markdown(&mut self, fonts: Option<Fonts>) {
@@ -137,16 +271,32 @@ impl Document {
     }
 
     fn classify(&mut self) {
+        self.classify_from(0, self.paragraphs.len());
+    }
+
+    fn classify_from(&mut self, from: usize, until: usize) {
         if self.markdown.is_none() {
             return;
         }
-        let blocks = markdown::classify(self.paragraphs.iter().map(|p| &self.text[p.range()]));
-        for (p, block) in self.paragraphs.iter_mut().zip(blocks) {
+        let mut state = from.checked_sub(1).and_then(|i| self.states.get(self.paragraphs[i].state)).unwrap_or_default();
+        for j in from..self.paragraphs.len() {
+            let line = &self.text[self.paragraphs[j].range()];
+            let next = self.paragraphs.get(j + 1).map(|n| &self.text[n.range()]);
+            let block = state.step(line, next);
+            let id = self.states.id(state);
+            let p = &mut self.paragraphs[j];
             if p.block != block {
                 p.block = block;
-                p.layout = None;
+                p.forget();
+            }
+            let same = p.state == id;
+            p.state = id;
+            if j + 1 >= until && same {
+                self.mark(from..j + 1);
+                return;
             }
         }
+        self.mark(from..self.paragraphs.len());
     }
 
     pub fn replace(&mut self, range: Range<usize>, insert: &str) {
@@ -155,103 +305,40 @@ impl Document {
         let from = self.paragraphs[first].start;
         let to = self.paragraphs[last].end();
         self.text.replace_range(range.clone(), insert);
+        if let Some((at, _)) = self.anchor.as_mut() {
+            if *at >= range.end {
+                *at = *at + insert.len() - range.len();
+            } else if *at > range.start {
+                *at = range.start;
+            }
+        }
+        if let Some(edits) = self.edits.as_mut() {
+            edits.push(super::Edit { range: range.clone(), insert: insert.to_owned() });
+        }
         let delta = insert.len() as isize - range.len() as isize;
         let new_end = (to as isize + delta) as usize;
         let fresh = split(&self.text[from..new_end], from);
         for p in &mut self.paragraphs[last + 1..] {
             p.start = (p.start as isize + delta) as usize;
         }
-        self.paragraphs.splice(first..=last, fresh);
-        self.classify();
-    }
-
-    pub fn layout(&mut self, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, width: Option<f32>, compose: Option<(usize, &str)>, caret: Option<usize>) {
-        if let Some(fonts) = self.markdown.as_mut()
-            && fonts.ch == 0.0
-        {
-            fonts.ch = text::measure_ch(fcx, lcx, fonts);
-        }
-        let rebreak = self.width != width;
-        self.width = width;
-        for p in &mut self.paragraphs {
-            let composing = compose.filter(|(at, _)| p.range().contains(at) || *at == p.end());
-            let local = self.markdown.as_ref().and_then(|_| p.caret(caret));
-            let moved = self.markdown.is_some() && local != p.decor.caret;
-            let wrap = width.map(|w| (w - p.decor.inset as f32).max(0.0));
-            match (&mut p.layout, composing) {
-                (Some(layout), None) if rebreak && !moved => {
-                    layout.break_all_lines(wrap);
-                    layout.align(wrap, Alignment::Start, AlignmentOptions::default());
-                }
-                (Some(_), None) if !moved => {}
-                (_, composing) => {
-                    let source = &self.text[p.range()];
-                    let (text, underline) = match composing {
-                        Some((at, preedit)) => {
-                            let local = at - p.start;
-                            (format!("{}{preedit}{}", &source[..local], &source[local..]), Some(local..local + preedit.len()))
-                        }
-                        None => (source.to_owned(), None),
-                    };
-                    let (layout, decor) = text::build(fcx, lcx, styles, &text, underline, width, self.markdown.as_ref().map(|fonts| (fonts, &p.block, local)));
-                    p.layout = Some(layout);
-                    p.decor = decor;
-                }
-            }
-        }
-        self.place(fcx, lcx, styles, width, caret);
-        if let Some(resolver) = &self.resolver {
-            resolver.sweep();
-        }
-    }
-
-    fn place(&mut self, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, width: Option<f32>, caret: Option<usize>) {
-        let mut top = 0.0;
-        let mut i = 0;
-        while i < self.paragraphs.len() {
-            if let Some((end, reveal)) = self.run_end(i) {
-                let span = self.paragraphs[i].start..=self.paragraphs[end].end();
-                let inside = caret.is_some_and(|c| span.contains(&c));
-                if let Some(height) = (!(inside && reveal == embeds::Reveal::Source)).then(|| self.embed(i, end, fcx, lcx, styles, width)).flatten() {
-                    if inside && reveal == embeds::Reveal::Above {
-                        let p = &mut self.paragraphs[i];
-                        p.fold = Fold::Above;
-                        p.lift = height;
-                        p.top = top;
-                        p.height = height + p.text_height();
-                        top += p.height;
-                        i += 1;
-                        continue;
-                    }
-                    for (k, p) in self.paragraphs[i..=end].iter_mut().enumerate() {
-                        p.fold = if k == 0 { Fold::Head } else { Fold::Member };
-                        p.lift = 0.0;
-                        p.top = if k == 0 { top } else { top + height };
-                        p.height = if k == 0 { height } else { 0.0 };
-                    }
-                    top += height;
-                    i = end + 1;
-                    continue;
-                }
-            }
-            let p = &mut self.paragraphs[i];
-            p.fold = Fold::None;
-            p.lift = 0.0;
+        let top = self.paragraphs[first].top;
+        let mut fresh = fresh;
+        for p in &mut fresh {
             p.top = top;
-            p.height = p.text_height();
-            top += p.height;
-            i += 1;
         }
-    }
-
-    pub fn invalidate(&mut self, offset: usize) {
-        let i = self.at_offset(offset);
-        self.paragraphs[i].layout = None;
-    }
-
-    pub fn invalidate_all(&mut self) {
-        for p in &mut self.paragraphs {
-            p.layout = None;
+        let count = fresh.len();
+        self.paragraphs.splice(first..=last, fresh);
+        let remap = |i: usize, end: bool| match i {
+            i if i < first || end && i == first => i,
+            i if i > last + usize::from(end) => i - (last + 1) + first + count,
+            _ => first + if end { count } else { 0 },
+        };
+        self.dirty = self.dirty.take().map(|d| remap(d.start, false)..remap(d.end, true));
+        self.laid = remap(self.laid.start, false)..remap(self.laid.end, true);
+        for i in &mut self.held {
+            *i = remap(*i, false);
         }
+        self.mark(first..first + count);
+        self.classify_from(first.saturating_sub(1), first + count);
     }
 }

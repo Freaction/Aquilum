@@ -12,7 +12,8 @@ use masonry::core::keyboard::{Key, Modifiers, NamedKey};
 use masonry::core::{ErasedAction, NewWidget, Widget, WidgetId};
 use masonry::kurbo::{Axis, Point};
 use masonry::properties::types::CrossAxisAlignment;
-use masonry::widgets::{Flex, TextAction};
+use masonry::widgets::Flex;
+use crate::ui::editor::TextAction;
 
 use super::{App, Outcome, Popup};
 use crate::i18n::{plural, t, t_with};
@@ -82,6 +83,22 @@ fn spawn_search(core: Arc<Core>, workspace: PathBuf, query: String, generation: 
     });
 }
 
+pub(super) fn select_card(root: &mut RenderRoot, cards: &[WidgetId], list: Option<Handle<ScrollArea<Flex>>>, selected: &mut usize, index: usize) {
+    if index >= cards.len() {
+        return;
+    }
+    let previous = std::mem::replace(selected, index);
+    for (i, on) in [(previous, false), (index, true)] {
+        if let Some(&card) = cards.get(i) {
+            root.edit_widget(card, |mut w| ResultCard::set_selected(&mut w.downcast(), on));
+        }
+    }
+    if let Some(list) = list {
+        let (top, bottom) = search::offset_of(index);
+        list.edit(root, |mut area| ScrollArea::reveal(&mut area, top, bottom));
+    }
+}
+
 impl App {
     pub fn open_search(&mut self, root: &mut RenderRoot) {
         if matches!(self.popup, Some(Popup::Search(_))) {
@@ -123,7 +140,7 @@ impl App {
 
     fn close_search(&mut self, root: &mut RenderRoot) {
         if let Some(Popup::Search(state)) = self.popup.take() {
-            root.remove_layer(state.layer);
+            crate::ui::dialog::close(root, state.layer);
             if let Some(ids) = &self.note_ids {
                 root.focus_on(Some(ids.body.id()));
             }
@@ -195,7 +212,7 @@ impl App {
                 state.failed = false;
             }
             Err(error) => {
-                eprintln!("поиск не выполнен: {error}");
+                report!("поиск не выполнен: {error}");
                 state.failed = true;
             }
         }
@@ -224,27 +241,16 @@ impl App {
 
     fn select_result(&mut self, root: &mut RenderRoot, index: usize) {
         let Some(Popup::Search(state)) = &mut self.popup else { return };
-        if index >= state.cards.len() {
-            return;
-        }
-        let previous = std::mem::replace(&mut state.selected, index);
-        for (i, card) in state.cards.iter().enumerate() {
-            if i == previous || i == index {
-                root.edit_widget(*card, |mut w| ResultCard::set_selected(&mut w.downcast(), i == index));
-            }
-        }
-        if let Some(list) = state.list {
-            let (top, bottom) = search::offset_of(index);
-            list.edit(root, |mut area| ScrollArea::reveal(&mut area, top, bottom));
-        }
+        select_card(root, &state.cards, state.list, &mut state.selected, index);
     }
 
     fn open_selected(&mut self, root: &mut RenderRoot, new_tab: bool) -> Outcome {
         let Some(Popup::Search(state)) = &self.popup else { return Outcome::default() };
         let Some(result) = state.results.get(state.selected) else { return Outcome::default() };
         let path = PathBuf::from(&result.path);
+        let offset = result.match_offset;
         self.close_search(root);
-        let title = self.open_in(root, path, new_tab);
+        let title = self.open_in_with_offset(root, path, new_tab, Some(offset));
         Outcome { title, ..Outcome::default() }
     }
 

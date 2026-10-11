@@ -5,7 +5,7 @@ use masonry::parley::Layout;
 use super::super::markdown::{ACCENT, MUTED, ON_ACCENT, SUCCESS, TEXT};
 use super::super::resolve::{Book, Fetch};
 use super::{COVER_H, COVER_RADIUS, COVER_W, Drawing, Font, Item, Spec, Tone};
-use crate::i18n::t;
+use crate::i18n::{t, t_with};
 use crate::ui::tokens::{number, size};
 
 const ELLIPSIS: &str = "…";
@@ -42,7 +42,7 @@ fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>
     items.push(Item::Fill(cover, Tone::CoverBg));
     items.push(Item::Image(cover, book.cover.unwrap_or_else(crate::images::default_book_cover), [0.0, 0.0, 100.0, 100.0]));
     let ui = size::FONT_SIZE_UI_BASE as u8;
-    let progress_text = book.pages.map_or_else(|| "Прогресс: —".to_owned(), |(a, b)| format!("Прогресс: {a}/{b}"));
+    let progress_text = book.pages.map_or_else(|| t("book.progressUnknown"), |(a, b)| t_with("book.progress", &[("current", &a.to_string()), ("total", &b.to_string())]));
     let done = book.pages.is_some_and(|(a, b)| b > 0 && a >= b);
     let progress = make(&Spec::plain(&progress_text, Font::Ui(ui), if done { SUCCESS } else { MUTED }));
     let label = t("book.read");
@@ -54,7 +54,7 @@ fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>
     let text_w = (right - side - pad - text_x).max(1.0);
     let title_brush = if book.linked { ACCENT } else { TEXT };
     let title = clipped(&entry.title, text_w, |s| Spec::plain(s, Font::Editor, title_brush.clone()), make);
-    let author_text = if book.author.is_empty() { "Автор".to_owned() } else { book.author.clone() };
+    let author_text = if book.author.is_empty() { t("book.author") } else { book.author.clone() };
     let author = clipped(&author_text, text_w, |s| Spec::plain(s, Font::Editor, MUTED), make);
     let block = f64::from(title.height()) + f64::from(author.height());
     let ty = top + pad + (COVER_H - block) / 2.0;
@@ -63,8 +63,8 @@ fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>
         hits.extend(super::link_hits(&title, Point::new(text_x, ty), &[(0..shown, entry.target.clone())]));
     }
     let th = f64::from(title.height());
-    items.push(Item::Text(Point::new(text_x, ty), title));
-    items.push(Item::Text(Point::new(text_x, ty + th), author));
+    items.push(Item::Text(Point::new(text_x, ty), title, entry.title.clone()));
+    items.push(Item::Text(Point::new(text_x, ty + th), author, author_text));
     if let Some(button) = button {
         let rect = Rect::new(right - button_w, top + pad, right, top + pad + size::BUTTON_XS_HEIGHT);
         let label_y = rect.y0 + (size::BUTTON_XS_HEIGHT - f64::from(button.height())) / 2.0;
@@ -72,11 +72,11 @@ fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>
         if let Some(file) = &book.file {
             hits.push((rect, super::Action::Read { file: file.clone(), page: book.page.clone(), title: book.title.clone() }, None));
         }
-        let text = Item::Text(Point::new(rect.x0 + size::BUTTON_XS_PADDING_X, label_y), button);
+        let text = Item::Text(Point::new(rect.x0 + size::BUTTON_XS_PADDING_X, label_y), button, label);
         items.push(if book.file.is_some() { text } else { Item::Dim(Box::new(text)) });
     }
     let py = top + pad + COVER_H - f64::from(progress.height());
-    items.push(Item::Text(Point::new(right - f64::from(progress.width()), py), progress));
+    items.push(Item::Text(Point::new(right - f64::from(progress.width()), py), progress, progress_text));
 }
 
 pub fn books(rows: &[Row], available: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Drawing {

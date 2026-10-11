@@ -24,7 +24,8 @@ impl MediaView {
 
     fn mute_button(&self) -> Rect {
         let c = self.controls();
-        Rect::new(c.x1 - SIDE - ICON, c.center().y - ICON / 2.0, c.x1 - SIDE, c.center().y + ICON / 2.0)
+        let right = self.grip().x0 - SIDE;
+        Rect::new(right - ICON, c.center().y - ICON / 2.0, right, c.center().y + ICON / 2.0)
     }
 
     pub fn track(&self) -> Rect {

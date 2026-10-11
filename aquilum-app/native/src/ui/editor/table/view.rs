@@ -1,11 +1,11 @@
 use masonry::core::{BrushIndex, render_text};
 use masonry::imaging::Painter;
-use masonry::kurbo::{Affine, BezPath, Point, Rect, RoundedRect, Stroke, Vec2};
-use masonry::parley::{Alignment, Layout};
+use masonry::kurbo::{Affine, Axis, BezPath, Point, Rect, RoundedRect, Stroke, Vec2};
+use masonry::parley::{Affinity, Alignment, Cursor, Layout, Selection};
 use masonry::peniko::Brush;
 
 use super::model::{Align, Range2, Table};
-use crate::ui::scroll::bar;
+use crate::ui::scroll::bar::{Scrollbar, Span};
 use crate::ui::theme;
 use crate::ui::tokens::size;
 
@@ -48,6 +48,7 @@ pub struct Cell {
     pub rect: Rect,
     pub layout: Layout<BrushIndex>,
     pub link: bool,
+    pub text: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -79,6 +80,8 @@ pub struct Overlay {
     pub line: Line,
     pub scroll_x: f64,
     pub hovered: bool,
+    pub bar_active: bool,
+    pub search: Option<crate::ui::editor::Search>,
 }
 
 pub struct TableView {
@@ -129,7 +132,7 @@ impl Table {
                 if need > have {
                     heights[region.bottom] += need - have;
                 }
-                placed.push((r, c, region, layout, link));
+                placed.push((r, c, region, layout, link, text));
             }
         }
         let mut ys = vec![0.0];
@@ -138,7 +141,7 @@ impl Table {
         }
         let cells = placed
             .into_iter()
-            .map(|(row, col, region, layout, link)| Cell { row, col, rect: Rect::new(xs[col], ys[row], xs[region.right + 1], ys[region.bottom + 1]), layout, link })
+            .map(|(row, col, region, layout, link, text)| Cell { row, col, rect: Rect::new(xs[col], ys[row], xs[region.right + 1], ys[region.bottom + 1]), layout, link, text })
             .collect();
         let bar = if layout_w > scroll_w { size::SCROLLBAR_WIDTH } else { 0.0 };
         TableView { model: self.clone(), height: TOP + ys[n] + ADD + bar + PAD_Y, corner, scroll_w, layout_w, xs, ys, cells, columns, numbers }
@@ -155,22 +158,18 @@ impl TableView {
         (self.max_scroll() > 0.0).then(|| Rect::new(0.0, bottom, self.scroll_w, bottom + size::SCROLLBAR_WIDTH))
     }
 
-    pub fn bar_thumb(&self, scroll_x: f64) -> Option<Rect> {
-        let t = self.bar_track()?.inflate(-bar::THUMB_INSET, -bar::THUMB_INSET);
-        let width = (t.width() * self.scroll_w / self.layout_w).clamp(bar::THUMB_MIN.min(t.width()), t.width());
-        let left = t.x0 + (t.width() - width) * scroll_x.clamp(0.0, self.max_scroll()) / self.max_scroll();
-        Some(Rect::new(left, t.y0, left + width, t.y1))
-    }
-
-    pub fn bar_travel(&self) -> f64 {
-        match (self.bar_track(), self.bar_thumb(0.0)) {
-            (Some(track), Some(thumb)) => (track.width() - bar::THUMB_INSET * 2.0 - thumb.width()).max(1.0),
-            _ => 1.0,
-        }
+    pub fn bar_span(&self, scroll_x: f64) -> Option<Span> {
+        Some(Span { track: self.bar_track()?, viewport: self.scroll_w, content: self.layout_w, offset: scroll_x })
     }
 
     fn table_x(&self, scroll_x: f64) -> f64 {
-        self.corner + GAP - scroll_x
+        self.corner + GAP - scroll_x.clamp(0.0, self.max_scroll())
+    }
+
+    pub fn resized_line(&self, index: usize, width: f64, scroll_x: f64) -> Line {
+        let delta = width - (self.xs[index + 1] - self.xs[index]);
+        let max = (self.layout_w + delta - self.scroll_w).max(0.0);
+        Line::Col(self.corner + GAP - scroll_x.clamp(0.0, max) + self.xs[index + 1] + delta, true)
     }
 
     pub fn cell_origin(&self, cell: &Cell, scroll_x: f64) -> Point {
@@ -276,7 +275,7 @@ impl TableView {
 
     pub fn paint(&self, painter: &mut Painter<'_>, x: f64, y: f64, palette: &[Brush], overlay: &Overlay) {
         let tm = theme::current();
-        let s = overlay.scroll_x.clamp(0.0, self.max_scroll());
+        let s = overlay.scroll_x;
         let n = self.ys.len() - 1;
         let tx = self.table_x(s);
         let bottom = TOP + self.ys[n];
@@ -290,11 +289,20 @@ impl TableView {
                 }
                 render_text(painter, centered(rect, label), label, palette, true);
             }
+            let mut seen = 0;
             for cell in &self.cells {
                 let r = Rect::new(tx + cell.rect.x0, TOP + cell.rect.y0, tx + cell.rect.x1, TOP + cell.rect.y1);
                 let px = Rect::new(x + r.x0.round() + 0.5, y + r.y0.round() + 0.5, x + r.x1.round() + 0.5, y + r.y1.round() + 0.5);
                 painter.stroke(px, &stroke, tm.editor_table_border).draw();
                 let o = self.cell_origin(cell, s);
+                if let Some(search) = &overlay.search {
+                    for found in search.ranges(&cell.text, &mut seen) {
+                        let selection = Selection::new(Cursor::from_byte_index(&cell.layout, found.start, Affinity::Downstream), Cursor::from_byte_index(&cell.layout, found.end, Affinity::Upstream));
+                        for (b, _) in selection.geometry(&cell.layout) {
+                            painter.fill(Rect::new(x + o.x + b.x0, y + o.y + b.y0, x + o.x + b.x1, y + o.y + b.y1), tm.search_match_bg).draw();
+                        }
+                    }
+                }
                 render_text(painter, Affine::translate((x + o.x, y + o.y)), &cell.layout, palette, true);
             }
             if let Some(range) = overlay.selection {
@@ -321,15 +329,16 @@ impl TableView {
                 plus(painter, band.center(), tm.icon_faint);
             }
         }
-        if let (Some(track), Some(thumb)) = (self.bar_track(), self.bar_thumb(s)) {
-            let at = Vec2::new(x, y);
-            bar::paint_scrollbar(painter, track + at, thumb + at, overlay.hover == Some(Hit::Bar));
+        if let Some(span) = self.bar_span(s) {
+            let mut bar = Scrollbar::new(Axis::Horizontal);
+            bar.set_hovered(overlay.bar_active);
+            bar.paint(painter, &Span { track: span.track + Vec2::new(x, y), ..span });
         }
         let (valid, invalid) = (tm.bg_accent, tm.text_muted.multiply_alpha(0.6));
         match overlay.line {
             Line::Row(ly, ok) => painter.fill(RoundedRect::new(x, y + ly - 1.0, x + self.layout_w.min(self.scroll_w), y + ly + 1.0, 1.0), if ok { valid } else { invalid }).draw(),
-            Line::Col(lx, ok) => painter.fill(RoundedRect::new(x + lx - 1.0, y + PAD_Y, x + lx + 1.0, y + bottom, 1.0), if ok { valid } else { invalid }).draw(),
-            Line::None => {}
+            Line::Col(lx, ok) if lx >= self.corner && lx <= self.scroll_w => painter.fill(RoundedRect::new(x + lx - 1.0, y + PAD_Y, x + lx + 1.0, y + bottom, 1.0), if ok { valid } else { invalid }).draw(),
+            Line::Col(..) | Line::None => {}
         }
     }
 }

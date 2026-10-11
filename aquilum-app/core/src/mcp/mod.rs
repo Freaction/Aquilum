@@ -38,7 +38,9 @@ impl ServerState {
         McpStatus {
             running: self.running.is_some(),
             port: self.port,
-            executable: std::env::current_exe()
+            executable: std::env::var_os("APPIMAGE")
+                .map(std::path::PathBuf::from)
+                .or_else(|| std::env::current_exe().ok())
                 .map(|path| path.to_string_lossy().into_owned())
                 .unwrap_or_default(),
             error: self.error.clone(),

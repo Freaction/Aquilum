@@ -4,10 +4,14 @@
     "restart": "Restart",
     "stateUnavailable": "Open tabs and positions in notes are not being saved right now: {{reason}}",
     "saveFailed": "Changes are not saved to disk: {{reason}}. The text is not lost, the app still holds it.",
+    "conflictCopy": "The file was changed outside the app. Your edit was saved next to it as “{{name}}”.",
+    "conflictUnsaved": "The file was changed outside the app and the copy with your edit could not be written. The text is not lost, the app still holds it.",
     "saveRetry": "Save again",
     "resetUiState": "Reset and restart",
     "openFailedTitle": "Could not open the note",
     "revealFile": "Show the file in its folder",
+    "copyPath": "Copy path",
+    "closeNote": "Close note",
     "openFailed": "Could not open the note {{path}}: {{reason}}",
     "openFailedEncoding": "the file is not saved as UTF-8. Open it in another editor and save it as UTF-8.",
     "titleAria": "Document title",
@@ -54,6 +58,7 @@
     "newTab": "New tab",
     "renameAria": "New note name",
     "closeNamed": "Close the {{title}} tab",
+    "close": "Close tab",
     "actions": "Note actions"
   },
   "search": {
@@ -184,7 +189,7 @@
       "weightText": "Text",
       "weightMedium": "Medium",
       "weightSemibold": "Semibold",
-      "weightHint": "Bold text and headings don't depend on this setting",
+      "weightHint": "Bold text and headings are always 700",
       "weightDense": "Dense"
     },
     "ui": {
@@ -205,9 +210,6 @@
       "maxWidth": "Editor width, ch",
       "maxWidthHint": "Maximum width of the text column",
       "maxWidthAria": "Editor width",
-      "tabs": "Tabs",
-      "liveTabs": "Tabs kept in memory",
-      "liveTabsHint": "This many recent notes stay loaded: switching between them is instant, but each one holds memory",
       "input": "Input",
       "smartDashes": "Smart dashes",
       "smartDashesHint": "-- and a space → —",
@@ -520,7 +522,10 @@
     "read": "Read",
     "upload": "Upload a book",
     "coverAria": "Book cover",
-    "replaceBookCover": "Replace the book cover"
+    "replaceBookCover": "Replace the book cover",
+    "progress": "Progress: {{current}}/{{total}}",
+    "progressUnknown": "Progress: —",
+    "author": "Author"
   },
   "templateDialog": {
     "title": "Templates",

@@ -1,29 +1,14 @@
-use windows::Win32::Foundation::{HMODULE, HWND, POINT, RECT};
-use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE, D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP};
-use windows::Win32::Graphics::Direct3D11::{
-    D3D11_BIND_SHADER_RESOURCE, D3D11_BOX, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC,
-    D3D11_USAGE_DEFAULT, D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D,
-};
-use windows::Win32::Graphics::Dxgi::Common::{DXGI_ALPHA_MODE_IGNORE, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_UNKNOWN, DXGI_SAMPLE_DESC};
-use windows::Win32::Graphics::Dxgi::{
-    CreateDXGIFactory2, DXGI_CREATE_FACTORY_FLAGS, DXGI_MWA_NO_ALT_ENTER, DXGI_PRESENT, DXGI_PRESENT_PARAMETERS, DXGI_SCALING_NONE,
-    DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_CHAIN_FLAG, DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL, DXGI_USAGE_RENDER_TARGET_OUTPUT, IDXGIFactory2,
-    IDXGISwapChain1,
-};
-use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::rc::Rc;
-
+use windows::Win32::Foundation::{HWND, POINT};
+use windows::Win32::Graphics::Direct3D11::{D3D11_MAP_WRITE, D3D11_MAPPED_SUBRESOURCE, ID3D11Texture2D};
+use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_UNKNOWN;
+use windows::Win32::Graphics::Dxgi::{DXGI_PRESENT, DXGI_PRESENT_PARAMETERS, DXGI_SWAP_CHAIN_FLAG};
 use winit::event_loop::OwnedDisplayHandle;
+use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use super::Area;
-
-struct Gpu {
-    device: ID3D11Device,
-    context: ID3D11DeviceContext,
-    chain: IDXGISwapChain1,
-    canvas: ID3D11Texture2D,
-}
+use super::device::{capacity, create, rect, region, texture, Gpu, GROWTH};
+use super::{Area, Canvas, Target};
 
 pub struct Output {
     hwnd: HWND,
@@ -31,70 +16,7 @@ pub struct Output {
     size: (u32, u32),
     capacity: (u32, u32),
     fresh: bool,
-}
-
-const GROWTH: u32 = 256;
-
-fn capacity(need: u32, have: u32) -> u32 {
-    if need <= have { have } else { need.next_multiple_of(GROWTH) }
-}
-
-fn device(driver: D3D_DRIVER_TYPE) -> windows::core::Result<(ID3D11Device, ID3D11DeviceContext)> {
-    let (mut device, mut context) = (None, None);
-    unsafe {
-        D3D11CreateDevice(None, driver, HMODULE::default(), D3D11_CREATE_DEVICE_BGRA_SUPPORT, None, D3D11_SDK_VERSION, Some(&mut device), None, Some(&mut context))?;
-    }
-    Ok((device.expect("устройство D3D11"), context.expect("контекст D3D11")))
-}
-
-fn texture(device: &ID3D11Device, width: u32, height: u32) -> windows::core::Result<ID3D11Texture2D> {
-    let desc = D3D11_TEXTURE2D_DESC {
-        Width: width,
-        Height: height,
-        MipLevels: 1,
-        ArraySize: 1,
-        Format: DXGI_FORMAT_B8G8R8A8_UNORM,
-        SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
-        Usage: D3D11_USAGE_DEFAULT,
-        BindFlags: D3D11_BIND_SHADER_RESOURCE.0 as u32,
-        CPUAccessFlags: 0,
-        MiscFlags: 0,
-    };
-    let mut texture = None;
-    unsafe { device.CreateTexture2D(&desc, None, Some(&mut texture))? };
-    Ok(texture.expect("текстура холста"))
-}
-
-fn rect(a: Area) -> RECT {
-    RECT { left: a.x as i32, top: a.y as i32, right: (a.x + a.w) as i32, bottom: (a.y + a.h) as i32 }
-}
-
-fn region(a: Area) -> D3D11_BOX {
-    D3D11_BOX { left: a.x, top: a.y, front: 0, right: a.x + a.w, bottom: a.y + a.h, back: 1 }
-}
-
-fn create(hwnd: HWND, width: u32, height: u32) -> Result<Gpu, String> {
-    let (device, context) = device(D3D_DRIVER_TYPE_HARDWARE).or_else(|_| device(D3D_DRIVER_TYPE_WARP)).map_err(|e| format!("D3D11: {e}"))?;
-    let factory: IDXGIFactory2 = unsafe { CreateDXGIFactory2(DXGI_CREATE_FACTORY_FLAGS(0)) }.map_err(|e| format!("DXGI: {e}"))?;
-    let desc = DXGI_SWAP_CHAIN_DESC1 {
-        Width: width,
-        Height: height,
-        Format: DXGI_FORMAT_B8G8R8A8_UNORM,
-        Stereo: false.into(),
-        SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
-        BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
-        BufferCount: 3,
-        Scaling: DXGI_SCALING_NONE,
-        SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
-        AlphaMode: DXGI_ALPHA_MODE_IGNORE,
-        Flags: 0,
-    };
-    let chain = unsafe { factory.CreateSwapChainForHwnd(&device, hwnd, &desc, None, None) }.map_err(|e| format!("цепочка кадров: {e}"))?;
-    unsafe {
-        let _ = factory.MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
-    }
-    let canvas = texture(&device, width, height).map_err(|e| format!("холст: {e}"))?;
-    Ok(Gpu { device, context, chain, canvas })
+    background: u32,
 }
 
 impl Output {
@@ -107,11 +29,11 @@ impl Output {
         let size = (size.width.max(1), size.height.max(1));
         let capacity = (size.0.next_multiple_of(GROWTH), size.1.next_multiple_of(GROWTH));
         let gpu = create(hwnd, capacity.0, capacity.1)?;
-        Ok(Output { hwnd, gpu: Some(gpu), size, capacity, fresh: true })
+        Ok(Output { hwnd, gpu: Some(gpu), size, capacity, fresh: true, background: 0 })
     }
 
     fn lost(&mut self, err: impl std::fmt::Display) {
-        crate::host::report(&format!("вывод кадра: {err}; устройство пересоздаётся"));
+        report!("вывод кадра: {err}; устройство пересоздаётся");
         self.gpu = None;
         self.fresh = true;
     }
@@ -126,6 +48,7 @@ impl Output {
         let Some(gpu) = self.gpu.as_mut() else {
             self.gpu = Some(create(self.hwnd, capacity.0, capacity.1)?);
             self.capacity = capacity;
+            self.clear();
             return Ok(());
         };
         if capacity == self.capacity {
@@ -134,41 +57,89 @@ impl Output {
         let _zone = aq_trace::zone("размер цепочки");
         unsafe { gpu.chain.ResizeBuffers(0, capacity.0, capacity.1, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG(0)) }.map_err(|e| format!("размер цепочки: {e}"))?;
         gpu.canvas = texture(&gpu.device, capacity.0, capacity.1).map_err(|e| format!("холст: {e}"))?;
+        gpu.back = 0;
         self.capacity = capacity;
+        self.clear();
         Ok(())
+    }
+
+    pub fn trim(&mut self) {
+        self.gpu = None;
+        self.fresh = true;
+    }
+
+    pub fn set_background(&mut self, bgra: u32) {
+        if self.background != bgra {
+            self.background = bgra;
+            self.clear();
+        }
+    }
+
+    fn clear(&mut self) {
+        let (background, (w, h)) = (self.background, self.capacity);
+        self.with_target(&mut |target| target.pixels.fill(background));
+        if let Some(gpu) = &mut self.gpu {
+            gpu.stale = std::array::from_fn(|_| vec![Area { x: 0, y: 0, w, h }]);
+        }
     }
 
     pub fn fresh(&self) -> bool {
         self.fresh
     }
 
-    pub fn upload(&mut self, area: Area, pixels: &[u32]) {
-        let _zone = aq_trace::zone("загрузка");
-        let Some(gpu) = &self.gpu else { return };
-        unsafe {
-            gpu.context.UpdateSubresource(&gpu.canvas, 0, Some(&region(area)), pixels.as_ptr().cast(), area.w * 4, 0);
-        }
-    }
 
-    pub fn present(&mut self, dirty: Area) {
+    pub fn present(&mut self, dirty: &[Area]) {
         let _zone = aq_trace::zone("вывод");
-        let Some(gpu) = &self.gpu else { return };
-        let mut dirty_rect = rect(dirty);
+        let Some(gpu) = &mut self.gpu else { return };
+        for stale in &mut gpu.stale {
+            stale.extend_from_slice(dirty);
+            super::merge(stale);
+        }
+        let copy = std::mem::take(&mut gpu.stale[gpu.back]);
+        if copy.is_empty() {
+            return;
+        }
+        gpu.back = (gpu.back + 1) % gpu.stale.len();
+        let mut rects: Vec<_> = copy.iter().map(|a| rect(*a)).collect();
         let result = unsafe {
             gpu.chain.GetBuffer::<ID3D11Texture2D>(0).and_then(|back| {
-                gpu.context.CopyResource(&back, &gpu.canvas);
+                for area in &copy {
+                    gpu.context.CopySubresourceRegion(&back, 0, area.x, area.y, 0, &gpu.canvas, 0, Some(&region(*area)));
+                }
                 let params = DXGI_PRESENT_PARAMETERS {
-                    DirtyRectsCount: if self.fresh { 0 } else { 1 },
-                    pDirtyRects: &mut dirty_rect,
+                    DirtyRectsCount: if self.fresh { 0 } else { rects.len() as u32 },
+                    pDirtyRects: rects.as_mut_ptr(),
                     pScrollRect: std::ptr::null_mut(),
                     pScrollOffset: std::ptr::null_mut::<POINT>(),
                 };
-                gpu.chain.Present1(0, DXGI_PRESENT(0), &params).ok()
+                gpu.chain.Present1(1, DXGI_PRESENT(0), &params).ok()
             })
         };
+        if aq_trace::enabled() {
+            let mut stats = windows::Win32::Graphics::Dxgi::DXGI_FRAME_STATISTICS::default();
+            if unsafe { gpu.chain.GetFrameStatistics(&mut stats) }.is_ok() {
+                aq_trace::counter("показ: кадр", f64::from(stats.PresentCount));
+                aq_trace::counter("показ: такт", f64::from(stats.PresentRefreshCount));
+            }
+        }
         match result {
             Ok(()) => self.fresh = false,
             Err(err) => self.lost(err),
         }
+    }
+}
+
+impl Canvas for Output {
+    fn with_target(&mut self, paint: &mut dyn FnMut(Target<'_>)) {
+        let Some(gpu) = &self.gpu else { return };
+        let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
+        if let Err(err) = unsafe { gpu.context.Map(&gpu.canvas, 0, D3D11_MAP_WRITE, 0, Some(&mut mapped)) } {
+            self.lost(err);
+            return;
+        }
+        let (width, height) = (mapped.RowPitch / 4, self.capacity.1);
+        let pixels = unsafe { std::slice::from_raw_parts_mut(mapped.pData.cast::<u32>(), (width * height) as usize) };
+        paint(Target { pixels, width: width as u16, height: height as u16 });
+        unsafe { gpu.context.Unmap(&gpu.canvas, 0) };
     }
 }

@@ -7,23 +7,25 @@ use crate::ui::editor::resolve::{Fetch, Media};
 
 const RECENT: usize = 24;
 
-static LOADED: Mutex<VecDeque<(String, Media)>> = Mutex::new(VecDeque::new());
+static LOADED: Mutex<VecDeque<(String, PathBuf, bool)>> = Mutex::new(VecDeque::new());
 
 pub(super) fn recent(key: &str) -> Option<Media> {
-    LOADED.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(k, _)| k == key).map(|(_, m)| m.clone())
+    let (path, video) = LOADED.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(k, _, _)| k == key).map(|(_, p, v)| (p.clone(), *v))?;
+    let picture = crate::images::cached(&path)?;
+    Some(Media { image: Some(picture.image), natural: picture.natural, video, path: Some(path) })
 }
 
 #[cfg(test)]
 pub(super) fn recent_count(prefix: &str) -> usize {
-    LOADED.lock().unwrap_or_else(|e| e.into_inner()).iter().filter(|(k, _)| k.starts_with(prefix)).count()
+    LOADED.lock().unwrap_or_else(|e| e.into_inner()).iter().filter(|(k, _, _)| k.starts_with(prefix)).count()
 }
 
 pub(super) fn forget_key(key: &str) {
-    LOADED.lock().unwrap_or_else(|e| e.into_inner()).retain(|(k, _)| k != key);
+    LOADED.lock().unwrap_or_else(|e| e.into_inner()).retain(|(k, _, _)| k != key);
 }
 
 pub(super) fn forget(paths: &[PathBuf]) {
-    LOADED.lock().unwrap_or_else(|e| e.into_inner()).retain(|(_, m)| m.path.as_ref().is_none_or(|p| !paths.contains(p)));
+    LOADED.lock().unwrap_or_else(|e| e.into_inner()).retain(|(_, p, _)| !paths.contains(p));
 }
 
 const REMOTE_DAYS: u64 = 30;
@@ -39,59 +41,27 @@ pub fn prune_remote(dir: &Path) {
     }
 }
 
-pub(super) fn remember(key: String, media: Media) {
+pub(super) fn remember(key: String, media: &Media) {
+    let Some(path) = media.path.clone() else { return };
     let mut loaded = LOADED.lock().unwrap_or_else(|e| e.into_inner());
-    loaded.retain(|(k, _)| *k != key);
-    loaded.push_front((key, media));
+    loaded.retain(|(k, _, _)| *k != key);
+    loaded.push_front((key, path, media.video));
     loaded.truncate(RECENT);
 }
 
 pub(super) fn locate(inner: &Inner, source: &str) -> Option<PathBuf> {
     let source = source.trim();
     let source = source.strip_prefix("file:///").or_else(|| source.strip_prefix("file://")).unwrap_or(source);
-    let decoded = percent_decode(source);
+    let decoded = crate::paths::percent_decode(source);
     let path = Path::new(&decoded);
     if path.is_absolute() {
         return path.is_file().then(|| path.to_path_buf());
     }
     let mut bases = std::iter::once(inner.root.as_path()).chain(inner.document.ancestors().skip(1).take_while(|d| d.starts_with(&inner.root)));
-    bases.find_map(|base| Some(join(base, &decoded)).filter(|p| p.is_file()))
+    bases.find_map(|base| Some(crate::paths::join(base, &decoded)).filter(|p| p.is_file()))
 }
 
-fn join(base: &Path, relative: &str) -> PathBuf {
-    let mut joined = base.to_path_buf();
-    for part in relative.split(['/', '\\']) {
-        match part {
-            "" | "." => {}
-            ".." => {
-                joined.pop();
-            }
-            part => joined.push(part),
-        }
-    }
-    joined
-}
 
-fn percent_decode(text: &str) -> String {
-    if !text.contains('%') {
-        return text.to_owned();
-    }
-    let bytes = text.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%'
-            && let Some(byte) = text.get(i + 1..i + 3).and_then(|h| u8::from_str_radix(h, 16).ok())
-        {
-            out.push(byte);
-            i += 3;
-            continue;
-        }
-        out.push(bytes[i]);
-        i += 1;
-    }
-    String::from_utf8(out).unwrap_or_else(|_| text.to_owned())
-}
 
 fn extension(source: &str) -> String {
     let clean = source.split(['?', '#']).next().unwrap_or(source);
@@ -116,12 +86,35 @@ fn download(inner: &Inner, url: &str) -> Option<PathBuf> {
     (copied.is_ok() && std::fs::rename(&partial, &target).is_ok()).then_some(target)
 }
 
+fn inline_image(source: &str) -> Option<Fetch<Media>> {
+    use base64::Engine;
+    let (header, data) = source.strip_prefix("data:image/")?.split_once(',')?;
+    let picture = header.ends_with(";base64").then(|| base64::engine::general_purpose::STANDARD.decode(data.trim()).ok()).flatten().and_then(|bytes| crate::images::decode_shown(&bytes));
+    Some(match picture {
+        Some(picture) => Fetch::Ready(Media { image: Some(picture.image), natural: picture.natural, video: false, path: None }),
+        None => Fetch::Missing(source.to_owned()),
+    })
+}
+
+fn poster(path: &Path) -> Option<crate::images::Picture> {
+    if let Some(picture) = crate::images::cached(path) {
+        return Some(picture);
+    }
+    let image = crate::poster::video(path)?;
+    let picture = crate::images::Picture { natural: (image.image.width, image.image.height), image };
+    crate::images::remember(path, &picture);
+    Some(picture)
+}
+
 pub(super) fn load(inner: &Inner, source: &str, wiki: bool) -> Fetch<Media> {
+    if let Some(fetched) = inline_image(source) {
+        return fetched;
+    }
     let video = crate::ui::editor::is_video(source);
     let remote = source.starts_with("http://") || source.starts_with("https://");
     let path = if remote {
         if video {
-            return Fetch::Ready(Media { image: None, video, path: None });
+            return Fetch::Ready(Media { image: None, natural: (0, 0), video, path: None });
         }
         download(inner, source)
     } else if wiki {
@@ -135,9 +128,27 @@ pub(super) fn load(inner: &Inner, source: &str, wiki: bool) -> Fetch<Media> {
         locate(inner, source)
     };
     let Some(path) = path else { return Fetch::Missing(source.to_owned()) };
-    let image = if video { crate::poster::video(&path) } else { crate::images::load(&path) };
-    if image.is_none() && !video {
+    let picture = if video { poster(&path) } else { crate::images::picture(&path) };
+    if picture.is_none() && !video {
         return Fetch::Missing(source.to_owned());
     }
-    Fetch::Ready(Media { image, video, path: Some(path) })
+    let natural = picture.as_ref().map_or((0, 0), |p| p.natural);
+    Fetch::Ready(Media { image: picture.map(|p| p.image), natural, video, path: Some(path) })
+}
+
+#[cfg(test)]
+mod tests {
+    use base64::Engine;
+
+    use super::{Fetch, inline_image};
+
+    #[test]
+    fn data_uri_images_are_decoded() {
+        let mut png = Vec::new();
+        image::RgbaImage::new(3, 2).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+        let source = format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(&png));
+        assert!(matches!(inline_image(&source), Some(Fetch::Ready(media)) if media.image.is_some()));
+        assert!(matches!(inline_image("data:image/png;base64,!!!"), Some(Fetch::Missing(_))));
+        assert!(inline_image("pic.png").is_none());
+    }
 }

@@ -40,6 +40,27 @@ fn copy_path(note: &Path, label: &str, attempt: u32) -> PathBuf {
     note.with_file_name(name)
 }
 
+pub fn preserve_copy(core: &Core, path: &Path, body: &str, report: ConflictReport, offset_seconds: i64) -> Option<PathBuf> {
+    let stem = path.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default();
+    let moment = LocalMinute::at(now_nanos(), offset_seconds);
+    let note = path.to_string_lossy();
+    let content = copy_content(&note, &stem, &report, &moment, body)?;
+    let label = copy_stem(&stem, &moment);
+    for attempt in 0..MAX_COPY_ATTEMPTS {
+        let target = copy_path(path, &label, attempt);
+        match gate::create(core, &target, &content, Source::Me, None) {
+            Ok(_) => return Some(target),
+            Err(FileCommandError::AlreadyExists { .. }) => continue,
+            Err(error) => {
+                eprintln!("[aquilum:documents] копия-конфликт не записана: {error}");
+                return None;
+            }
+        }
+    }
+    eprintln!("[aquilum:documents] не нашлось свободного имени для копии-конфликта {label}");
+    None
+}
+
 impl HubIo<'_> {
     fn with_store<T>(&self, operation: impl FnOnce(&DocumentStore) -> T) -> Option<T> {
         let guard = self.store.lock().ok()?;
@@ -68,23 +89,7 @@ impl SessionIo for HubIo<'_> {
     }
 
     fn preserve(&self, body: &str, report: ConflictReport) {
-        let stem = self.path.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default();
-        let moment = LocalMinute::at(now_nanos(), self.offset_seconds);
-        let note = self.path.to_string_lossy();
-        let Some(content) = copy_content(&note, &stem, &report, &moment, body) else { return };
-        let label = copy_stem(&stem, &moment);
-        for attempt in 0..MAX_COPY_ATTEMPTS {
-            let target = copy_path(self.path, &label, attempt);
-            match gate::create(self.core, &target, &content, Source::Me, None) {
-                Ok(_) => return,
-                Err(FileCommandError::AlreadyExists { .. }) => continue,
-                Err(error) => {
-                    eprintln!("[aquilum:documents] копия-конфликт не записана: {error}");
-                    return;
-                }
-            }
-        }
-        eprintln!("[aquilum:documents] не нашлось свободного имени для копии-конфликта {label}");
+        preserve_copy(self.core, self.path, body, report, self.offset_seconds);
     }
 
     fn append(&self, update: &[u8]) {

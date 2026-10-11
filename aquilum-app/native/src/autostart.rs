@@ -71,7 +71,7 @@ mod platform {
         let name = HSTRING::from(super::NAME);
         let ok = unsafe {
             if on {
-                let value: Vec<u8> = format!("{exe} ").encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect();
+                let value: Vec<u8> = format!("\"{exe}\"").encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect();
                 RegSetValueExW(key, &name, None, REG_SZ, Some(&value)) == ERROR_SUCCESS
             } else {
                 let status = RegDeleteValueW(key, &name);
@@ -130,7 +130,7 @@ mod platform {
             return std::fs::remove_file(&file).is_ok() || !file.exists();
         }
         let name = super::NAME;
-        let entry = format!("[Desktop Entry]\nType=Application\nVersion=1.0\nName={name}\nComment={name}startup script\nExec={exe} \nStartupNotify=false\nTerminal=false");
+        let entry = format!("[Desktop Entry]\nType=Application\nVersion=1.0\nName={name}\nComment={name}startup script\nExec=\"{exe}\"\nStartupNotify=false\nTerminal=false");
         file.parent().is_some_and(|dir| std::fs::create_dir_all(dir).is_ok()) && std::fs::write(&file, entry).is_ok()
     }
 }

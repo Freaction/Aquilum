@@ -11,6 +11,25 @@
 
 ---
 
+## Стек
+
+| Слой | Технологии |
+| --- | --- |
+| Язык | **Rust** (edition 2024) |
+| Окно и ввод | **winit 0.31** (свой хост, без `masonry_winit`), DirectManipulation для тачпада на Windows |
+| Интерфейс | **Masonry** (виджеты Xilem) — форк `masonry_core` в `aquilum-app/native/vendor/` |
+| Текст | **Parley** (раскладка), **harfrust** (шейпинг), **skrifa** (шрифты), шрифты iA Writer встроены |
+| Отрисовка | **vello_cpu** на процессоре (SSE4.2), форк в `vendor/` вместе с **glifo** (атлас глифов); свой учёт повреждённых областей, слои и штампы |
+| Вывод кадра | Windows: цепочка обмена **DXGI** (flip, WARP), остальные ОС: **softbuffer** |
+| Редактор | свой: Markdown с live preview, абзацы раскладываются только у видимой области, оценочные высоты и якорь прокрутки как в CodeMirror 6, разбор разметки только вокруг правки |
+| Хранение и ядро | `aquilum-app/core`: **SQLite** (rusqlite), **Yrs** (CRDT), **tantivy** (полнотекстовый поиск), **notify** (слежение за файлами), MCP-сервер |
+| Картинки | **image** (PNG, JPEG, WebP, GIF, BMP); PNG и JPEG декодируются сразу под размер показа (`png`, `jpeg-decoder`) |
+| Экспорт PDF | **krilla** |
+| Сеть | **ureq** + **rustls** (обновления, загрузка картинок, заголовки ссылок) |
+| Установщик | CLI **Tauri** только упаковывает нативный бинарник (NSIS на Windows) |
+
+---
+
 ## Возможности
 
 ### 📝 Live Preview редактор
@@ -80,13 +99,16 @@
 - **Visual Studio Build Tools** (для Windows): компонент C++ x64/x86 build tools
 - **Node.js** v20+ — только для сборки установщика (CLI Tauri упаковывает нативное приложение)
 
-### Запуск
+### Запуск для разработки
 
 ```powershell
-aquilum-app\native\run.bat
+cd aquilum-app
+npm run dev
 ```
 
-Собирает release и открывает окно. Пересборка на лету при правке кода: `aquilum-app\native\scripts\watch.ps1`.
+Как `npm run tauri dev`: собирает, открывает окно и перезапускает его после каждой правки кода, ядра, стилей или переводов. Каталог данных отдельный — `com.dmitriy.aquilum-app.native-dev`. В окне F12 включает подсветку перерисовки (в релизе её нет).
+
+`aquilum-app\native\run.bat` собирает release и открывает окно с обычными данными.
 
 ---
 

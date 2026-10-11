@@ -7,25 +7,27 @@ use masonry::core::keyboard::{Key, KeyState, NamedKey};
 use masonry::core::{
     AccessCtx, ChildrenIds, ErasedAction, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget,
     PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, PropertySet, RegisterCtx, TextEvent,
-    Widget, WidgetId, WidgetPod,
+    Update, UpdateCtx, Widget, WidgetId, WidgetMut, WidgetPod,
 };
 use masonry::imaging::Painter;
-use masonry::kurbo::{Axis, Point, Rect, RoundedRect, Size, Stroke};
+use masonry::kurbo::{Affine, Axis, Point, Rect, RoundedRect, Size, Stroke};
 use masonry::layout::{LenReq, Length};
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{Gap, Padding};
 use masonry::widgets::Flex;
 
-use super::menu::box_shadow;
+use super::menu::{box_shadow, shadow_reach};
+use crate::render::fade::Fade;
 use super::text::label;
 use super::tokens::size;
-use super::widgets::{Pressed, Rule, TextButton, Variant};
+use super::widgets::{Intro, Leading, NORMAL, Pressed, Rule, TextButton, Variant};
 use super::theme;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DialogAnswer {
     Confirm,
     Cancel,
+    Closed,
 }
 
 /// Размер карточки.
@@ -47,14 +49,46 @@ pub struct Modal {
     enter_confirms: bool,
     /// Где карточка лежит в окне — после раскладки.
     card_rect: Rect,
+    intro: Intro,
+    closing: bool,
+    id: Option<u64>,
+}
+
+const LIFT: f64 = 8.0;
+const SHRINK: f64 = 0.02;
+
+impl Drop for Modal {
+    fn drop(&mut self) {
+        if let Some(id) = self.id {
+            crate::render::fade::forget(id);
+        }
+    }
 }
 
 impl Modal {
     pub fn new(card: NewWidget<Flex>, title: &str, size: CardSize, role: Role, enter_confirms: bool) -> NewWidget<Self> {
-        NewWidget::new(Modal { card: card.to_pod(), title: title.to_owned(), size, role, enter_confirms, card_rect: Rect::ZERO })
+        NewWidget::new(Modal { card: card.to_pod(), title: title.to_owned(), size, role, enter_confirms, card_rect: Rect::ZERO, intro: Intro::new(NORMAL), closing: false, id: None })
     }
 
-    /// Карточка по центру окна размера `window`.
+    pub fn close(this: &mut WidgetMut<'_, Self>) {
+        if this.widget.closing {
+            return;
+        }
+        this.widget.closing = true;
+        this.widget.intro.reverse();
+        this.ctx.request_anim_frame();
+        this.ctx.request_paint_only();
+    }
+
+    pub fn set_card(this: &mut WidgetMut<'_, Self>, card: NewWidget<Flex>, title: &str) {
+        this.ctx.remove_child(std::mem::replace(&mut this.widget.card, card.to_pod()));
+        this.widget.title = title.to_owned();
+        this.ctx.children_changed();
+        this.ctx.request_layout();
+        this.ctx.request_paint_only();
+        this.ctx.request_accessibility_update();
+    }
+
     fn centered(window: Size, card: Size) -> Rect {
         let origin = Point::new(((window.width - card.width) / 2.0).round(), ((window.height - card.height) / 2.0).round());
         Rect::from_origin_size(origin, card)
@@ -63,8 +97,7 @@ impl Modal {
 
 /// Шапка модального окна (`.q-dialog__header`): заголовок и, если есть, кнопка закрытия.
 pub fn header(title: &str, close: Option<NewWidget<impl Widget>>) -> NewWidget<Flex> {
-    let t = theme::current();
-    let title = label(title, t.text_secondary, None, size::SIZE_20 as f32);
+    let title = label(title, |t| t.text_secondary, None, Leading::Px(size::SIZE_20 as f32));
     let mut row = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with(title, 1.0);
     if let Some(close) = close {
         row = row.with_fixed(close);
@@ -80,10 +113,9 @@ pub struct ConfirmDialog;
 impl ConfirmDialog {
     /// Слой диалога и id его частей.
     pub fn new(title: &str, description: &str, cancel_label: &str, confirm_label: &str) -> (NewWidget<Modal>, DialogIds) {
-        let t = theme::current();
-        let label = |text: &str, color| label(text, color, None, size::SIZE_20 as f32);
+        let label = |text: &str, paint| label(text, paint, None, Leading::Px(size::SIZE_20 as f32));
         let header = header(title, None::<NewWidget<Flex>>);
-        let content = NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(label(description, t.text_secondary)))
+        let content = NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(label(description, |t| t.text_secondary)))
             .with_props(PropertySet::new().with(Padding::all(Length::px(size::SPACE_24))));
         let cancel = NewWidget::new(TextButton::new(cancel_label, Variant::Ghost));
         let confirm = NewWidget::new(TextButton::new(confirm_label, Variant::Primary));
@@ -117,6 +149,10 @@ pub struct DialogIds {
     confirm: WidgetId,
 }
 
+pub fn close(root: &mut masonry::app::RenderRoot, layer: WidgetId) {
+    root.edit_widget(layer, |mut widget| Modal::close(&mut widget.downcast()));
+}
+
 impl DialogIds {
     pub fn of(dialog: &NewWidget<Modal>, inner: (WidgetId, WidgetId)) -> Self {
         DialogIds { layer: dialog.id(), cancel: inner.0, confirm: inner.1 }
@@ -126,10 +162,7 @@ impl DialogIds {
     /// (Escape, Enter, щелчок мимо карточки).
     pub fn answer(&self, id: WidgetId, action: &ErasedAction) -> Option<DialogAnswer> {
         if id == self.layer {
-            return match action.downcast_ref::<DialogAnswer>()? {
-                DialogAnswer::Confirm => Some(DialogAnswer::Confirm),
-                DialogAnswer::Cancel => Some(DialogAnswer::Cancel),
-            };
+            return action.downcast_ref::<DialogAnswer>().copied().filter(|answer| *answer != DialogAnswer::Closed);
         }
         action.downcast_ref::<Pressed>()?;
         if id == self.confirm {
@@ -148,6 +181,7 @@ impl Widget for Modal {
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
         if let TextEvent::Keyboard(k) = event
             && k.state == KeyState::Down
+            && !self.closing
         {
             match k.key {
                 Key::Named(NamedKey::Escape) => ctx.submit_action::<DialogAnswer>(DialogAnswer::Cancel),
@@ -161,6 +195,29 @@ impl Widget for Modal {
 
     fn accepts_focus(&self) -> bool {
         true
+    }
+
+    fn find_widget_under_pointer<'c>(&'c self, ctx: masonry::core::QueryCtx<'c>, pos: Point) -> Option<masonry::core::WidgetRef<'c, dyn Widget>> {
+        if self.closing {
+            return None;
+        }
+        masonry::core::find_widget_under_pointer(self, ctx, pos)
+    }
+
+    fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
+        if matches!(event, Update::WidgetAdded) {
+            self.id = Some(ctx.widget_id().to_raw());
+            ctx.request_anim_frame();
+        }
+    }
+
+    fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
+        if self.intro.advance(interval) {
+            ctx.request_anim_frame();
+        } else if self.closing {
+            ctx.submit_action::<DialogAnswer>(DialogAnswer::Closed);
+        }
+        ctx.request_paint_only();
     }
 
     fn register_children(&mut self, ctx: &mut RegisterCtx<'_>) {
@@ -195,7 +252,22 @@ impl Widget for Modal {
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
         let t = theme::current();
         let window = ctx.content_box();
-        painter.fill(window, t.dialog_overlay_bg).draw();
+        match self.id.filter(|_| self.intro.running() || self.closing) {
+            Some(id) => {
+                let v = if self.closing { self.intro.reversed() } else { self.intro.value() };
+                let center = self.card_rect.center().to_vec2();
+                let scale = 1.0 - SHRINK * (1.0 - v);
+                let transform = Affine::translate((0.0, LIFT * (1.0 - v))) * Affine::translate(center) * Affine::scale(scale) * Affine::translate(-center);
+                let bounds = self.card_rect.inflate(shadow_reach(t.dialog_shadow), shadow_reach(t.dialog_shadow));
+                crate::render::fade::publish(id, Fade { backdrop: t.dialog_overlay_bg.multiply_alpha(v as f32), bounds, transform, alpha: v as f32 });
+            }
+            None => {
+                if let Some(id) = self.id {
+                    crate::render::fade::forget(id);
+                }
+                painter.fill(window, t.dialog_overlay_bg).draw();
+            }
+        }
         let shape = RoundedRect::from_rect(self.card_rect, size::DIALOG_RADIUS);
         box_shadow(painter, shape, t.dialog_shadow);
         painter.fill(shape, t.dialog_bg).draw();
@@ -224,7 +296,9 @@ impl Widget for Modal {
 
 impl Layer for Modal {
     fn capture_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
-        if let PointerEvent::Down(e) = event {
+        if let PointerEvent::Down(e) = event
+            && !self.closing
+        {
             let position = ctx.local_position(e.state.position);
             if !self.card_rect.contains(position) {
                 ctx.submit_action::<DialogAnswer>(DialogAnswer::Cancel);

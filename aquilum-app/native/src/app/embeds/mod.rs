@@ -1,10 +1,11 @@
 mod book;
 mod dataview;
+mod links;
 mod media;
 
 pub use media::prune_remote;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -62,7 +63,15 @@ struct Inner {
     media: Cache<Media>,
     books: Cache<Book>,
     suggestions: Cache<Vec<String>>,
+    links: Mutex<links::Links>,
+    book_queue: Mutex<BookQueue>,
     requests: Mutex<Vec<Request>>,
+}
+
+#[derive(Default)]
+struct BookQueue {
+    pending: Vec<(String, u64)>,
+    running: bool,
 }
 
 impl Inner {
@@ -97,6 +106,8 @@ impl Embeds {
             media: Cache::default(),
             books: Cache::default(),
             suggestions: Cache::default(),
+            links: Mutex::default(),
+            book_queue: Mutex::default(),
             requests: Mutex::new(Vec::new()),
         }))
     }
@@ -178,43 +189,50 @@ impl Embeds {
     }
 
     fn fetch<T: Clone + PartialEq + Send + 'static>(&self, cache: fn(&Inner) -> &Cache<T>, key: &str, work: impl FnOnce(&Inner) -> Fetch<T> + Send + 'static) -> (Fetch<T>, u64) {
-        let store = cache(&self.0);
-        let epoch = store.epoch.load(Ordering::Acquire);
-        let mut entries = store.entries.lock().unwrap_or_else(|e| e.into_inner());
-        let value = match entries.get_mut(key) {
-            Some(entry) if entry.epoch == epoch || entry.running => {
-                entry.used = true;
-                return (entry.value.clone(), entry.stamp);
-            }
-            Some(entry) => {
-                entry.used = true;
-                entry.running = true;
-                (entry.value.clone(), entry.stamp)
-            }
-            None => {
-                entries.insert(key.to_owned(), Entry { value: Fetch::Pending, epoch, running: true, stamp: 0, used: true, next: None });
-                (Fetch::Pending, 0)
-            }
-        };
-        drop(entries);
+        let (value, stamp, epoch) = claim(cache(&self.0), key);
+        let Some(epoch) = epoch else { return (value, stamp) };
         let inner = Arc::clone(&self.0);
         let key = key.to_owned();
         std::thread::spawn(move || {
             let result = work(&inner);
-            let store = cache(&inner);
-            let mut entries = store.entries.lock().unwrap_or_else(|e| e.into_inner());
-            let Some(entry) = entries.get_mut(&key) else { return };
-            entry.epoch = epoch;
-            if entry.value == result {
-                entry.running = false;
-                return;
+            if settle(cache(&inner), &key, epoch, result) {
+                inner.touch();
             }
-            entry.next = Some(result);
-            drop(entries);
-            inner.touch();
         });
-        value
+        (value, stamp)
     }
+}
+
+fn claim<T: Clone>(store: &Cache<T>, key: &str) -> (Fetch<T>, u64, Option<u64>) {
+    let epoch = store.epoch.load(Ordering::Acquire);
+    let mut entries = store.entries.lock().unwrap_or_else(|e| e.into_inner());
+    match entries.get_mut(key) {
+        Some(entry) if entry.epoch == epoch || entry.running => {
+            entry.used = true;
+            (entry.value.clone(), entry.stamp, None)
+        }
+        Some(entry) => {
+            entry.used = true;
+            entry.running = true;
+            (entry.value.clone(), entry.stamp, Some(epoch))
+        }
+        None => {
+            entries.insert(key.to_owned(), Entry { value: Fetch::Pending, epoch, running: true, stamp: 0, used: true, next: None });
+            (Fetch::Pending, 0, Some(epoch))
+        }
+    }
+}
+
+fn settle<T: PartialEq>(store: &Cache<T>, key: &str, epoch: u64, result: Fetch<T>) -> bool {
+    let mut entries = store.entries.lock().unwrap_or_else(|e| e.into_inner());
+    let Some(entry) = entries.get_mut(key) else { return false };
+    entry.epoch = epoch;
+    if entry.value == result {
+        entry.running = false;
+        return false;
+    }
+    entry.next = Some(result);
+    true
 }
 
 fn commit<T>(cache: &Cache<T>, stamps: &AtomicU64) {
@@ -227,10 +245,11 @@ fn commit<T>(cache: &Cache<T>, stamps: &AtomicU64) {
     }
 }
 
-fn forget(inner: &Inner) {
+fn forget(inner: &Arc<Inner>) {
     inner.grids.epoch.fetch_add(1, Ordering::AcqRel);
     inner.suggestions.epoch.fetch_add(1, Ordering::AcqRel);
     inner.books.epoch.fetch_add(1, Ordering::AcqRel);
+    links::refresh(inner);
     inner.touch();
 }
 
@@ -279,15 +298,23 @@ impl Resolver for Embeds {
         self.fetch(|i| &i.media, &key, move |inner| {
             let fetched = media::load(inner, &source_owned, wiki);
             if let Fetch::Ready(media) = &fetched {
-                media::remember(shared, media.clone());
+                media::remember(shared, media);
             }
             fetched
         })
     }
 
     fn book(&self, target: &str) -> (Fetch<Book>, u64) {
-        let target_owned = target.to_owned();
-        self.fetch(|i| &i.books, target, move |inner| book::load(inner, &target_owned))
+        let (value, stamp, epoch) = claim(&self.0.books, target);
+        let Some(epoch) = epoch else { return (value, stamp) };
+        let mut queue = self.0.book_queue.lock().unwrap_or_else(|e| e.into_inner());
+        queue.pending.push((target.to_owned(), epoch));
+        if !queue.running {
+            queue.running = true;
+            let inner = Arc::clone(&self.0);
+            std::thread::spawn(move || book::drain(&inner));
+        }
+        (value, stamp)
     }
 
     fn suggest(&self, query: &str) -> Option<Vec<String>> {
@@ -304,6 +331,14 @@ impl Resolver for Embeds {
         }
     }
 
+    fn unresolved(&self) -> (Arc<HashSet<String>>, u64) {
+        self.0.links.lock().unwrap_or_else(|e| e.into_inner()).unresolved()
+    }
+
+    fn resolve(&self, targets: Vec<String>) {
+        links::resolve(&self.0, targets);
+    }
+
     fn suggest_min(&self) -> Option<usize> {
         let editor = self.0.core.settings.get_config().editor;
         editor.link_suggest.then_some(editor.link_suggest_min_chars.max(1) as usize)
@@ -312,7 +347,7 @@ impl Resolver for Embeds {
     fn sweep(&self) {
         let mut entries = self.0.media.entries.lock().unwrap_or_else(|e| e.into_inner());
         entries.retain(|key, entry| {
-            let keep = entry.used || entry.running;
+            let keep = entry.used;
             if !keep {
                 media::forget_key(&self.shared(key));
             }

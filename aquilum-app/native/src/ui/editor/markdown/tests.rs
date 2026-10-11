@@ -9,10 +9,10 @@ fn blocks(text: &str) -> Vec<Block> {
 fn classifies_lines() {
     let b = blocks("# Заголовок\n- пункт\n\t- вложенный\n\t\t\t- сирота\n1. раз\n> цитата\n---\n```rust\nlet x;\n```\nтекст");
     assert_eq!(b[0], Block::Heading { level: 1, marker: 2 });
-    assert!(matches!(b[1], Block::Item { level: 0, ordered: false, .. }));
-    assert!(matches!(b[2], Block::Item { level: 1, tabs: 1, .. }));
+    assert!(matches!(b[1], Block::Item(i) if i.level() == 0 && !i.ordered));
+    assert!(matches!(b[2], Block::Item(i) if i.level() == 1 && i.tabs() == 1));
     assert_eq!(b[3], Block::Text);
-    assert!(matches!(b[4], Block::Item { ordered: true, ref marker, .. } if *marker == (0..3)));
+    assert!(matches!(b[4], Block::Item(i) if i.ordered && i.marker() == (0..3)));
     assert_eq!(b[5], Block::Quote { marker: 2, callout: None });
     assert_eq!(b[6], Block::Rule);
     assert!(matches!(b[7], Block::Code { first: true, fence: true, lang: Some(_), .. }));
@@ -30,17 +30,17 @@ fn unclosed_fence_ends_at_document_end() {
 #[test]
 fn task_items_are_found() {
     let b = blocks("- [ ] дело\n- [x] сделано\n1. [ ] номер");
-    assert!(matches!(b[0], Block::Item { task: Some((ref r, false)), .. } if *r == (2..6)));
-    assert!(matches!(b[1], Block::Item { task: Some((_, true)), .. }));
-    assert!(matches!(b[2], Block::Item { task: Some(_), .. }));
+    assert!(matches!(b[0], Block::Item(i) if i.task() == Some((2..6, false))));
+    assert!(matches!(b[1], Block::Item(i) if matches!(i.task(), Some((_, true)))));
+    assert!(matches!(b[2], Block::Item(i) if i.task().is_some()));
 }
 
 #[test]
 fn list_callouts_and_continuations() {
     let b = blocks("- $ деньги\n\t2) пункт\n\t   продолжение\n\t1) дальше");
-    assert!(matches!(b[0], Block::Item { callout: Some((2, 5)), .. }));
+    assert!(matches!(b[0], Block::Item(i) if i.callout() == Some((2, 5))));
     assert!(matches!(b[2], Block::Continuation { lead: 4, width: 3, .. }));
-    assert!(matches!(b[3], Block::Item { ordered: true, .. }));
+    assert!(matches!(b[3], Block::Item(i) if i.ordered));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn hashtags_need_space_around() {
 
 #[test]
 fn inline_spans_have_inner_ranges() {
-    let text = "a *b* **c** ~~d~~ `e` [f](g) [[h|i]] [3](quantum-reader:x)";
+    let text = "a *b* **c** ~~d~~ `e` [f](g) [[h|i]] [3](aquilum-reader:x)";
     let spans = inline(text);
     let pick = |k: Kind| spans.iter().find(|s| s.kind == k).map(|s| &text[s.inner.clone()]).unwrap();
     assert_eq!(pick(Kind::Emphasis), "b");
@@ -79,4 +79,34 @@ fn inline_spans_have_inner_ranges() {
     assert_eq!(pick(Kind::Reader), "3");
     let links: Vec<&str> = spans.iter().filter(|s| s.kind == Kind::Link).map(|s| &text[s.inner.clone()]).collect();
     assert_eq!(links, ["f", "i"]);
+}
+
+#[test]
+fn bare_urls_autolinks_and_legacy_quotes_are_links_like_tauri() {
+    let text = "см. https://example.com/a_(b), www.site.ru. и <https://x.org> или [[→]](quantum-reader:cfi=c) а не `https://code.io`";
+    let spans = inline(text);
+    let links: Vec<(&str, &str, Kind)> = spans.iter().filter(|s| matches!(s.kind, Kind::Link | Kind::Reader)).map(|s| (&text[s.inner.clone()], s.target.as_ref().unwrap().0.as_str(), s.kind)).collect();
+    assert!(links.contains(&("https://example.com/a_(b)", "https://example.com/a_(b)", Kind::Link)), "{links:?}");
+    assert!(links.contains(&("www.site.ru", "https://www.site.ru", Kind::Link)), "{links:?}");
+    assert!(links.contains(&("https://x.org", "https://x.org", Kind::Link)), "{links:?}");
+    assert!(links.contains(&("→", "quantum-reader:cfi=c", Kind::Reader)), "{links:?}");
+    assert!(!links.iter().any(|(_, target, _)| target.contains("code.io")), "ссылка внутри кода: {links:?}");
+}
+
+#[test]
+fn media_lines_follow_tauri_rules() {
+    let b = blocks("![](a.png)
+![[кадр.mp4|300]]
+![[Заметка]]
+![a](x.png) ![b](y.png)
+![](<с пробелом.png>)
+![[a[b].png]]
+![](f(1).png)");
+    assert_eq!(b[0], Block::Image);
+    assert_eq!(b[1], Block::Image);
+    assert_ne!(b[2], Block::Image, "вики-вставка без расширения медиа — не картинка");
+    assert_ne!(b[3], Block::Image, "две картинки в строке — не блок картинки");
+    assert_eq!(b[4], Block::Image);
+    assert_ne!(b[5], Block::Image);
+    assert_ne!(b[6], Block::Image);
 }

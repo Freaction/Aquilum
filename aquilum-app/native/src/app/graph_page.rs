@@ -6,7 +6,7 @@ use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, NewWidget, PropertySet, Widget, WidgetId};
 use masonry::layout::Length;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
-use masonry::properties::{Background, BorderColor, BorderWidth, CornerRadius, Gap, Padding};
+use masonry::properties::{BorderWidth, CornerRadius, Gap, Padding};
 use masonry::widgets::{Flex, SizedBox};
 
 use super::App;
@@ -18,8 +18,8 @@ use crate::ui::handle::Handle;
 use crate::ui::settings::controls::{Changed, Segmented, Slider, Switch};
 use crate::ui::text::label;
 use crate::ui::tokens::{number, size};
-use crate::ui::widgets::{IconButton, Pressed, Slot};
-use crate::ui::{icons, theme};
+use crate::ui::widgets::{IconButton, Leading, Pressed, Slot};
+use crate::ui::icons;
 
 struct Controls {
     refresh: WidgetId,
@@ -102,10 +102,8 @@ impl App {
             self.graph.controls = None;
             return None;
         }
-        let tm = theme::current();
         let prefs = self.interface.graph();
-        let line = (theme::ui_font_settings().size * number::FONT_LINE_HEIGHT_NORMAL as f32).round();
-        let title = label(&t("graph.title"), tm.text_primary, Some(number::FONT_WEIGHT_UI_STRONG as f32), line);
+        let title = label(&t("graph.title"), |t| t.text_primary, Some(number::FONT_WEIGHT_UI_STRONG as f32), Leading::Times(number::FONT_LINE_HEIGHT_NORMAL as f32));
         let refresh = NewWidget::new(IconButton::new(icons::ROTATE_CCW, t("graph.refresh")));
         let head = Flex::row().main_axis_alignment(MainAxisAlignment::SpaceBetween).cross_axis_alignment(CrossAxisAlignment::Center);
         let refresh_id = refresh.id();
@@ -117,7 +115,7 @@ impl App {
         let labels = Switch::new(prefs.labels, &t("graph.labels"));
         let toggle = Flex::row()
             .cross_axis_alignment(CrossAxisAlignment::Center)
-            .with(label(&t("graph.labels"), tm.text_secondary, None, line), 1.0);
+            .with(label(&t("graph.labels"), |t| t.text_secondary, None, Leading::Times(number::FONT_LINE_HEIGHT_NORMAL as f32)), 1.0);
         let labels_id = labels.id();
         let toggle = toggle.with_fixed(labels);
         let options = vec![t("graph.heatNone"), t("graph.heatModified"), t("graph.heatCreated")];
@@ -125,7 +123,7 @@ impl App {
         let heat_id = heat.id();
         let choice = Flex::column()
             .cross_axis_alignment(CrossAxisAlignment::Stretch)
-            .with_fixed(label(&t("graph.heatmap"), tm.text_secondary, None, line))
+            .with_fixed(label(&t("graph.heatmap"), |t| t.text_secondary, None, Leading::Times(number::FONT_LINE_HEIGHT_NORMAL as f32)))
             .with_fixed(heat);
         let choice = NewWidget::new(choice).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_8))));
         let controls = Controls {
@@ -146,10 +144,8 @@ impl App {
             .with_fixed(created)
             .with_fixed(NewWidget::new(toggle))
             .with_fixed(choice);
-        let panel = NewWidget::new(panel).with_props(
+        let panel = NewWidget::new(panel).with_class(crate::ui::style::GRAPH_PANEL).with_props(
             PropertySet::new()
-                .with(Background::Color(tm.graph_settings_bg))
-                .with(BorderColor { color: tm.sidebar_border })
                 .with(BorderWidth { width: Length::px(size::BORDER_1) })
                 .with(CornerRadius { radius: Length::px(size::RADIUS_2XL) })
                 .with(Padding::all(Length::px(size::SPACE_16)))
@@ -244,14 +240,17 @@ impl App {
         self.graph.data.is_none() && self.graph.view.is_none()
     }
 
+    #[cfg(not(feature = "installed"))]
     pub fn graph_view(&self) -> Option<WidgetId> {
         self.graph.view.map(|v| v.id())
     }
 
+    #[cfg(not(feature = "installed"))]
     pub fn graph_ready(&self) -> bool {
         self.graph_active() && self.graph.data.is_some()
     }
 
+    #[cfg(not(feature = "installed"))]
     pub fn open_graph_for_replay(&mut self, root: &mut RenderRoot) {
         if !self.graph_active() {
             self.open_graph(root);
@@ -317,6 +316,17 @@ impl App {
                         session.save_camera(&self.workspace.core, (*x, *y, *scale));
                     }
                 }
+                GraphAction::ShowAll => {
+                    self.graph.share = 0.0;
+                    self.refresh_created_hint(root);
+                    if let Some(view) = self.graph.view {
+                        let display = self.graph_display();
+                        view.edit(root, |mut v| GraphView::set_display(&mut v, display));
+                    }
+                }
+                GraphAction::Retry => {
+                    self.load_graph();
+                }
             }
             return false;
         }
@@ -359,5 +369,71 @@ impl App {
             view.edit(root, |mut v| GraphView::set_display(&mut v, display));
         }
         false
+    }
+}
+
+#[cfg(feature = "memory-probe")]
+impl App {
+    pub fn probe(&mut self, root: &mut RenderRoot, step: &crate::memory_probe::Step) {
+        use crate::memory_probe::Step;
+        match step {
+            Step::OpenNote(path) => {
+                self.open_in(root, path.clone(), true);
+            }
+            Step::OpenSettings => self.open_settings(root),
+            Step::CloseSettings => {
+                if let Some(super::Popup::Settings { dialog, menu }) = self.popup.take() {
+                    if let Some(menu) = menu {
+                        root.remove_layer(menu.layer);
+                    }
+                    crate::ui::dialog::close(root, dialog.layer);
+                }
+            }
+            Step::OpenGraph => self.open_graph(root),
+            Step::CloseTab => {
+                self.close_active_tab(root);
+            }
+            Step::Same(path) => {
+                self.open_in(root, path.clone(), false);
+            }
+            Step::Tab(index) => {
+                if let Some(id) = self.tabs.tabs().get(*index).map(|t| t.id) {
+                    self.tabs.select(id);
+                    self.show_active(root);
+                }
+            }
+            Step::Reader(path) => {
+                let title = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+                self.open_reader(root, super::reader::Opening { file: path.clone(), page: None, title, initial: None, peek: false });
+            }
+            Step::CloseReader => {
+                if let Some(super::Popup::Reader(state)) = self.popup.take() {
+                    root.remove_layer(state.layer);
+                }
+            }
+            Step::Scroll(fraction) => {
+                if let Some(ids) = &self.note_ids {
+                    let scroll = ids.scroll;
+                    scroll.edit(root, |mut area| crate::ui::scroll::ScrollArea::set_fraction(&mut area, *fraction));
+                }
+            }
+            Step::Video => {
+                if let Some(ids) = &self.note_ids {
+                    ids.body.edit(root, |mut body| crate::ui::editor::TextEditor::probe_play(&mut body));
+                }
+            }
+            Step::Evict(name) => {
+                let embeds = name.contains("вставок");
+                if let Some(ids) = &self.note_ids {
+                    ids.body.edit(root, |mut body| crate::ui::editor::TextEditor::probe_evict(&mut body, embeds));
+                }
+            }
+            Step::Wait | Step::Mark(_) | Step::Minimize(_) => {}
+        }
+    }
+
+    pub fn probe_stats(&self, root: &RenderRoot) -> String {
+        let editor = self.note_ids.as_ref().and_then(|ids| root.get_widget(ids.body.id())).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>().map(|e| e.inner().probe_stats()));
+        format!("вкладок {} · текст заметки {:.1} МБ · {}\n", self.tabs.tabs().len(), self.editor_text.len() as f64 / 1_048_576.0, editor.unwrap_or_default())
     }
 }

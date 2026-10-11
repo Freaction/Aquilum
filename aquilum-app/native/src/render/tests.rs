@@ -100,7 +100,26 @@ fn big_image_frame_cost() {
     let start = std::time::Instant::now();
     for _ in 0..frames {
         let (layers, _) = root.redraw();
-        renderer.draw(&layers, 1200, 800, 1.0, BG, true).unwrap();
+        renderer.draw_frame(&layers, 1200, 800, 1.0, BG, true).unwrap();
     }
     eprintln!("кадр с картинкой 3000×2000: {:?}", start.elapsed() / frames);
+}
+
+#[test]
+fn overlay_leaves_no_trace() {
+    use super::overlay::{Mark, Overlay};
+    use super::stamp::Stamps;
+    use crate::output::Area;
+    let (w, h) = (64u16, 48u16);
+    let clean: Vec<u32> = (0..u32::from(w) * u32::from(h)).map(|i| 0xff00_0000 | i.wrapping_mul(2_654_435_761) >> 8).collect();
+    let mut canvas = (w, h, clean.clone());
+    let mut overlay = Overlay::default();
+    let mut stamps = Stamps::default();
+    overlay.on = true;
+    overlay.flash(Area { x: 4, y: 6, w: 20, h: 10 }, Mark::Raster);
+    let shown = overlay.show(&mut canvas, &mut stamps, &[(Area { x: 0, y: 0, w: 64, h: 48 }, Mark::Region), (Area { x: 60, y: 40, w: 30, h: 30 }, Mark::Layer)]);
+    assert!(shown.is_some());
+    assert_ne!(canvas.2, clean, "подсветка видна");
+    stamps.restore(&mut canvas);
+    assert_eq!(canvas.2, clean, "после подсветки холст прежний");
 }

@@ -254,7 +254,7 @@ impl TreeModel {
             Err(e) => {
                 // Папки больше нет — из кэша её содержимое тоже убирается.
                 self.directories.remove(&comparable(dir));
-                eprintln!("папка {} не прочитана: {e}", dir.display());
+                report!("папка {} не прочитана: {e}", dir.display());
             }
         }
         // Раскрытые вложенные папки подгружаются сразу, как `openWorkspace` во фронтенде.

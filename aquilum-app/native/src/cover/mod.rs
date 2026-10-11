@@ -1,13 +1,16 @@
 mod css;
+mod jobs;
 mod motion;
 mod raster;
 
-pub use motion::{animated, paint as paint_motion};
+pub use jobs::{Key, image, set_waker, take_finished, trim};
 
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex, OnceLock};
+pub use motion::{Target as MotionTarget, animated, fps as motion_fps, over, render as render_motion};
 
-use masonry::peniko::{Blob, Color, ImageAlphaType, ImageBrush, ImageData, ImageFormat};
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+use masonry::peniko::Color;
 
 pub const PATTERN_IDS: &[&str] = &[
     "origami",
@@ -80,7 +83,6 @@ pub fn render_pattern(id: &str, width: u32, height: u32, scale: f64) -> Option<V
 pub const DEFAULT_PATTERN: &str = "origami";
 const PREFIX: &str = "pattern:";
 const LEGACY_PREFIX: &str = "builtin:";
-const CACHE_LIMIT: usize = 6;
 
 pub fn pattern_id(value: Option<&str>) -> Option<&'static str> {
     let value = value.map(str::trim).unwrap_or_default();
@@ -88,13 +90,28 @@ pub fn pattern_id(value: Option<&str>) -> Option<&'static str> {
         return Some(DEFAULT_PATTERN);
     }
     if let Some(id) = value.strip_prefix(PREFIX) {
-        return Some(PATTERN_IDS.iter().copied().find(|p| *p == id).unwrap_or(DEFAULT_PATTERN));
+        return Some(named_pattern(id).unwrap_or(DEFAULT_PATTERN));
+    }
+    if let Some(id) = named_pattern(value) {
+        return Some(id);
     }
     if let Some(legacy) = value.strip_prefix(LEGACY_PREFIX) {
         let hash = legacy.encode_utf16().fold(0u64, |h, c| (h * 31 + u64::from(c)) % 1_000_003);
         return Some(PATTERN_IDS[(hash % PATTERN_IDS.len() as u64) as usize]);
     }
     None
+}
+
+fn named_pattern(name: &str) -> Option<&'static str> {
+    PATTERN_IDS.iter().copied().find(|p| p.eq_ignore_ascii_case(name.trim()))
+}
+
+pub fn suggest_patterns(query: &str) -> Vec<String> {
+    let query = query.trim().to_lowercase();
+    let query = query.strip_prefix(PREFIX).unwrap_or(&query);
+    let (mut first, rest): (Vec<&str>, Vec<&str>) = PATTERN_IDS.iter().filter(|id| id.contains(query)).partition(|id| id.starts_with(query));
+    first.extend(rest);
+    first.into_iter().map(str::to_owned).collect()
 }
 
 pub fn random_pattern(current: Option<&str>) -> String {
@@ -104,70 +121,13 @@ pub fn random_pattern(current: Option<&str>) -> String {
     format!("{PREFIX}{}", pool[seed % pool.len()])
 }
 
+pub fn centered(id: &str) -> bool {
+    matches!(id, "city" | "dreams")
+}
+
 pub fn base_color(id: &str) -> Color {
     let c = patterns().get(id).map(|p| p.base.color).unwrap_or([0.0; 4]);
     Color::new([c[0] as f32, c[1] as f32, c[2] as f32, c[3] as f32])
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Key {
-    pub id: &'static str,
-    pub width: u32,
-    pub height: u32,
-    pub scale: u32,
-}
-
-#[derive(Default)]
-struct Jobs {
-    done: Vec<(Key, ImageBrush)>,
-    pending: HashSet<Key>,
-    finished: bool,
-}
-
-static JOBS: Mutex<Option<Jobs>> = Mutex::new(None);
-static WAKER: OnceLock<Arc<dyn Fn() + Send + Sync>> = OnceLock::new();
-
-pub fn set_waker(wake: Arc<dyn Fn() + Send + Sync>) {
-    let _ = WAKER.set(wake);
-}
-
-pub fn image(key: Key) -> Option<ImageBrush> {
-    let mut guard = JOBS.lock().ok()?;
-    let jobs = guard.get_or_insert_with(Jobs::default);
-    if let Some((_, image)) = jobs.done.iter().find(|(k, _)| *k == key) {
-        return Some(image.clone());
-    }
-    if jobs.pending.insert(key) {
-        std::thread::spawn(move || {
-            let pixels = render_pattern(key.id, key.width, key.height, f64::from(key.scale) / 1000.0);
-            let mut guard = JOBS.lock().unwrap_or_else(|e| e.into_inner());
-            let jobs = guard.get_or_insert_with(Jobs::default);
-            jobs.pending.remove(&key);
-            if let Some(pixels) = pixels {
-                let data = ImageData {
-                    data: Blob::new(Arc::new(pixels)),
-                    format: ImageFormat::Rgba8,
-                    alpha_type: ImageAlphaType::AlphaPremultiplied,
-                    width: key.width,
-                    height: key.height,
-                };
-                if jobs.done.len() >= CACHE_LIMIT {
-                    jobs.done.remove(0);
-                }
-                jobs.done.push((key, ImageBrush::new(data)));
-                jobs.finished = true;
-            }
-            drop(guard);
-            if let Some(wake) = WAKER.get() {
-                wake();
-            }
-        });
-    }
-    None
-}
-
-pub fn take_finished() -> bool {
-    JOBS.lock().ok().and_then(|mut g| g.as_mut().map(|j| std::mem::take(&mut j.finished))).unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -175,30 +135,37 @@ mod tests {
     #[test]
     #[ignore]
     fn snapshot_motion() {
-        use masonry::kurbo::{Affine, Rect};
         let dir = std::path::PathBuf::from(std::env::var_os("AQ_OUT").unwrap());
-        let (w, h) = (900u32, 300u32);
+        let (w, h) = (900usize, 300usize);
         for id in ["city", "dreams", "tunnel"] {
-            let pixels = super::render_pattern(id, w, h, 1.0).unwrap();
-            let data = masonry::peniko::ImageData {
-                data: masonry::peniko::Blob::new(std::sync::Arc::new(pixels)),
-                format: masonry::peniko::ImageFormat::Rgba8,
-                alpha_type: masonry::peniko::ImageAlphaType::AlphaPremultiplied,
-                width: w,
-                height: h,
-            };
-            let pattern = masonry::peniko::ImageBrush::new(data);
+            let base = super::render_pattern(id, w as u32, h as u32, 1.0).unwrap();
             for t in [0.0, 0.5, 20.0] {
-                let bounds = Rect::new(0.0, 0.0, f64::from(w), f64::from(h));
-                let image = crate::render::offscreen(w as u16, h as u16, |painter| {
-                    painter.fill(bounds, super::base_color(id)).draw();
-                    painter.draw_image(&pattern, Affine::IDENTITY);
-                    super::paint_motion(painter, id, bounds, t, 900.0);
-                })
-                .unwrap();
-                let rgba = image::RgbaImage::from_raw(w, h, image.image.data.data().to_vec()).unwrap();
-                rgba.save(dir.join(format!("motion-{id}-{t}.png"))).unwrap();
+                let mut motion = vec![0u32; w * h];
+                let mut target = super::MotionTarget { pixels: &mut motion, width: w, height: h, origin: (0.0, 0.0), scale: 1.0, size: (w as f64, h as f64), radius: 12.0 };
+                super::render_motion(id, &mut target, t, 900.0);
+                let pixels: Vec<u8> = base
+                    .chunks_exact(4)
+                    .zip(&motion)
+                    .flat_map(|(b, &m)| super::over(m, u32::from_le_bytes([b[0], b[1], b[2], b[3]])).to_le_bytes())
+                    .collect();
+                image::RgbaImage::from_raw(w as u32, h as u32, pixels).unwrap().save(dir.join(format!("motion-{id}-{t}.png"))).unwrap();
             }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn motion_cost() {
+        let (w, h, scale) = (1793usize, 359usize, 1.75);
+        let mut pixels = vec![0u32; w * h];
+        for id in ["tunnel", "city", "dreams"] {
+            let started = std::time::Instant::now();
+            for frame in 0..200 {
+                pixels.fill(0);
+                let mut target = super::MotionTarget { pixels: &mut pixels, width: w, height: h, origin: (0.0, 0.0), scale, size: (w as f64 / scale, h as f64 / scale), radius: 12.0 };
+                super::render_motion(id, &mut target, f64::from(frame) / 45.0, 900.0);
+            }
+            eprintln!("{id}: {:.3} мс на кадр", started.elapsed().as_secs_f64() * 1000.0 / 200.0);
         }
     }
 

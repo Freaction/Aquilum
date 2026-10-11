@@ -40,7 +40,8 @@ use vello_common::fearless_simd::{
 use vello_common::filter_effects::Filter;
 use vello_common::kurbo::Affine;
 use vello_common::mask::Mask;
-use vello_common::paint::{ImageResolver, ImageSource, Paint, PremulColor, Tint};
+use alloc::sync::Arc;
+use vello_common::paint::{ImageId, ImageResolver, ImageSource, Paint, PremulColor, Tint};
 use vello_common::pixmap::Pixmap;
 use vello_common::simd::Splat4thExt;
 use vello_common::tile::Tile;
@@ -546,6 +547,7 @@ pub struct Fine<S: Simd, T: FineKernel<S>> {
     row_y: u16,
     /// The origin of the current target we are rendering into.
     origin: (u16, u16),
+    last_image: Option<(ImageId, Arc<Pixmap>)>,
 }
 
 impl<S: Simd, T: FineKernel<S>> Fine<S, T> {
@@ -564,6 +566,7 @@ impl<S: Simd, T: FineKernel<S>> Fine<S, T> {
             f32_buf: Vec::new(),
             row_y: 0,
             origin: (0, 0),
+            last_image: None,
         }
     }
 
@@ -1075,15 +1078,26 @@ impl<S: Simd, T: FineKernel<S>> Fine<S, T> {
                 }
             }
             EncodedPaint::Image(image) => {
-                let pixmap = match &image.source {
-                    ImageSource::Pixmap(pixmap) => pixmap.clone(),
-                    ImageSource::OpaqueId { id, .. } => resources
-                        .image_resolver
-                        .resolve(*id)
-                        .unwrap_or_else(|| panic!("Image {:?} not found in registry", id)),
+                let resolved = match &image.source {
+                    ImageSource::Pixmap(_) => None,
+                    ImageSource::OpaqueId { id, .. } => Some(match self.last_image.take() {
+                        Some((last, pixmap)) if last == *id => (last, pixmap),
+                        _ => (
+                            *id,
+                            resources
+                                .image_resolver
+                                .resolve(*id)
+                                .unwrap_or_else(|| panic!("Image {:?} not found in registry", id)),
+                        ),
+                    }),
                     ImageSource::ExternalTexture { .. } => {
                         unimplemented!("External textures are not supported by `vello_cpu`")
                     }
+                };
+                let pixmap: &Pixmap = match (&image.source, &resolved) {
+                    (ImageSource::Pixmap(pixmap), _) => pixmap,
+                    (_, Some((_, pixmap))) => pixmap,
+                    _ => unreachable!(),
                 };
                 let tint = image.tint.as_ref();
 
@@ -1143,6 +1157,7 @@ impl<S: Simd, T: FineKernel<S>> Fine<S, T> {
                         );
                     }
                 }
+                self.last_image = resolved;
             }
         }
     }

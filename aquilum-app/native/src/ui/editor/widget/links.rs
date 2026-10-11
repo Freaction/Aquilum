@@ -7,16 +7,17 @@ impl TextEditor {
             return None;
         }
         let p = self.doc.paragraph(self.doc.at_y(point.y.max(0.0)));
-        if p.fold != Fold::None || p.decor.links.is_empty() {
+        if matches!(p.fold, Fold::Head | Fold::Member) || p.decor().links.is_empty() {
             return None;
         }
         let local = point - self.shift() - p.origin();
-        let layout = p.layout();
+        let layout = p.layout.as_deref()?;
         if local.y < 0.0 || local.y > f64::from(layout.height()) || local.x < 0.0 || local.x > f64::from(layout.width()) {
             return None;
         }
-        let at = Cursor::from_point(layout, local.x as f32, local.y as f32).index();
-        p.decor.links.iter().find(|l| l.label.start <= at && at < l.label.end)
+        let (cluster, _) = masonry::parley::Cluster::from_point_exact(layout, local.x as f32, local.y as f32)?;
+        let at = cluster.text_range().start;
+        p.decor().links.iter().find(|l| l.label.start <= at && at < l.label.end)
     }
 
     fn task_at(&self, point: Point) -> Option<(usize, bool)> {
@@ -24,12 +25,13 @@ impl TextEditor {
             return None;
         }
         let p = self.doc.paragraph(self.doc.at_y(point.y.max(0.0)));
-        let Block::Item { task: Some((range, done)), .. } = &p.block else { return None };
-        if p.fold != Fold::None || p.decor.caret.is_some_and(|c| range.start <= c && c <= range.start + super::marks::TASK_BOX) {
+        let Block::Item(item) = &p.block else { return None };
+        let (range, done) = item.task()?;
+        if p.layout.is_none() || matches!(p.fold, Fold::Head | Fold::Member) || p.decor().caret.is_some_and(|c| range.start <= c && c <= range.start + super::marks::TASK_BOX) {
             return None;
         }
         let rect = self.checkbox_rect(p, range.start);
-        rect.contains(point).then_some((p.start + range.start, *done))
+        rect.contains(point).then_some((p.start + range.start, done))
     }
 
     fn card_action_at(&self, point: Point) -> Option<crate::ui::editor::embed::Action> {

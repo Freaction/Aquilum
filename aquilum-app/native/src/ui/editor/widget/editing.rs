@@ -5,14 +5,14 @@ impl TextEditor {
         self.anchor.min(self.focus)..self.anchor.max(self.focus)
     }
 
-    pub(super) fn local(&self, offset: usize) -> (usize, usize, &Layout<BrushIndex>) {
+    pub(super) fn local(&self, offset: usize) -> (usize, usize, Option<&Layout<BrushIndex>>) {
         let i = self.doc.at_offset(offset);
         let p = self.doc.paragraph(i);
-        (i, offset - p.start, p.layout())
+        (i, offset - p.start, p.layout.as_deref())
     }
 
     pub(super) fn laid_out(&self) -> bool {
-        self.doc.paragraphs().iter().all(|p| p.layout.is_some())
+        self.doc.measured()
     }
 
     pub(super) fn padding(&self) -> f64 {
@@ -36,12 +36,17 @@ impl TextEditor {
 
     pub(super) fn caret_at(&self, offset: usize, compose: usize, affinity: Affinity) -> Rect {
         let (i, local, layout) = self.local(offset);
+        let Some(layout) = layout else {
+            let p = self.doc.paragraph(i);
+            let origin = p.origin();
+            return Rect::new(origin.x, p.top, origin.x + size::CARET_WIDTH, p.top + p.height) + self.shift();
+        };
         let cursor = Cursor::from_byte_index(layout, local + compose, affinity);
         let line = rect(cursor.geometry(layout, size::CARET_WIDTH as f32), 0.0);
         let middle = line.center().y as f32;
         let metrics = layout.lines().map(|l| *l.metrics()).find(|m| m.min_coord <= middle && middle < m.max_coord);
         let (top, bottom) = metrics.map_or((line.y0, line.y1), |m| (f64::from(m.min_coord), f64::from(m.max_coord)));
-        let half = (bottom - top) * CARET_LINE_SCALE / 2.0;
+        let half = (bottom - top) / 2.0;
         let origin = self.doc.paragraph(i).origin();
         let center = (top + bottom) / 2.0 + origin.y;
         let line = line + Vec2::new(origin.x, 0.0);
@@ -73,17 +78,19 @@ impl TextEditor {
         }
         let i = self.doc.at_y(point.y.clamp(0.0, self.doc.height()));
         let p = self.doc.paragraph(i);
-        if p.fold != Fold::None {
+        if matches!(p.fold, Fold::Head | Fold::Member) {
             return (p.start, Affinity::Downstream);
         }
         let local = point - p.origin();
-        let cursor = Cursor::from_point(p.layout(), local.x as f32, local.y as f32);
+        let Some(layout) = p.layout.as_deref() else { return (p.start, Affinity::Downstream) };
+        let cursor = Cursor::from_point(layout, local.x as f32, local.y as f32);
         (p.start + cursor.index(), cursor.affinity())
     }
 
     pub(super) fn step(&self, forward: bool, word: bool) -> (usize, Affinity) {
         let (i, local, layout) = self.local(self.focus);
         let p = self.doc.paragraph(i);
+        let Some(layout) = layout else { return (if forward { p.end() } else { p.start }, Affinity::Downstream) };
         if forward && local >= p.len {
             return match self.doc.paragraphs().get(i + 1) {
                 Some(next) => (next.start, Affinity::Downstream),
@@ -118,10 +125,12 @@ impl TextEditor {
 
     pub(super) fn line_edge(&self, end: bool) -> (usize, Affinity) {
         let (i, local, layout) = self.local(self.focus);
+        let p = self.doc.paragraph(i);
+        let Some(layout) = layout else { return (if end { p.end() } else { p.start }, Affinity::Downstream) };
         let selection = Selection::from_byte_index(layout, local, self.affinity);
         let moved = if end { selection.line_end(layout, false) } else { selection.line_start(layout, false) };
         let focus = moved.focus();
-        (self.doc.paragraph(i).start + focus.index(), focus.affinity())
+        (p.start + focus.index(), focus.affinity())
     }
 
     pub(super) fn move_to(&mut self, (offset, affinity): (usize, Affinity), extend: bool) {
@@ -142,6 +151,34 @@ impl TextEditor {
         self.column = None;
         let edit = Edit { at: range.start, removed, inserted: text.to_owned(), before, after: (self.anchor, self.focus), kind, time: std::time::Instant::now() };
         self.history.record(edit);
+        if self.doc.markdown.is_some() {
+            self.renumber();
+        }
+        self.reveal_edited_image();
+        self.refind();
+    }
+
+    fn reveal_edited_image(&mut self) {
+        let p = self.doc.paragraph(self.doc.at_offset(self.focus));
+        if matches!(p.block, crate::ui::editor::markdown::Block::Image) {
+            self.doc.source = Some(p.start);
+        }
+    }
+
+    fn renumber(&mut self) {
+        let Some(last) = self.history.last_mut() else { return };
+        let Some((range, numbers)) = super::outline::renumber(self.doc.text(), last.at..last.at + last.inserted.len()) else { return };
+        let text = self.doc.text();
+        let (lo, hi) = (last.at.min(range.start), (last.at + last.inserted.len()).max(range.end));
+        let mut original = text[lo..hi].to_owned();
+        original.replace_range(last.at - lo..last.at - lo + last.inserted.len(), &last.removed);
+        let mut updated = text[lo..hi].to_owned();
+        updated.replace_range(range.start - lo..range.end - lo, &numbers);
+        let shift = |p: usize| if p >= range.end { p + numbers.len() - range.len() } else { p.min(range.start + numbers.len()) };
+        let selection = (shift(self.anchor), shift(self.focus));
+        (last.at, last.removed, last.inserted, last.after) = (lo, original, updated, selection);
+        self.doc.replace(range, &numbers);
+        (self.anchor, self.focus) = selection;
     }
 
     pub(super) fn insert(&mut self, text: &str, kind: Kind) {
@@ -175,6 +212,8 @@ impl TextEditor {
         (self.anchor, self.focus) = selection;
         self.affinity = Affinity::Downstream;
         self.column = None;
+        self.reveal_edited_image();
+        self.refind();
         true
     }
 
@@ -183,7 +222,21 @@ impl TextEditor {
         self.selected_text().unwrap_or_default()
     }
 
-    pub(super) fn selected_text(&self) -> Option<String> {
+    #[cfg(test)]
+    pub fn image_source_shown(&self) -> bool {
+        self.doc.source.is_some()
+    }
+
+    #[cfg(test)]
+    pub fn brush_at(&self, offset: usize) -> Option<BrushIndex> {
+        let (_, local, layout) = self.local(offset);
+        layout?.lines().flat_map(|line| line.items().collect::<Vec<_>>()).find_map(|item| match item {
+            masonry::parley::PositionedLayoutItem::GlyphRun(run) if run.run().text_range().contains(&local) => Some(run.style().brush.clone()),
+            _ => None,
+        })
+    }
+
+    pub fn selected_text(&self) -> Option<String> {
         let range = self.selection();
         (!range.is_empty()).then(|| self.doc.text()[range].to_owned())
     }
@@ -194,7 +247,8 @@ impl TextEditor {
         let local = point - self.shift() - p.origin();
         match count {
             2 => {
-                let r = Selection::word_from_point(p.layout(), local.x as f32, local.y as f32).text_range();
+                let Some(layout) = p.layout.as_deref() else { return offset..offset };
+                let r = Selection::word_from_point(layout, local.x as f32, local.y as f32).text_range();
                 p.start + r.start..p.start + r.end
             }
             3 => p.range(),
@@ -244,7 +298,7 @@ impl TextEditor {
     }
 
     pub(super) fn changed(&mut self, ctx: &mut EventCtx<'_>) {
-        ctx.submit_action::<TextAction>(TextAction::Changed(self.doc.text().to_owned()));
+        ctx.submit_action::<TextAction>(self.doc.changed());
         ctx.request_layout();
         ctx.request_render();
     }
@@ -254,7 +308,51 @@ impl TextEditor {
         self.width = width;
         let compose = self.compose.as_ref().map(|(text, _)| (self.focus, text.as_str()));
         let wrap = (!self.single_line).then(|| (width - size::CARET_WIDTH * 2.0).max(0.0) as f32);
+        let focus = self.focus;
+        self.doc.source = self.doc.source.filter(|&source| {
+            let p = self.doc.paragraph(self.doc.at_offset(source));
+            p.start == source && (p.start..=p.end()).contains(&focus)
+        });
+        if self.single_line {
+            self.doc.keep = (f64::NEG_INFINITY, f64::INFINITY);
+        }
+        self.doc.pins = [self.anchor, self.focus].into_iter().chain(self.extra_cursors.iter().flat_map(|&(a, f)| [a, f])).collect();
         self.doc.layout(fcx, lcx, &self.styles, wrap, compose, self.focused.then_some(self.focus));
     }
 
+}
+
+impl TextEditor {
+    pub fn caret_offset(&self) -> usize {
+        self.selection().start
+    }
+
+    /// Позиция в тексте под точкой в координатах окна (логических).
+    pub fn offset_at(&self, window_to_local: masonry::kurbo::Affine, window: Point) -> usize {
+        self.hit(window_to_local * window).0
+    }
+
+    /// Вставляет строки отдельным блоком в `at` (как `insertImageLines`): с новой строки, между
+    /// строками пустая строка, после блока — перевод строки.
+    pub fn insert_block(this: &mut WidgetMut<'_, Self>, at: usize, lines: &[String]) {
+        let text = this.widget.doc.text();
+        let at = at.min(text.len());
+        let line_start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+        let line_end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+        let prefix = if at == line_start { "" } else { "\n" };
+        let tail = if text[at..line_end].trim().is_empty() { "" } else { "\n" };
+        let insert = format!("{prefix}{}\n{tail}", lines.join("\n\n"));
+        this.widget.replace(at..at, &insert, Kind::Other);
+        this.ctx.submit_action::<TextAction>(this.widget.doc.changed());
+        this.ctx.request_layout();
+        this.ctx.request_render();
+    }
+
+    pub fn insert_text(this: &mut WidgetMut<'_, Self>, text: &str) {
+        let range = this.widget.selection();
+        this.widget.replace(range, text, Kind::Other);
+        this.ctx.submit_action::<TextAction>(this.widget.doc.changed());
+        this.ctx.request_layout();
+        this.ctx.request_render();
+    }
 }

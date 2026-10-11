@@ -39,7 +39,7 @@ impl Engine {
         let Some(bus) = self.playbin.bus() else { return };
         while let Some(message) = bus.pop_filtered(&[gst::MessageType::Eos, gst::MessageType::Error]) {
             if let gst::MessageView::Error(error) = message.view() {
-                eprintln!("видео: {}", error.error());
+                report!("видео: {}", error.error());
             }
             self.ended = true;
             self.play = false;

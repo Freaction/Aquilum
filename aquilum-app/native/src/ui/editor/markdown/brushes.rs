@@ -18,6 +18,7 @@ pub const DANGER: BrushIndex = BrushIndex(EXTRA + 1);
 pub const ON_ACCENT: BrushIndex = BrushIndex(EXTRA + 2);
 pub const MUTED: BrushIndex = BrushIndex(EXTRA + 3);
 pub const SUCCESS: BrushIndex = BrushIndex(EXTRA + 4);
+pub const LINK_MISSING: BrushIndex = BrushIndex(EXTRA + 5);
 
 pub fn palette(tm: &Theme, text: Color) -> Vec<Brush> {
     let tones = [
@@ -30,7 +31,7 @@ pub fn palette(tm: &Theme, text: Color) -> Vec<Brush> {
         tm.list_callout_muted,
     ];
     let code = [tm.editor_code_keyword, tm.editor_code_string, tm.editor_code_number, tm.editor_code_comment, tm.editor_code_function, tm.editor_code_type, tm.editor_code_property];
-    let extra = [tm.text_secondary, tm.text_danger, tm.text_on_accent, tm.text_muted, tm.text_success];
+    let extra = [tm.text_secondary, tm.text_danger, tm.text_on_accent, tm.text_muted, tm.text_success, tm.text_link.multiply_alpha(0.6)];
     [text, Color::TRANSPARENT, tm.text_tertiary, tm.text_link, tm.editor_list_marker_color, tm.text_accent].into_iter().chain(tones).chain(code).chain(extra).map(Brush::from).collect()
 }
 

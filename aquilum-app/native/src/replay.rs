@@ -3,15 +3,24 @@ use std::time::{Duration, Instant};
 
 const STEP: Duration = Duration::from_millis(64);
 const REFRESH_MS: f64 = 1000.0 / 120.0;
+const FOCUS_SECONDS: f64 = 1.2;
 
 pub enum Step {
     Wheel(f32),
     Pinch(f32),
     Pan(f32, f32),
+    Focus,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Kind {
+    Scroll,
+    Graph,
+    Focus,
 }
 
 pub struct Replay {
-    graph: bool,
+    kind: Kind,
     length: Duration,
     output: PathBuf,
     started: Option<Instant>,
@@ -21,21 +30,24 @@ pub struct Replay {
 }
 
 impl Replay {
-    pub fn new(seconds: f64, output: PathBuf) -> Self {
-        Replay { graph: false, length: Duration::from_secs_f64(seconds), output, started: None, next: None, presents: Vec::new(), work: Vec::new() }
-    }
-
-    pub fn graph(output: PathBuf) -> Self {
-        Replay { graph: true, ..Replay::new(20.0, output) }
+    pub fn new(kind: Kind, output: PathBuf) -> Self {
+        let seconds = match kind {
+            Kind::Scroll => 4.0,
+            Kind::Graph => 20.0,
+            Kind::Focus => FOCUS_SECONDS * 2.0,
+        };
+        Replay { kind, length: Duration::from_secs_f64(seconds), output, started: None, next: None, presents: Vec::new(), work: Vec::new() }
     }
 
     pub fn is_graph(&self) -> bool {
-        self.graph
+        self.kind == Kind::Graph
     }
 
     pub fn step(&mut self, now: Instant) -> Option<Step> {
-        if !self.graph {
-            return self.scroll(now).map(Step::Wheel);
+        match self.kind {
+            Kind::Scroll => return self.scroll(now).map(Step::Wheel),
+            Kind::Focus => return self.focus(now),
+            Kind::Graph => {}
         }
         let started = *self.started.get_or_insert(now);
         let next = *self.next.get_or_insert(now);
@@ -56,6 +68,20 @@ impl Replay {
         })
     }
 
+    fn focus(&mut self, now: Instant) -> Option<Step> {
+        let started = *self.started.get_or_insert(now);
+        let next = *self.next.get_or_insert(now);
+        if now < next {
+            return None;
+        }
+        if now - started >= self.length {
+            self.next = None;
+            return None;
+        }
+        self.next = Some(next + Duration::from_secs_f64(FOCUS_SECONDS));
+        Some(Step::Focus)
+    }
+
     pub fn wake(&self) -> Option<Instant> {
         self.next
     }
@@ -73,6 +99,10 @@ impl Replay {
         }
         self.next = Some(next + STEP);
         Some(if elapsed < self.length / 2 { -1.0 } else { 1.0 })
+    }
+
+    pub fn running(&self) -> bool {
+        self.started.is_some()
     }
 
     pub fn finished(&self) -> bool {

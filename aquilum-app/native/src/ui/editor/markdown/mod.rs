@@ -5,13 +5,16 @@ mod inline;
 #[cfg(test)]
 mod tests;
 
+use std::collections::HashSet;
 use std::ops::Range;
 
 use masonry::core::{BrushIndex, StyleProperty};
 use masonry::parley::{FontFamily, FontStyle, FontWeight, RangedBuilder};
 
-pub use blocks::{Block, Callout, classify};
-pub use brushes::{ACCENT, DANGER, HIDDEN, LINK, MARKER, MUTED, ON_ACCENT, SECONDARY, SUCCESS, SYNTAX, TEXT, palette, tone};
+pub use blocks::{Block, Callout, State};
+#[cfg(test)]
+pub use blocks::classify;
+pub use brushes::{ACCENT, DANGER, HIDDEN, LINK, LINK_MISSING, MARKER, MUTED, ON_ACCENT, SECONDARY, SUCCESS, SYNTAX, TEXT, palette, tone};
 use brushes::{TOKENS, token_brush};
 use inline::{Kind, hashtags, inline};
 use super::highlight::{self, Token};
@@ -31,7 +34,6 @@ const H2: f32 = 16.0 / 14.0;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Link {
     pub label: Range<usize>,
-    pub whole: Range<usize>,
     pub target: String,
     pub wiki: bool,
 }
@@ -66,9 +68,10 @@ pub struct Fonts {
     pub size: f32,
     pub mono: FontFamily<'static>,
     pub ch: f32,
+    pub callouts: bool,
 }
 
-pub fn style(builder: &mut RangedBuilder<'_, BrushIndex>, block: &Block, text: &str, caret: Option<usize>, fonts: &Fonts) -> Decor {
+pub fn style(builder: &mut RangedBuilder<'_, BrushIndex>, block: &Block, text: &str, caret: Option<usize>, fonts: &Fonts, unresolved: &HashSet<String>) -> Decor {
     let mut decor = Decor { caret, ..Decor::default() };
     for (i, _) in text.match_indices('\t') {
         hide(builder, i..i + 1, fonts.ch * TAB_SIZE);
@@ -91,23 +94,24 @@ pub fn style(builder: &mut RangedBuilder<'_, BrushIndex>, block: &Block, text: &
                 hide(builder, 0..*marker, 0.0);
             }
         }
-        Block::Item { level, tabs, marker, ordered, task, callout } => {
-            decor.x = LIST_START + LIST_LEVEL * *level as f64;
-            hide(builder, 0..*tabs, 0.0);
+        Block::Item(item) => {
+            let (marker, task, callout) = (item.marker(), item.task(), item.callout());
+            decor.x = LIST_START + LIST_LEVEL * item.level() as f64;
+            hide(builder, 0..item.tabs(), 0.0);
             let symbol = marker.start..marker.end - 1;
             if touches(caret, &symbol) {
                 builder.push(StyleProperty::Brush(TEXT), marker.clone());
             } else {
-                builder.push(StyleProperty::Brush(if *ordered { MARKER } else { HIDDEN }), marker.clone());
+                builder.push(StyleProperty::Brush(if item.ordered { MARKER } else { HIDDEN }), marker.clone());
             }
             if let Some((range, _)) = task
                 && !touches(caret, &(range.start..range.start + TASK_BOX))
             {
                 hide(builder, range.start..range.start + TASK_BOX, CHECKBOX / TASK_BOX as f32);
             }
-            if let Some((at, tone)) = callout {
-                builder.push(StyleProperty::Brush(BrushIndex(TOKENS + usize::from(*tone))), *at..at + 1);
-                builder.push(StyleProperty::FontWeight(FontWeight::BOLD), *at..at + 1);
+            if let Some((at, tone)) = callout.filter(|_| fonts.callouts) {
+                builder.push(StyleProperty::Brush(BrushIndex(TOKENS + usize::from(tone))), at..at + 1);
+                builder.push(StyleProperty::FontWeight(FontWeight::BOLD), at..at + 1);
             }
             decor.hang = Some(marker.end);
         }
@@ -163,14 +167,15 @@ pub fn style(builder: &mut RangedBuilder<'_, BrushIndex>, block: &Block, text: &
         let whole = span.whole.start + content..span.whole.end + content;
         let inner = span.inner.start + content..span.inner.end + content;
         let shown = touches(caret, &whole);
-        if let Some((target, wiki)) = &span.target
-            && !shown
-        {
-            decor.links.push(Link { label: inner.clone(), whole: whole.clone(), target: target.clone(), wiki: *wiki });
+        let reference = inner.start.saturating_sub(1).max(whole.start)..(inner.end + 1).min(whole.end);
+        if let Some((target, wiki)) = &span.target {
+            let label = if span.kind == Kind::Reader && !shown { reference.clone() } else { inner.clone() };
+            decor.links.push(Link { label, target: target.clone(), wiki: *wiki });
         }
         if span.kind == Kind::Reader && !shown {
-            builder.push(StyleProperty::Brush(ACCENT), whole.start..inner.end + 1);
-            hide(builder, inner.end + 1..whole.end, 0.0);
+            builder.push(StyleProperty::Brush(ACCENT), reference.clone());
+            hide(builder, whole.start..reference.start, 0.0);
+            hide(builder, reference.end..whole.end, 0.0);
             continue;
         }
         let spacing = if span.kind == Kind::Code { INLINE_CODE_PADDING } else { 0.0 };
@@ -190,9 +195,11 @@ pub fn style(builder: &mut RangedBuilder<'_, BrushIndex>, block: &Block, text: &
                 decor.codes.push(inner);
             }
             Kind::Link | Kind::Reader => {
-                builder.push(StyleProperty::Brush(LINK), inner.clone());
+                let missing = span.target.as_ref().is_some_and(|(target, wiki)| *wiki && unresolved.contains(target.trim()));
+                let brush = if missing { LINK_MISSING } else { LINK };
+                builder.push(StyleProperty::Brush(brush.clone()), inner.clone());
                 builder.push(StyleProperty::Underline(true), inner.clone());
-                builder.push(StyleProperty::UnderlineBrush(Some(LINK)), inner);
+                builder.push(StyleProperty::UnderlineBrush(Some(brush)), inner);
             }
         }
     }

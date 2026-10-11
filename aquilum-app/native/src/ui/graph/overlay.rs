@@ -31,7 +31,7 @@ impl GraphView {
         }
     }
 
-    pub(super) fn paint_notice(&mut self, ctx: &mut PaintCtx<'_>, painter: &mut Painter<'_>, title: &str, description: Option<&str>) {
+    pub(super) fn paint_notice(&mut self, ctx: &mut PaintCtx<'_>, painter: &mut Painter<'_>, title: &str, description: Option<&str>, action: Option<&str>) {
         let tm = theme::current();
         let line = (f64::from(theme::ui_font_settings().size) * number::FONT_LINE_HEIGHT_NORMAL).round();
         let center = Point::new(self.size.width / 2.0, self.size.height / 2.0);
@@ -41,9 +41,22 @@ impl GraphView {
         let medium = Style { weight: number::FONT_WEIGHT_UI_MEDIUM as f32, ..Style::ui(line) };
         let layout = self.notice[0].layout(ctx, title, width, medium);
         render_text(painter, Affine::translate((center.x - f64::from(layout.width()) / 2.0, center.y - line / 2.0)), layout, &[tm.text_primary.into()], true);
+        let mut next_y = center.y + line / 2.0 + size::SPACE_4;
         if let Some(description) = description {
             let layout = self.notice[1].layout(ctx, description, width, Style::ui(line));
-            render_text(painter, Affine::translate((center.x - f64::from(layout.width()) / 2.0, center.y + line / 2.0 + size::SPACE_4)), layout, &[tm.text_secondary.into()], true);
+            render_text(painter, Affine::translate((center.x - f64::from(layout.width()) / 2.0, next_y)), layout, &[tm.text_secondary.into()], true);
+            next_y += line + size::SPACE_8;
+        }
+        if let Some(action_label) = action {
+            let btn_layout = self.action_line.layout(ctx, action_label, width, Style::ui(line));
+            let btn_w = f64::from(btn_layout.width()) + size::SPACE_16 * 2.0;
+            let btn_h = line + size::SPACE_8 * 2.0;
+            let btn_rect = Rect::new(center.x - btn_w / 2.0, next_y + size::SPACE_8, center.x + btn_w / 2.0, next_y + size::SPACE_8 + btn_h);
+            painter.fill(RoundedRect::from_rect(btn_rect, size::ROUNDED_SM), tm.bg_accent).draw();
+            render_text(painter, Affine::translate((center.x - f64::from(btn_layout.width()) / 2.0, next_y + size::SPACE_8 + size::SPACE_8)), btn_layout, &[tm.text_on_accent.into()], true);
+            self.action_rect = Some(btn_rect);
+        } else {
+            self.action_rect = None;
         }
     }
 }

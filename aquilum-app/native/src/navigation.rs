@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use aquilum_core::files::document::write_file_atomic_impl;
 use serde::{Deserialize, Serialize};
 
-use crate::session::relative;
+use crate::paths::relative;
 use crate::ui::file_tree::model::comparable;
 
 const MAX_ENTRIES: usize = 100;
@@ -32,7 +32,7 @@ impl Navigation {
         let mut navigation = Navigation { file, root: root.map(Path::to_path_buf), entries: Vec::new(), index: None };
         let Some(root) = root else { return navigation };
         if let Some(stored) = load_all(&navigation.file).remove(&comparable(root)) {
-            navigation.entries = stored.entries.iter().map(|rel| root.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR))).collect();
+            navigation.entries = stored.entries.iter().map(|rel| crate::paths::absolute(&root, rel)).collect();
             if !navigation.entries.is_empty() {
                 navigation.index = Some(stored.index.clamp(0, navigation.entries.len() as i64 - 1) as usize);
             }
@@ -75,7 +75,7 @@ impl Navigation {
         all.insert(comparable(root), Stored { entries, index: self.index.map_or(-1, |i| i as i64) });
         let Ok(json) = serde_json::to_string(&all) else { return };
         if let Err(e) = write_file_atomic_impl(&self.file, &json, None) {
-            eprintln!("история переходов не сохранена: {e}");
+            report!("история переходов не сохранена: {e}");
         }
     }
 }

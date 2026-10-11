@@ -2,8 +2,6 @@ use std::ops::Range;
 
 use pulldown_cmark::{Event, LinkType, Options, Parser, Tag, TagEnd};
 
-const READER_SCHEMES: [&str; 2] = ["quantum-reader:", "aquilum-reader:"];
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Kind {
     Emphasis,
@@ -52,10 +50,11 @@ pub fn inline(text: &str) -> Vec<Span> {
                 }
             }
             Event::Start(Tag::Link { link_type, dest_url, .. }) => {
-                let kind = if READER_SCHEMES.iter().any(|s| dest_url.starts_with(s)) { Kind::Reader } else { Kind::Link };
-                let shown = matches!(link_type, LinkType::Inline | LinkType::Reference | LinkType::Collapsed | LinkType::Shortcut | LinkType::WikiLink { .. });
+                let kind = if crate::reader::quotes::is_reader(&dest_url) { Kind::Reader } else { Kind::Link };
+                let shown = !matches!(link_type, LinkType::ReferenceUnknown | LinkType::CollapsedUnknown | LinkType::ShortcutUnknown);
                 let wiki = matches!(link_type, LinkType::WikiLink { .. });
-                links.push((if shown { range } else { 0..0 }, kind, (dest_url.to_string(), wiki), None));
+                let target = if link_type == LinkType::Email { format!("mailto:{dest_url}") } else { dest_url.to_string() };
+                links.push((if shown { range } else { 0..0 }, kind, (target, wiki), None));
             }
             Event::End(TagEnd::Link) => {
                 if let Some((whole, kind, target, Some(inner))) = links.pop()
@@ -67,7 +66,46 @@ pub fn inline(text: &str) -> Vec<Span> {
             _ => {}
         }
     }
+    for span in spans.iter_mut().filter(|s| s.kind == Kind::Link && s.target.as_ref().is_some_and(|(_, wiki)| *wiki)) {
+        let rest = &text[span.whole.end..];
+        if let Some(close) = rest.strip_prefix('(').and_then(|r| r.find(')'))
+            && crate::reader::quotes::is_reader(&rest[1..1 + close])
+        {
+            span.kind = Kind::Reader;
+            span.target = Some((rest[1..1 + close].to_owned(), false));
+            span.whole.end += close + 2;
+        }
+    }
+    let taken: Vec<Range<usize>> = spans.iter().map(|s| s.whole.clone()).collect();
+    spans.extend(bare_urls(text).into_iter().filter(|url| !taken.iter().any(|t| t.start < url.end && url.start < t.end)).map(|url| {
+        let shown = &text[url.clone()];
+        let target = if shown.starts_with("www.") { format!("https://{shown}") } else { shown.to_owned() };
+        Span { kind: Kind::Link, whole: url.clone(), inner: url, target: Some((target, false)) }
+    }));
     spans
+}
+
+fn bare_urls(text: &str) -> Vec<Range<usize>> {
+    let mut out = Vec::new();
+    let mut from = 0;
+    while let Some(start) = ["https://", "http://", "www."].iter().filter_map(|p| text[from..].find(p).map(|i| from + i)).min() {
+        let boundary = text[..start].chars().next_back().is_none_or(|c| c.is_whitespace() || "([<*_~".contains(c));
+        let mut end = text[start..].find(|c: char| c.is_whitespace() || c == '<').map_or(text.len(), |i| start + i);
+        while let Some(last) = text[..end].chars().next_back() {
+            let unbalanced = last == ')' && text[start..end].matches(')').count() > text[start..end].matches('(').count();
+            if ".,:;!?\"'*_~".contains(last) || unbalanced {
+                end -= last.len_utf8();
+            } else {
+                break;
+            }
+        }
+        let host = text[start..end].trim_start_matches("https://").trim_start_matches("http://");
+        if boundary && host.contains('.') && !host.starts_with('.') && end > start {
+            out.push(start..end);
+        }
+        from = end.max(start + 1);
+    }
+    out
 }
 
 fn is_tag_char(c: char) -> bool {

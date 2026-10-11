@@ -72,7 +72,7 @@ impl TextEditor {
         let tm = theme::current();
         let layout = p.layout();
         let origin = self.shift() + p.origin();
-        let caret = p.decor.caret;
+        let caret = p.decor().caret;
         let touching = |start: usize, end: usize| caret.is_some_and(|c| start <= c && c <= end);
         match &p.block {
             Block::Rule if caret.is_none() => {
@@ -80,15 +80,16 @@ impl TextEditor {
                 let (x, y) = (self.shift().x, p.top + p.height / 2.0);
                 painter.fill(Rect::new(x, y - RULE / 2.0, x + inner, y + RULE / 2.0), tm.icon_quiet).draw();
             }
-            Block::Item { level, marker, ordered, task, callout, .. } => {
+            Block::Item(item) => {
+                let (marker, task) = (item.marker(), item.task());
                 let middle = origin.y + line_middle(layout);
-                if let Some((_, tone)) = callout {
+                if let Some((_, tone)) = item.callout() {
                     let inner = (self.width - size::CARET_WIDTH * 2.0).max(0.0);
-                    let x = self.shift().x + LIST_LEVEL * *level as f64;
+                    let x = self.shift().x + LIST_LEVEL * item.level() as f64;
                     let shape = RoundedRect::new(x, p.top, self.shift().x + inner, p.top + p.height, CALLOUT_RADIUS);
-                    painter.fill(shape, markdown::tone(tm, *tone).multiply_alpha(CALLOUT_ALPHA)).draw();
+                    painter.fill(shape, markdown::tone(&tm, tone).multiply_alpha(CALLOUT_ALPHA)).draw();
                 }
-                if !*ordered && !touching(marker.start, marker.end - 1) {
+                if !item.ordered && !touching(marker.start, marker.end - 1) {
                     let (x0, x1) = (x_at(layout, marker.start), x_at(layout, marker.start + 1));
                     painter.fill(Circle::new((origin.x + (x0 + x1) / 2.0, middle), BULLET / 2.0), tm.editor_list_marker_color).draw();
                 }
@@ -97,7 +98,7 @@ impl TextEditor {
                 {
                     let bounds = self.checkbox_rect(p, range.start);
                     let shape = RoundedRect::from_rect(bounds, CHECKBOX_RADIUS);
-                    if *checked {
+                    if checked {
                         painter.fill(shape, tm.bg_accent).draw();
                         let c = bounds.center();
                         let mut check = BezPath::new();
@@ -112,7 +113,7 @@ impl TextEditor {
             }
             _ => {}
         }
-        for tag in &p.decor.tags {
+        for tag in &p.decor().tags {
             let (x0, x1) = (x_at(layout, tag.start), x_at(layout, tag.end));
             let middle = origin.y + {
                 let y = Cursor::from_byte_index(layout, tag.start, Affinity::Downstream).geometry(layout, 0.0);
@@ -121,7 +122,7 @@ impl TextEditor {
             let shape = RoundedRect::new(origin.x + x0 - TAG_PAD_X, middle - TAG_HEIGHT / 2.0, origin.x + x1 + TAG_PAD_X, middle + TAG_HEIGHT / 2.0, TAG_HEIGHT / 2.0);
             painter.fill(shape, tm.bg_accent.multiply_alpha(TAG_ALPHA)).draw();
         }
-        for code in &p.decor.codes {
+        for code in &p.decor().codes {
             let selection = Selection::new(Cursor::from_byte_index(layout, code.start, Affinity::Downstream), Cursor::from_byte_index(layout, code.end, Affinity::Upstream));
             for (bounds, _) in selection.geometry(layout) {
                 let middle = ((bounds.y0 + bounds.y1) / 2.0) as f32;

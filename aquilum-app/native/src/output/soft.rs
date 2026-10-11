@@ -5,7 +5,7 @@ use softbuffer::{Context, Surface};
 use winit::event_loop::OwnedDisplayHandle;
 use winit::window::Window;
 
-use super::Area;
+use super::{Area, Canvas, Target};
 
 pub struct Output {
     surface: Surface<OwnedDisplayHandle, Rc<dyn Window>>,
@@ -29,24 +29,35 @@ impl Output {
         Ok(())
     }
 
+    pub fn trim(&mut self) {
+        let one = NonZeroU32::MIN;
+        let _ = self.surface.resize(one, one);
+        self.width = 0;
+        self.fresh = true;
+    }
+
+    pub fn set_background(&mut self, _bgra: u32) {}
+
     pub fn fresh(&self) -> bool {
         self.fresh
     }
 
-    pub fn upload(&mut self, area: Area, pixels: &[u32]) {
-        let width = self.width as usize;
-        let Ok(mut buffer) = self.surface.buffer_mut() else { return };
-        for (row, line) in pixels.chunks_exact(area.w as usize).enumerate() {
-            let start = (area.y as usize + row) * width + area.x as usize;
-            buffer[start..start + line.len()].copy_from_slice(line);
-        }
-    }
 
-
-    pub fn present(&mut self, dirty: Area) {
+    pub fn present(&mut self, dirty: &[Area]) {
         let Ok(buffer) = self.surface.buffer_mut() else { return };
-        let (Some(w), Some(h)) = (NonZeroU32::new(dirty.w), NonZeroU32::new(dirty.h)) else { return };
-        let _ = buffer.present_with_damage(&[softbuffer::Rect { x: dirty.x, y: dirty.y, width: w, height: h }]);
+        let mut areas = dirty.to_vec();
+        super::merge(&mut areas);
+        let rects: Vec<softbuffer::Rect> = areas.iter().filter_map(|a| Some(softbuffer::Rect { x: a.x, y: a.y, width: NonZeroU32::new(a.w)?, height: NonZeroU32::new(a.h)? })).collect();
+        let _ = buffer.present_with_damage(&rects);
         self.fresh = false;
+    }
+}
+
+impl Canvas for Output {
+    fn with_target(&mut self, paint: &mut dyn FnMut(Target<'_>)) {
+        let width = self.width as u16;
+        let Ok(mut buffer) = self.surface.buffer_mut() else { return };
+        let height = (buffer.len() / usize::from(width.max(1))) as u16;
+        paint(Target { pixels: &mut buffer, width, height });
     }
 }

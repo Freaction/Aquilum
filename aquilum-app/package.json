@@ -5,8 +5,8 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "release": "node scripts/release-github.mjs",
-    "release:local": "node scripts/build-release.mjs",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File native/scripts/watch.ps1",
+    "release": "node scripts/release.mjs",
     "bundle": "node scripts/bundle-native.mjs build",
     "icons:sync": "node scripts/sync-icons.mjs",
     "publish:source": "node scripts/publish-source.mjs"

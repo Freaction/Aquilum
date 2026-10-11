@@ -38,3 +38,22 @@ fn edits_sanitize_and_structure_ops_keep_merges() {
     assert!(t.unmerge(1, 1));
     assert_eq!(letters(27), "AB");
 }
+
+#[test]
+fn borders_are_found_where_they_are_painted_after_the_table_narrows() {
+    use super::view::{Hit, Line};
+    use masonry::core::BrushIndex;
+    use masonry::kurbo::Point;
+    use masonry::parley::{Alignment, Layout};
+    let make = |_: &str, _: Option<f64>, _: Alignment, _: bool| Layout::<BrushIndex>::default();
+    let wide = table("| a | b | c | d |\n| --- | --- | --- | --- |\n| 1 | 2 | 3 | 4 |\n<!--q-table:{\"merges\":[],\"cols\":[300,300,300,300]}-->");
+    let scroll = wide.layout(500.0, None, make).max_scroll();
+    let mut narrow = wide.clone();
+    narrow.widths = vec![300.0, 300.0, 36.0, 36.0];
+    let view = narrow.layout(500.0, None, make);
+    assert!(view.max_scroll() < scroll);
+    let painted = view.border_line(Hit::ColumnBorder(0), view.max_scroll());
+    assert_eq!(view.border_line(Hit::ColumnBorder(0), scroll), painted);
+    let Line::Col(x, _) = painted else { panic!("нет линии границы") };
+    assert_eq!(view.hit(Point::new(x, 60.0), scroll), Hit::ColumnBorder(0));
+}

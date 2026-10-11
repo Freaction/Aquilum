@@ -9,13 +9,8 @@ use masonry::accesskit::Role;
 use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
 use masonry::kurbo::{Axis, Size};
 use masonry::layout::Length;
-use masonry::parley::LineHeight;
-use masonry::parley::style::StyleProperty;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
-use masonry::properties::{
-    Background, BorderColor, BorderWidth, CaretColor, ContentColor, CornerRadius, Gap, LineBreaking, Padding,
-    SelectionColor,
-};
+use masonry::properties::{BorderWidth, CornerRadius, Gap, Padding};
 use masonry::widgets::{Flex, SizedBox};
 
 use crate::i18n::t;
@@ -24,9 +19,9 @@ use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::text::label;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{IconButton, ItemButton, LinkButton, Rule};
+use crate::ui::widgets::{IconButton, ItemButton, Leading, LinkButton, Paint, Rule};
 use crate::ui::{icons, theme};
-use controls::{DropdownButton, InputBox, Segmented, StepButton, Swatch, Switch};
+use controls::{DropdownButton, InputBox, Segmented, Swatch, Switch};
 use schema::{Action, Block, Context, Control, Number, Row, Section, Setter, Tone};
 
 pub enum Binding {
@@ -36,6 +31,7 @@ pub enum Binding {
     Number { setter: Setter, number: Number, minus: Option<WidgetId>, plus: Option<WidgetId> },
     Step { field: WidgetId, direction: f64 },
     Text { setter: Setter, commit: bool, value: String },
+    Color(Setter),
     Commit(Handle<TextEditor>),
     Button(Action),
 }
@@ -60,6 +56,13 @@ fn card_size(room: Size) -> Size {
 }
 
 pub fn dialog(config: &AppConfig, ctx: &Context, section: Section) -> (NewWidget<Modal>, SettingsDialog) {
+    let (card, finish) = card(config, ctx, section);
+    let layer = Modal::new(card, &t("settings.title"), CardSize::Window(card_size), Role::Dialog, false);
+    let dialog = finish(layer.id());
+    (layer, dialog)
+}
+
+pub fn card(config: &AppConfig, ctx: &Context, section: Section) -> (NewWidget<Flex>, impl FnOnce(WidgetId) -> SettingsDialog) {
     let close = NewWidget::new(IconButton::new(icons::X, t("settings.close")));
     let close_id = close.id();
 
@@ -89,18 +92,9 @@ pub fn dialog(config: &AppConfig, ctx: &Context, section: Section) -> (NewWidget
         .with_fixed(header(&t("settings.title"), Some(close)))
         .with_fixed(Rule::new(Axis::Horizontal, || theme::current().border_default))
         .with(NewWidget::new(body), 1.0);
-    let layer = Modal::new(NewWidget::new(card), &t("settings.title"), CardSize::Window(card_size), Role::Dialog, false);
-    let dialog = SettingsDialog {
-        layer: layer.id(),
-        close: close_id,
-        content: content_handle,
-        nav: nav_ids,
-        section,
-        bindings,
-        copied: ctx.copied,
-        trash_page: ctx.trash_page,
-    };
-    (layer, dialog)
+    let (copied, trash_page) = (ctx.copied, ctx.trash_page);
+    let finish = move |layer| SettingsDialog { layer, close: close_id, content: content_handle, nav: nav_ids, section, bindings, copied, trash_page };
+    (NewWidget::new(card), finish)
 }
 
 pub fn content(config: &AppConfig, ctx: &Context, section: Section) -> (NewWidget<Flex>, HashMap<WidgetId, Binding>) {
@@ -132,8 +126,7 @@ pub fn rows(rows: Vec<Row>) -> (NewWidget<Flex>, HashMap<WidgetId, Binding>) {
 }
 
 fn block_widget(block: Block, bindings: &mut HashMap<WidgetId, Binding>) -> NewWidget<Flex> {
-    let t = theme::current();
-    let title = NewWidget::new(Flex::row().with(label(&block.title, t.text_secondary, Some(600.0), size::SIZE_20 as f32), 1.0))
+    let title = NewWidget::new(Flex::row().with(label(&block.title, |t| t.text_secondary, Some(600.0), Leading::Px(size::SIZE_20 as f32)), 1.0))
         .with_props(PropertySet::new().with(Padding {
             top: Length::px(size::GAP_XL),
             bottom: Length::px(size::GAP_LG),
@@ -148,9 +141,8 @@ fn block_widget(block: Block, bindings: &mut HashMap<WidgetId, Binding>) -> NewW
             card = card.with_fixed(Rule::new(Axis::Horizontal, || theme::current().border_default));
         }
     }
-    let card = NewWidget::new(card).with_props(
+    let card = NewWidget::new(card).with_class(crate::ui::style::CARD).with_props(
         PropertySet::new()
-            .with(Background::Color(t.bg_surface_subtle))
             .with(CornerRadius { radius: Length::px(size::RADIUS_2XL) })
             .with(Padding { top: Length::ZERO, bottom: Length::ZERO, left: Length::px(size::GAP_XL), right: Length::px(size::GAP_XL) }),
     );
@@ -159,14 +151,12 @@ fn block_widget(block: Block, bindings: &mut HashMap<WidgetId, Binding>) -> NewW
 
 fn row_widget(row: Row, bindings: &mut HashMap<WidgetId, Binding>) -> NewWidget<Flex> {
     let code = row.code.clone();
-    let t = theme::current();
-    let line = (theme::ui_font_settings().size * 1.21).round();
     let mut text = Flex::column()
         .main_axis_alignment(MainAxisAlignment::Center)
         .cross_axis_alignment(CrossAxisAlignment::Stretch)
-        .with_fixed(label(&row.label, t.text_secondary, None, line));
+        .with_fixed(label(&row.label, |t| t.text_secondary, None, Leading::Times(1.21)));
     if let Some(description) = &row.description {
-        text = text.with_fixed(label(description, t.text_muted, None, line));
+        text = text.with_fixed(label(description, |t| t.text_muted, None, Leading::Times(1.21)));
     }
     let text = NewWidget::new(text).with_props(PropertySet::new().with(Gap::new(Length::px(size::GAP_SM))));
     let strut = NewWidget::new(SizedBox::empty().height(Length::px(size::SETTINGS_ROW_TEXT_MIN_HEIGHT)));
@@ -197,39 +187,23 @@ fn row_widget(row: Row, bindings: &mut HashMap<WidgetId, Binding>) -> NewWidget<
 }
 
 fn code_block(code: &str) -> NewWidget<Flex> {
-    let t = theme::current();
-    let font_size = size::FONT_SIZE_UI_SM as f32;
-    let text = masonry::widgets::Label::new(code)
-        .with_style(StyleProperty::FontFamily(theme::editor_font("iA Writer Mono")))
-        .with_style(StyleProperty::FontSize(font_size))
-        .with_style(StyleProperty::LineHeight(LineHeight::FontSizeRelative(crate::ui::tokens::number::FONT_LINE_HEIGHT_NORMAL as f32)));
-    let text = NewWidget::new(text).with_props(PropertySet::new().with(ContentColor::new(t.text_secondary)).with(LineBreaking::WordWrap));
-    NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(text)).with_props(
-        PropertySet::new()
-            .with(Background::Color(t.block_bg))
-            .with(BorderColor { color: t.block_border })
-            .with(BorderWidth { width: Length::px(size::BORDER_1) })
-            .with(CornerRadius { radius: Length::px(size::BLOCK_RADIUS) })
-            .with(Padding::all(Length::px(size::GAP_LG))),
-    )
+    let text = crate::ui::widgets::Label::new(code, |t| t.text_secondary)
+        .font(crate::ui::widgets::Font::Mono)
+        .scale(crate::ui::widgets::Scale::Small)
+        .leading(Leading::Times(crate::ui::tokens::number::FONT_LINE_HEIGHT_NORMAL as f32))
+        .nowrap();
+    let text = NewWidget::new(text).with_props(PropertySet::new().with(Padding::all(Length::px(size::GAP_LG))));
+    NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(NewWidget::new(ScrollArea::horizontal(text))))
+        .with_props(PropertySet::new().with(BorderWidth { width: Length::px(size::BORDER_1) }).with(CornerRadius { radius: Length::px(size::BLOCK_RADIUS) }))
+        .with_class(crate::ui::style::BLOCK)
 }
 
 fn text_field(value: &str, centered: bool) -> NewWidget<TextEditor> {
-    let t = theme::current();
-    let font = theme::ui_font_settings();
-    let mut field = TextEditor::single_line(value)
-        .with_style(StyleProperty::FontFamily(theme::ui_font(&font.family)))
-        .with_style(StyleProperty::FontSize(font.size))
-        .with_style(StyleProperty::LineHeight(LineHeight::Absolute(size::INPUT_CONTENT_HEIGHT as f32)));
+    let mut field = TextEditor::single_line(value).styled(|| crate::ui::style::ui_text(size::INPUT_CONTENT_HEIGHT as f32));
     if centered {
         field = field.centered();
     }
-    NewWidget::new(field).with_props(
-        PropertySet::new()
-            .with(ContentColor::new(t.text_primary))
-            .with(CaretColor { color: t.text_primary })
-            .with(SelectionColor { color: t.selection_bg }),
-    )
+    NewWidget::new(field).with_class(crate::ui::style::FIELD)
 }
 
 fn control_widget(row: &Row, bindings: &mut HashMap<WidgetId, Binding>) -> NewWidget<dyn Widget> {
@@ -251,21 +225,19 @@ fn control_widget(row: &Row, bindings: &mut HashMap<WidgetId, Binding>) -> NewWi
         Control::Buttons(buttons) => {
             let mut flex = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center);
             for button in buttons {
-                let widget = LinkButton::new(&button.label, button.enabled);
+                let widget = LinkButton::new(&button.label).disabled(!button.enabled);
                 bindings.insert(widget.id(), Binding::Button(button.action.clone()));
                 flex = flex.with_fixed(widget);
             }
             NewWidget::new(flex).erased()
         }
         Control::Status { text, tone } => {
-            let t = theme::current();
-            let color = match tone {
-                Tone::Muted => t.text_muted,
-                Tone::Secondary => t.text_secondary,
-                Tone::Danger => t.text_danger,
+            let paint: Paint = match tone {
+                Tone::Muted => |t| t.text_muted,
+                Tone::Secondary => |t| t.text_secondary,
+                Tone::Danger => |t| t.text_danger,
             };
-            let line = (theme::ui_font_settings().size * 1.21).round();
-            label(text, color, None, line).erased()
+            label(text, paint, None, Leading::Times(1.21)).erased()
         }
         Control::Segmented { options, selected } => {
             let widget = Segmented::new(options.clone(), *selected);
@@ -295,8 +267,9 @@ fn control_widget(row: &Row, bindings: &mut HashMap<WidgetId, Binding>) -> NewWi
                 }
                 return input.erased();
             }
-            let minus = StepButton::new(icons::MINUS, -1.0, number.value > number.min);
-            let plus = StepButton::new(icons::PLUS, 1.0, number.value < number.max);
+            let step = |icon, label: &str, enabled: bool| NewWidget::new(IconButton::new(icon, t(label)).small()).disabled(!enabled);
+            let minus = step(icons::MINUS, "common.decrease", number.value > number.min);
+            let plus = step(icons::PLUS, "common.increase", number.value < number.max);
             let (minus_id, plus_id) = (minus.id(), plus.id());
             if let Some(setter) = setter {
                 bind(bindings, field_id, Binding::Number { setter, number: number.clone(), minus: Some(minus_id), plus: Some(plus_id) });
@@ -325,20 +298,16 @@ fn control_widget(row: &Row, bindings: &mut HashMap<WidgetId, Binding>) -> NewWi
             if let Some(setter) = setter {
                 bind(bindings, field.id(), Binding::Text { setter, commit: false, value: hex.clone() });
             }
-            let color = theme::parse_hex(hex).map(|[r, g, b]| masonry::peniko::Color::from_rgb8(r, g, b));
-            let inner = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(Swatch::new(color)).with(field, 1.0);
+            let swatch = Swatch::new();
+            if let Some(setter) = setter {
+                bind(bindings, swatch.id(), Binding::Color(setter));
+            }
+            let inner = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(swatch).with(field, 1.0);
             let inner = NewWidget::new(inner).with_props(PropertySet::new().with(Gap::new(Length::px(size::GAP_MD))));
             InputBox::new(inner, size::INPUT_WIDTH).erased()
         }
         Control::Kbd(keys) => {
-            let t = theme::current();
-            let font = theme::ui_font_settings();
-            let kbd = masonry::widgets::Label::new(keys.as_str())
-                .with_style(StyleProperty::FontFamily(theme::ui_font(&font.family)))
-                .with_style(StyleProperty::FontSize(size::FONT_SIZE_UI_SM as f32))
-                .with_style(StyleProperty::FontWeight(masonry::parley::FontWeight::new(500.0)))
-                .with_style(StyleProperty::LineHeight(LineHeight::Absolute(size::SIZE_20 as f32)));
-            NewWidget::new(kbd).with_props(PropertySet::new().with(ContentColor::new(t.search_key_hint_color))).erased()
+            NewWidget::new(crate::ui::widgets::Label::new(keys, |t| t.search_key_hint_color).scale(crate::ui::widgets::Scale::Small).weight(500.0).nowrap()).erased()
         }
     }
 }

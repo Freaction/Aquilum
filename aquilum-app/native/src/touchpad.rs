@@ -4,13 +4,14 @@ use std::time::Instant;
 
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::DirectManipulation::{
-    DIRECTMANIPULATION_CONFIGURATION_INTERACTION, DIRECTMANIPULATION_CONFIGURATION_RAILS_X, DIRECTMANIPULATION_CONFIGURATION_RAILS_Y,
-    DIRECTMANIPULATION_CONFIGURATION_SCALING,
+    DIRECTMANIPULATION_CONFIGURATION_INTERACTION, DIRECTMANIPULATION_CONFIGURATION_SCALING,
     DIRECTMANIPULATION_CONFIGURATION_TRANSLATION_INERTIA, DIRECTMANIPULATION_CONFIGURATION_TRANSLATION_X,
-    DIRECTMANIPULATION_CONFIGURATION_TRANSLATION_Y, DIRECTMANIPULATION_INERTIA, DIRECTMANIPULATION_READY, DIRECTMANIPULATION_RUNNING,
+    DIRECTMANIPULATION_CONFIGURATION_TRANSLATION_Y, DIRECTMANIPULATION_INERTIA, DIRECTMANIPULATION_INTERACTION_BEGIN,
+    DIRECTMANIPULATION_INTERACTION_END, DIRECTMANIPULATION_INTERACTION_TYPE, DIRECTMANIPULATION_READY, DIRECTMANIPULATION_RUNNING,
     DIRECTMANIPULATION_STATUS,
-    DIRECTMANIPULATION_VIEWPORT_OPTIONS_MANUALUPDATE, DirectManipulationManager, IDirectManipulationContent, IDirectManipulationManager,
-    IDirectManipulationUpdateManager, IDirectManipulationViewport, IDirectManipulationViewportEventHandler,
+    DIRECTMANIPULATION_VIEWPORT_OPTIONS_DISABLEPIXELSNAPPING, DIRECTMANIPULATION_VIEWPORT_OPTIONS_MANUALUPDATE, DirectManipulationManager, IDirectManipulationContent, IDirectManipulationManager,
+    IDirectManipulationInteractionEventHandler, IDirectManipulationInteractionEventHandler_Impl, IDirectManipulationUpdateManager,
+    IDirectManipulationViewport, IDirectManipulationViewport2, IDirectManipulationViewportEventHandler,
     IDirectManipulationViewportEventHandler_Impl,
 };
 use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx};
@@ -22,31 +23,42 @@ use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 const SIZE: f32 = 1000.0;
-const INERTIA_SECONDS: f32 = 0.12;
 const SUBCLASS: usize = 0x4151_544d;
 
 #[derive(Default)]
 struct Gesture {
-    active: bool,
-    inertia: Option<Instant>,
+    running: bool,
+    touching: bool,
     last: (f32, f32),
     delta: (f32, f32),
     scale: f32,
     pinch: f32,
+    pinching: bool,
 }
 
-#[implement(IDirectManipulationViewportEventHandler)]
+#[implement(IDirectManipulationViewportEventHandler, IDirectManipulationInteractionEventHandler)]
 struct Handler(Rc<RefCell<Gesture>>);
+
+impl IDirectManipulationInteractionEventHandler_Impl for Handler_Impl {
+    fn OnInteraction(&self, _viewport: Ref<IDirectManipulationViewport2>, interaction: DIRECTMANIPULATION_INTERACTION_TYPE) -> windows::core::Result<()> {
+        match interaction {
+            DIRECTMANIPULATION_INTERACTION_BEGIN => self.0.borrow_mut().touching = true,
+            DIRECTMANIPULATION_INTERACTION_END => self.0.borrow_mut().touching = false,
+            _ => {}
+        }
+        Ok(())
+    }
+}
 
 impl IDirectManipulationViewportEventHandler_Impl for Handler_Impl {
     fn OnViewportStatusChanged(&self, viewport: Ref<IDirectManipulationViewport>, current: DIRECTMANIPULATION_STATUS, _previous: DIRECTMANIPULATION_STATUS) -> windows::core::Result<()> {
         let moved = {
             let mut gesture = self.0.borrow_mut();
-            gesture.active = current == DIRECTMANIPULATION_RUNNING || current == DIRECTMANIPULATION_INERTIA;
-            gesture.inertia = (current == DIRECTMANIPULATION_INERTIA).then(Instant::now);
+            gesture.running = current == DIRECTMANIPULATION_RUNNING || current == DIRECTMANIPULATION_INERTIA;
             if current != DIRECTMANIPULATION_READY {
                 return Ok(());
             }
+            gesture.pinching = false;
             let pinched = std::mem::replace(&mut gesture.scale, 1.0) != 1.0;
             std::mem::take(&mut gesture.last) != (0.0, 0.0) || pinched
         };
@@ -72,10 +84,12 @@ impl IDirectManipulationViewportEventHandler_Impl for Handler_Impl {
         if gesture.pinch == 0.0 {
             gesture.pinch = 1.0;
         }
-        if (scale - gesture.scale).abs() > f32::EPSILON {
+        if (scale - gesture.scale).abs() > 0.002 {
             gesture.pinch *= scale / gesture.scale;
             gesture.scale = scale;
-        } else {
+            gesture.pinching = true;
+        }
+        if !gesture.pinching {
             gesture.delta.0 += x - gesture.last.0;
             gesture.delta.1 += y - gesture.last.1;
         }
@@ -121,11 +135,9 @@ impl Touchpad {
                 | DIRECTMANIPULATION_CONFIGURATION_TRANSLATION_X
                 | DIRECTMANIPULATION_CONFIGURATION_TRANSLATION_Y
                 | DIRECTMANIPULATION_CONFIGURATION_TRANSLATION_INERTIA
-                | DIRECTMANIPULATION_CONFIGURATION_RAILS_X
-                | DIRECTMANIPULATION_CONFIGURATION_RAILS_Y
                 | DIRECTMANIPULATION_CONFIGURATION_SCALING;
             viewport.ActivateConfiguration(configuration).ok()?;
-            viewport.SetViewportOptions(DIRECTMANIPULATION_VIEWPORT_OPTIONS_MANUALUPDATE).ok()?;
+            viewport.SetViewportOptions(DIRECTMANIPULATION_VIEWPORT_OPTIONS_MANUALUPDATE | DIRECTMANIPULATION_VIEWPORT_OPTIONS_DISABLEPIXELSNAPPING).ok()?;
             let gesture = Rc::new(RefCell::new(Gesture::default()));
             let handler: IDirectManipulationViewportEventHandler = Handler(gesture.clone()).into();
             viewport.AddEventHandler(Some(hwnd), &handler).ok()?;
@@ -147,10 +159,11 @@ impl Touchpad {
     }
 
     pub fn active(&self) -> bool {
-        self.gesture().borrow().active
+        let gesture = self.gesture().borrow();
+        gesture.running || gesture.touching
     }
 
-    pub fn update(&self) -> (f32, f32, f32) {
+    pub fn update(&self, at: Instant) -> (f32, f32, f32) {
         let _ = unsafe { self.updates.Update(None) };
         let mut gesture = self.gesture().borrow_mut();
         let (dx, dy) = std::mem::take(&mut gesture.delta);
@@ -158,14 +171,12 @@ impl Touchpad {
             0.0 => 1.0,
             pinch => pinch,
         };
-        let Some(start) = gesture.inertia else { return (dx, dy, pinch) };
-        let fade = (-start.elapsed().as_secs_f32() / INERTIA_SECONDS).exp();
-        if fade < 0.02 {
-            drop(gesture);
-            let _ = unsafe { (*self.shared).viewport.Stop() };
-            return (0.0, 0.0, 1.0);
+        drop(gesture);
+        if aq_trace::enabled() && (dx, dy) != (0.0, 0.0) {
+            aq_trace::counter("тачпад: сырые", f64::from(dy));
+            aq_trace::counter("тачпад: от такта, мс", at.elapsed().as_secs_f64() * 1000.0);
         }
-        (dx * fade, dy * fade, pinch)
+        (dx, dy, pinch)
     }
 }
 

@@ -4,6 +4,7 @@ mod epub;
 mod fb2;
 pub mod flow;
 pub mod hyphen;
+mod mobi;
 pub mod page;
 pub mod quotes;
 pub mod session;
@@ -25,15 +26,19 @@ pub struct Section {
 }
 
 pub struct Book {
-    epub: Option<epub::Epub>,
-    binaries: HashMap<String, String>,
+    pub(super) epub: Option<epub::Epub>,
+    pub(super) binaries: HashMap<String, String>,
     pub sections: Vec<Section>,
 }
 
 impl Book {
     pub fn open(path: &Path) -> Option<Book> {
         let data = std::fs::read(path).ok()?;
-        let fb2 = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("fb2"));
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if ext.eq_ignore_ascii_case("mobi") || ext.eq_ignore_ascii_case("azw3") || ext.eq_ignore_ascii_case("azw") || ext.eq_ignore_ascii_case("prc") {
+            return mobi::open(data);
+        }
+        let fb2 = ext.eq_ignore_ascii_case("fb2");
         if fb2 {
             let text = text::decode(&data);
             let doc = text::parse_xml(&text)?;

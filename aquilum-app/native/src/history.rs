@@ -141,24 +141,14 @@ pub fn revert(core: &Core, note: &Path, version: &Version) -> Result<bool, FileC
     })
 }
 
-fn byte_offset(text: &str, utf16: usize) -> usize {
-    let mut units = 0;
-    for (index, ch) in text.char_indices() {
-        if units >= utf16 {
-            return index;
-        }
-        units += ch.len_utf16();
-    }
-    text.len()
-}
-
 fn apply_utf16_edits(text: &str, edits: &[aquilum_core::documents::merge::TextEdit]) -> String {
+    use aquilum_core::documents::merge::utf16_byte;
     let mut result = text.to_owned();
     let mut sorted: Vec<_> = edits.iter().collect();
     sorted.sort_by(|a, b| b.from.cmp(&a.from));
     for edit in sorted {
-        let from = byte_offset(&result, edit.from);
-        let to = byte_offset(&result, edit.to);
+        let from = utf16_byte(&result, edit.from);
+        let to = utf16_byte(&result, edit.to);
         result.replace_range(from..to, &edit.insert);
     }
     result

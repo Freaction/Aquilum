@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+use std::sync::Arc;
+
 use masonry::kurbo::Point;
 use masonry::peniko::ImageBrush;
 
@@ -47,6 +50,7 @@ pub struct Book {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Media {
     pub image: Option<ImageBrush>,
+    pub natural: (u32, u32),
     pub video: bool,
     pub path: Option<std::path::PathBuf>,
 }
@@ -55,10 +59,12 @@ pub struct Media {
 pub enum Request {
     TableMenu { at: Point, commands: Vec<(Command, bool)> },
     Open { target: String, wiki: bool, new_tab: bool },
-    View(ImageBrush),
+    View(ImageBrush, Option<std::path::PathBuf>),
     ToggleTask { target: String, line: usize },
     Read { file: std::path::PathBuf, page: Option<std::path::PathBuf>, title: String },
     Suggest(Option<Suggestions>),
+    LinkTitle { editor: masonry::core::WidgetId, placeholder: String, url: String },
+    ContextMenu { at: Point, has_selection: bool },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -82,4 +88,8 @@ pub trait Resolver: Send + Sync {
     fn suggest_min(&self) -> Option<usize> {
         None
     }
+    fn unresolved(&self) -> (Arc<HashSet<String>>, u64) {
+        (Arc::default(), 0)
+    }
+    fn resolve(&self, _targets: Vec<String>) {}
 }

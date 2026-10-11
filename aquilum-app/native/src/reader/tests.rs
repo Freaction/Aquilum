@@ -107,3 +107,32 @@ fn matches_foliate_golden() {
     assert!(failures.is_empty(), "расхождений {} из {checked}", failures.len());
     eprintln!("проверено {checked}, всё совпало");
 }
+
+#[test]
+#[ignore]
+fn quote_links_point_at_their_text() {
+    let note = PathBuf::from(std::env::var("AQ_NOTE").unwrap());
+    let vault = PathBuf::from(std::env::var("AQ_VAULT").unwrap());
+    let doc = std::fs::read_to_string(&note).unwrap();
+    let own = crate::frontmatter::parse(&doc).and_then(|f| f.text(crate::frontmatter::BOOK_FILE).map(str::to_owned));
+    let normalize = |s: &str| s.replace(['\\', '«', '»', '“', '”'], "").split_whitespace().collect::<Vec<_>>().join(" ");
+    let quotes = super::quotes::find(&doc);
+    assert!(!quotes.is_empty(), "цитат нет");
+    let mut failures = Vec::new();
+    for quote in quotes {
+        let file = quote.book.clone().or_else(|| own.clone()).expect("файл книги");
+        let book = Book::open(&vault.join(&file)).expect("книга открылась");
+        let Some((index, start, end)) = book.resolve(&quote.cfi) else {
+            failures.push(format!("[{}] {} не разрешился", quote.label, quote.cfi));
+            continue;
+        };
+        let got = normalize(&book.text(index, start, end).unwrap_or_default());
+        let want = normalize(&doc[quote.text.clone()]);
+        let head: String = want.chars().take(40).collect();
+        eprintln!("[{}] {} -> {:?}", quote.label, quote.cfi, got.chars().take(60).collect::<String>());
+        if !got.contains(&head) {
+            failures.push(format!("[{}] {}: ждали {head:?}, а там {:?}", quote.label, quote.cfi, got.chars().take(80).collect::<String>()));
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
+}

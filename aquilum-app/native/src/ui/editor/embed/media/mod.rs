@@ -8,7 +8,7 @@ use masonry::kurbo::{Point, Rect};
 use masonry::parley::Alignment;
 use masonry::peniko::ImageBrush;
 
-pub use markdown::{EmbedLine, format, is_video, parse};
+pub use markdown::{EmbedLine, format, is_embed, is_video, media_line, parse};
 
 use super::super::resolve::{Fetch, Media};
 use super::{IMAGE_PAD_X, IMAGE_PAD_Y};
@@ -51,6 +51,7 @@ pub struct MediaOverlay {
     pub hover: Option<MediaHit>,
     pub crop: Option<[f64; 4]>,
     pub video: Option<crate::video::State>,
+    pub fade: f32,
 }
 
 pub struct MediaView {
@@ -67,16 +68,17 @@ pub struct MediaView {
 impl MediaView {
     pub fn new(fetched: &Fetch<Media>, line: EmbedLine, available: f64, uncropped: bool) -> MediaView {
         let room = (available - IMAGE_PAD_X * 2.0).max(1.0);
-        let (image, video, path) = match fetched {
-            Fetch::Ready(media) => (media.image.clone(), media.video, media.path.clone()),
-            Fetch::Pending if is_video(&line.src) => (None, true, None),
+        let (image, natural, video, path) = match fetched {
+            Fetch::Ready(media) => (media.image.clone(), media.natural, media.video, media.path.clone()),
+            Fetch::Pending if is_video(&line.src) => (None, (0, 0), true, None),
             _ => return MediaView { height: IMAGE_PAD_Y * 2.0, line, image: None, video: false, path: None, frame: Rect::ZERO, room, uncropped },
         };
         let crop = if uncropped { FULL } else { line.params.crop.unwrap_or(FULL) };
         let [l, t, r, b] = crop;
         let (sw, sh) = ((r - l) / 100.0, (b - t) / 100.0);
-        let aspect = image.as_ref().map_or(16.0 / 9.0, |i| f64::from(i.image.width) * sw / (f64::from(i.image.height) * sh).max(1.0));
-        let natural = image.as_ref().map_or(room, |i| f64::from(i.image.width) * sw);
+        let (nw, nh) = (f64::from(natural.0), f64::from(natural.1));
+        let aspect = if image.is_some() { nw * sw / (nh * sh).max(1.0) } else { 16.0 / 9.0 };
+        let natural = if image.is_some() { nw * sw } else { room };
         let w = line.params.width.unwrap_or(if video { room } else { natural }).min(room);
         let h = w / aspect;
         let x = IMAGE_PAD_X
@@ -137,7 +139,7 @@ impl MediaView {
     }
 
     pub fn grip(&self) -> Rect {
-        let bottom = if self.video { self.controls().y0 } else { self.frame.y1 } - INSET;
+        let bottom = self.frame.y1 - INSET;
         Rect::new(self.frame.x1 - INSET - BUTTON, bottom - BUTTON, self.frame.x1 - INSET, bottom)
     }
 
@@ -170,19 +172,19 @@ impl MediaView {
         {
             return MediaHit::Handle(i as u8);
         }
+        if (overlay.hovered || overlay.crop.is_some()) && self.grip().contains(p) {
+            return MediaHit::Grip;
+        }
         if let Some(state) = &overlay.video
             && (overlay.hovered || !state.playing)
             && let Some(hit) = self.control_hit(p)
         {
             return hit;
         }
-        if overlay.hovered || overlay.crop.is_some() {
-            if let Some((Some(b), _)) = self.toolbar_items().into_iter().find(|(b, r)| b.is_some() && r.contains(p)) {
-                return b;
-            }
-            if self.grip().contains(p) {
-                return MediaHit::Grip;
-            }
+        if (overlay.hovered || overlay.crop.is_some())
+            && let Some((Some(b), _)) = self.toolbar_items().into_iter().find(|(b, r)| b.is_some() && r.contains(p))
+        {
+            return b;
         }
         if !self.frame.contains(p) {
             return MediaHit::Outside;

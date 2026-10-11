@@ -1,8 +1,9 @@
-use masonry::kurbo::Point;
+use masonry::kurbo::{Axis, Point};
 use masonry::parley::{Affinity, Cursor, Selection};
 
-use super::model::{DEFAULT_ROW, MIN_COL, MIN_ROW, Range2, Table};
+use super::model::{MIN_COL, MIN_ROW, Range2, Table};
 use super::view::{Hit, Line, Overlay, TableView};
+use crate::ui::scroll::bar::Scrollbar;
 
 const DRAG_THRESHOLD: f64 = 4.0;
 
@@ -12,7 +13,7 @@ pub enum Drag {
     Cells { from: (usize, usize), at: Point, moved: bool },
     Strip { rows: bool, block: (usize, usize), at: Point, moved: bool, gap: Option<usize> },
     Resize { rows: bool, index: usize, at: Point, start: f64 },
-    Bar { at: f64, start: f64 },
+    Bar,
 }
 
 pub struct Session {
@@ -27,6 +28,7 @@ pub struct Session {
     pub scroll_x: f64,
     pub line: Line,
     pub menu_cell: Option<(usize, usize)>,
+    pub bar: Scrollbar,
 }
 
 pub enum Outcome {
@@ -39,11 +41,11 @@ pub enum Outcome {
 
 impl Session {
     pub fn new(start: usize) -> Self {
-        Session { start, active: None, caret: 0, anchor: 0, range: None, range_anchor: None, drag: Drag::None, hover: None, scroll_x: 0.0, line: Line::None, menu_cell: None }
+        Session { start, active: None, caret: 0, anchor: 0, range: None, range_anchor: None, drag: Drag::None, hover: None, scroll_x: 0.0, line: Line::None, menu_cell: None, bar: Scrollbar::new(Axis::Horizontal) }
     }
 
     pub fn overlay(&self, hovered: bool) -> Overlay {
-        Overlay { selection: self.range, hover: self.hover, line: self.line, scroll_x: self.scroll_x, hovered }
+        Overlay { selection: self.range, hover: self.hover, line: self.line, scroll_x: self.scroll_x, hovered, bar_active: self.bar.active(), search: None }
     }
 
     fn activate(&mut self, view: &TableView, r: usize, c: usize, at: Option<Point>) {
@@ -130,13 +132,11 @@ impl Session {
                 Outcome::Write(model)
             }
             Hit::Bar => {
-                match view.bar_thumb(self.scroll_x) {
-                    Some(thumb) if thumb.contains(p) => self.drag = Drag::Bar { at: p.x, start: self.scroll_x },
-                    Some(thumb) => {
-                        let page = view.scroll_w * crate::ui::scroll::bar::PAGE;
-                        self.scroll_x = (self.scroll_x + if p.x < thumb.x0 { -page } else { page }).clamp(0.0, view.max_scroll());
+                if let Some(next) = view.bar_span(self.scroll_x).and_then(|span| self.bar.press(p, &span)) {
+                    self.scroll_x = next;
+                    if self.bar.dragging() {
+                        self.drag = Drag::Bar;
                     }
-                    None => {}
                 }
                 Outcome::Repaint
             }
@@ -203,18 +203,21 @@ impl Session {
                     }
                     model.widths[index] = (start + p.x - at.x).max(MIN_COL).round();
                 }
-                let line = view.border_line(if rows { Hit::RowBorder(index) } else { Hit::ColumnBorder(index) }, self.scroll_x);
+                let line = if rows { view.border_line(Hit::RowBorder(index), self.scroll_x) } else { view.resized_line(index, model.widths[index], self.scroll_x) };
                 (Outcome::Write(model), line)
             }
-            Drag::Bar { at, start } => {
-                self.scroll_x = (start + (p.x - at) * view.max_scroll() / view.bar_travel()).clamp(0.0, view.max_scroll());
+            Drag::Bar => {
+                if let Some(next) = view.bar_span(self.scroll_x).and_then(|span| self.bar.drag(p, &span)) {
+                    self.scroll_x = next;
+                }
                 (Outcome::Repaint, Line::None)
             }
             Drag::None => {
                 let hit = view.hit(p, self.scroll_x);
                 let hover = Some(hit);
                 let line = view.border_line(hit, self.scroll_x);
-                if hover != self.hover {
+                let thumb = view.bar_span(self.scroll_x).is_some_and(|span| self.bar.hover(Some(p), &span));
+                if hover != self.hover || thumb {
                     self.hover = hover;
                     return (Outcome::Repaint, line);
                 }
@@ -226,6 +229,7 @@ impl Session {
     pub fn release(&mut self, view: &TableView) -> Outcome {
         let drag = std::mem::replace(&mut self.drag, Drag::None);
         self.line = Line::None;
+        self.bar.release();
         if let Drag::Strip { rows, block, moved: true, gap: Some(gap), .. } = drag {
             let mut model = view.model.clone();
             let size = block.1 - block.0;
@@ -272,20 +276,11 @@ impl Session {
         })
     }
 
-    pub fn delete(&mut self, view: &TableView, forward: bool) -> Outcome {
-        self.edit(view, |value, caret, anchor| {
-            let (mut a, mut b) = ((*caret).min(*anchor), (*caret).max(*anchor));
-            if a == b {
-                if forward {
-                    b = value[a..].chars().next().map_or(a, |ch| a + ch.len_utf8());
-                } else {
-                    a = value[..b].chars().next_back().map_or(b, |ch| b - ch.len_utf8());
-                }
-            }
-            value.replace_range(a..b, "");
-            *caret = a;
-            *anchor = a;
-        })
+    pub fn delete(&mut self, view: &TableView, forward: bool, word: bool) -> Outcome {
+        if self.caret == self.anchor {
+            self.step(view, forward, word, true);
+        }
+        self.insert(view, "")
     }
 
     pub fn selected(&self, view: &TableView) -> Option<String> {
@@ -367,9 +362,6 @@ impl Session {
         }
         let mut model = view.model.clone();
         model.add_row();
-        if let Some(h) = model.heights.last_mut() {
-            *h = DEFAULT_ROW;
-        }
         self.active = Some((model.rows() - 1, c));
         self.caret = 0;
         self.anchor = 0;

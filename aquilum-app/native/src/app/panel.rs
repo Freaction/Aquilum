@@ -5,8 +5,6 @@ use aquilum_core::history::Source;
 use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, WidgetId};
 use masonry::kurbo::{Point, Size};
-use masonry::layout::Length;
-use masonry::widgets::SizedBox;
 
 use super::{App, Outcome};
 use crate::links::{self, Listing, Method, Mode, Request, Target};
@@ -23,10 +21,10 @@ impl App {
         std::thread::spawn(move || {
             let canonical = std::fs::canonicalize(&root).unwrap_or_else(|_| root.clone());
             if let Err(error) = core.watcher.watch(&canonical) {
-                eprintln!("наблюдение за базой не запущено: {error}");
+                report!("наблюдение за базой не запущено: {error}");
             }
             if let Err(error) = core.search.prepare(&root.to_string_lossy()) {
-                eprintln!("индекс базы не подготовлен: {error:?}");
+                report!("индекс базы не подготовлен: {error:?}");
             }
         });
     }
@@ -118,10 +116,11 @@ impl App {
         let open = !self.interface.right_open();
         self.interface.set_right_open(open);
         if let Some(chrome) = &self.chrome {
-            let width = if open { size::BACKLINKS_WIDTH } else { 0.0 };
-            chrome.panel.edit(root, |mut panel| SizedBox::set_width(&mut panel, Length::px(width)));
-            let inset = crate::ui::controls_inset(open);
-            chrome.controls_inset.edit(root, |mut spacer| SizedBox::set_width(&mut spacer, Length::px(inset)));
+            chrome.panel.edit(root, |mut panel| crate::ui::widgets::Collapse::set_open(&mut panel, open));
+            self.shown = Some(self.visible_panels());
+            chrome.controls_inset.edit(root, |mut spacer| crate::ui::widgets::Collapse::set_open(&mut spacer, !open));
+            let label = crate::i18n::t(crate::ui::panel_label(open));
+            root.edit_widget(chrome.panel_toggle, |mut w| crate::ui::widgets::IconButton::set_label(&mut w.downcast(), &label));
         }
         self.request_panel(root);
     }
@@ -145,24 +144,33 @@ impl App {
             }
         }
         if let Some(ItemAction::Open { new_tab }) = action.downcast_ref::<ItemAction>()
-            && let Some((_, target)) = self.panel_body.as_ref()?.items.iter().find(|(item, _)| *item == id)
+            && let Some((_, target, _)) = self.panel_body.as_ref()?.items.iter().find(|(item, _, _)| *item == id)
         {
             let target = target.clone();
             let title = self.open_target(root, target, *new_tab);
             return Some(Outcome { title, ..Outcome::default() });
+        }
+        if let Some(ItemAction::Hover(hovered)) = action.downcast_ref::<ItemAction>()
+            && let Some((_, _, reasons)) = self.panel_body.as_ref()?.items.iter().find(|(item, _, _)| *item == id)
+        {
+            let terms = if *hovered { reasons.clone() } else { Vec::new() };
+            if let Some(ids) = &self.note_ids {
+                ids.body.edit(root, |mut ed| crate::ui::editor::TextEditor::set_hover_terms(&mut ed, terms));
+            }
+            return Some(Outcome::default());
         }
         None
     }
 
     pub(super) fn open_target(&mut self, root: &mut RenderRoot, target: Target, new_tab: bool) -> bool {
         match target {
-            Target::Note(path) => self.open_in(root, path, new_tab),
-            Target::Url(url) if url.starts_with(crate::reader::quotes::SCHEME) => {
+            Target::Note(path, offset) => self.open_in_with_offset(root, path, new_tab, offset),
+            Target::Url(url) if crate::reader::quotes::is_reader(&url) => {
                 self.open_reader_link(root, &url);
                 false
             }
             Target::Url(url) => {
-                system::open(&url);
+                system::open_url(&url);
                 false
             }
             Target::Wiki(target) => {
@@ -179,7 +187,7 @@ impl App {
                         let _ = std::fs::create_dir_all(parent);
                     }
                     if let Err(error) = gate::create(&self.workspace.core, &path, "", Source::Me, None) {
-                        eprintln!("{} не создана: {error:?}", path.display());
+                        report!("{} не создана: {error:?}", path.display());
                         return false;
                     }
                     self.tree.paths_changed(root, std::slice::from_ref(&path));

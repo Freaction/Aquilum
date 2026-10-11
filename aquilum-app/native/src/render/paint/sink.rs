@@ -5,7 +5,7 @@ use masonry::imaging::{
 };
 use masonry::imaging::record::Glyph as SceneGlyph;
 use masonry::kurbo::{Affine, Shape as _};
-use masonry::peniko::BlendMode;
+use masonry::peniko::{BlendMode, BrushRef};
 
 use super::Painter;
 use super::convert;
@@ -14,18 +14,35 @@ use super::mask;
 
 impl PaintSink for Painter {
     fn push_clip(&mut self, clip: ClipRef<'_>) {
-        if self.error.is_some() {
+        if self.error.is_some() || self.cull(&clip) {
             return;
         }
-        let (transform, path, fill_rule) = convert::clip_to_path(clip, self.tolerance);
-        self.set_transform(transform);
-        self.ctx.set_fill_rule(fill_rule);
-        self.ctx.push_clip_path(&path);
+        if let ClipRef::Fill { transform, shape: GeometryRef::Rect(rect), fill_rule } = clip {
+            let window = transform.transform_rect_bbox(rect);
+            let [_, skew_y, skew_x, _, _, _] = transform.as_coeffs();
+            let region = (skew_x == 0.0 && skew_y == 0.0 && self.regions.iter().any(|r| crate::render::scroll::close(*r, window))).then(|| crate::render::scroll::snap(window));
+            self.ctx.set_fill_rule(fill_rule);
+            match region {
+                Some(snapped) => {
+                    self.set_transform(Affine::IDENTITY);
+                    self.ctx.push_clip_rect(&snapped);
+                }
+                None => {
+                    self.set_transform(transform);
+                    self.ctx.push_clip_rect(&rect);
+                }
+            }
+        } else {
+            let (transform, path, fill_rule) = convert::clip_to_path(clip, self.tolerance);
+            self.set_transform(transform);
+            self.ctx.set_fill_rule(fill_rule);
+            self.ctx.push_clip_path(&path);
+        }
         self.clip_depth += 1;
     }
 
     fn pop_clip(&mut self) {
-        if self.error.is_some() {
+        if self.error.is_some() || self.uncull() {
             return;
         }
         if self.clip_depth == 0 {
@@ -37,7 +54,7 @@ impl PaintSink for Painter {
     }
 
     fn push_group(&mut self, group: GroupRef<'_>) {
-        if self.error.is_some() {
+        if self.error.is_some() || (self.culled > 0 || group.composite.alpha <= 0.0) && self.cull_inside() || group.clip.as_ref().is_some_and(|clip| self.cull(clip)) {
             return;
         }
         let (clip_path, clip_transform) = match group.clip {
@@ -85,26 +102,42 @@ impl PaintSink for Painter {
             None
         };
         self.ctx.push_layer(clip_path.as_ref(), blend, opacity, mask, filter);
-        self.group_depth += 1;
+        self.groups.push(!group.filters.is_empty());
     }
 
     fn pop_group(&mut self) {
+        if self.uncull() {
+            return;
+        }
         if self.error.is_some() {
             return;
         }
-        if self.group_depth == 0 {
+        if self.groups.pop().is_none() {
             self.set_error_once(PaintError::Unbalanced("pop_group без push_group"));
             return;
         }
         self.ctx.pop_layer();
-        self.group_depth -= 1;
     }
 
     fn fill(&mut self, draw: FillRef<'_>) {
-        if self.error.is_some() || self.offscreen(draw.transform.transform_rect_bbox(convert::shape_bounds(&draw.shape))) {
+        if self.error.is_some() || convert::invisible(&draw.brush, draw.composite) || self.offscreen(draw.transform.transform_rect_bbox(convert::shape_bounds(&draw.shape))) {
             return;
         }
-        let paint = convert::brush_to_paint(draw.brush, draw.composite, &mut self.images);
+        if let BrushRef::Image(image) = &draw.brush
+            && let Some(motion) = crate::render::live::motion(image.image.data.id())
+        {
+            return self.paint_live(draw.transform, &draw.shape, motion);
+        }
+        let sprite = match &draw.brush {
+            BrushRef::Image(image) => crate::render::sprite::covered(image.image.data.id()).map(|covered| (covered, image.image.data.id())),
+            _ => None,
+        };
+        let brush = match sprite {
+            Some((false, _)) => return,
+            Some((true, id)) => BrushRef::Solid(crate::render::sprite::color(id).unwrap_or(masonry::peniko::Color::TRANSPARENT)),
+            None => draw.brush,
+        };
+        let paint = convert::brush_to_paint(brush, draw.composite, &mut self.images);
         self.set_transform(draw.transform);
         self.ctx.set_fill_rule(draw.fill_rule);
         self.ctx.set_paint_transform(draw.brush_transform.unwrap_or(Affine::IDENTITY));
@@ -120,7 +153,7 @@ impl PaintSink for Painter {
 
     fn stroke(&mut self, draw: StrokeRef<'_>) {
         let w = draw.stroke.width.max(1.0) * draw.stroke.miter_limit.max(1.0);
-        if self.error.is_some() || self.offscreen(draw.transform.transform_rect_bbox(convert::shape_bounds(&draw.shape).inflate(w, w))) {
+        if self.error.is_some() || convert::invisible(&draw.brush, draw.composite) || self.offscreen(draw.transform.transform_rect_bbox(convert::shape_bounds(&draw.shape).inflate(w, w))) {
             return;
         }
         let paint = convert::brush_to_paint(draw.brush, draw.composite, &mut self.images);

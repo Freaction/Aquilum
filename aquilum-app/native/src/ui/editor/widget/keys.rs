@@ -72,11 +72,15 @@ impl TextEditor {
                 self.move_to(target, shift);
             }
             Key::Named(NamedKey::Backspace) => {
-                self.delete(false, action);
+                if !self.apply_multicursor_delete(false) && !self.handle_pair_backspace() {
+                    self.delete(false, action);
+                }
                 edited = true;
             }
             Key::Named(NamedKey::Delete) => {
-                self.delete(true, action);
+                if !self.apply_multicursor_delete(true) {
+                    self.delete(true, action);
+                }
                 edited = true;
             }
             Key::Named(NamedKey::Enter) if self.single_line => {
@@ -90,9 +94,26 @@ impl TextEditor {
             }
             Key::Named(NamedKey::Tab) if self.single_line || self.doc.markdown.is_none() => return,
             Key::Named(NamedKey::Tab) => edited = self.indent(!shift),
-            Key::Named(NamedKey::Escape) => ctx.submit_action::<TextAction>(TextAction::Cancelled),
+            Key::Named(NamedKey::Escape) => {
+                if self.clear_extra_cursors() {
+                    ctx.set_handled();
+                    self.refresh(ctx);
+                    return;
+                }
+                ctx.submit_action::<TextAction>(TextAction::Cancelled);
+            }
+            Key::Character(c) if action && !self.single_line && self.doc.markdown.is_some() && (c.eq_ignore_ascii_case("b") || c.eq_ignore_ascii_case("i") || shift && c.eq_ignore_ascii_case("s")) => {
+                let mark = match c.to_ascii_lowercase().as_str() {
+                    "b" => format::BOLD,
+                    "i" => format::ITALIC,
+                    _ => format::STRIKE,
+                };
+                edited = self.toggle_mark(mark);
+            }
             Key::Character(text) if !action => {
-                self.insert(text, Kind::Typing);
+                if !self.apply_multicursor_typing(text) && !self.handle_pair_typing(text) && !self.smart_dash(text) {
+                    self.insert(text, Kind::Typing);
+                }
                 edited = true;
             }
             _ => return,
@@ -115,10 +136,7 @@ impl TextEditor {
         match ime {
             Ime::Enabled => {}
             Ime::Disabled => self.compose = None,
-            Ime::Preedit(text, cursor) if text.is_empty() => {
-                self.compose = None;
-                let _ = cursor;
-            }
+            Ime::Preedit(text, _) if text.is_empty() => self.compose = None,
             Ime::Preedit(text, cursor) => {
                 if !self.selection().is_empty() {
                     self.insert("", Kind::Other);

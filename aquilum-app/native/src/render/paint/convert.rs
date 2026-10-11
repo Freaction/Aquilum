@@ -21,7 +21,7 @@ impl Images {
     fn source(&mut self, data: &ImageData) -> ImageSource {
         let frame = self.frame;
         let (source, used) = self.sources.entry(data.data.id()).or_insert_with(|| {
-            let source = match crate::render::surface::take(data.data.id()) {
+            let source = match crate::render::surface::take(data.data.id()).or_else(|| crate::render::pixels::lookup(data.data.id())) {
                 Some(pixmap) => ImageSource::Pixmap(pixmap),
                 None if data.data.data().len() != data.width as usize * data.height as usize * 4 => ImageSource::Pixmap(Arc::new(vello_cpu::Pixmap::new(1, 1))),
                 None => ImageSource::from_peniko_image_data(data),
@@ -98,6 +98,10 @@ pub fn filters_to_vello(filters: &[Filter]) -> Option<VelloFilter> {
     let out = last?;
     graph.set_output(out);
     Some(VelloFilter { graph: Arc::new(graph) })
+}
+
+pub fn invisible(brush: &BrushRef<'_>, composite: Composite) -> bool {
+    composite.alpha <= 0.0 || composite.blend == masonry::peniko::BlendMode::default() && matches!(brush, BrushRef::Solid(color) if color.components[3] <= 0.0)
 }
 
 pub fn shape_bounds(shape: &GeometryRef<'_>) -> Rect {

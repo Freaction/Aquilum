@@ -6,7 +6,7 @@ use masonry::accesskit::{Action, Node, Role};
 use masonry::core::keyboard::{Key, KeyState, NamedKey};
 use masonry::core::{
     AccessCtx, AccessEvent, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget,
-    PaintCtx, PointerButton, PointerEvent, PropertiesMut, PropertiesRef, PropertySet, RegisterCtx,
+    PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, PropertySet, RegisterCtx,
     TextEvent, Update, UpdateCtx, Widget, WidgetPod, render_text,
 };
 use masonry::imaging::{BlurredRoundedRect, Composite, Painter};
@@ -41,7 +41,7 @@ struct MenuItem {
     disabled: bool,
     checked: bool,
     line: text::Line,
-    down: bool,
+    press: crate::ui::widgets::Press,
 }
 
 impl MenuItem {
@@ -54,19 +54,8 @@ impl Widget for MenuItem {
     type Action = MenuChoice;
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
-        match event {
-            PointerEvent::Down(_) if self.disabled => {}
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
-                self.down = true;
-                ctx.capture_pointer();
-            }
-            PointerEvent::Up(e) if e.button == Some(PointerButton::Primary) && self.down => {
-                self.down = false;
-                if ctx.is_hovered() {
-                    ctx.submit_action::<MenuChoice>(MenuChoice::Item(self.index));
-                }
-            }
-            _ => {}
+        if self.press.pointer(ctx, event) && !self.disabled {
+            ctx.submit_action::<MenuChoice>(MenuChoice::Item(self.index));
         }
     }
 
@@ -191,6 +180,13 @@ impl Menu {
 
     pub const LIST_MAX_HEIGHT: f64 = 256.0;
 
+    pub fn context_origin(at: Point, items: usize, window: Size) -> Point {
+        let size = Self::estimated_size(items);
+        let x = if at.x + size.width > window.width { (at.x - size.width).max(size::SPACE_8) } else { at.x };
+        let y = if at.y + size.height > window.height { (at.y - size.height).max(size::SPACE_8) } else { at.y };
+        Point::new(x, y)
+    }
+
     pub fn list_origin(trigger: Rect, items: usize, window: Size) -> Point {
         let height = Self::estimated_size(items).height.min(Self::LIST_MAX_HEIGHT);
         let below = trigger.y1 + size::SPACE_4;
@@ -208,7 +204,7 @@ impl Menu {
                 disabled: item.disabled,
                 checked: checked == Some(index),
                 line: text::Line::default(),
-                down: false,
+                press: Default::default(),
             }));
         }
         let column = NewWidget::new(column).with_props(
@@ -317,8 +313,20 @@ impl Layer for Menu {
 
 /// `box-shadow` из токенов: размытый скруглённый прямоугольник под фигурой. Размытие CSS
 /// соответствует удвоенному стандартному отклонению.
+pub fn shadow_reach(shadows: &[Shadow]) -> f64 {
+    shadows.iter().map(|s| s.spread + s.blur * 1.5 + s.x.abs().max(s.y.abs())).fold(0.0, f64::max).ceil()
+}
+
 pub fn box_shadow<S: masonry::imaging::PaintSink + ?Sized>(painter: &mut Painter<'_, S>, shape: RoundedRect, shadows: &[Shadow]) {
-    for shadow in shadows.iter().filter(|s| s.blur > 0.0 || s.x != 0.0 || s.y != 0.0) {
+    for shadow in shadows {
+        if shadow.blur <= 0.0 && shadow.x == 0.0 && shadow.y == 0.0 {
+            if shadow.spread > 0.0 {
+                let half = shadow.spread / 2.0;
+                let ring = RoundedRect::from_rect(shape.rect().inflate(half, half), shape.radii().top_left + half);
+                painter.stroke(&ring, &Stroke::new(shadow.spread), shadow.color).draw();
+            }
+            continue;
+        }
         let rect = shape.rect().inflate(shadow.spread, shadow.spread) + masonry::kurbo::Vec2::new(shadow.x, shadow.y);
         painter.blurred_rounded_rect(BlurredRoundedRect {
             transform: Affine::IDENTITY,

@@ -6,7 +6,57 @@ resolver = "2"
 [profile.release]
 lto = "thin"
 codegen-units = 8
+incremental = true
 strip = true
+opt-level = "s"
+
+[profile.release.package.aquilum-native]
+opt-level = 3
+
+[profile.release.package.vello_cpu]
+opt-level = 3
+
+[profile.release.package.vello_common]
+opt-level = 3
+
+[profile.release.package.fearless_simd]
+opt-level = 3
+
+[profile.release.package.glifo]
+opt-level = 3
+
+[profile.release.package.masonry_core]
+opt-level = 3
+
+[profile.release.package.masonry]
+opt-level = 3
+
+[profile.release.package.parley]
+opt-level = 3
+
+[profile.release.package.harfrust]
+opt-level = 3
+
+[profile.release.package.skrifa]
+opt-level = 3
+
+[profile.release.package.read-fonts]
+opt-level = 3
+
+[profile.release.package.kurbo]
+opt-level = 3
+
+[profile.release.package.imaging]
+opt-level = 3
+
+[profile.release.package.peniko]
+opt-level = 3
+
+[profile.release.package.fontique]
+opt-level = 3
+
+[profile.release.package.bytemuck]
+opt-level = 3
 
 [patch."https://github.com/linebender/xilem"]
 masonry_core = { path = "native/vendor/masonry_core" }

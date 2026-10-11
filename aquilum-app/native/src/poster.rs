@@ -5,9 +5,8 @@ use masonry::peniko::ImageBrush;
 #[cfg(target_os = "windows")]
 pub fn video(path: &Path) -> Option<ImageBrush> {
     use std::os::windows::ffi::OsStrExt;
-    use std::sync::Arc;
 
-    use masonry::peniko::{Blob, ImageAlphaType, ImageData, ImageFormat};
+    use masonry::peniko::ImageAlphaType;
     use windows::Win32::Foundation::SIZE as Extent;
     use windows::Win32::Graphics::Gdi::{BI_RGB, BITMAP, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, DeleteObject, GetDC, GetDIBits, GetObjectW, HGDIOBJ, ReleaseDC};
     use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
@@ -50,8 +49,7 @@ pub fn video(path: &Path) -> Option<ImageBrush> {
             px.swap(0, 2);
             px[3] = 255;
         }
-        let data = ImageData { data: Blob::new(Arc::new(pixels)), format: ImageFormat::Rgba8, alpha_type: ImageAlphaType::Alpha, width: width as u32, height: height as u32 };
-        Some(ImageBrush::new(data))
+        crate::render::from_rgba(pixels, width as u32, height as u32, ImageAlphaType::Alpha)
     }
 }
 

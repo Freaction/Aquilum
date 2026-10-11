@@ -1,55 +1,56 @@
-//! Структура и методы ScrollArea.
-
 use masonry::core::{LayoutCtx, NewWidget, Widget, WidgetMut, WidgetPod};
-use masonry::kurbo::Size;
+use masonry::kurbo::{Axis, Size, Vec2};
 use masonry::layout::{LenDef, Length, SizeDef};
 
-#[derive(Clone, Copy)]
-pub(super) struct Glide {
-    pub from: f64,
-    pub to: f64,
-    pub speed: f64,
-    pub elapsed: f64,
-}
-
-impl Glide {
-    pub fn at(&self, duration: f64) -> (f64, f64) {
-        let s = (self.elapsed / duration).min(1.0);
-        let (s2, s3) = (s * s, s * s * s);
-        let position = (2.0 * s3 - 3.0 * s2 + 1.0) * self.from + (s3 - 2.0 * s2 + s) * duration * self.speed + (3.0 * s2 - 2.0 * s3) * self.to;
-        let speed = (6.0 * s2 - 6.0 * s) * (self.from - self.to) / duration + (3.0 * s2 - 4.0 * s + 1.0) * self.speed;
-        let (lo, hi) = (self.from.min(self.to), self.from.max(self.to));
-        (position.clamp(lo, hi), speed)
-    }
-}
+use super::bar::{Scrollbar, Span};
 
 pub struct ScrollArea<W: Widget> {
     pub(super) child: WidgetPod<W>,
+    pub(super) axis: Axis,
     pub(super) offset: f64,
-    pub(super) glide: Option<Glide>,
-    pub(super) content_height: f64,
+    pub(super) glide: Option<super::glide::Glide>,
+    pub(super) wheel: super::glide::Wheel,
+    pub(super) content: f64,
     pub(super) viewport: Size,
-    /// Содержимое выше видимой области — полоса показана и занимает место.
     pub(super) overflow: bool,
-    /// Содержимое не ниже видимой области — чтобы его можно было центрировать по вертикали.
     pub(super) fill: bool,
-    pub(super) thumb_hovered: bool,
-    /// Перетаскивание ползунка: где нажали (y) и смещение в тот момент.
-    pub(super) dragging: Option<(f64, f64)>,
+    pub(super) bar: Scrollbar,
+    pub(super) published: Option<u64>,
+    pub(super) thumb: masonry::peniko::ImageBrush,
+}
+
+impl<W: Widget> Drop for ScrollArea<W> {
+    fn drop(&mut self) {
+        if let Some(id) = self.published {
+            crate::render::scroll::forget(id);
+        }
+        crate::render::sprite::forget(&self.thumb);
+    }
 }
 
 impl<W: Widget> ScrollArea<W> {
     pub fn new(child: NewWidget<W>) -> Self {
+        Self::along(Axis::Vertical, child)
+    }
+
+    pub fn horizontal(child: NewWidget<W>) -> Self {
+        Self::along(Axis::Horizontal, child)
+    }
+
+    fn along(axis: Axis, child: NewWidget<W>) -> Self {
         ScrollArea {
             child: child.to_pod(),
+            axis,
             offset: 0.0,
             glide: None,
-            content_height: 0.0,
+            wheel: super::glide::Wheel::default(),
+            content: 0.0,
             viewport: Size::ZERO,
             overflow: false,
             fill: false,
-            thumb_hovered: false,
-            dragging: None,
+            bar: Scrollbar::new(axis),
+            published: None,
+            thumb: crate::render::sprite::marker(),
         }
     }
 
@@ -62,7 +63,6 @@ impl<W: Widget> ScrollArea<W> {
         self
     }
 
-    /// Содержимое не ниже видимой области (для пустых состояний по центру).
     pub fn fill(mut self, fill: bool) -> Self {
         self.fill = fill;
         self
@@ -79,9 +79,14 @@ impl<W: Widget> ScrollArea<W> {
         this.ctx.request_layout();
     }
 
-    /// Прокрутить ровно настолько, чтобы полоса `[top, bottom]` содержимого стала видна.
+    #[cfg(feature = "memory-probe")]
+    pub fn set_fraction(this: &mut WidgetMut<'_, Self>, fraction: f64) {
+        let offset = this.widget.max_offset() * fraction;
+        Self::set_offset(this, offset);
+    }
+
     pub fn reveal(this: &mut WidgetMut<'_, Self>, top: f64, bottom: f64) {
-        let viewport = this.widget.viewport.height;
+        let viewport = this.widget.view();
         let offset = this.widget.offset;
         let next = if top < offset {
             top
@@ -93,15 +98,27 @@ impl<W: Widget> ScrollArea<W> {
         Self::set_offset(this, next);
     }
 
+    pub(super) fn view(&self) -> f64 {
+        self.viewport.get_coord(self.axis)
+    }
+
     pub(super) fn max_offset(&self) -> f64 {
-        (self.content_height - self.viewport.height).max(0.0)
+        (self.content - self.view()).max(0.0)
+    }
+
+    pub(super) fn span(&self) -> Span {
+        Span { track: Scrollbar::edge(self.axis, self.viewport), viewport: self.view(), content: self.content, offset: self.offset }
+    }
+
+    pub(super) fn shift(&self, offset: f64) -> Vec2 {
+        self.axis.pack_vec2(-offset, 0.0)
     }
 
     pub(super) fn clamp(&mut self) {
         self.offset = self.offset.clamp(0.0, self.max_offset());
         let max = self.max_offset();
-        if let Some(glide) = &mut self.glide {
-            glide.to = glide.to.clamp(0.0, max);
+        if self.glide.is_some_and(|g| g.to > max) {
+            self.glide = None;
         }
     }
 
@@ -111,26 +128,30 @@ impl<W: Widget> ScrollArea<W> {
     }
 
     pub(super) fn glide_by(&mut self, delta: f64) -> bool {
-        let (base, speed) = match self.glide {
-            Some(g) if (g.to - self.offset) * delta > 0.0 => (g.to, g.at(super::GLIDE_SECONDS).1),
-            _ => (self.offset, 0.0),
-        };
-        let to = (base + delta).clamp(0.0, self.max_offset());
-        if to == self.offset {
-            self.glide = None;
-            return false;
-        }
-        self.glide = Some(Glide { from: self.offset, to, speed, elapsed: 0.0 });
-        true
+        self.glide = self.wheel.retarget(self.glide, self.offset, delta, self.max_offset());
+        self.glide.is_some()
     }
 
-    pub(super) fn layout_child(&mut self, ctx: &mut LayoutCtx<'_>, width: f64, height: f64) -> Size {
-        let auto = SizeDef::new(LenDef::Fixed(Length::px(width)), LenDef::MaxContent);
-        let mut child = ctx.compute_size(&mut self.child, auto, Size::new(width, height).into());
-        child.width = width;
-        if self.fill {
-            child.height = child.height.max(height);
+    pub(super) fn layout_child(&mut self, ctx: &mut LayoutCtx<'_>, size: Size, bar: f64) -> Size {
+        match self.axis {
+            Axis::Vertical => {
+                let width = (size.width - bar).max(0.0);
+                let auto = SizeDef::new(LenDef::Fixed(Length::px(width)), LenDef::MaxContent);
+                let mut child = ctx.compute_size(&mut self.child, auto, Size::new(width, size.height).into());
+                child.width = width;
+                if self.fill {
+                    child.height = child.height.max(size.height);
+                }
+                child
+            }
+            Axis::Horizontal => {
+                let height = (size.height - bar).max(0.0);
+                let auto = SizeDef::new(LenDef::MaxContent, LenDef::Fixed(Length::px(height)));
+                let mut child = ctx.compute_size(&mut self.child, auto, Size::new(size.width, height).into());
+                child.height = height;
+                child.width = child.width.max(size.width);
+                child
+            }
         }
-        child
     }
 }

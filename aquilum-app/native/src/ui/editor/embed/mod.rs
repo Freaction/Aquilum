@@ -7,7 +7,7 @@ use std::ops::Range;
 use masonry::core::{BrushIndex, render_text};
 use masonry::imaging::{PaintSink, Painter};
 use masonry::kurbo::{Affine, BezPath, Cap, Circle, Join, Point, Rect, RoundedRect, Stroke};
-use masonry::parley::{Alignment, Layout};
+use masonry::parley::{Affinity, Alignment, Cursor, Layout, Selection};
 use masonry::peniko::{Brush, Color, ImageBrush};
 
 use super::table::{Overlay, TableView};
@@ -56,12 +56,11 @@ pub struct Spec<'a> {
     pub underline: bool,
     pub wrap: Option<f64>,
     pub align: Alignment,
-    pub markdown: bool,
 }
 
 impl<'a> Spec<'a> {
     pub fn plain(text: &'a str, font: Font, brush: BrushIndex) -> Self {
-        Spec { text, font, brush, bold: false, weight: None, links: &[], underline: false, wrap: None, align: Alignment::Start, markdown: false }
+        Spec { text, font, brush, bold: false, weight: None, links: &[], underline: false, wrap: None, align: Alignment::Start }
     }
 }
 
@@ -76,7 +75,7 @@ pub(super) enum Tone {
 }
 
 pub(super) enum Item {
-    Text(Point, Layout<BrushIndex>),
+    Text(Point, Layout<BrushIndex>, String),
     Fill(RoundedRect, Tone),
     Stroke(RoundedRect, Tone),
     Image(RoundedRect, ImageBrush, [f64; 4]),
@@ -161,7 +160,7 @@ impl View {
         match self {
             View::Table(t) => t.paint(painter, x, y, palette, overlay),
             View::Media(m) => m.paint(painter, x, y, media),
-            View::Drawing(d) => d.paint(painter, x, y, palette, hover),
+            View::Drawing(d) => d.paint(painter, x, y, palette, hover, overlay.search.as_ref()),
         }
     }
 }
@@ -180,7 +179,7 @@ fn color(tone: Tone) -> Color {
 
 fn paint_item<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, item: &Item, at: Affine, palette: &[Brush], hover: Option<Rect>) {
     match item {
-        Item::Text(p, layout) => render_text(painter, at * Affine::translate(p.to_vec2()), layout, palette, true),
+        Item::Text(p, layout, _) => render_text(painter, at * Affine::translate(p.to_vec2()), layout, palette, true),
         Item::Fill(shape, tone) => painter.fill(at.transform_rect_bbox(shape.rect()).to_rounded_rect(shape.radii()), color(*tone)).draw(),
         Item::Stroke(shape, tone) => {
             let r = at.transform_rect_bbox(shape.rect());
@@ -228,10 +227,20 @@ fn paint_item<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, item: &Item, 
 }
 
 impl Drawing {
-    fn paint(&self, painter: &mut Painter<'_>, x: f64, y: f64, palette: &[Brush], hover: Option<usize>) {
+    fn paint(&self, painter: &mut Painter<'_>, x: f64, y: f64, palette: &[Brush], hover: Option<usize>, search: Option<&crate::ui::editor::Search>) {
         let at = Affine::translate((x, y));
         let hover = hover.and_then(|i| self.hits.get(i)).map(|(r, ..)| *r);
+        let mut seen = 0;
         for item in &self.items {
+            if let (Some(search), Item::Text(p, layout, text)) = (search, item) {
+                let shown = layout.lines().last().map_or(0, |l| l.text_range().end);
+                for found in search.ranges(text, &mut seen).into_iter().filter(|r| r.end <= shown) {
+                    let selection = Selection::new(Cursor::from_byte_index(layout, found.start, Affinity::Downstream), Cursor::from_byte_index(layout, found.end, Affinity::Upstream));
+                    for (b, _) in selection.geometry(layout) {
+                        painter.fill(Rect::new(x + p.x + b.x0, y + p.y + b.y0, x + p.x + b.x1, y + p.y + b.y1), theme::current().search_match_bg).draw();
+                    }
+                }
+            }
             paint_item(painter, item, at, palette, hover);
         }
     }

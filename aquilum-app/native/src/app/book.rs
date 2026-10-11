@@ -11,7 +11,7 @@ use crate::i18n::t;
 use crate::images;
 use crate::ui::book::{BookView, HeroView, PageCover, ThumbAction, Visual};
 use crate::ui::widgets::{IconButton, Pressed, Slot, TextButton};
-use crate::vault_files::{self, IMAGE_EXTENSIONS, Source};
+use crate::vault_files::{self, Source};
 
 #[derive(Debug)]
 pub(super) enum Picked {
@@ -115,8 +115,8 @@ impl App {
         }
         self.editor_text = text;
         if let Some(note) = &mut self.note {
-            note.edit(self.editor_text.clone(), Duration::ZERO);
-            note.save(&self.workspace.core);
+            note.edit(Duration::ZERO);
+            let _ = note.save(&self.workspace.core, &self.editor_text);
         }
         self.hero_shown = None;
         self.sync_body(root);
@@ -161,7 +161,7 @@ impl App {
                 let existing = frontmatter::parse(&self.editor_text).and_then(|f| f.text("pages").map(str::to_owned));
                 self.set_fields(root, &[(BOOK_FILE, relative), ("pages", synthetic_pages(existing.as_deref(), bytes))]);
             }
-            Err(error) => eprintln!("книга не загружена: {error:?}"),
+            Err(error) => report!("книга не загружена: {error:?}"),
         }
     }
 
@@ -170,7 +170,7 @@ impl App {
         let sender = self.picked_tx.clone();
         let wake = std::sync::Arc::clone(&self.workspace.wake);
         std::thread::spawn(move || {
-            let picked = rfd::FileDialog::new().add_filter("Images", IMAGE_EXTENSIONS).pick_file();
+            let picked = rfd::FileDialog::new().add_filter("Images", &crate::images::EXTENSIONS).pick_file();
             if let Some(file) = picked {
                 let message = if page_cover { Picked::PageCover(note, file) } else { Picked::BookCover(note, file) };
                 if sender.send(message).is_ok() {
@@ -212,7 +212,7 @@ impl App {
             Source::Bytes(..) => "png",
         };
         vault_files::import(&self.workspace.core, &workspace, source, "cover", fallback)
-            .map_err(|error| eprintln!("обложка не сохранена: {error:?}"))
+            .map_err(|error| report!("обложка не сохранена: {error:?}"))
             .ok()
     }
 

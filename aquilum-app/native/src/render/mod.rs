@@ -1,18 +1,25 @@
-//! Отрисовка кадра: сцены Masonry → vello_cpu 0.3 → буфер окна softbuffer.
-//!
-//! Каждый кадр рисуется целиком в буфер размером с окно и целиком отдаётся окну.
-
 mod damage;
+pub mod fade;
+mod layer;
+pub mod live;
+mod mark;
 mod offscreen;
+#[cfg_attr(feature = "installed", path = "overlay_off.rs")]
+mod overlay;
 mod paint;
+mod pixels;
+pub mod scroll;
 mod renderer;
+pub mod sprite;
+mod stamp;
 mod surface;
 
+#[cfg(test)]
+mod testing;
 #[cfg(test)]
 mod tests;
 
 pub use offscreen::offscreen;
-#[allow(unused_imports)]
-pub use paint::{PaintError, Painter};
+pub use pixels::{brush, from_rgba};
 pub use renderer::Renderer;
 pub use surface::Surfaces;

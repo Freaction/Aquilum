@@ -15,18 +15,30 @@ use masonry::peniko::{Blob, Color};
 
 use super::tokens::{self, Theme, number, size};
 
-static CURRENT: RwLock<&'static Theme> = RwLock::new(&tokens::LIGHT);
+static CURRENT: RwLock<Option<Arc<Theme>>> = RwLock::new(None);
 static DARK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub fn is_dark() -> bool {
     DARK.load(std::sync::atomic::Ordering::Relaxed)
 }
-static RECOLORED: Mutex<Vec<(bool, [u8; 3], &'static Theme)>> = Mutex::new(Vec::new());
+static RECOLORED: Mutex<Vec<(bool, [u8; 3], Arc<Theme>)>> = Mutex::new(Vec::new());
+const RECOLORED_KEPT: usize = 4;
+
+fn base(dark: bool) -> Arc<Theme> {
+    static BASE: std::sync::OnceLock<(Arc<Theme>, Arc<Theme>)> = std::sync::OnceLock::new();
+    let (light, dark_theme) = BASE.get_or_init(|| (Arc::new(tokens::LIGHT), Arc::new(tokens::DARK)));
+    Arc::clone(if dark { dark_theme } else { light })
+}
 const DEFAULT_PRIMARY: [u8; 3] = [0x14, 0x71, 0xeb];
 
-/// Токены текущей темы.
-pub fn current() -> &'static Theme {
-    *CURRENT.read().unwrap_or_else(|e| e.into_inner())
+static GENERATION: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+pub fn generation() -> usize {
+    GENERATION.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn current() -> Arc<Theme> {
+    CURRENT.read().unwrap_or_else(|e| e.into_inner()).clone().unwrap_or_else(|| base(false))
 }
 
 pub fn parse_hex(raw: &str) -> Option<[u8; 3]> {
@@ -38,18 +50,21 @@ pub fn parse_hex(raw: &str) -> Option<[u8; 3]> {
     Some([byte(0)?, byte(2)?, byte(4)?])
 }
 
-fn recolored(dark: bool, rgb: [u8; 3]) -> &'static Theme {
+fn recolored(dark: bool, rgb: [u8; 3]) -> Arc<Theme> {
     let mut cache = RECOLORED.lock().unwrap_or_else(|e| e.into_inner());
     if let Some((_, _, theme)) = cache.iter().find(|(d, c, _)| *d == dark && *c == rgb) {
-        return theme;
+        return Arc::clone(theme);
     }
     let [r, g, b] = rgb.map(|c| f32::from(c) / 255.0);
     let main = [r, g, b, 1.0];
     let darker = [r * 0.78, g * 0.78, b * 0.78, 1.0];
     let mut theme = if dark { tokens::DARK } else { tokens::LIGHT };
     tokens::recolor(&mut theme, dark, [main, main, darker]);
-    let theme: &'static Theme = Box::leak(Box::new(theme));
-    cache.push((dark, rgb, theme));
+    let theme = Arc::new(theme);
+    if cache.len() >= RECOLORED_KEPT {
+        cache.remove(0);
+    }
+    cache.push((dark, rgb, Arc::clone(&theme)));
     theme
 }
 
@@ -63,10 +78,13 @@ pub fn apply_setting(setting: &str, system_dark: bool, primary: &str) {
     };
     let theme = match parse_hex(primary).filter(|rgb| *rgb != DEFAULT_PRIMARY) {
         Some(rgb) => recolored(dark, rgb),
-        None if dark => &tokens::DARK,
-        None => &tokens::LIGHT,
+        None => base(dark),
     };
-    *CURRENT.write().unwrap_or_else(|e| e.into_inner()) = theme;
+    let mut current = CURRENT.write().unwrap_or_else(|e| e.into_inner());
+    if current.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &theme)) {
+        GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+    *current = Some(theme);
     DARK.store(dark, std::sync::atomic::Ordering::Relaxed);
 }
 
@@ -76,6 +94,7 @@ pub fn default_properties() -> DefaultProperties {
     let mut properties = masonry::theme::default_property_set();
     properties.insert::<Flex, _>(Gap::ZERO);
     properties.insert::<ScrollBar, _>(Collapsible(true));
+    super::style::install(&mut properties, &current());
     properties
 }
 
@@ -174,6 +193,24 @@ pub fn test_lock() -> std::sync::MutexGuard<'static, ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bundled_fonts_answer_to_the_names_styles_ask_for() {
+        use masonry::parley::fontique::{Collection, CollectionOptions};
+        let mut collection = Collection::new(CollectionOptions { system_fonts: false, ..CollectionOptions::default() });
+        let mut names = Vec::new();
+        for data in fonts::FONTS {
+            for (id, infos) in collection.register_fonts(Blob::new(Arc::new(*data)), None) {
+                let italic = infos.iter().any(|info| info.style() != masonry::parley::fontique::FontStyle::Normal);
+                names.extend(collection.family_name(id).map(|name| (name.to_owned(), italic)));
+            }
+        }
+        for wanted in ["Inter", "Inter Cyrillic", "iA Writer Mono", "iA Writer Quattro"] {
+            for italic in [false, true] {
+                assert!(names.iter().any(|(name, i)| name == wanted && *i == italic), "нет {wanted} (курсив: {italic}), есть {names:?}");
+            }
+        }
+    }
 
     #[test]
     fn default_primary_recolors_to_original_tokens() {

@@ -182,8 +182,9 @@ pub fn apply(payload: &[u8], before_exit: impl FnOnce()) -> Result<(), String> {
     let installer = dir.join("Aquilum-setup.exe");
     std::fs::write(&installer, payload).map_err(|e| e.to_string())?;
     before_exit();
-    unsafe {
-        ShellExecuteW(None, w!("open"), &HSTRING::from(installer.as_os_str()), &HSTRING::from("/S /R /UPDATE /ARGS"), None, SW_SHOW);
+    let started = unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(installer.as_os_str()), &HSTRING::from("/S /R /UPDATE /ARGS"), None, SW_SHOW) };
+    if started.0 as isize <= 32 {
+        return Err(format!("установщик не запустился, код {}", started.0 as isize));
     }
     std::process::exit(0);
 }

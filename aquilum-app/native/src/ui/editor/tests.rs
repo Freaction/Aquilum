@@ -187,6 +187,43 @@ fn scrolling_far_repaints_visible_paragraphs() {
 }
 
 #[test]
+fn vertical_gesture_over_wide_table_scrolls_the_page() {
+    use masonry::core::{PointerEvent, PointerId, PointerInfo, PointerScrollEvent, PointerState, PointerType, ScrollDelta};
+    use masonry::dpi::PhysicalPosition;
+    let cells: String = (0..6).map(|i| format!(" колонка {i} |")).collect();
+    let rule: String = (0..6).map(|_| " --- |").collect();
+    let table = format!("|{cells}
+|{rule}
+|{cells}
+<!--q-table:{{\"merges\":[],\"cols\":[300,300,300,300,300,300]}}-->
+");
+    let body: String = format!("{table}
+{}", (0..200).map(|i| format!("Абзац {i}
+")).collect::<String>());
+    let options = RenderRootOptions {
+        default_properties: Arc::new(default_property_set()),
+        use_system_fonts: true,
+        size_policy: WindowSizePolicy::User,
+        size: PhysicalSize::new(400, 300),
+        scale_factor: 1.0,
+        test_font: None,
+    };
+    let editor = NewWidget::new(TextEditor::new(&body).markdown()).with_tag(TAG);
+    const SCROLL: WidgetTag<crate::ui::scroll::ScrollArea<TextEditor>> = WidgetTag::named("страница");
+    let scroll = NewWidget::new(crate::ui::scroll::ScrollArea::new(editor)).with_tag(SCROLL);
+    let mut root = RenderRoot::new(scroll.erased(), |_| {}, options);
+    let _ = root.redraw();
+    let mouse = PointerInfo { pointer_id: Some(PointerId::PRIMARY), persistent_device_id: None, pointer_type: PointerType::Mouse };
+    let state = PointerState { position: PhysicalPosition::new(200.0, 30.0), count: 1, scale_factor: 1.0, ..PointerState::default() };
+    for _ in 0..5 {
+        root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: mouse.clone(), delta: ScrollDelta::PixelDelta(PhysicalPosition::new(-1.5, -12.0)), state: state.clone() }));
+        let _ = root.redraw();
+    }
+    let offset = root.get_widget_with_tag(SCROLL).expect("страница").inner().offset();
+    assert!(offset >= 50.0, "жест над таблицей не прокрутил страницу: смещение {offset}");
+}
+
+#[test]
 fn undo_and_redo_group_typing_and_deleting() {
     let mut root = root("");
     typing(&mut root, "привет мир");
@@ -245,7 +282,7 @@ impl super::resolve::Resolver for FakeMedia {
             width: 300,
             height: 200,
         };
-        (super::resolve::Fetch::Ready(super::resolve::Media { image: Some(masonry::peniko::ImageBrush::new(data)), video: false, path: None }), 0)
+        (super::resolve::Fetch::Ready(super::resolve::Media { image: Some(masonry::peniko::ImageBrush::new(data)), natural: (300, 200), video: false, path: None }), 0)
     }
     fn book(&self, _target: &str) -> (super::resolve::Fetch<super::resolve::Book>, u64) {
         (super::resolve::Fetch::Pending, 0)
@@ -350,8 +387,8 @@ fn enter_continues_lists_and_quotes() {
         ("- один", "- один\n- "),
         ("\t- один", "\t- один\n\t- "),
         ("1. один", "1. один\n2. "),
-        ("3) один", "3) один\n4) "),
-        ("- [ ] дело", "- [ ] дело\n- "),
+        ("3) один", "1) один\n2) "),
+        ("- [ ] дело", "- [ ] дело\n- [ ] "),
         ("> цитата", "> цитата\n> "),
         ("текст", "текст\n"),
     ];
@@ -373,4 +410,190 @@ fn enter_continues_lists_and_quotes() {
     press(&mut root, Key::Named(NamedKey::Enter), Modifiers::SHIFT);
     typing(&mut root, "x");
     assert_eq!(text(&root), "- один\n  x");
+}
+
+#[test]
+fn shortcuts_toggle_bold_italic_and_strike() {
+    let action = if cfg!(target_os = "macos") { Modifiers::META } else { Modifiers::CONTROL };
+    let mut root = markdown_root("слово");
+    press(&mut root, Key::Character("a".into()), action);
+    press(&mut root, Key::Character("b".into()), action);
+    assert_eq!(text(&root), "**слово**");
+    press(&mut root, Key::Character("b".into()), action);
+    assert_eq!(text(&root), "слово");
+    press(&mut root, Key::Character("i".into()), action);
+    assert_eq!(text(&root), "*слово*");
+    press(&mut root, Key::Character("b".into()), action);
+    assert_eq!(text(&root), "***слово***");
+    press(&mut root, Key::Character("i".into()), action);
+    assert_eq!(text(&root), "**слово**");
+    press(&mut root, Key::Character("s".into()), action | Modifiers::SHIFT);
+    assert_eq!(text(&root), "**~~слово~~**");
+    named(&mut root, NamedKey::End);
+    press(&mut root, Key::Character("b".into()), action);
+    assert_eq!(text(&root), "**~~слово~~**", "каретка вне разметки и без выделения ничего не меняет");
+    named(&mut root, NamedKey::ArrowLeft);
+    named(&mut root, NamedKey::ArrowLeft);
+    named(&mut root, NamedKey::ArrowLeft);
+    named(&mut root, NamedKey::ArrowLeft);
+    named(&mut root, NamedKey::ArrowLeft);
+    press(&mut root, Key::Character("b".into()), action);
+    assert_eq!(text(&root), "~~слово~~", "каретка внутри жирного снимает его");
+}
+
+#[test]
+fn pasted_url_becomes_titled_link() {
+    let options = RenderRootOptions {
+        default_properties: Arc::new(default_property_set()),
+        use_system_fonts: true,
+        size_policy: WindowSizePolicy::User,
+        size: PhysicalSize::new(400, 300),
+        scale_factor: 1.0,
+        test_font: None,
+    };
+    let mut root = RenderRoot::new(NewWidget::new(TextEditor::new("a_b").markdown()).with_tag(TAG).erased(), |_| {}, options);
+    let id = root.get_widget_with_tag(TAG).expect("редактор").id();
+    root.focus_on(Some(id));
+    let _ = root.redraw();
+    press(&mut root, Key::Character("a".into()), Modifiers::CONTROL);
+    root.handle_text_event(TextEvent::ClipboardPaste("https://example.com".into()));
+    let _ = root.redraw();
+    assert_eq!(text(&root), r"[a\_b](https://example.com)");
+    named(&mut root, NamedKey::End);
+    root.handle_text_event(TextEvent::ClipboardPaste(" https://x.org/a ".into()));
+    let _ = root.redraw();
+    let pasted = text(&root);
+    let placeholder = pasted.split('[').nth(2).and_then(|s| s.split(']').next()).expect("заглушка").to_owned();
+    assert!(placeholder.starts_with("Fetching Title#"));
+    root.edit_widget(id, |mut w| TextEditor::resolve_link_title(&mut w.downcast(), &placeholder, "X*Y"));
+    assert_eq!(text(&root), r"[a\_b](https://example.com)[X\*Y](https://x.org/a)");
+    root.handle_text_event(TextEvent::ClipboardPaste("https://x.org/p.png".into()));
+    let _ = root.redraw();
+    assert!(text(&root).ends_with(")https://x.org/p.png"));
+}
+
+#[test]
+fn double_hyphen_and_space_become_dash() {
+    let mut root = markdown_root("");
+    let id = root.get_widget_with_tag(TAG).expect("редактор").id();
+    root.edit_widget(id, |mut w| TextEditor::set_smart(&mut w.downcast(), super::Smart { dashes: false, ..Default::default() }));
+    typing(&mut root, "a-- b");
+    assert_eq!(text(&root), "a-- b");
+    root.edit_widget(id, |mut w| TextEditor::set_smart(&mut w.downcast(), super::Smart::default()));
+    typing(&mut root, " c-- d--- e");
+    assert_eq!(text(&root), "a-- b c— d--- e");
+}
+
+#[test]
+fn ordered_lists_renumber_in_one_undo_step() {
+    let mut root = markdown_root("1. a\n2. b\n3. c");
+    named(&mut root, NamedKey::ArrowDown);
+    named(&mut root, NamedKey::End);
+    named(&mut root, NamedKey::Enter);
+    typing(&mut root, "x");
+    assert_eq!(text(&root), "1. a\n2. b\n3. x\n4. c");
+    press(&mut root, Key::Character("z".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("z".into()), Modifiers::CONTROL);
+    assert_eq!(text(&root), "1. a\n2. b\n3. c");
+}
+
+#[test]
+fn enter_continues_star_plus_and_task_items() {
+    let mut root = markdown_root("* a");
+    named(&mut root, NamedKey::End);
+    named(&mut root, NamedKey::Enter);
+    typing(&mut root, "b");
+    assert_eq!(text(&root), "* a\n* b");
+    let mut root = markdown_root("+ [x] a");
+    named(&mut root, NamedKey::End);
+    named(&mut root, NamedKey::Enter);
+    assert_eq!(text(&root), "+ [x] a\n+ [ ] ");
+    named(&mut root, NamedKey::Enter);
+    assert_eq!(text(&root), "+ [x] a\n");
+}
+
+#[test]
+fn caret_moves_and_selects_inside_image_source() {
+    let options = RenderRootOptions {
+        default_properties: Arc::new(default_property_set()),
+        use_system_fonts: true,
+        size_policy: WindowSizePolicy::User,
+        size: PhysicalSize::new(600, 400),
+        scale_factor: 1.0,
+        test_font: None,
+    };
+    let editor = TextEditor::new("текст\n![](a.png)\nпосле").markdown().with_resolver(Some(Arc::new(FakeMedia)));
+    let mut root = RenderRoot::new(NewWidget::new(editor).with_tag(TAG).erased(), |_| {}, options);
+    let _ = root.redraw();
+    let id = root.get_widget_with_tag(TAG).expect("редактор").id();
+    root.focus_on(Some(id));
+    let _ = root.redraw();
+    let caret = |root: &RenderRoot| root.get_widget_with_tag(TAG).unwrap().inner().caret_offset();
+    let shown = |root: &RenderRoot| root.get_widget_with_tag(TAG).unwrap().inner().image_source_shown();
+    root.edit_widget(id, |mut w| TextEditor::select_byte_range(&mut w.downcast(), "текст\n".len() + 2, "текст\n".len() + 2));
+    let _ = root.redraw();
+    assert!(!shown(&root), "каретка в строке картинки раскрыла исходник без кнопки кода");
+    typing(&mut root, "x");
+    named(&mut root, NamedKey::Backspace);
+    assert!(shown(&root), "правка в строке картинки не показала исходник");
+    let start = caret(&root);
+    if let Ok(out) = std::env::var("AQ_OUT") {
+        let (layers, _) = root.redraw();
+        let mut r = crate::render::Renderer::new(2);
+        r.render(&layers, 600, 400, 1.0, crate::ui::theme::background()).unwrap();
+        std::fs::write(std::path::Path::new(&out).join("image-source.png"), r.png()).unwrap();
+    }
+    named(&mut root, NamedKey::ArrowRight);
+    named(&mut root, NamedKey::ArrowRight);
+    assert_eq!(caret(&root), start + 2, "стрелка не двигает каретку внутри ссылки на картинку: {}", text(&root));
+    press(&mut root, Key::Named(NamedKey::ArrowRight), Modifiers::SHIFT);
+    press(&mut root, Key::Named(NamedKey::ArrowRight), Modifiers::SHIFT);
+    assert_eq!(selected(&root), "a.", "не выделяется внутри ссылки на картинку");
+    named(&mut root, NamedKey::Home);
+    assert_eq!(caret(&root), "текст\n".len(), "Home не ведёт в начало строки картинки");
+    click(&mut root, 45.0, 244.0);
+    let at = caret(&root);
+    assert!(at > "текст\n![](".len() && at < "текст\n![](a.png)".len(), "щелчок в исходник не ставит каретку: {at}");
+    drag(&mut root, (22.0, 244.0), (60.0, 244.0));
+    assert!(selected(&root).contains("a.p"), "мышью не выделяется исходник картинки: {:?}", selected(&root));
+}
+
+#[test]
+fn measuring_above_the_view_does_not_move_the_text() {
+    use crate::ui::scroll::ScrollArea;
+    const SCROLL: WidgetTag<ScrollArea<TextEditor>> = WidgetTag::named("прокрутка");
+    let body: String = (0..3000).map(|i| if i % 7 == 0 { format!("Длинный абзац {i}: {}\n", "слово ".repeat(60)) } else { format!("Абзац {i}\n") }).collect();
+    let options = RenderRootOptions {
+        default_properties: Arc::new(default_property_set()),
+        use_system_fonts: true,
+        size_policy: WindowSizePolicy::User,
+        size: PhysicalSize::new(600, 600),
+        scale_factor: 1.0,
+        test_font: None,
+    };
+    let editor = NewWidget::new(TextEditor::new(&body).markdown()).with_tag(TAG);
+    let mut root = RenderRoot::new(NewWidget::new(ScrollArea::new(editor)).with_tag(SCROLL).erased(), |_| {}, options);
+    let _ = root.redraw();
+    let scroll = root.get_widget_with_tag(SCROLL).unwrap().id();
+    let set = |root: &mut RenderRoot, offset: f64| {
+        root.edit_widget(scroll, |mut w| ScrollArea::set_offset(&mut w.downcast::<ScrollArea<TextEditor>>(), offset));
+        for _ in 0..3 {
+            let _ = root.redraw();
+        }
+    };
+    let offset = |root: &RenderRoot| root.get_widget_with_tag(SCROLL).unwrap().inner().offset();
+    let at = |root: &RenderRoot, y: f64| {
+        let w = root.get_widget_with_tag(TAG).unwrap();
+        w.inner().offset_at(w.ctx().window_transform().inverse(), masonry::kurbo::Point::new(40.0, y))
+    };
+    set(&mut root, 1.0e9);
+    let mut shifted = false;
+    for _ in 0..80 {
+        let before = at(&root, 10.0);
+        let from = offset(&root);
+        set(&mut root, from - 100.0);
+        shifted |= (offset(&root) - (from - 100.0)).abs() > 1.0;
+        assert_eq!(at(&root, 110.0), before, "текст сдвинулся при прокрутке вверх с {from}");
+    }
+    assert!(shifted, "оценки выше видимой области ни разу не уточнились");
 }

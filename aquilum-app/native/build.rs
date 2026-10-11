@@ -262,7 +262,9 @@ const FONT_FILES: &[&str] = &[
 
 fn fonts() {
     use write_fonts::read::{FontRef, TableProvider};
+    use write_fonts::tables::head::{Head, MacStyle};
     use write_fonts::tables::name::Name;
+    use write_fonts::tables::os2::{Os2, SelectionFlags};
     use write_fonts::types::NameId;
     use write_fonts::{FontBuilder, OffsetMarker, from_obj::ToOwnedTable};
 
@@ -277,21 +279,30 @@ pub const FONTS: &[&[u8]] = &[
         println!("cargo:rerun-if-changed={}", path.display());
         let woff2 = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         let mut ttf = wuff::decompress_woff2(&woff2).unwrap_or_else(|e| panic!("{file}: {e:?}"));
-        if file.starts_with("inter-cyrillic") {
+        if file.starts_with("inter-cyrillic") || file.starts_with("iAWriter") {
             let font = FontRef::new(&ttf).unwrap_or_else(|e| panic!("{file}: {e}"));
             let mut name: Name = font.name().unwrap_or_else(|e| panic!("{file}: {e}")).to_owned_table();
             for record in &mut name.name_record {
-                if [NameId::FAMILY_NAME, NameId::TYPOGRAPHIC_FAMILY_NAME].contains(&record.name_id)
-                    && let Some(rest) = record.string.strip_prefix("Inter")
-                {
-                    record.string = OffsetMarker::new(format!("Inter Cyrillic{rest}"));
+                if ![NameId::FAMILY_NAME, NameId::TYPOGRAPHIC_FAMILY_NAME].contains(&record.name_id) {
+                    continue;
                 }
+                let renamed = match record.string.strip_prefix("Inter") {
+                    Some(rest) => format!("Inter Cyrillic{rest}"),
+                    None => record.string.replace(" V", ""),
+                };
+                record.string = OffsetMarker::new(renamed);
             }
-            ttf = FontBuilder::new()
-                .add_table(&name)
-                .unwrap_or_else(|e| panic!("{file}: {e}"))
-                .copy_missing_tables(font)
-                .build();
+            let mut builder = FontBuilder::new();
+            builder.add_table(&name).unwrap_or_else(|e| panic!("{file}: {e}"));
+            if file.starts_with("iAWriter") && file.contains("Italic") {
+                let mut os2: Os2 = font.os2().unwrap_or_else(|e| panic!("{file}: {e}")).to_owned_table();
+                os2.fs_selection = (os2.fs_selection - SelectionFlags::REGULAR) | SelectionFlags::ITALIC;
+                let mut head: Head = font.head().unwrap_or_else(|e| panic!("{file}: {e}")).to_owned_table();
+                head.mac_style |= MacStyle::ITALIC;
+                builder.add_table(&os2).unwrap_or_else(|e| panic!("{file}: {e}"));
+                builder.add_table(&head).unwrap_or_else(|e| panic!("{file}: {e}"));
+            }
+            ttf = builder.copy_missing_tables(font).build();
         }
         let target = out.join(file.replace(".woff2", ".ttf"));
         std::fs::write(&target, &ttf).unwrap();

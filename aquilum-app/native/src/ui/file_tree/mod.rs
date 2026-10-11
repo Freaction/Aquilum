@@ -16,13 +16,12 @@ use std::path::{Path, PathBuf};
 use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, NewWidget, PropertySet, WidgetId};
 use masonry::layout::Length;
-use masonry::parley::LineHeight;
-use masonry::parley::style::StyleProperty;
-use masonry::properties::{CaretColor, ContentColor, Gap, SelectionColor};
+use masonry::properties::Gap;
 
 use crate::ui::scroll::{ScrollArea, Scrolled};
 use masonry::properties::types::CrossAxisAlignment;
-use masonry::widgets::{Flex, SizedBox, TextAction};
+use masonry::widgets::{Flex, SizedBox};
+use crate::ui::editor::TextAction;
 use serde::{Deserialize, Serialize};
 
 pub use model::Press;
@@ -174,7 +173,7 @@ impl FileTree {
     fn show_rows_from(&mut self, root: &mut RenderRoot, offset: f64) {
         let visible = (offset / step()) as usize;
         let first = visible.saturating_sub(MARGIN);
-        if first.abs_diff(self.first) > MARGIN / 2 {
+        if visible < self.first || first.abs_diff(self.first) > MARGIN / 2 {
             self.first = first;
             self.refresh(root);
         }
@@ -199,7 +198,7 @@ impl FileTree {
                     self.refresh(root);
                     None
                 }
-                TextAction::Changed(_) => None,
+                TextAction::Changed(_) | TextAction::Edited(_) => None,
             };
         }
         let action = action.downcast_ref::<RowAction>()?;
@@ -359,14 +358,10 @@ impl FileTree {
 /// «Создать заметку». Возвращает и id кнопки.
 fn empty_state() -> (NewWidget<Flex>, WidgetId) {
     use crate::ui::widgets::{IconView, TextButton, Variant};
-    let t = crate::ui::theme::current();
-    let font = crate::ui::theme::ui_font_settings();
     let icon = IconView::new(crate::ui::icons::FILE_TEXT, size::SIZE_40, size::SIZE_28, 1.4, || crate::ui::theme::current().icon_muted);
-    let title = masonry::widgets::Label::new(crate::i18n::t("fileTree.empty"))
-        .with_style(StyleProperty::FontFamily(crate::ui::theme::ui_font(&font.family)))
-        .with_style(StyleProperty::FontSize(font.size))
-        .with_style(StyleProperty::LineHeight(LineHeight::FontSizeRelative(crate::ui::tokens::number::FONT_LINE_HEIGHT_SNUG as f32)));
-    let title = NewWidget::new(title).with_props(PropertySet::new().with(ContentColor::new(t.text_secondary)));
+    let title = crate::ui::widgets::Label::new(&crate::i18n::t("fileTree.empty"), |t| t.text_secondary)
+        .leading(crate::ui::widgets::Leading::Times(crate::ui::tokens::number::FONT_LINE_HEIGHT_SNUG as f32));
+    let title = NewWidget::new(title);
     let button = NewWidget::new(TextButton::new(crate::i18n::t("editor.createNote"), Variant::Primary));
     let id = button.id();
     let state = Flex::column()
@@ -386,8 +381,6 @@ fn empty_state() -> (NewWidget<Flex>, WidgetId) {
 /// Поле переименования на месте строки (`FileTreeRename.tsx`): тот же отступ, что у имени,
 /// шрифт и высота строки как у строки дерева, без рамки и фона.
 fn rename_field(row: &model::Row) -> (NewWidget<Flex>, Handle<TextEditor>) {
-    let t = crate::ui::theme::current();
-    let font = crate::ui::theme::ui_font_settings();
     let indent = size::SIDEBAR_ITEM_PADDING
         + row.depth as f64 * size::SIDEBAR_TREE_INDENT
         + size::SIDEBAR_ICON_SIZE
@@ -397,16 +390,8 @@ fn rename_field(row: &model::Row) -> (NewWidget<Flex>, Handle<TextEditor>) {
     } else {
         row.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()
     };
-    let field = TextEditor::single_line(&name)
-        .with_style(StyleProperty::FontFamily(crate::ui::theme::ui_font(&font.family)))
-        .with_style(StyleProperty::FontSize(font.size))
-        .with_style(StyleProperty::LineHeight(LineHeight::Absolute(size::SIDEBAR_ICON_SIZE as f32)));
-    let field = NewWidget::new(field).with_props(
-        PropertySet::new()
-            .with(ContentColor::new(t.sidebar_text))
-            .with(CaretColor { color: t.text_primary })
-            .with(SelectionColor { color: t.selection_bg }),
-    );
+    let field = NewWidget::new(TextEditor::single_line(&name).styled(|| crate::ui::style::ui_text(size::SIDEBAR_ICON_SIZE as f32)))
+        .with_class(crate::ui::style::SIDEBAR_FIELD);
     let handle = Handle::of(&field);
     let row = Flex::row().with_fixed(NewWidget::new(SizedBox::empty().width(Length::px(indent)))).with(field, 1.0);
     let row = NewWidget::new(row).with_props(PropertySet::new().with(masonry::properties::Padding {
@@ -460,7 +445,7 @@ impl ExpandedStore {
         let file = StoreFile { workspaces: self.workspaces.clone() };
         let Ok(json) = serde_json::to_string(&file) else { return };
         if let Err(e) = aquilum_core::files::document::write_file_atomic_impl(&self.path, &json, None) {
-            eprintln!("раскрытые папки не сохранены: {e}");
+            report!("раскрытые папки не сохранены: {e}");
         }
     }
 }

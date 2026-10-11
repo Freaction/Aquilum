@@ -135,6 +135,8 @@ pub(crate) struct WidgetState {
     /// It does not clip this widget's `Widget::pre_paint` nor `Widget::post_paint`.
     pub(crate) clip_path: Option<Rect>,
 
+    pub(crate) opacity: f32,
+
     /// Local transform used during the mapping of this widget's border-box coordinate space
     /// to the parent's border-box coordinate space.
     ///
@@ -302,6 +304,7 @@ impl WidgetState {
             first_baseline: f64::NAN,
             last_baseline: f64::NAN,
             clip_path: Option::default(),
+            opacity: 1.0,
             transform: options.transform,
             window_transform: Affine::IDENTITY,
             scroll_translation: Vec2::ZERO,

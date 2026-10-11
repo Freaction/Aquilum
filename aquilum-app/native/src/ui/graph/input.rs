@@ -7,6 +7,14 @@ const NOTCH_PIXELS: f64 = 100.0;
 impl GraphView {
     pub(super) fn pointer(&mut self, ctx: &mut EventCtx<'_>, event: &PointerEvent) {
         if self.graph.is_none() {
+            if let PointerEvent::Down(down) = event
+                && down.button.is_none_or(|b| b == PointerButton::Primary)
+            {
+                let p = ctx.local_position(down.state.position);
+                if self.action_rect.is_some_and(|r| r.contains(p)) && matches!(self.status, Status::Failed(_)) {
+                    ctx.submit_action::<GraphAction>(GraphAction::Retry);
+                }
+            }
             return;
         }
         let in_panel = |p: Point| self.settings.is_some() && self.panel.contains(p);
@@ -14,6 +22,10 @@ impl GraphView {
             PointerEvent::Down(down) if down.button.is_none_or(|b| b == PointerButton::Primary) => {
                 let p = ctx.local_position(down.state.position);
                 if in_panel(p) {
+                    return;
+                }
+                if self.action_rect.is_some_and(|r| r.contains(p)) && self.visible == 0 {
+                    ctx.submit_action::<GraphAction>(GraphAction::ShowAll);
                     return;
                 }
                 if down.state.count == 2 {

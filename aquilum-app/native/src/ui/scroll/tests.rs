@@ -90,3 +90,17 @@ fn wheel_glide_lands_exactly_and_stays_in_bounds() {
     scroll(&mut root, ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, -100_000.0)));
     assert_eq!(offset(&root), 5000.0 - 300.0);
 }
+
+#[test]
+fn continuous_wheel_moves_every_frame_without_jolts() {
+    let mut root = root();
+    let mut trace = vec![offset(&root)];
+    for _ in 0..10 {
+        scroll(&mut root, ScrollDelta::LineDelta(0.0, -1.0));
+        std::thread::sleep(Duration::from_millis(64));
+        frames(&mut root, 8, &mut trace);
+    }
+    let steps: Vec<f64> = trace.windows(2).map(|w| w[1] - w[0]).skip(16).collect();
+    assert!(steps.iter().all(|&s| s > 0.0), "кадр без движения при непрерывном вращении: {steps:?}");
+    assert!(steps.windows(2).all(|w| w[1] / w[0] < 2.0 && w[0] / w[1] < 2.0), "скачок скорости между кадрами: {steps:?}");
+}

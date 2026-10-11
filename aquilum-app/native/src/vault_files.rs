@@ -5,11 +5,7 @@ use aquilum_core::files::document::ensure_directory_impl;
 use aquilum_core::files::gate;
 use aquilum_core::files::error::FileCommandError;
 
-use crate::file_ops::sanitize_file_name;
-
-pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "svg"];
-
-const FREE_NAME_ATTEMPTS: usize = 1000;
+use crate::file_ops::{first_free, sanitize_file_name};
 
 pub fn normalize_folder(folder: &str) -> String {
     let segments: Vec<&str> = folder
@@ -30,6 +26,7 @@ fn split_name(name: &str, fallback_ext: &str) -> (String, String) {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum Source<'a> {
     Path(&'a Path),
     Bytes(&'a [u8], &'a str),
@@ -47,21 +44,12 @@ pub fn import(core: &Core, workspace: &Path, source: Source<'_>, fallback_name: 
         name if name.is_empty() => fallback_name.to_owned(),
         name => name,
     };
-    for attempt in 0..FREE_NAME_ATTEMPTS {
-        let name = if attempt == 0 { base.clone() } else { format!("{base} {attempt}") };
-        let relative = format!("{folder}/{name}.{ext}");
-        let target = workspace.join(relative.replace('/', std::path::MAIN_SEPARATOR_STR));
-        let result = match &source {
-            Source::Path(path) => gate::copy(core, path, &target),
-            Source::Bytes(bytes, _) => gate::create_binary(core, &target, bytes).map(|_| ()),
-        };
-        match result {
-            Ok(()) => return Ok(relative),
-            Err(FileCommandError::AlreadyExists { .. }) => continue,
-            Err(error) => return Err(error),
-        }
-    }
-    Err(FileCommandError::AlreadyExists { path: format!("{folder}/{base}.{ext}") })
+    let name = |i: usize| if i == 0 { format!("{base}.{ext}") } else { format!("{base} {i}.{ext}") };
+    let target = first_free(|i| crate::paths::absolute(workspace, &folder).join(name(i)), |target| match &source {
+        Source::Path(path) => gate::copy(core, path, target),
+        Source::Bytes(bytes, _) => gate::create_binary(core, target, bytes).map(drop),
+    })?;
+    Ok(crate::paths::relative(workspace, &target).unwrap_or_default())
 }
 
 pub fn resolve(workspace: Option<&Path>, value: &str) -> Option<std::path::PathBuf> {
@@ -74,17 +62,7 @@ pub fn resolve(workspace: Option<&Path>, value: &str) -> Option<std::path::PathB
     if path.is_absolute() {
         return Some(path.to_path_buf());
     }
-    let mut out = workspace?.to_path_buf();
-    for part in value.split(['/', '\\']) {
-        match part {
-            "" | "." => {}
-            ".." => {
-                out.pop();
-            }
-            part => out.push(part),
-        }
-    }
-    Some(out)
+    Some(crate::paths::join(workspace?, value))
 }
 
 #[cfg(test)]

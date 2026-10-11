@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
-    AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerButton, PointerEvent,
+    AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent,
     PropertiesMut, PropertiesRef, PropertySet, RegisterCtx, Update, UpdateCtx, Widget, WidgetId, render_text,
 };
 use masonry::imaging::Painter;
-use masonry::kurbo::{Affine, Axis, Point, Rect, RoundedRect, Size, Stroke, Vec2};
+use masonry::kurbo::{Affine, Axis, Point, Rect, RoundedRect, Size, Stroke};
 use masonry::layout::{LenReq, Length};
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{Gap, Padding};
@@ -17,7 +17,7 @@ use super::icons;
 use super::scroll::ScrollArea;
 use super::text::label;
 use super::tokens::size;
-use super::widgets::{IconButton, Rule, TextButton, Variant};
+use super::widgets::{EASE_OUT, FAST, IconButton, Leading, Press, Rule, TextButton, Tween, Variant};
 use super::{text, theme};
 use crate::i18n::{t, t_with};
 
@@ -32,7 +32,8 @@ pub struct WorkspaceRow {
     path: String,
     current: bool,
     forget_hovered: bool,
-    down: bool,
+    forget: Tween,
+    press: Press,
     name_line: text::Line,
     path_line: text::Line,
 }
@@ -47,7 +48,8 @@ impl WorkspaceRow {
             path: path.to_owned(),
             current,
             forget_hovered: false,
-            down: false,
+            forget: Tween::new(0.0, FAST, EASE_OUT),
+            press: Press::default(),
             name_line: text::Line::default(),
             path_line: text::Line::default(),
         })
@@ -73,24 +75,13 @@ impl Widget for WorkspaceRow {
                     ctx.request_paint_only();
                 }
             }
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
-                self.down = true;
-                ctx.capture_pointer();
-            }
-            PointerEvent::Up(e) if e.button == Some(PointerButton::Primary) && self.down => {
-                self.down = false;
-                if !ctx.is_hovered() {
-                    return;
-                }
-                let at = ctx.local_position(e.state.position);
-                if !self.current && self.forget_rect(bounds).contains(at) {
-                    ctx.submit_action::<RowAction>(RowAction::Forget);
-                } else if !self.current {
-                    ctx.submit_action::<RowAction>(RowAction::Open);
-                }
-            }
-            PointerEvent::Cancel(_) => self.down = false,
             _ => {}
+        }
+        if let Some(e) = self.press.click(ctx, event)
+            && !self.current
+        {
+            let forget = self.forget_rect(bounds).contains(ctx.local_position(e.state.position));
+            ctx.submit_action::<RowAction>(if forget { RowAction::Forget } else { RowAction::Open });
         }
     }
 
@@ -100,10 +91,20 @@ impl Widget for WorkspaceRow {
         }
     }
 
+    fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
+        if self.forget.advance(interval) {
+            ctx.request_anim_frame();
+        }
+        ctx.request_paint_only();
+    }
+
     fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
         match event {
-            Update::HoveredChanged(_) => {
+            Update::HoveredChanged(hovered) => {
                 self.forget_hovered = false;
+                if self.forget.set(if *hovered { 1.0 } else { 0.0 }) {
+                    ctx.request_anim_frame();
+                }
                 ctx.request_paint_only();
             }
             Update::FontsChanged => {
@@ -150,14 +151,9 @@ impl Widget for WorkspaceRow {
         render_text(painter, Affine::translate((text_x, top)), name, &[t.text_secondary.into()], true);
         let path = self.path_line.layout(ctx, &self.path, width, style);
         render_text(painter, Affine::translate((text_x, top + size::SIZE_20)), path, &[t.text_tertiary.into()], true);
-        if hovered && !self.current {
-            let rect = self.forget_rect(bounds);
-            if self.forget_hovered {
-                painter.fill(RoundedRect::from_rect(rect, size::ROUNDED_LG), t.icon_button_bg_hover).draw();
-            }
-            let glyph = size::SIZE_16;
-            let color = if self.forget_hovered { t.icon_button_icon_hover } else { t.icon_button_icon };
-            icons::X.draw(painter, rect.center() - Vec2::new(glyph / 2.0, glyph / 2.0), glyph, 1.6, color);
+        let alpha = self.forget.value() as f32;
+        if alpha > 0.0 && !self.current {
+            crate::ui::widgets::paint_close(painter, self.forget_rect(bounds), self.forget_hovered, alpha);
         }
     }
 
@@ -188,7 +184,6 @@ pub struct WorkspaceDialog {
 }
 
 pub fn dialog(workspaces: &[(uuid::Uuid, String)], current: Option<&std::path::Path>, error: Option<&str>) -> (NewWidget<Modal>, WorkspaceDialog) {
-    let tm = theme::current();
     let close = NewWidget::new(IconButton::new(icons::X, t("workspaces.close")));
     let close_id = close.id();
     let mut list = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch);
@@ -216,7 +211,7 @@ pub fn dialog(workspaces: &[(uuid::Uuid, String)], current: Option<&std::path::P
         .with_fixed(border())
         .with(NewWidget::new(ScrollArea::new(list)), 1.0);
     if let Some(error) = error {
-        let error = NewWidget::new(Flex::row().with(label(error, tm.text_danger, None, size::SIZE_20 as f32), 1.0)).with_props(
+        let error = NewWidget::new(Flex::row().with(label(error, |t| t.text_danger, None, Leading::Px(size::SIZE_20 as f32)), 1.0)).with_props(
             PropertySet::new().with(Padding { top: Length::ZERO, bottom: Length::px(size::DIALOG_PADDING), left: Length::px(size::DIALOG_PADDING), right: Length::px(size::DIALOG_PADDING) }),
         );
         card = card.with_fixed(error);

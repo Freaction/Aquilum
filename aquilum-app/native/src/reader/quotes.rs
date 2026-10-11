@@ -1,6 +1,15 @@
 use std::ops::Range;
 
 pub const SCHEME: &str = "aquilum-reader:";
+const LEGACY_SCHEME: &str = "quantum-reader:";
+
+pub fn strip_scheme(url: &str) -> Option<&str> {
+    url.strip_prefix(SCHEME).or_else(|| url.strip_prefix(LEGACY_SCHEME))
+}
+
+pub fn is_reader(url: &str) -> bool {
+    strip_scheme(url.trim()).is_some()
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Quote {
@@ -23,24 +32,6 @@ fn form_encode(text: &str) -> String {
     out
 }
 
-fn percent_decode(text: &str, plus: bool) -> String {
-    let bytes = text.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'%' if let Some(byte) = text.get(i + 1..i + 3).and_then(|h| u8::from_str_radix(h, 16).ok()) => {
-                out.push(byte);
-                i += 3;
-                continue;
-            }
-            b'+' if plus => out.push(b' '),
-            byte => out.push(byte),
-        }
-        i += 1;
-    }
-    String::from_utf8_lossy(&out).into_owned()
-}
 
 pub fn href(cfi: &str, book: Option<&str>) -> String {
     let mut params = Vec::new();
@@ -52,16 +43,16 @@ pub fn href(cfi: &str, book: Option<&str>) -> String {
 }
 
 pub fn parse_href(url: &str) -> Option<(String, Option<String>)> {
-    let rest = url.trim().strip_prefix(SCHEME)?;
+    let rest = strip_scheme(url.trim())?;
     if let Some(cfi) = rest.strip_prefix("cfi=") {
-        return Some((percent_decode(cfi, false), None));
+        return Some((crate::paths::percent_decode(cfi), None));
     }
     let mut cfi = None;
     let mut book = None;
     for pair in rest.split('&') {
         let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
-        let value = percent_decode(value, true);
-        match percent_decode(key, true).as_str() {
+        let value = crate::paths::percent_decode(&value.replace('+', " "));
+        match crate::paths::percent_decode(&key.replace('+', " ")).as_str() {
             "cfi" if cfi.is_none() => cfi = Some(value),
             "book" if book.is_none() => book = Some(value.trim().to_owned()).filter(|b| !b.is_empty()),
             _ => {}
@@ -93,9 +84,9 @@ fn header_len(line: &str) -> Option<usize> {
 fn link_at_end(body: &str) -> Option<(usize, &str)> {
     let trimmed = body.trim_end();
     let inner = trimmed.strip_suffix(')')?;
-    let open = inner.rfind("(aquilum-reader:")?;
+    let open = inner.rfind(&format!("({SCHEME}")).max(inner.rfind(&format!("({LEGACY_SCHEME}")))?;
     let href = &inner[open + 1..];
-    (!href.contains(')') && href.len() > SCHEME.len()).then_some((open, href))
+    (!href.contains(')') && strip_scheme(href).is_some_and(|rest| !rest.is_empty())).then_some((open, href))
 }
 
 fn parse_body(body: &str) -> Option<(usize, String, Option<String>)> {
@@ -164,23 +155,6 @@ pub fn find(doc: &str) -> Vec<Quote> {
     quotes
 }
 
-pub fn count(doc: &str) -> usize {
-    let mut lines = doc.split('\n').peekable();
-    let mut total = 0;
-    while let Some(line) = lines.next() {
-        let header = header_len(line.trim_end()).is_some();
-        if parse_line(line, 0).is_some() {
-            total += 1;
-        }
-        if header {
-            while lines.peek().is_some_and(|l| l.starts_with('>') && header_len(l.trim_end()).is_none() && !is_book_header(l)) {
-                lines.next();
-            }
-        }
-    }
-    total
-}
-
 pub fn append(doc: &str, quote: &str) -> String {
     let gap = if !doc.is_empty() && !doc.ends_with('\n') { "\n\n" } else { "\n" };
     format!("{doc}{gap}{quote}")
@@ -212,7 +186,6 @@ mod tests {
         let doc = "> старая цитата[[→]](aquilum-reader:cfi=epubcfi%28%2F6%2F2%29)\n> [inline](aquilum-reader:cfi=x)\n> [!quote] без ссылки\n> [!book] [[Книга]]";
         let found = find(doc);
         assert_eq!(found.iter().map(|q| (q.cfi.as_str(), q.label.as_str())).collect::<Vec<_>>(), [("epubcfi(/6/2)", "1"), ("x", "2")]);
-        assert_eq!(count(doc), 2);
         assert_eq!(append("a", "q\n"), "a\n\nq\n");
         assert_eq!(append("a\n", "q\n"), "a\n\nq\n");
     }

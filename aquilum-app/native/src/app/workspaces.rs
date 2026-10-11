@@ -31,9 +31,6 @@ impl WorkspacesState {
     }
 }
 
-fn now_ms() -> i64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or_default()
-}
 
 impl App {
     pub(super) fn open_workspaces(&mut self, root: &mut RenderRoot) {
@@ -53,7 +50,7 @@ impl App {
                 (unique, error)
             }
             Err(e) => {
-                eprintln!("список баз: {e:?}");
+                report!("список баз: {e:?}");
                 (Vec::new(), Some(t_with("workspaces.listFailed", &[("reason", &format!("{e:?}"))])))
             }
         };
@@ -66,9 +63,9 @@ impl App {
     fn close_workspaces(&mut self, root: &mut RenderRoot) {
         if let Some(Popup::Workspaces(state)) = self.popup.take() {
             if let Some((forget, _)) = state.forget {
-                root.remove_layer(forget.layer);
+                crate::ui::dialog::close(root, forget.layer);
             }
-            root.remove_layer(state.dialog.layer);
+            crate::ui::dialog::close(root, state.dialog.layer);
         }
     }
 
@@ -80,7 +77,7 @@ impl App {
                 self.popup = Some(Popup::Workspaces(state));
                 return Outcome::default();
             };
-            root.remove_layer(forget.layer);
+            crate::ui::dialog::close(root, forget.layer);
             if answer == DialogAnswer::Cancel {
                 root.focus_on(Some(state.dialog.layer));
                 self.popup = Some(Popup::Workspaces(state));
@@ -88,7 +85,7 @@ impl App {
             }
             root.remove_layer(state.dialog.layer);
             let error = self.workspace.core.ui_state.forget_workspace(workspace).err().map(|e| {
-                eprintln!("база не забыта: {e:?}");
+                report!("база не забыта: {e:?}");
                 t("workspaces.forgetFailed")
             });
             self.show_workspaces(root, error);
@@ -99,7 +96,7 @@ impl App {
         let closing = (id == dialog.layer && matches!(action.downcast_ref::<DialogAnswer>(), Some(DialogAnswer::Cancel)))
             || (id == dialog.close && pressed);
         if closing {
-            root.remove_layer(dialog.layer);
+            crate::ui::dialog::close(root, dialog.layer);
             return Outcome::default();
         }
         if id == dialog.open_folder && pressed {
@@ -161,8 +158,8 @@ impl App {
         if !path.is_dir() {
             return failed(self, root);
         }
-        if let Err(e) = self.workspace.core.ui_state.resolve_workspace(&path.to_string_lossy(), now_ms()) {
-            eprintln!("база {} не открыта: {e:?}", path.display());
+        if let Err(e) = self.workspace.core.ui_state.resolve_workspace(&path.to_string_lossy(), crate::dates::now_ms()) {
+            report!("база {} не открыта: {e:?}", path.display());
             return failed(self, root);
         }
         self.close_workspaces(root);
@@ -192,8 +189,10 @@ impl App {
         self.version_view = None;
         self.version_notice = None;
         self.home = None;
+        self.graph = super::graph_page::GraphState::default();
         self.start_index();
         self.refresh_home();
+        self.cleanup_retention();
         self.replace_root(root);
         self.show_active(root);
         Outcome { title: true, ..Outcome::default() }

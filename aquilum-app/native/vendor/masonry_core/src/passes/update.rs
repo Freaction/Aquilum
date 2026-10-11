@@ -798,6 +798,12 @@ pub(crate) fn run_update_scroll_pass(root: &mut RenderRoot) {
     let _zone = aq_trace::zone("masonry: run_update_scroll_pass");
     let _span = info_span!("update_scroll").entered();
 
+    for (target, dy) in std::mem::take(&mut root.global_state.scroll_shifts) {
+        run_targeted_update_pass(root, Some(target), |widget, ctx, props| {
+            widget.update(ctx, props, &Update::ScrollBy(dy));
+        });
+    }
+
     let scroll_request_targets = std::mem::take(&mut root.global_state.scroll_request_targets);
     for (target, rect) in scroll_request_targets {
         // We start with target_rect being in the target's border-box coordinate space.

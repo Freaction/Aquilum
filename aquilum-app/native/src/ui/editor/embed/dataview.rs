@@ -44,7 +44,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
             let layout = make(&Spec { wrap: Some(inner), ..Spec::plain(message, Font::Editor, DANGER) });
             let height = f64::from(layout.height()) + PAD * 2.0;
             items.extend(card(available, height));
-            items.push(Item::Text(Point::new(PAD, PAD), layout));
+            items.push(Item::Text(Point::new(PAD, PAD), layout, message.clone()));
             return Drawing::new(height, items);
         }
     };
@@ -54,7 +54,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
     if let Some(title) = &grid.title {
         let layout = make(&Spec { bold: true, wrap: Some(inner), ..Spec::plain(title, Font::Editor, SECONDARY) });
         let h = f64::from(layout.height()) + CELL_Y * 2.0;
-        body.push(Item::Text(Point::new(PAD, y + CELL_Y), layout));
+        body.push(Item::Text(Point::new(PAD, y + CELL_Y), layout, title.clone()));
         y += h;
         body.push(Item::Fill(Rect::new(PAD, y - 1.0, PAD + inner, y).to_rounded_rect(0.0), Tone::Divider));
     }
@@ -107,7 +107,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
                     let wrap = if check.is_some() { w - CHECK - CHECK_GAP } else { w };
                     let layout = make(&Spec { bold: header, links: &ranges, wrap: Some(wrap.max(1.0)), ..Spec::plain(&text, Font::Editor, if header { SECONDARY } else { TEXT }) });
                     height = height.max(f64::from(layout.height()).max(if check.is_some() { CHECK } else { 0.0 }) + CELL_Y * 2.0);
-                    cells.push((c, Some((layout, links)), None, check));
+                    cells.push((c, Some((layout, links, text)), None, check));
                 }
                 for (c, layout, progress, check) in cells {
                     let x = xs[c] + CELL_X;
@@ -125,10 +125,10 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
                         hits.push((rect, action, None));
                         tx += CHECK + CHECK_GAP;
                     }
-                    if let Some((layout, links)) = layout {
+                    if let Some((layout, links, text)) = layout {
                         let at = Point::new(tx, y + CELL_Y);
                         hits.extend(link_hits(&layout, at, &links));
-                        body.push(Item::Text(at, layout));
+                        body.push(Item::Text(at, layout, text));
                     }
                 }
                 y += height;
@@ -156,7 +156,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
                 }
                 let at = Point::new(PAD + indent, y + CELL_Y);
                 hits.extend(link_hits(&layout, at, &links));
-                body.push(Item::Text(at, layout));
+                body.push(Item::Text(at, layout, text));
                 y += h;
             }
         }

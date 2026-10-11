@@ -11,7 +11,7 @@ pub enum Token {
     Property,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Lang {
     Rust,
     Script,

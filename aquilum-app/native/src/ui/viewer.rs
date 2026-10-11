@@ -1,8 +1,9 @@
 use masonry::accesskit::{Node, Role};
 use masonry::core::keyboard::{Key, KeyState, NamedKey};
 use masonry::core::{
-    AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Widget,
+    AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update, UpdateCtx, Widget,
 };
+use super::widgets::{Intro, NORMAL};
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Rect, RoundedRect, Size};
 use masonry::layout::{LenReq, Length};
@@ -20,15 +21,30 @@ pub struct ViewerClosed;
 pub struct Viewer {
     image: ImageBrush,
     frame: Rect,
+    intro: Intro,
 }
 
 impl Viewer {
     pub fn new(image: ImageBrush) -> NewWidget<Self> {
-        NewWidget::new(Viewer { image, frame: Rect::ZERO })
+        NewWidget::new(Viewer { image, frame: Rect::ZERO, intro: Intro::new(NORMAL) })
     }
 }
 
 impl Widget for Viewer {
+
+    fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
+        if self.intro.advance(interval) {
+            ctx.request_anim_frame();
+        }
+        ctx.set_opacity(self.intro.value() as f32);
+    }
+
+    fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
+        if matches!(event, Update::WidgetAdded) {
+            ctx.set_opacity(0.0);
+            ctx.request_anim_frame();
+        }
+    }
     type Action = ViewerClosed;
 
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {

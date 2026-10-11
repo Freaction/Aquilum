@@ -21,9 +21,35 @@ pub(super) struct MediaState {
     selected: Option<usize>,
     crop: Option<(usize, [f64; 4])>,
     drag: Option<(usize, Drag)>,
+    bar: Option<(usize, crate::ui::widgets::Intro)>,
 }
 
 impl TextEditor {
+    #[cfg(feature = "memory-probe")]
+    pub fn probe_stats(&self) -> String {
+        self.doc.probe_stats()
+    }
+
+    #[cfg(feature = "memory-probe")]
+    pub fn probe_evict(this: &mut masonry::core::WidgetMut<'_, Self>, embeds: bool) {
+        let keep = this.widget.painted;
+        this.widget.doc.probe_evict(keep, embeds);
+    }
+
+    #[cfg(feature = "memory-probe")]
+    pub fn probe_play(this: &mut masonry::core::WidgetMut<'_, Self>) {
+        let path = this.widget.doc.paragraphs().iter().filter_map(|p| p.embed.as_deref()).find_map(|e| match &e.view {
+            View::Media(view) if view.video => view.path.clone(),
+            _ => None,
+        });
+        if let Some(path) = path
+            && crate::video::toggle(&path)
+        {
+            this.widget.videos.add(path);
+            this.ctx.request_anim_frame();
+        }
+    }
+
     fn media_view(&self, start: usize) -> Option<&MediaView> {
         let p = self.doc.paragraph(self.doc.at_offset(start));
         match (p.start == start, p.embed.as_deref().map(|e| &e.view)) {
@@ -63,7 +89,8 @@ impl TextEditor {
         let crop = m.crop.filter(|(s, _)| *s == start).map(|(_, c)| c);
         let hover = m.hover.filter(|(s, _)| *s == start).map(|(_, h)| h);
         let video = self.media_view(start).filter(|v| v.video).and_then(|v| v.path.as_deref()).filter(|p| self.videos.has(p)).and_then(crate::video::state);
-        MediaOverlay { hovered: hover.is_some() || crop.is_some(), selected: m.selected == Some(start), hover, crop, video }
+        let fade = m.bar.as_ref().filter(|(s, _)| *s == start).map_or(1.0, |(_, intro)| intro.value() as f32);
+        MediaOverlay { hovered: hover.is_some() || crop.is_some(), selected: m.selected == Some(start), hover, crop, video, fade }
     }
 
     fn rewrite(&mut self, start: usize, line: &EmbedLine) {
@@ -86,18 +113,13 @@ impl TextEditor {
         }
     }
 
-    fn media_changed(&mut self, ctx: &mut EventCtx<'_>) {
-        ctx.submit_action::<TextAction>(TextAction::Changed(self.doc.text().to_owned()));
-        ctx.request_layout();
-        ctx.request_render();
-    }
-
     fn show_source(&mut self, ctx: &mut EventCtx<'_>, start: usize) {
         self.end_crop(false);
         self.media.selected = None;
         let at = (start + 2).min(self.doc.len());
         self.anchor = at;
         self.focus = at;
+        self.doc.source = Some(start);
         ctx.request_focus();
         ctx.request_layout();
     }
@@ -125,7 +147,7 @@ impl TextEditor {
         match hit {
             MediaHit::Zoom => {
                 if let Some(image) = image {
-                    self.request(Request::View(image));
+                    self.request(Request::View(image, path));
                 }
             }
             MediaHit::Align => {
@@ -136,11 +158,11 @@ impl TextEditor {
                     _ => Alignment::End,
                 };
                 self.rewrite(start, &line);
-                self.media_changed(ctx);
+                self.changed(ctx);
             }
             MediaHit::Crop if self.media.crop.is_some() => {
                 self.end_crop(true);
-                self.media_changed(ctx);
+                self.changed(ctx);
             }
             MediaHit::Crop => {
                 self.media.crop = Some((start, line.params.crop.unwrap_or(FULL)));
@@ -196,7 +218,7 @@ impl TextEditor {
                     && !video
                     && let Some(image) = image
                 {
-                    self.request(Request::View(image));
+                    self.request(Request::View(image, path));
                 }
             }
             MediaHit::Outside => return false,
@@ -238,9 +260,23 @@ impl TextEditor {
         let hover = self.media_under(point);
         if hover != self.media.hover {
             self.media.hover = hover;
+            let start = hover.map(|(s, _)| s);
+            if start != self.media.bar.as_ref().map(|(s, _)| *s) {
+                self.media.bar = start.map(|s| (s, crate::ui::widgets::Intro::new(crate::ui::widgets::FAST)));
+                ctx.request_anim_frame();
+            }
             ctx.request_render();
         }
         false
+    }
+
+    pub(super) fn media_tick(&mut self, ctx: &mut UpdateCtx<'_>, interval: u64) {
+        if let Some((_, intro)) = &mut self.media.bar {
+            if intro.advance(interval) {
+                ctx.request_anim_frame();
+            }
+            ctx.request_render();
+        }
     }
 
     pub(super) fn media_leave(&mut self, ctx: &mut EventCtx<'_>) {
@@ -249,16 +285,15 @@ impl TextEditor {
         }
     }
 
-    pub(super) fn media_release(&mut self, ctx: &mut EventCtx<'_>) -> bool {
-        let Some((start, drag)) = self.media.drag.take() else { return false };
+    pub(super) fn media_release(&mut self, ctx: &mut EventCtx<'_>) {
+        let Some((start, drag)) = self.media.drag.take() else { return };
         if let (Drag::Resize { .. }, Some((_, width))) = (drag, self.doc.resized.take())
             && let Some(mut line) = self.media_view(start).map(|v| v.line.clone())
         {
             line.params.width = Some(width);
             self.rewrite(start, &line);
-            self.media_changed(ctx);
+            self.changed(ctx);
         }
-        true
     }
 
     pub(super) fn media_key(&mut self, ctx: &mut EventCtx<'_>, event: &KeyboardEvent) -> bool {
@@ -271,7 +306,7 @@ impl TextEditor {
         match &event.key {
             Key::Named(NamedKey::Enter) if cropping => {
                 self.end_crop(true);
-                self.media_changed(ctx);
+                self.changed(ctx);
             }
             Key::Named(NamedKey::Escape) if cropping => {
                 self.end_crop(false);
@@ -287,7 +322,7 @@ impl TextEditor {
                 self.replace(range, "", Kind::Other);
                 self.anchor = start.min(self.doc.len());
                 self.focus = self.anchor;
-                self.media_changed(ctx);
+                self.changed(ctx);
             }
             _ => {
                 self.media.selected = None;

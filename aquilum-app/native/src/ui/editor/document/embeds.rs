@@ -101,10 +101,14 @@ impl Document {
                         _ => None,
                     })
                     .map(|header| {
+                        let wiki = header.trim().starts_with("[[");
                         let name = header.trim().trim_start_matches("[[").trim_end_matches("]]");
                         let target = name.split('|').next().unwrap_or(name).to_owned();
                         let title = name.rsplit('|').next().unwrap_or(name).trim_end_matches(".md").to_owned();
-                        let (book, stamp) = resolver.book(&target);
+                        let (mut book, stamp) = resolver.book(&target);
+                        if let Fetch::Ready(book) = &mut book {
+                            book.linked |= wiki;
+                        }
                         stamp.hash(&mut stamps);
                         embed::BookRow { book, target, title }
                     })

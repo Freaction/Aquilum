@@ -87,6 +87,21 @@ impl MediaView {
             }
         }
         if overlay.hovered || overlay.crop.is_some() {
+            if overlay.fade < 1.0 {
+                let mut group = masonry::imaging::GroupRef::new();
+                group.composite.alpha = overlay.fade;
+                painter.push_group(group);
+                self.paint_toolbar(painter, at, overlay);
+                painter.pop_group();
+            } else {
+                self.paint_toolbar(painter, at, overlay);
+            }
+        }
+    }
+
+    fn paint_toolbar(&self, painter: &mut Painter<'_>, at: Vec2, overlay: &MediaOverlay) {
+        let tm = theme::current();
+        {
             let bar = RoundedRect::from_rect(self.toolbar() + at, BAR_RADIUS);
             box_shadow(painter, bar, tm.shadow_action);
             painter.fill(bar, tm.bg_scrim).draw();

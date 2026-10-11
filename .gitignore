@@ -20,6 +20,7 @@ node_modules/
 /aquilum-app/.build/
 /aquilum-app/releases/
 /aquilum-app/packaging/target/
+/aquilum-app/target/
 /aquilum-app/core/target/
 /aquilum-app/core/Cargo.lock
 /tauri-version/dist/

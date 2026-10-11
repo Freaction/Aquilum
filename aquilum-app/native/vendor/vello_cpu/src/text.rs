@@ -56,6 +56,7 @@ pub(crate) struct GlyphAtlasResources {
     page_width: u16,
     /// Height of each atlas page in pixels.
     page_height: u16,
+    frames: u64,
 }
 
 impl GlyphAtlasResources {
@@ -79,13 +80,33 @@ impl GlyphAtlasResources {
             pixmaps: Vec::new(),
             page_width,
             page_height,
+            frames: 0,
         }
     }
 
     pub(crate) fn maintain(&mut self) {
         self.glyph_atlas.maintain(&mut self.image_cache);
+        self.frames += 1;
+    }
+
+    fn release_empty_pages(&mut self) {
+        for (id, stats) in self.image_cache.atlas_manager().atlas_stats() {
+            if stats.allocated_count == 0
+                && let Some(page) = self.pixmaps.get_mut(id.as_u32() as usize)
+                && page.width() != 0
+            {
+                *page = Arc::new(Pixmap::new(0, 0));
+            }
+        }
+    }
+
+    fn oversized(&self) -> bool {
+        self.frames % TRIM_FRAMES == 0 && self.pixmaps.len() > MAX_PAGES
     }
 }
+
+const MAX_PAGES: usize = 2;
+const TRIM_FRAMES: u64 = 600;
 
 /// Ensure a pixmap exists for the given page, creating it if needed.
 fn dirty_bounds(commands: &[AtlasCommand], width: u16, height: u16) -> Option<(u16, u16, u16, u16)> {
@@ -125,6 +146,9 @@ fn ensure_page(
     while pixmaps.len() <= page_index {
         pixmaps.push(Arc::new(Pixmap::new(page_width, page_height)));
     }
+    if pixmaps[page_index].width() != page_width {
+        pixmaps[page_index] = Arc::new(Pixmap::new(page_width, page_height));
+    }
 }
 
 impl Resources {
@@ -144,6 +168,12 @@ impl Resources {
                 self.image_registry.destroy_atlas_page(page_index as u32);
             }
             self.clear_evicted_glyph_atlas_regions();
+            if let Some(glyph_resources) = self.glyph_resources.as_mut() {
+                glyph_resources.release_empty_pages();
+            }
+        }
+        if self.glyph_resources.as_ref().is_some_and(GlyphAtlasResources::oversized) {
+            self.glyph_resources = None;
         }
     }
 
@@ -563,5 +593,25 @@ mod debug {
             raster_metrics.width as f64,
             raster_metrics.height as f64,
         ));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{GlyphAtlasResources, ensure_page};
+    use glifo::atlas::GlyphCacheConfig;
+
+    #[test]
+    fn empty_atlas_pages_give_their_pixels_back() {
+        let mut resources = GlyphAtlasResources::with_config(64, 64, crate::Level::fallback(), GlyphCacheConfig::default());
+        let glyph = resources.image_cache.allocate(16, 16, 0).unwrap();
+        ensure_page(&mut resources.pixmaps, 64, 64, 0);
+        resources.release_empty_pages();
+        assert_eq!(resources.pixmaps[0].width(), 64);
+        resources.image_cache.deallocate(glyph);
+        resources.release_empty_pages();
+        assert_eq!(resources.pixmaps[0].width(), 0);
+        ensure_page(&mut resources.pixmaps, 64, 64, 0);
+        assert_eq!((resources.pixmaps[0].width(), resources.pixmaps[0].height()), (64, 64));
     }
 }

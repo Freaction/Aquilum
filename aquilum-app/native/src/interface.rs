@@ -186,7 +186,7 @@ impl Interface {
     fn save(&self) {
         let Ok(json) = serde_json::to_string(&self.state) else { return };
         if let Err(e) = write_file_atomic_impl(&self.path, &json, None) {
-            eprintln!("состояние интерфейса не сохранено: {e}");
+            report!("состояние интерфейса не сохранено: {e}");
         }
     }
 }

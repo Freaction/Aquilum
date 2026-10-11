@@ -4,7 +4,7 @@ use masonry::app::RenderRoot;
 use crate::ui::editor::TextEditor;
 use masonry::core::{ErasedAction, WidgetId};
 use masonry::kurbo::Point;
-use masonry::widgets::{TextAction};
+use crate::ui::editor::TextAction;
 
 use super::{App, Outcome, Popup};
 use crate::history::{self, Version};
@@ -28,9 +28,6 @@ pub(super) enum VersionCommand {
     Rename,
 }
 
-fn now_ms() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or_default()
-}
 
 impl App {
     pub(super) fn load_history(&mut self, root: &mut RenderRoot) {
@@ -55,7 +52,7 @@ impl App {
         };
         let selected = self.opened_versions.get(&self.tabs.active_id()).map(|v| v.id.clone());
         let mut days = Vec::new();
-        for (label, versions) in history::group_by_day(&state.versions, now_ms()) {
+        for (label, versions) in history::group_by_day(&state.versions, crate::dates::now_ms() as u64) {
             let rows = versions
                 .into_iter()
                 .map(|version| {
@@ -135,6 +132,7 @@ impl App {
         match item {
             ItemAction::Open { .. } => self.open_version(root, version),
             ItemAction::Menu(at) => self.open_version_menu(root, index, *at),
+            ItemAction::Hover(_) => {}
         }
         Some(Outcome::default())
     }
@@ -154,7 +152,7 @@ impl App {
         let labels: Vec<&str> = commands.iter().map(|(_, label)| label.as_str()).collect();
         let menu = Menu::new(&t("history.versionActions"), &labels);
         let layer = menu.id();
-        root.add_layer(menu, at);
+        root.add_layer(menu, Menu::context_origin(at, labels.len(), self.window));
         root.focus_on(Some(layer));
         self.popup = Some(Popup::VersionMenu { layer, index, commands: commands.into_iter().map(|(c, _)| c).collect() });
     }
@@ -225,7 +223,7 @@ impl App {
     fn run_version_command(&mut self, root: &mut RenderRoot, version: &Version, command: VersionCommand) {
         let Some(path) = self.tabs.active().path.clone() else { return };
         if let Some(note) = &mut self.note {
-            note.save(&self.workspace.core);
+            let _ = note.save(&self.workspace.core, &self.editor_text);
         }
         let result = match command {
             VersionCommand::Restore => history::restore(&self.workspace.core, &path, version),
@@ -245,7 +243,7 @@ impl App {
                 self.load_history(root);
             }
             Err(error) => {
-                eprintln!("история: {error:?}");
+                report!("история: {error:?}");
                 self.version_notice = Some(t("history.actionFailed"));
                 self.show_version(root);
             }

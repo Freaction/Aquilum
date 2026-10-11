@@ -1,16 +1,37 @@
 use std::path::PathBuf;
 
 use super::media::locate;
-use super::{Inner, indexed};
+use super::{Inner, indexed, settle};
 use crate::frontmatter;
 use crate::ui::editor::resolve::{Book, Fetch};
 
-pub(super) fn load(inner: &Inner, target: &str) -> Fetch<Book> {
-    let (workspace, document) = (inner.workspace(), inner.source());
-    let path = indexed(|| inner.core.search.resolve_wiki_links(&workspace, &document, &[target.to_owned()]))
-        .ok()
-        .and_then(|r| r.paths.into_iter().next().flatten())
-        .map(PathBuf::from);
+pub(super) fn drain(inner: &Inner) {
+    loop {
+        let batch = {
+            let mut queue = inner.book_queue.lock().unwrap_or_else(|e| e.into_inner());
+            if queue.pending.is_empty() {
+                queue.running = false;
+                return;
+            }
+            std::mem::take(&mut queue.pending)
+        };
+        let targets: Vec<String> = batch.iter().map(|(target, _)| target.clone()).collect();
+        let (workspace, document) = (inner.workspace(), inner.source());
+        let mut paths: Vec<Option<PathBuf>> = indexed(|| inner.core.search.resolve_wiki_links(&workspace, &document, &targets))
+            .map(|r| r.paths.into_iter().map(|p| p.map(PathBuf::from)).collect())
+            .unwrap_or_default();
+        paths.resize(targets.len(), None);
+        let mut changed = false;
+        for ((target, epoch), path) in batch.into_iter().zip(paths) {
+            changed |= settle(&inner.books, &target, epoch, load(inner, &target, path));
+        }
+        if changed {
+            inner.touch();
+        }
+    }
+}
+
+fn load(inner: &Inner, target: &str, path: Option<PathBuf>) -> Fetch<Book> {
     let title = target.trim_end_matches(".md").to_owned();
     let Some(path) = path else {
         return Fetch::Ready(Book { title, linked: false, author: String::new(), cover: None, pages: None, file: None, page: None });

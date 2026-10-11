@@ -14,6 +14,7 @@ pub(super) struct Suggest {
     close: bool,
     items: Vec<String>,
     selected: usize,
+    local: bool,
 }
 
 fn word_char(c: char) -> bool {
@@ -21,6 +22,24 @@ fn word_char(c: char) -> bool {
 }
 
 impl TextEditor {
+    fn cover_context(&self) -> Option<(usize, usize, String)> {
+        if self.single_line || !self.selection().is_empty() {
+            return None;
+        }
+        let (text, caret) = (self.doc.text(), self.focus);
+        if caret >= crate::frontmatter::end(text)? {
+            return None;
+        }
+        let line_start = text[..caret].rfind('\n').map_or(0, |i| i + 1);
+        let line_end = text[caret..].find('\n').map_or(text.len(), |i| caret + i);
+        let (key, value) = text[line_start..caret].split_once(':')?;
+        if !key.trim().eq_ignore_ascii_case(crate::frontmatter::PAGE_COVER) {
+            return None;
+        }
+        let from = line_start + key.len() + 1 + (value.len() - value.trim_start().len());
+        Some((from, line_end, text[from..caret].to_owned()))
+    }
+
     fn suggest_context(&self) -> Option<(usize, usize, String, bool, bool)> {
         if self.single_line || self.doc.markdown.is_none() || !self.selection().is_empty() {
             return None;
@@ -54,6 +73,12 @@ impl TextEditor {
     }
 
     pub(super) fn update_suggest(&mut self, id: WidgetId) {
+        if let Some((from, to, query)) = self.cover_context() {
+            let items = crate::cover::suggest_patterns(&query);
+            let selected = self.suggest.as_ref().filter(|s| s.query == query).map_or(0, |s| s.selected.min(items.len().saturating_sub(1)));
+            self.suggest = Some(Suggest { from, to, query, wrap: false, close: false, items, selected, local: true });
+            return self.publish_suggest(id);
+        }
         let Some(resolver) = self.doc.resolver.clone() else { return };
         let Some(min) = resolver.suggest_min() else { return self.close_suggest() };
         let Some((from, to, query, wrap, close)) = self.suggest_context().filter(|c| c.2.chars().count() >= min) else {
@@ -64,12 +89,12 @@ impl TextEditor {
             None => self.suggest.as_ref().map(|s| s.items.clone()).unwrap_or_default(),
         };
         let selected = self.suggest.as_ref().filter(|s| s.query == query).map_or(0, |s| s.selected.min(items.len().saturating_sub(1)));
-        self.suggest = Some(Suggest { from, to, query, wrap, close, items, selected });
+        self.suggest = Some(Suggest { from, to, query, wrap, close, items, selected, local: false });
         self.publish_suggest(id);
     }
 
     pub(super) fn poll_suggest(&mut self, id: WidgetId) {
-        let Some(current) = &self.suggest else { return };
+        let Some(current) = self.suggest.as_ref().filter(|s| !s.local) else { return };
         let Some(items) = self.doc.resolver.as_ref().and_then(|r| r.suggest(&current.query)) else { return };
         if items != current.items {
             if let Some(s) = &mut self.suggest {
@@ -84,7 +109,7 @@ impl TextEditor {
         let Some(resolver) = self.doc.resolver.clone() else { return };
         let view = self.suggest.as_ref().filter(|s| !s.items.is_empty() && self.laid_out()).map(|s| Suggestions {
             editor: id,
-            caret: self.caret_at(s.from - if s.wrap { 0 } else { OPEN.len() }, 0, Affinity::Downstream),
+            caret: self.caret_at(s.from - if s.wrap || s.local { 0 } else { OPEN.len() }, 0, Affinity::Downstream),
             query: s.query.clone(),
             items: s.items.clone(),
             selected: s.selected,
@@ -114,7 +139,7 @@ impl TextEditor {
 
     pub fn accept_suggestion(this: &mut WidgetMut<'_, Self>, index: usize) {
         if this.widget.accept_suggest(index) {
-            this.ctx.submit_action::<TextAction>(TextAction::Changed(this.widget.doc.text().to_owned()));
+            this.ctx.submit_action::<TextAction>(this.widget.doc.changed());
             this.ctx.request_layout();
             this.ctx.request_render();
         }
@@ -155,6 +180,10 @@ impl TextEditor {
         let Some(title) = s.items.get(index) else { return false };
         let insert = format!("{}{title}{}", if s.wrap { OPEN } else { "" }, if s.close { CLOSE } else { "" });
         self.replace(s.from..s.to, &insert, Kind::Other);
+        if !s.close && self.doc.text()[self.focus..].starts_with(CLOSE) {
+            self.focus += CLOSE.len();
+            self.anchor = self.focus;
+        }
         self.close_suggest();
         true
     }

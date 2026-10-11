@@ -2,13 +2,9 @@ use masonry::core::keyboard::KeyboardEvent;
 
 use super::*;
 use crate::ui::editor::embed::View;
-use crate::ui::editor::table::{Hit, Outcome, Session, Table, TableView};
+use crate::ui::editor::table::{Hit, Outcome, Session, Table};
 
 impl TextEditor {
-    fn table_view(&self, start: usize) -> Option<&TableView> {
-        self.doc.table_at(start).map(|(_, view)| view)
-    }
-
     fn table_under(&self, point: Point) -> Option<(usize, Point)> {
         if self.doc.markdown.is_none() || !self.laid_out() {
             return None;
@@ -52,14 +48,14 @@ impl TextEditor {
             Outcome::Repaint => {}
             Outcome::Write(model) => {
                 self.write_table(&model);
-                ctx.submit_action::<TextAction>(TextAction::Changed(self.doc.text().to_owned()));
+                ctx.submit_action::<TextAction>(self.doc.changed());
             }
             Outcome::Leave => {
                 self.leave_table();
             }
             Outcome::Remove => {
                 self.remove_table();
-                ctx.submit_action::<TextAction>(TextAction::Changed(self.doc.text().to_owned()));
+                ctx.submit_action::<TextAction>(self.doc.changed());
             }
         }
         self.sync_editing();
@@ -123,7 +119,7 @@ impl TextEditor {
             _ => {}
         }
         widget.sync_editing();
-        this.ctx.submit_action::<TextAction>(TextAction::Changed(widget.doc.text().to_owned()));
+        this.ctx.submit_action::<TextAction>(widget.doc.changed());
         this.ctx.request_layout();
         this.ctx.request_render();
     }
@@ -171,12 +167,7 @@ impl TextEditor {
             self.table = Some(self.session(start));
         }
         let Some(view) = self.doc.table_at(start).map(|(_, v)| v) else { return false };
-        if let crate::ui::editor::table::Hit::Cell(r, c, at) = view.hit(local, self.table.as_ref().map_or(0.0, |s| s.scroll_x))
-            && let Some(cell) = view.cell(r, c).filter(|cell| cell.link && self.doc.editing != Some((start, (r, c))))
-            && at.x >= 0.0
-            && at.x <= f64::from(cell.layout.width())
-            && at.y >= 0.0
-            && at.y <= f64::from(cell.layout.height())
+        if let Some((r, c)) = self.link_cell(view, start, view.hit(local, self.table.as_ref().map_or(0.0, |s| s.scroll_x)))
             && let Some(resolver) = &self.doc.resolver
         {
             let value = view.model.value(r, c).trim();
@@ -203,7 +194,6 @@ impl TextEditor {
                     && s.hover.take().is_some()
                 {
                     s.line = crate::ui::editor::table::Line::None;
-                    self.hovered_table = None;
                     ctx.request_render();
                 }
                 self.hovered_table = None;
@@ -230,23 +220,23 @@ impl TextEditor {
         dragging
     }
 
-    pub(super) fn table_release(&mut self, ctx: &mut EventCtx<'_>) -> bool {
-        let Some(start) = self.table.as_ref().filter(|s| s.drag != crate::ui::editor::table::Drag::None).map(|s| s.start) else { return false };
-        let Some(view) = self.doc.table_at(start).map(|(_, v)| v) else { return false };
-        let Some(session) = self.table.as_mut() else { return false };
+    pub(super) fn table_release(&mut self, ctx: &mut EventCtx<'_>) {
+        let Some(start) = self.table.as_ref().filter(|s| s.drag != crate::ui::editor::table::Drag::None).map(|s| s.start) else { return };
+        let Some(view) = self.doc.table_at(start).map(|(_, v)| v) else { return };
+        let Some(session) = self.table.as_mut() else { return };
         let outcome = session.release(view);
         self.apply(ctx, outcome);
-        true
     }
 
     pub(super) fn table_scroll(&mut self, ctx: &mut EventCtx<'_>, point: Point, dx: f64) -> bool {
-        let Some((start, _)) = self.table_under(point) else { return false };
-        let Some(max) = self.table_view(start).map(TableView::max_scroll).filter(|m| *m > 0.0) else { return false };
+        let Some((start, local)) = self.table_under(point) else { return false };
+        let Some(view) = self.doc.table_at(start).map(|(_, v)| v).filter(|v| v.max_scroll() > 0.0) else { return false };
         if self.table.as_ref().is_none_or(|s| s.start != start) {
             self.table = Some(self.session(start));
         }
         if let Some(s) = self.table.as_mut() {
-            s.scroll_x = (s.scroll_x + dx).clamp(0.0, max);
+            s.scroll_x = (s.scroll_x + dx).clamp(0.0, view.max_scroll());
+            s.moved(view, local);
         }
         self.remember_scroll();
         ctx.request_render();
@@ -298,8 +288,8 @@ impl TextEditor {
                 return false;
             }
             Key::Character(text) if !action => session.insert(view, text),
-            Key::Named(NamedKey::Backspace) => session.delete(view, false),
-            Key::Named(NamedKey::Delete) => session.delete(view, true),
+            Key::Named(NamedKey::Backspace) => session.delete(view, false, action),
+            Key::Named(NamedKey::Delete) => session.delete(view, true, action),
             Key::Named(NamedKey::ArrowLeft) | Key::Named(NamedKey::ArrowRight) => {
                 session.step(view, matches!(event.key, Key::Named(NamedKey::ArrowRight)), action, shift);
                 Outcome::Repaint
@@ -338,10 +328,18 @@ impl TextEditor {
         true
     }
 
+    fn link_cell(&self, view: &crate::ui::editor::table::TableView, start: usize, hit: Hit) -> Option<(usize, usize)> {
+        let Hit::Cell(r, c, at) = hit else { return None };
+        let cell = view.cell(r, c).filter(|cell| cell.link && self.doc.editing != Some((start, (r, c))))?;
+        let inside = at.x >= 0.0 && at.x <= f64::from(cell.layout.width()) && at.y >= 0.0 && at.y <= f64::from(cell.layout.height());
+        inside.then_some((r, c))
+    }
+
     pub(super) fn table_cursor(&self) -> Option<CursorIcon> {
         let session = self.table.as_ref()?;
         Some(match (session.drag, session.hover?) {
             (crate::ui::editor::table::Drag::Strip { moved: true, .. }, _) => CursorIcon::Grabbing,
+            (_, hit @ Hit::Cell(..)) if self.doc.table_at(session.start).is_some_and(|(_, view)| self.link_cell(view, session.start, hit).is_some()) => CursorIcon::Pointer,
             (_, Hit::Cell(..)) => CursorIcon::Text,
             (_, Hit::Column(_) | Hit::Row(_)) => CursorIcon::Grab,
             (_, Hit::ColumnBorder(_)) => CursorIcon::ColResize,
@@ -362,7 +360,7 @@ impl TextEditor {
             painter.fill(rect + origin, tm.selection_bg).draw();
         }
         if self.caret_visible {
-            let half = height * CARET_LINE_SCALE / 2.0;
+            let half = height / 2.0;
             let mid = at.y + height / 2.0;
             let caret = Rect::new(at.x, mid - half, at.x + size::CARET_WIDTH, mid + half) + origin;
             painter.fill(RoundedRect::from_rect(caret, size::CARET_RADIUS), tm.caret_color).draw();

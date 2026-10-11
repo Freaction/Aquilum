@@ -8,6 +8,12 @@
 // В релизе без консоли, иначе Start-Process в скрипте замера откроет лишнее окно.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+macro_rules! report {
+    ($($arg:tt)*) => {
+        $crate::host::report(&format!($($arg)*))
+    };
+}
+
 mod a11y;
 mod autostart;
 mod app;
@@ -27,10 +33,19 @@ mod links;
 mod history;
 mod host;
 mod metrics;
+#[cfg(feature = "memory-probe")]
+mod memory_probe;
+
+#[cfg(feature = "memory-probe")]
+#[global_allocator]
+static ALLOCATOR: memory_probe::Counting = memory_probe::Counting;
 mod navigation;
 mod note;
 mod output;
+mod paths;
+mod pdf;
 mod render;
+#[cfg(not(feature = "installed"))]
 mod replay;
 mod session;
 mod system;
@@ -50,8 +65,8 @@ mod touchpad {
             false
         }
 
-        pub fn update(&self) -> (f32, f32) {
-            (0.0, 0.0)
+        pub fn update(&self, _: std::time::Instant) -> (f32, f32, f32) {
+            (0.0, 0.0, 1.0)
         }
     }
 }
@@ -81,16 +96,22 @@ pub struct Args {
     pub metrics: Option<PathBuf>,
     /// Печатать оконные события в stderr (консоль есть только в debug-сборке).
     pub trace: bool,
+    pub paint_flashing: bool,
     /// Открыть заметку, открытую при прошлом закрытии (нет, если текст задан `--file`).
     pub restore: bool,
     /// Поставить окно туда, где оно было (`--keep-position`).
     pub keep_position: bool,
     /// Сразу поставить фокус в текст: замер с мигающей кареткой без участия мыши.
     pub focus: bool,
-    pub replay: Option<PathBuf>,
-    pub replay_graph: bool,
+    #[cfg(not(feature = "installed"))]
+    pub replay: Option<(replay::Kind, PathBuf)>,
     pub open: Option<PathBuf>,
+    #[cfg(not(feature = "installed"))]
     pub trace_frames: Option<PathBuf>,
+    #[cfg(feature = "memory-probe")]
+    pub memory_probe: Option<PathBuf>,
+    #[cfg(feature = "memory-probe")]
+    pub probe_notes: Vec<PathBuf>,
 }
 
 fn parse_args() -> Result<Args, String> {
@@ -102,13 +123,19 @@ fn parse_args() -> Result<Args, String> {
         threads: std::thread::available_parallelism().map_or(2, |n| n.get().clamp(2, 4) as u16),
         metrics: None,
         trace: false,
+        paint_flashing: false,
         focus: false,
         restore: true,
         keep_position: false,
+        #[cfg(not(feature = "installed"))]
         replay: None,
-        replay_graph: false,
         open: None,
+        #[cfg(not(feature = "installed"))]
         trace_frames: None,
+        #[cfg(feature = "memory-probe")]
+        memory_probe: None,
+        #[cfg(feature = "memory-probe")]
+        probe_notes: Vec::new(),
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
@@ -130,20 +157,24 @@ fn parse_args() -> Result<Args, String> {
             "--threads" => args.threads = value()?.parse().map_err(|e| format!("--threads: {e}"))?,
             "--metrics" => args.metrics = Some(value()?.into()),
             "--trace" => args.trace = true,
+            #[cfg(not(feature = "installed"))]
+            "--paint-flashing" => args.paint_flashing = true,
             "--focus" => args.focus = true,
             // Окно встаёт туда же, где было: для перезапуска при правке кода (scripts/watch.ps1).
             "--keep-position" => args.keep_position = true,
+            #[cfg(not(feature = "installed"))]
             "--trace-frames" => args.trace_frames = Some(value()?.into()),
+            #[cfg(feature = "memory-probe")]
+            "--memory-probe" => args.memory_probe = Some(value()?.into()),
+            #[cfg(feature = "memory-probe")]
+            "--probe-note" => args.probe_notes.push(value()?.into()),
             "--open" => args.open = Some(value()?.into()),
-            "--replay-scroll" => args.replay = Some(value()?.into()),
-            "--replay-graph" => {
-                args.replay = Some(value()?.into());
-                args.replay_graph = true;
-            }
-            // Флаг прогона прокрутки из шага 1: скрипт замера передаёт его всем окнам.
-            "--bench-frames" => {
-                value()?;
-            }
+            #[cfg(not(feature = "installed"))]
+            "--replay-scroll" => args.replay = Some((replay::Kind::Scroll, value()?.into())),
+            #[cfg(not(feature = "installed"))]
+            "--replay-graph" => args.replay = Some((replay::Kind::Graph, value()?.into())),
+            #[cfg(not(feature = "installed"))]
+            "--replay-focus" => args.replay = Some((replay::Kind::Focus, value()?.into())),
             other => return Err(format!("неизвестный аргумент {other}")),
         }
     }
@@ -151,12 +182,21 @@ fn parse_args() -> Result<Args, String> {
 }
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        #[link(name = "winmm")]
+        unsafe extern "system" {
+            fn timeBeginPeriod(uPeriod: u32) -> u32;
+        }
+        let _ = timeBeginPeriod(1);
+    }
     if std::env::args().any(|argument| argument == "--mcp-stdio") {
         std::process::exit(aquilum_core::mcp::run_stdio_bridge(workspace::APP_ID));
     }
     let result = parse_args().and_then(host::run);
     if let Err(err) = &result {
-        eprintln!("{err}");
+        report!("{err}");
+        rfd::MessageDialog::new().set_title("Aquilum").set_description(err).set_level(rfd::MessageLevel::Error).show();
     }
     std::process::exit(i32::from(result.is_err()));
 }

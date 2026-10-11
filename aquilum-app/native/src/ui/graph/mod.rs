@@ -72,6 +72,8 @@ impl Default for Display {
 pub enum GraphAction {
     Open(String),
     Camera(f64, f64, f64),
+    ShowAll,
+    Retry,
 }
 
 pub enum Status {
@@ -117,6 +119,8 @@ pub struct GraphView {
     moved_at: Option<Instant>,
     status_lines: Vec<Line>,
     notice: [Line; 2],
+    pub(super) action_rect: Option<Rect>,
+    action_line: Line,
     settings: Option<WidgetPod<dyn Widget>>,
     panel: Rect,
     animating: bool,
@@ -163,6 +167,8 @@ impl GraphView {
             moved_at: None,
             status_lines: Vec::new(),
             notice: [Line::default(), Line::default()],
+            action_rect: None,
+            action_line: Line::default(),
             settings,
             panel: Rect::ZERO,
             animating: false,
@@ -403,12 +409,12 @@ impl Widget for GraphView {
         match &self.status {
             Status::NoWorkspace => {
                 painter.fill(bounds, tm.graph_backdrop).draw();
-                return self.paint_notice(ctx, painter, &t("graph.noWorkspace"), None);
+                return self.paint_notice(ctx, painter, &t("graph.noWorkspace"), None, None);
             }
             Status::Failed(error) => {
                 painter.fill(bounds, tm.graph_backdrop).draw();
                 let error = error.clone();
-                return self.paint_notice(ctx, painter, &t("graph.notBuilt"), Some(&error));
+                return self.paint_notice(ctx, painter, &t("graph.notBuilt"), Some(&error), Some(&t("graph.retry")));
             }
             Status::Loading if self.graph.is_none() => {
                 painter.fill(bounds, tm.graph_backdrop).draw();
@@ -425,6 +431,11 @@ impl Widget for GraphView {
         }
         self.cost = started.elapsed();
         self.paint_status(ctx, painter, &graph);
+        if self.visible == 0 && graph.len() > 0 {
+            self.paint_notice(ctx, painter, &t("graph.filteredOut"), None, Some(&t("graph.showAll")));
+        } else {
+            self.action_rect = None;
+        }
     }
 
     fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {

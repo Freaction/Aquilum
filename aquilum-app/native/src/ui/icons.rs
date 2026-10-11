@@ -87,6 +87,25 @@ pub const ARROW_UP_DOWN: Icon = Icon::lucide(&[
     Shape::Path("M7 4v16"),
 ]);
 pub const CORNER_DOWN_LEFT: Icon = Icon::lucide(&[Shape::Path("M20 4v7a4 4 0 0 1-4 4H4"), Shape::Path("m9 10-5 5 5 5")]);
+pub const ARROW_UP: Icon = Icon::lucide(&[Shape::Path("m5 12 7-7 7 7"), Shape::Path("M12 19V5")]);
+pub const ARROW_DOWN: Icon = Icon::lucide(&[Shape::Path("M12 5v14"), Shape::Path("m19 12-7 7-7-7")]);
+pub const TEXT_SELECT: Icon = Icon::lucide(&[
+    Shape::Path("M5 3a2 2 0 0 0-2 2"),
+    Shape::Path("M19 3a2 2 0 0 1 2 2"),
+    Shape::Path("M21 19a2 2 0 0 1-2 2"),
+    Shape::Path("M5 21a2 2 0 0 1-2-2"),
+    Shape::Path("M9 3h1"),
+    Shape::Path("M9 21h1"),
+    Shape::Path("M14 3h1"),
+    Shape::Path("M14 21h1"),
+    Shape::Path("M3 9v1"),
+    Shape::Path("M21 9v1"),
+    Shape::Path("M3 14v1"),
+    Shape::Path("M21 14v1"),
+    Shape::Path("M7 8h10"),
+    Shape::Path("M7 12h10"),
+    Shape::Path("M7 16h6"),
+]);
 pub const ARROW_LEFT: Icon = Icon::lucide(&[Shape::Path("m12 19-7-7 7-7"), Shape::Path("M19 12H5")]);
 pub const ARROW_RIGHT: Icon = Icon::lucide(&[Shape::Path("M5 12h14"), Shape::Path("m12 5 7 7-7 7")]);
 pub const FOLDER_OPEN: Icon = Icon::lucide(&[Shape::Path(
@@ -224,6 +243,35 @@ pub const ALIGN_RIGHT: Icon = Icon::lucide(&[Shape::Path("M21 5H3"), Shape::Path
 pub const CROP: Icon = Icon::lucide(&[Shape::Path("M6 2v14a2 2 0 0 0 2 2h14"), Shape::Path("M18 22V8a2 2 0 0 0-2-2H2")]);
 pub const CODE_XML: Icon = Icon::lucide(&[Shape::Path("m18 16 4-4-4-4"), Shape::Path("m6 8-4 4 4 4"), Shape::Path("m14.5 4-5 16")]);
 pub const MOVE_DIAGONAL: Icon = Icon::lucide(&[Shape::Path("M19 13v6h-6"), Shape::Path("M5 11V5h6"), Shape::Path("m5 5 14 14")]);
+pub const MORE_HORIZONTAL: Icon = Icon::lucide(&[
+    Shape::Circle { cx: 12.0, cy: 12.0, r: 1.0 },
+    Shape::Circle { cx: 19.0, cy: 12.0, r: 1.0 },
+    Shape::Circle { cx: 5.0, cy: 12.0, r: 1.0 },
+]);
+pub const FILE_X: Icon = Icon::lucide(&[
+    Shape::Path("M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"),
+    Shape::Path("M14 2v4a2 2 0 0 0 2 2h4"),
+    Shape::Path("m14.5 12.5-5 5"),
+    Shape::Path("m9.5 12.5 5 5"),
+]);
+pub const CLIPBOARD: Icon = Icon::lucide(&[
+    Shape::Rect { x: 8.0, y: 2.0, w: 8.0, h: 4.0, rx: 1.0 },
+    Shape::Path("M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"),
+]);
+pub const TABLE: Icon = Icon::lucide(&[
+    Shape::Path("M12 3v18"),
+    Shape::Path("M3 9h18"),
+    Shape::Path("M3 15h18"),
+    Shape::Rect { x: 3.0, y: 3.0, w: 18.0, h: 18.0, rx: 2.0 },
+]);
+pub const TAG: Icon = Icon::lucide(&[
+    Shape::Path("M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"),
+    Shape::Circle { cx: 7.5, cy: 7.5, r: 0.5 },
+]);
+pub const FOLDER: Icon = Icon::lucide(&[
+    Shape::Path("M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"),
+]);
+
 
 /// `GraphAnalysisIcon` из `src/components/Icons/LinkIcons.tsx`: сетка 20×20, обводка 1.2.
 pub const GRAPH_ANALYSIS: Icon = Icon {

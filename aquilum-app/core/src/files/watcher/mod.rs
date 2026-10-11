@@ -11,9 +11,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
-use std::time::Duration;
-
-const IDLE_POLL: Duration = Duration::from_millis(300);
 
 pub type WatchSink = Arc<dyn Fn(WatchBatch) + Send + Sync>;
 
@@ -25,12 +22,14 @@ pub struct WorkspaceWatcher {
 struct Running {
     root: PathBuf,
     stopping: Arc<AtomicBool>,
+    wake: mpsc::Sender<WatchBatch>,
     thread: Option<JoinHandle<()>>,
 }
 
 impl Running {
     fn stop(mut self) {
         self.stopping.store(true, Ordering::Relaxed);
+        let _ = self.wake.send(WatchBatch::rescan());
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
@@ -55,6 +54,7 @@ impl WorkspaceWatcher {
         }
 
         let (sender, receiver) = mpsc::channel::<WatchBatch>();
+        let wake = sender.clone();
         forget_attachments();
         let mut watcher = notify::recommended_watcher(move |result| {
             forget_attachments_after(&result);
@@ -78,6 +78,7 @@ impl WorkspaceWatcher {
         *running = Some(Running {
             root: root.to_path_buf(),
             stopping,
+            wake,
             thread: Some(thread),
         });
         Ok(())
@@ -97,12 +98,15 @@ fn deliver(
     stopping: &AtomicBool,
     sink: &(dyn Fn(WatchBatch) + Send + Sync),
 ) {
-    while !stopping.load(Ordering::Relaxed) {
-        match receiver.recv_timeout(IDLE_POLL) {
-            Ok(first) => sink(coalesce(first, receiver)),
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => return,
+    while let Ok(first) = receiver.recv() {
+        if stopping.load(Ordering::Relaxed) {
+            return;
         }
+        let batch = coalesce(first, receiver);
+        if stopping.load(Ordering::Relaxed) {
+            return;
+        }
+        sink(batch);
     }
 }
 
@@ -110,6 +114,7 @@ fn deliver(
 mod tests {
     use super::*;
     use std::sync::mpsc::RecvTimeoutError;
+    use std::time::Duration;
 
     fn collector() -> (WatchSink, mpsc::Receiver<WatchBatch>) {
         let (sender, receiver) = mpsc::channel();
@@ -177,6 +182,20 @@ mod tests {
             "старая база больше не наблюдается"
         );
         watcher.stop();
+    }
+
+    #[test]
+    fn stop_does_not_wait_for_a_poll_interval() {
+        let directory = tempfile::tempdir().unwrap();
+        let (sink, _receiver) = collector();
+        let watcher = WorkspaceWatcher::new(sink);
+        watcher.watch(directory.path()).unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+
+        let started = std::time::Instant::now();
+        watcher.stop();
+
+        assert!(started.elapsed() < Duration::from_millis(100), "остановка ждала {:?}", started.elapsed());
     }
 
     #[test]

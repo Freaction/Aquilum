@@ -7,6 +7,10 @@ const RU: [&str; 12] =
 const EN: [&str; 12] =
     ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+pub fn now_ms() -> i64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or_default()
+}
+
 pub fn local(epoch_ms: u64) -> Option<DateTime<Local>> {
     Local.timestamp_millis_opt(epoch_ms as i64).single()
 }

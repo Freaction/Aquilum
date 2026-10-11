@@ -108,6 +108,10 @@ pub enum Update {
     /// [`EventCtx::request_scroll_to`]: crate::core::EventCtx::request_scroll_to
     RequestPanToChild(Rect),
 
+    /// Called when a descendant changed the height of content above what is shown and asks the
+    /// scrolling ancestor to move by this vertical amount, so that the shown content stays put.
+    ScrollBy(f64),
+
     /// Called when the [hovered] status of the current widget changes.
     ///
     /// [hovered]: crate::doc::masonry_concepts#widget-status
@@ -284,6 +288,7 @@ impl Update {
             Self::FocusChanged(true) => "FocusChanged(true)",
             Self::ChildFocusChanged(true) => "ChildFocusChanged(true)",
             Self::RequestPanToChild(_) => "RequestPanToChild(_)",
+            Self::ScrollBy(_) => "ScrollBy(_)",
             Self::FontsChanged => "FontsChanged",
         }
     }
