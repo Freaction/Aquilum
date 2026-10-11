@@ -316,7 +316,7 @@ mod tests {
     use super::*;
 
     fn tree() -> (tempfile::TempDir, TreeModel) {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::tempdir();
         let root = dir.path();
         std::fs::create_dir_all(root.join("Проекты/Вложенная")).unwrap();
         std::fs::create_dir_all(root.join("Архив/Старое")).unwrap();

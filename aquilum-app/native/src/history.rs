@@ -202,8 +202,8 @@ mod tests {
 
     #[test]
     fn restore_and_revert_rewrite_note() {
-        let vault = tempfile::tempdir().unwrap();
-        let data = tempfile::tempdir().unwrap();
+        let vault = crate::test_dir::tempdir();
+        let data = crate::test_dir::tempdir();
         let core = Core::open(data.path(), std::sync::Arc::new(|_| {}));
         core.ui_state.resolve_workspace(&vault.path().to_string_lossy(), 0).unwrap();
         let note = vault.path().join("a.md");

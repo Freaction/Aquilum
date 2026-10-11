@@ -59,7 +59,7 @@ fn real_tree_after_focus_mode() {
 
 #[test]
 fn tree_rows_survive_focus_mode() {
-    let vault = tempfile::tempdir().unwrap();
+    let vault = crate::test_dir::tempdir();
     for i in 0..1000 {
         std::fs::write(vault.path().join(format!("Заметка {i:04}.md")), "текст").unwrap();
     }
@@ -105,7 +105,7 @@ fn wiki_link_opens_note_from_subfolder_without_creating_duplicate() {
 fn books_snapshot() {
     let out = std::path::PathBuf::from(std::env::var("AQ_OUT").unwrap());
     let scale = 1.75;
-    let dir = tempfile::tempdir().unwrap();
+    let dir = crate::test_dir::tempdir();
     let vault = dir.path().to_path_buf();
     std::fs::create_dir_all(vault.join("Base")).unwrap();
     std::fs::write(vault.join("Base").join("📖 Победители недр.md"), "---\nauthor: Иван Ефремов\npages: 120/300\nПуть к файлу: book.epub\n---\n").unwrap();
@@ -181,7 +181,7 @@ pages: 50/100
 
 #[test]
 fn tree_rows_return_after_small_scroll_up() {
-    let vault = tempfile::tempdir().unwrap();
+    let vault = crate::test_dir::tempdir();
     for i in 0..300 {
         std::fs::write(vault.path().join(format!("Заметка {i:04}.md")), "текст").unwrap();
     }

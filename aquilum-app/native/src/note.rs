@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn reload_ignores_own_write_and_sees_external_one() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::tempdir();
         let path = dir.path().join("a.md");
         std::fs::write(&path, "раз").unwrap();
         let (mut note, text) = Note::open(path.clone()).unwrap();

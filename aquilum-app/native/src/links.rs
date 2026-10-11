@@ -243,8 +243,8 @@ mod tests {
 
     #[test]
     fn backlinks_and_outgoing_from_index() {
-        let vault = tempfile::tempdir().unwrap();
-        let data = tempfile::tempdir().unwrap();
+        let vault = crate::test_dir::tempdir();
+        let data = crate::test_dir::tempdir();
         std::fs::write(vault.path().join("a.md"), "Ссылка на [[b]], снова [[b]] и [[Нет такой]]").unwrap();
         std::fs::write(vault.path().join("b.md"), "Текст").unwrap();
         let core = Core::open(data.path(), Arc::new(|_| {}));

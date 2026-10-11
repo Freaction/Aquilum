@@ -60,8 +60,8 @@ impl Harness {
 
     pub(super) fn with(real_vault: Option<&std::path::Path>, scale: f64) -> Self {
         let theme = theme::test_lock();
-        let vault = tempfile::tempdir().unwrap();
-        let data = tempfile::tempdir().unwrap();
+        let vault = crate::test_dir::tempdir();
+        let data = crate::test_dir::tempdir();
         std::fs::write(vault.path().join("a.md"), "текст").unwrap();
         let mut config = AppConfig::default();
         config.ui.theme = if std::env::var_os("AQUILUM_BENCH_LIGHT").is_some() { "light".into() } else { "dark".into() };

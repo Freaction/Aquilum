@@ -167,8 +167,8 @@ mod tests {
 
     #[test]
     fn tabs_survive_reopening() {
-        let vault = tempfile::tempdir().unwrap();
-        let data = tempfile::tempdir().unwrap();
+        let vault = crate::test_dir::tempdir();
+        let data = crate::test_dir::tempdir();
         std::fs::create_dir(vault.path().join("Папка")).unwrap();
         std::fs::write(vault.path().join("Папка").join("a.md"), "").unwrap();
         std::fs::write(vault.path().join("b.md"), "").unwrap();

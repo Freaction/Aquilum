@@ -162,7 +162,7 @@ fn workspace_dialog_switches_and_forgets_vaults() {
     let mut h = Harness::new();
     let first = h.vault.path().to_path_buf();
     h.app.open(&mut h.root, first.join("a.md"));
-    let second = tempfile::tempdir().unwrap();
+    let second = crate::test_dir::tempdir();
     std::fs::write(second.path().join("b.md"), "второй").unwrap();
     h.app.workspace.core.ui_state.resolve_workspace(&second.path().to_string_lossy(), 1).unwrap();
 

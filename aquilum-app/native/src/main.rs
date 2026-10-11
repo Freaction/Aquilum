@@ -70,6 +70,8 @@ mod touchpad {
         }
     }
 }
+#[cfg(test)]
+mod test_dir;
 mod vault_files;
 mod vsync;
 mod ui;

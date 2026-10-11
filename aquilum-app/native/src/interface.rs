@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn scale_is_rounded_clamped_and_persisted() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::tempdir();
         let mut interface = Interface::load(dir.path());
         assert_eq!(interface.scale(), 1.0);
         assert!(interface.set_scale(1.0 + SCALE_STEP * 3.0));

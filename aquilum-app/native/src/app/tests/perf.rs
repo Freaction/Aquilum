@@ -6,7 +6,7 @@ fn frame_parts() {
     use masonry::core::{PointerScrollEvent, ScrollDelta};
     let (w, hh) = bench_size().unwrap_or((W, H));
     let files: usize = std::env::var("AQUILUM_BENCH_FILES").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
-    let vault = tempfile::tempdir().unwrap();
+    let vault = crate::test_dir::tempdir();
     for i in 0..files.max(1) {
         std::fs::write(vault.path().join(format!("Заметка {i:04}.md")), "текст").unwrap();
     }
@@ -58,7 +58,7 @@ Page_cover: pattern:ruby
 
 #[test]
 fn long_tree_builds_only_rows_near_the_view() {
-    let vault = tempfile::tempdir().unwrap();
+    let vault = crate::test_dir::tempdir();
     for i in 0..1000 {
         std::fs::write(vault.path().join(format!("Заметка {i:04}.md")), "текст").unwrap();
     }
@@ -268,7 +268,7 @@ fn live_cover_frames_match_full_frames() {
 fn panel_animation_frames() {
     let (w, hh) = bench_size().unwrap_or((W, H));
     let scale: f64 = std::env::var("AQUILUM_BENCH_SCALE").ok().and_then(|s| s.parse().ok()).unwrap_or(1.0);
-    let vault = tempfile::tempdir().unwrap();
+    let vault = crate::test_dir::tempdir();
     let note = vault.path().join("длинная.md");
     let body: String = (0..400).map(|i| format!("Абзац {i}: плотный текст заметки с длинными предложениями, которые переносятся на несколько строк.\n\n")).collect();
     std::fs::write(&note, body).unwrap();
@@ -307,7 +307,7 @@ fn panel_animation_frames() {
 fn modal_intro_frames() {
     let (w, hh) = bench_size().unwrap_or((W, H));
     let scale: f64 = std::env::var("AQUILUM_BENCH_SCALE").ok().and_then(|s| s.parse().ok()).unwrap_or(1.0);
-    let vault = tempfile::tempdir().unwrap();
+    let vault = crate::test_dir::tempdir();
     let note = vault.path().join("заметка.md");
     let body: String = (0..60).map(|i| format!("Абзац {i}: плотный текст заметки с длинными предложениями, которые переносятся на несколько строк.\n\n")).collect();
     std::fs::write(&note, body).unwrap();
@@ -448,7 +448,7 @@ fn settings_scroll_frames_match_full_frames() {
 fn settings_rebuild_cost() {
     let (w, hh) = bench_size().unwrap_or((W, H));
     let scale: f64 = std::env::var("AQUILUM_BENCH_SCALE").ok().and_then(|s| s.parse().ok()).unwrap_or(1.0);
-    let vault = tempfile::tempdir().unwrap();
+    let vault = crate::test_dir::tempdir();
     let note = vault.path().join("длинная.md");
     let body: String = (0..400).map(|i| format!("Абзац {i}: плотный текст заметки с длинными предложениями, которые переносятся на несколько строк.\n\n")).collect();
     std::fs::write(&note, body).unwrap();

@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn push_step_and_persist() {
-        let data = tempfile::tempdir().unwrap();
+        let data = crate::test_dir::tempdir();
         let root = data.path().join("vault");
         let a = root.join("a.md");
         let b = root.join("b.md");

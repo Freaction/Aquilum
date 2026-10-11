@@ -88,8 +88,8 @@ fn save(root: &mut RenderRoot, name: &str) {
 #[test]
 fn root_can_be_rebuilt() {
     let _theme = theme::test_lock();
-    let vault = tempfile::tempdir().unwrap();
-    let data = tempfile::tempdir().unwrap();
+    let vault = crate::test_dir::tempdir();
+    let data = crate::test_dir::tempdir();
     std::fs::write(vault.path().join("a.md"), "").unwrap();
     let mut tree = FileTree::new(Some(vault.path().to_path_buf()), data.path());
     let (widget, mut chrome) = super::root(tree.widget(), parts("текст"));
@@ -125,8 +125,8 @@ fn root_can_be_rebuilt() {
 #[test]
 fn rescale_matches_fresh_layout() {
     let _theme = theme::test_lock();
-    let vault = tempfile::tempdir().unwrap();
-    let data = tempfile::tempdir().unwrap();
+    let vault = crate::test_dir::tempdir();
+    let data = crate::test_dir::tempdir();
     for note in ["Aquilum.md", "Уход от Tauri.md"] {
         std::fs::write(vault.path().join(note), "").unwrap();
     }
@@ -166,8 +166,8 @@ fn rescale_matches_fresh_layout() {
 #[ignore = "снимки для просмотра глазами"]
 fn snapshot_tree_menu_dialog() {
     let _theme = theme::test_lock();
-    let vault = tempfile::tempdir().unwrap();
-    let data = tempfile::tempdir().unwrap();
+    let vault = crate::test_dir::tempdir();
+    let data = crate::test_dir::tempdir();
     for dir in ["Проекты", "Архив"] {
         std::fs::create_dir_all(vault.path().join(dir)).unwrap();
     }
@@ -181,14 +181,14 @@ fn snapshot_tree_menu_dialog() {
         root.add_layer(Menu::new("Действия с файлом", &["Переименовать", "Дублировать", "Удалить"]), Point::new(150.0, 120.0));
         save(&mut root, &format!("menu-{suffix}"));
 
-        let long = tempfile::tempdir().unwrap();
+        let long = crate::test_dir::tempdir();
         for i in 0..40 {
             std::fs::write(long.path().join(format!("Заметка {i:02}.md")), "").unwrap();
         }
         let (mut root, _) = shell(long.path(), data.path());
         save(&mut root, &format!("scroll-{suffix}"));
 
-        let empty = tempfile::tempdir().unwrap();
+        let empty = crate::test_dir::tempdir();
         let (mut root, _) = shell(empty.path(), data.path());
         save(&mut root, &format!("empty-{suffix}"));
 
