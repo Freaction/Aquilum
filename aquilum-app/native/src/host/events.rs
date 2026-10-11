@@ -187,6 +187,9 @@ impl ApplicationHandler for Host {
                 self.handle_signals(event_loop);
             }
             WindowEvent::Occluded(occluded) => {
+                if self.args.trace {
+                    eprintln!("окно скрыто: {occluded}");
+                }
                 self.occluded = occluded;
                 if !occluded {
                     self.full_next = true;
