@@ -1,0 +1,136 @@
+# Cross-platform check of the native app: release build (feature installed), a launch with a window
+# and a screenshot, then the test suite. Run by hand before a release; it never touches releases.
+name: Native check
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or commit to check
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+          - platform: macos-latest
+          - platform: ubuntu-22.04
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Linux dependencies
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxkbcommon-dev libfontconfig1-dev librsvg2-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good xvfb imagemagick
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: aquilum-app -> ../.artifacts/cargo-native
+          key: native-check
+
+      - name: Release build
+        working-directory: aquilum-app
+        run: cargo build --release -p aquilum-native --features installed
+
+      - name: Sample vault
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/vault" "$RUNNER_TEMP/data" shots
+          printf '# Проверка\n\nОбычный абзац с **жирным** и *курсивом*.\n\n- пункт\n- [ ] задача\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n```rust\nfn main() {}\n```\n' > "$RUNNER_TEMP/vault/Проверка.md"
+
+      - name: Launch (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vault = "$env:RUNNER_TEMP\vault"
+          $exe = Resolve-Path ".artifacts\cargo-native\release\aquilum-native.exe"
+          $p = Start-Process $exe -ArgumentList "--vault `"$vault`" --data-dir `"$env:RUNNER_TEMP\data`" --open `"$vault\Проверка.md`"" -PassThru
+          Start-Sleep -Seconds 15
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("shots\windows.png")
+          $p.Refresh()
+          if ($p.HasExited) { "exited with code $($p.ExitCode)"; exit 1 }
+          "window handle: $($p.MainWindowHandle)"
+          $ok = $p.MainWindowHandle -ne 0
+          Stop-Process $p -Force
+          if (-not $ok) { exit 1 }
+
+      - name: Launch (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cat > check.swift <<'EOF'
+          import CoreGraphics
+          import Foundation
+          let start = Date()
+          while Date().timeIntervalSince(start) < 20 {
+              let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+              if windows.contains(where: { ($0[kCGWindowOwnerName as String] as? String) == "aquilum-native" && ($0[kCGWindowLayer as String] as? Int) == 0 }) {
+                  print(String(format: "Window visible after %.2f s", Date().timeIntervalSince(start)))
+                  exit(0)
+              }
+              usleep(100_000)
+          }
+          print("Window not visible within 20 s")
+          exit(1)
+          EOF
+          swiftc -O check.swift -o check
+          ./.artifacts/cargo-native/release/aquilum-native --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" &
+          pid=$!
+          status=0
+          ./check || status=$?
+          sleep 3
+          screencapture -x shots/macos.png || true
+          if ! kill -0 $pid 2>/dev/null; then echo "app exited"; status=1; fi
+          kill $pid 2>/dev/null || true
+          exit $status
+
+      - name: Launch (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          export DISPLAY=:99
+          sleep 2
+          ./.artifacts/cargo-native/release/aquilum-native --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" &
+          pid=$!
+          sleep 15
+          import -window root shots/linux.png || true
+          if ! kill -0 $pid 2>/dev/null; then wait $pid; echo "app exited with $?"; exit 1; fi
+          kill $pid
+
+      - name: Crash log
+        if: always()
+        shell: bash
+        run: cp "$RUNNER_TEMP/data/crash.log" shots/ 2>/dev/null || echo "no crash log"
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-check-${{ matrix.platform }}
+          path: shots/
+          retention-days: 7
+
+      - name: Tests
+        if: always()
+        working-directory: aquilum-app
+        run: cargo test -p aquilum-native
+        env:
+          DISPLAY: ':99'
