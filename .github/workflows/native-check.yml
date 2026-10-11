@@ -9,6 +9,18 @@ on:
         description: Branch or commit to check
         required: true
         default: main
+      platforms:
+        description: 'Runners as a JSON list'
+        required: true
+        default: '["windows-latest","macos-latest","ubuntu-22.04"]'
+      tests-only:
+        description: Skip the release build and the window launch
+        type: boolean
+        default: false
+      filter:
+        description: Only tests whose name contains this text (empty = all)
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -18,10 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: windows-latest
-          - platform: macos-latest
-          - platform: ubuntu-22.04
+        platform: ${{ fromJSON(inputs.platforms) }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v7
@@ -43,8 +52,10 @@ jobs:
         with:
           workspaces: aquilum-app -> ../.artifacts/cargo-native
           key: native-check
+          cache-on-failure: true
 
       - name: Release build
+        if: ${{ !inputs.tests-only }}
         working-directory: aquilum-app
         run: cargo build --release -p aquilum-native --features installed
 
@@ -55,7 +66,7 @@ jobs:
           printf '# Проверка\n\nОбычный абзац с **жирным** и *курсивом*.\n\n- пункт\n- [ ] задача\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n```rust\nfn main() {}\n```\n' > "$RUNNER_TEMP/vault/Проверка.md"
 
       - name: Launch (Windows)
-        if: runner.os == 'Windows'
+        if: ${{ runner.os == 'Windows' && !inputs.tests-only }}
         shell: pwsh
         run: |
           $vault = "$env:RUNNER_TEMP\vault"
@@ -75,7 +86,7 @@ jobs:
           if (-not $ok) { exit 1 }
 
       - name: Launch (macOS)
-        if: runner.os == 'macOS'
+        if: ${{ runner.os == 'macOS' && !inputs.tests-only }}
         run: |
           cat > check.swift <<'EOF'
           import CoreGraphics
@@ -104,7 +115,7 @@ jobs:
           exit $status
 
       - name: Launch (Linux)
-        if: runner.os == 'Linux'
+        if: ${{ runner.os == 'Linux' && !inputs.tests-only }}
         run: |
           ldd ./.artifacts/cargo-native/release/aquilum-native | sort | tee shots/ldd.txt
           Xvfb :99 -screen 0 1920x1080x24 &
@@ -133,6 +144,6 @@ jobs:
       - name: Tests
         if: always()
         working-directory: aquilum-app
-        run: cargo test --workspace
+        run: cargo test --workspace -- ${{ inputs.filter }}
         env:
           DISPLAY: ':99'
