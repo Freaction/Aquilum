@@ -7,16 +7,20 @@ on:
       - "**/*.md"
       - "screenshots/**"
       - "scripts/install.sh"
+      - "scripts/install.ps1"
       - "scripts/uninstall.sh"
       - "scripts/test-install-scripts.sh"
+      - "scripts/test-install-windows.ps1"
   pull_request:
     paths:
       - "*.md"
       - "**/*.md"
       - "screenshots/**"
       - "scripts/install.sh"
+      - "scripts/install.ps1"
       - "scripts/uninstall.sh"
       - "scripts/test-install-scripts.sh"
+      - "scripts/test-install-windows.ps1"
 
 permissions:
   contents: read
@@ -42,7 +46,10 @@ jobs:
             git diff --check "$BEFORE_SHA" "$GITHUB_SHA"
           fi
 
-      - name: Check macOS installer scripts
+      - name: Check shell installer scripts
         run: |
           bash -n scripts/install.sh scripts/uninstall.sh scripts/test-install-scripts.sh
           bash scripts/test-install-scripts.sh
+
+      - name: Check Windows installer script
+        run: pwsh -NoProfile -File scripts/test-install-windows.ps1

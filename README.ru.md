@@ -154,10 +154,18 @@ Aquilum предоставляет опциональный локальный M
 ## Установка
 
 1. Откройте [последний релиз](https://github.com/Freaction/Aquilum/releases/latest).
-2. Скачайте `aquilum-app_<версия>_x64-setup.exe`.
+2. Скачайте `Aquilum_<версия>_x64-setup.exe`.
 3. Запустите установщик и выберите новую или уже существующую папку для базы.
 
 Aquilum устанавливается для текущего пользователя и не требует прав администратора. Сейчас установщик не подписан сертификатом подписи кода Windows, поэтому SmartScreen может показать предупреждение. Если файл скачан из этого репозитория, выберите **Подробнее → Выполнить в любом случае**.
+
+Чтобы удалить Aquilum, откройте **Параметры → Приложения → Установленные приложения**, выберите Aquilum и нажмите **Удалить**.
+
+Установить последнюю версию можно также из PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/install.ps1 | iex
+```
 
 ### macOS (Apple Silicon и Intel)
 
@@ -175,9 +183,15 @@ curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/unin
 
 Скрипт удаления убирает `Aquilum.app` из `~/Applications`. Папки баз, Markdown-файлы и настройки приложения остаются нетронутыми.
 
-### Linux (Ubuntu 24, x86_64)
+### Linux (Ubuntu 22.04 или новее, x86_64)
 
-Скачайте пакет `.deb` или AppImage из [последнего релиза](https://github.com/Freaction/Aquilum/releases/latest).
+Скачайте пакет `.deb` или AppImage из [последнего релиза](https://github.com/Freaction/Aquilum/releases/latest) или установите `.deb` из Терминала:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/install.sh | bash
+```
+
+Установщик использует `sudo`. Удалить приложение можно командой `sudo apt remove com.dmitriy.aquilum-app`.
 
 ## Обновления
 
