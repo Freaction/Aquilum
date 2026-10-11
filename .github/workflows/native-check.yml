@@ -106,6 +106,7 @@ jobs:
       - name: Launch (Linux)
         if: runner.os == 'Linux'
         run: |
+          ldd ./.artifacts/cargo-native/release/aquilum-native | sort | tee shots/ldd.txt
           Xvfb :99 -screen 0 1920x1080x24 &
           export DISPLAY=:99
           sleep 2
