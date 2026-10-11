@@ -104,14 +104,18 @@ jobs:
           exit(1)
           EOF
           swiftc -O check.swift -o check
-          ./.artifacts/cargo-native/release/aquilum-native --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" &
+          ./.artifacts/cargo-native/release/aquilum-native --trace --metrics "$PWD/shots/metrics.json" --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" > shots/app.log 2>&1 &
           pid=$!
           status=0
           ./check || status=$?
           sleep 3
-          screencapture -x shots/macos.png || true
+          screencapture -x shots/macos-3s.png || true
+          sleep 8
+          screencapture -x shots/macos-11s.png || true
           if ! kill -0 $pid 2>/dev/null; then echo "app exited"; status=1; fi
           kill $pid 2>/dev/null || true
+          echo "--- app.log"; head -40 shots/app.log || true
+          echo "--- metrics"; cat shots/metrics.json 2>/dev/null || echo "no metrics: no frame was presented"
           exit $status
 
       - name: Launch (Linux)
