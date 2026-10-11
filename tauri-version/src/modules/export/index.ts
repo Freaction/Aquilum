@@ -1,1 +1,0 @@
-export { exportNoteToPdf } from './exportPdf';

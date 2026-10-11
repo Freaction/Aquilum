@@ -1,3 +1,0 @@
-[submodule "aquilum-app/vendor/foliate-js"]
-	path = tauri-version/vendor/foliate-js
-	url = https://github.com/johnfactotum/foliate-js.git

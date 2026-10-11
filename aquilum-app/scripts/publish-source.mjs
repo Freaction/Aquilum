@@ -6,15 +6,14 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const publicRoot = join(repoRoot, 'release-repo-update');
-const PUBLISHED_PATHS = ['aquilum-app', 'tauri-version', 'LICENSE', '.gitattributes', '.gitignore', '.gitmodules'];
-const SNAPSHOT_OWNED_PATHS = [...PUBLISHED_PATHS, 'DEVELOPMENT.md'];
-const SUBMODULE_PATH = 'tauri-version/vendor/foliate-js';
+const PUBLISHED_PATHS = ['aquilum-app', 'LICENSE', '.gitattributes', '.gitignore'];
+const WITHHELD_PATHS = ['aquilum-app/native/scripts/reader-golden'];
+const REMOVED_PATHS = ['tauri-version', '.gitmodules'];
+const SNAPSHOT_OWNED_PATHS = [...PUBLISHED_PATHS, ...REMOVED_PATHS, 'DEVELOPMENT.md'];
 const NOTE_DIRECTORIES = ['knowledge base/', 'research_notes/', 'reports/', '.aquilum/'];
 const PUBLISHED_MARKDOWN = [
   'aquilum-app/README.md',
   'aquilum-app/native/assets/fonts/LICENSE-iA-Writer.md',
-  'tauri-version/README.md',
-  'tauri-version/src/fonts/LICENSE-iA-Writer.md',
 ];
 const VENDORED = 'aquilum-app/native/vendor/';
 const PUBLIC_ONLY_MARKDOWN = ['README.md', 'README.ru.md', 'DEVELOPMENT.md'];
@@ -64,7 +63,7 @@ function preparePublicCopy() {
 
 function extractSnapshot() {
   for (const path of SNAPSHOT_OWNED_PATHS) rmSync(join(publicRoot, path), { recursive: true, force: true });
-  const archive = execFileSync('git', ['archive', 'HEAD', '--', ...PUBLISHED_PATHS], {
+  const archive = execFileSync('git', ['archive', 'HEAD', '--', ...PUBLISHED_PATHS, ...WITHHELD_PATHS.map((path) => `:(exclude)${path}`)], {
     cwd: repoRoot,
     maxBuffer: 512 * 1024 * 1024,
   });
@@ -74,9 +73,7 @@ function extractSnapshot() {
 
 function stageSnapshot() {
   git(publicRoot, ['add', '-A']);
-  const [mode, , sha] = git(repoRoot, ['ls-tree', 'HEAD', SUBMODULE_PATH]).split(/\s+/);
-  if (mode !== '160000') throw new Error(`${SUBMODULE_PATH} is not a submodule in HEAD`);
-  git(publicRoot, ['update-index', '--add', '--cacheinfo', `160000,${sha},${SUBMODULE_PATH}`]);
+  git(publicRoot, ['rm', '-r', '--cached', '--ignore-unmatch', '--quiet', ...REMOVED_PATHS]);
 }
 
 function discardSnapshot() {

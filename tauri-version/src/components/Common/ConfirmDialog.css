@@ -1,6 +1,0 @@
-.q-confirm-dialog {
-  width: min(100%, var(--q-confirm-dialog-width));
-}
-
-.q-confirm-dialog__content { padding: var(--q-space-24); }
-.q-confirm-dialog__content p { margin: 0; color: var(--q-text-secondary); font-size: var(--q-font-size-ui-base); line-height: var(--q-size-20); }
