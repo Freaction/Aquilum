@@ -60,4 +60,3 @@ impl App {
         scroll.edit(root, |mut area| crate::ui::scroll::ScrollArea::set_offset(&mut area, target));
     }
 }
-

@@ -139,4 +139,3 @@ impl Widget for Chip {
         ChildrenIds::new()
     }
 }
-

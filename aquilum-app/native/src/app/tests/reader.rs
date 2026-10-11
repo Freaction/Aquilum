@@ -21,7 +21,7 @@ fn reader_turns_pages_and_saves_position() {
     let page = vault.join("📖 Книга.md");
     std::fs::write(&page, "---
 Путь к файлу: Files/книга.fb2
-pages: 
+pages:
 ---
 ").unwrap();
     h.app.open_reader(&mut h.root, crate::app::reader::Opening { file: file.clone(), page: Some(page.clone()), title: "Книга".into(), initial: None, peek: false });
@@ -152,7 +152,7 @@ fn reader_quotes_round_trip() {
     let page = vault.join("📖 Книга.md");
     std::fs::write(&page, "---
 Путь к файлу: Files/книга.fb2
-pages: 
+pages:
 ---
 Заметки о книге").unwrap();
     h.app.open(&mut h.root, page.clone());
