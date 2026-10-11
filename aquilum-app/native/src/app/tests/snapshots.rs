@@ -75,7 +75,7 @@ fn main() {
     h.key(Key::Named(NamedKey::ArrowDown), Modifiers::empty());
     h.key(Key::Named(NamedKey::End), Modifiers::empty());
     shot(&mut h, "markdown-caret.png");
-    h.key(Key::Named(NamedKey::End), Modifiers::CONTROL);
+    h.key(Key::Named(NamedKey::End), crate::test_dir::command());
     shot(&mut h, "markdown-end.png");
 }
 

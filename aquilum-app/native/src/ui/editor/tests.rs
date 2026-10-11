@@ -91,7 +91,7 @@ fn typing_and_enter_build_paragraphs() {
 #[test]
 fn backspace_at_paragraph_start_joins_paragraphs() {
     let mut root = root("один\nдва");
-    press(&mut root, Key::Named(NamedKey::End), Modifiers::CONTROL);
+    press(&mut root, Key::Named(NamedKey::End), crate::test_dir::command());
     for _ in 0..3 {
         named(&mut root, NamedKey::ArrowLeft);
     }
@@ -127,9 +127,9 @@ fn selection_is_replaced_by_typing() {
     }
     typing(&mut root, "there");
     assert_eq!(text(&root), "hello there");
-    press(&mut root, Key::Named(NamedKey::Backspace), Modifiers::CONTROL);
+    press(&mut root, Key::Named(NamedKey::Backspace), crate::test_dir::command());
     assert_eq!(text(&root), "hello ");
-    press(&mut root, Key::Character("a".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("a".into()), crate::test_dir::command());
     named(&mut root, NamedKey::Delete);
     assert_eq!(text(&root), "");
 }
@@ -153,7 +153,7 @@ fn paste_and_ime_insert_text() {
 fn edit_relayouts_only_its_paragraph() {
     let body: String = (0..2000).map(|i| format!("Абзац {i}: текст заметки, который переносится на несколько строк в колонке редактора.\n")).collect();
     let mut root = root(&body);
-    press(&mut root, Key::Named(NamedKey::End), Modifiers::CONTROL);
+    press(&mut root, Key::Named(NamedKey::End), crate::test_dir::command());
     let started = std::time::Instant::now();
     typing(&mut root, "abcdefghij");
     let per_key = started.elapsed() / 10;
@@ -230,16 +230,16 @@ fn undo_and_redo_group_typing_and_deleting() {
     named(&mut root, NamedKey::Backspace);
     named(&mut root, NamedKey::Backspace);
     assert_eq!(text(&root), "привет м");
-    press(&mut root, Key::Character("z".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("z".into()), crate::test_dir::command());
     assert_eq!(text(&root), "привет мир");
-    press(&mut root, Key::Character("z".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("z".into()), crate::test_dir::command());
     assert_eq!(text(&root), "");
-    press(&mut root, Key::Character("y".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("y".into()), crate::test_dir::command());
     assert_eq!(text(&root), "привет мир");
-    press(&mut root, Key::Character("z".into()), Modifiers::CONTROL | Modifiers::SHIFT);
+    press(&mut root, Key::Character("z".into()), crate::test_dir::command() | Modifiers::SHIFT);
     assert_eq!(text(&root), "привет м");
     typing(&mut root, "!");
-    press(&mut root, Key::Character("y".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("y".into()), crate::test_dir::command());
     assert_eq!(text(&root), "привет м!");
 }
 
@@ -263,8 +263,8 @@ fn table_cells_are_edited_in_place() {
     named(&mut root, NamedKey::Escape);
     typing(&mut root, "!");
     assert!(text(&root).ends_with("!после"), "{}", text(&root));
-    press(&mut root, Key::Character("z".into()), Modifiers::CONTROL);
-    press(&mut root, Key::Character("z".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("z".into()), crate::test_dir::command());
+    press(&mut root, Key::Character("z".into()), crate::test_dir::command());
     assert!(!text(&root).contains('Q'), "{}", text(&root));
 }
 
@@ -374,10 +374,10 @@ fn tab_indents_and_shift_tab_outdents_lines() {
     assert_eq!(text(&root), "- один\n\t- два!\nтекст");
     press(&mut root, Key::Named(NamedKey::Tab), Modifiers::SHIFT);
     assert_eq!(text(&root), "- один\n- два!\nтекст");
-    press(&mut root, Key::Character("a".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("a".into()), crate::test_dir::command());
     named(&mut root, NamedKey::Tab);
     assert_eq!(text(&root), "\t- один\n\t- два!\n\tтекст");
-    press(&mut root, Key::Character("z".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("z".into()), crate::test_dir::command());
     assert_eq!(text(&root), "- один\n- два!\nтекст");
 }
 
@@ -455,7 +455,7 @@ fn pasted_url_becomes_titled_link() {
     let id = root.get_widget_with_tag(TAG).expect("редактор").id();
     root.focus_on(Some(id));
     let _ = root.redraw();
-    press(&mut root, Key::Character("a".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("a".into()), crate::test_dir::command());
     root.handle_text_event(TextEvent::ClipboardPaste("https://example.com".into()));
     let _ = root.redraw();
     assert_eq!(text(&root), r"[a\_b](https://example.com)");
@@ -492,8 +492,8 @@ fn ordered_lists_renumber_in_one_undo_step() {
     named(&mut root, NamedKey::Enter);
     typing(&mut root, "x");
     assert_eq!(text(&root), "1. a\n2. b\n3. x\n4. c");
-    press(&mut root, Key::Character("z".into()), Modifiers::CONTROL);
-    press(&mut root, Key::Character("z".into()), Modifiers::CONTROL);
+    press(&mut root, Key::Character("z".into()), crate::test_dir::command());
+    press(&mut root, Key::Character("z".into()), crate::test_dir::command());
     assert_eq!(text(&root), "1. a\n2. b\n3. c");
 }
 

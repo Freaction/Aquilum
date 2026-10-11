@@ -126,7 +126,7 @@ fn primary_color_typed_into_field() {
     }
     .expect("поле основного цвета");
     h.root.focus_on(Some(field));
-    h.key(Key::Character("a".into()), Modifiers::CONTROL);
+    h.key(Key::Character("a".into()), crate::test_dir::command());
     for ch in "#e05a2b".chars() {
         h.key(Key::Character(ch.to_string().into()), Modifiers::empty());
     }
@@ -180,7 +180,7 @@ fn ctrl_shift_click_opens_note_in_new_tab_and_tabs_reorder_by_drag() {
     h.app.tree.paths_changed(&mut h.root, &[vault.join("b.md")]);
     h.click(120.0, 65.0);
     assert_eq!(h.tab_paths(), [Some("a".to_owned())]);
-    h.click_with(120.0, 99.0, Modifiers::CONTROL | Modifiers::SHIFT);
+    h.click_with(120.0, 99.0, crate::test_dir::command() | Modifiers::SHIFT);
     assert_eq!(h.tab_paths(), [Some("a".to_owned()), Some("b".to_owned())]);
     assert_eq!(h.app.tabs.active().path.as_deref(), Some(vault.join("b.md").as_path()));
 

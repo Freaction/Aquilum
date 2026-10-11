@@ -166,7 +166,7 @@ fn typing_cost() {
     let _ = h.root.redraw();
     h.root.focus_on(h.app.editor_id());
     let _ = h.root.redraw();
-    h.key(Key::Named(NamedKey::End), Modifiers::CONTROL);
+    h.key(Key::Named(NamedKey::End), crate::test_dir::command());
     let before = h.app.editor_text.len();
     let mut renderer = crate::render::Renderer::new(4);
     let (w, hh) = ((f64::from(W) * 1.75) as u16, (f64::from(H) * 1.75) as u16);

@@ -89,7 +89,7 @@ fn reader_settings_inputs_keep_popover_open() {
     h.click(field.center().x, field.center().y);
     let _ = h.root.redraw();
     assert!(open(&h), "щелчок в поле закрыл настройки");
-    h.key(Key::Character("a".into()), Modifiers::CONTROL);
+    h.key(Key::Character("a".into()), crate::test_dir::command());
     for ch in ["2", "0"] {
         h.key(Key::Character(ch.into()), Modifiers::empty());
     }
