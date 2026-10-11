@@ -183,6 +183,15 @@ impl Harness {
         }
     }
 
+    pub(super) fn choose(&mut self, index: usize) -> Outcome {
+        let Some(Popup::Settings { menu: Some(menu), .. }) = &self.app.popup else { panic!("список выбора не открыт") };
+        let layer = menu.layer;
+        let action = masonry::core::ErasedAction::from(Box::new(crate::ui::menu::MenuChoice::Item(index)));
+        let outcome = self.app.on_action(&mut self.root, layer, action, Size::new(f64::from(W), f64::from(H)));
+        let _ = self.root.redraw();
+        outcome
+    }
+
     pub(super) fn menu_open(&self) -> bool {
         matches!(&self.app.popup, Some(Popup::Settings { menu: Some(_), .. }))
     }

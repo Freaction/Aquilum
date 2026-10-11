@@ -18,7 +18,7 @@ fn settings_dialog_applies_changes() {
     assert_eq!(h.section(), Some(Section::History));
     h.click(816.0, 173.0);
     assert!(h.menu_open());
-    h.click(816.0, 240.0);
+    h.choose(1);
     assert!(!h.menu_open());
     assert_eq!(h.config().history.retention_days, 30);
 
