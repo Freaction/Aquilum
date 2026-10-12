@@ -84,10 +84,12 @@ jobs:
           $installed = (Get-ItemProperty "$uninstall\Aquilum").DisplayVersion
           "installed before update: $installed"
           if ($installed -ne '0.2.6') { throw "0.2.6 is not installed" }
+          Add-Content -Path "$env:SystemRoot\System32\drivers\etc\hosts" -Value "127.0.0.1 github.com`n127.0.0.1 api.github.com`n127.0.0.1 objects.githubusercontent.com"
           Start-Process "$dir\aquilum-app.exe" | Out-Null
           Start-Sleep -Seconds 10
 
           $setup = Get-ChildItem dist\*-setup.exe | Select-Object -First 1
+          "installer: $($setup.Name) product version $((Get-Item $setup.FullName).VersionInfo.ProductVersion)"
           (Start-Process $setup.FullName -ArgumentList '/S', '/R', '/UPDATE', '/ARGS' -PassThru).WaitForExit()
           $installed = (Get-ItemProperty "$uninstall\Aquilum").DisplayVersion
           "installed after update: $installed"
