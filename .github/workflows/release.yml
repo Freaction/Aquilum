@@ -408,7 +408,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y minisign
           version=$(grep -m1 '^version' aquilum-app/native/Cargo.toml | cut -d'"' -f2)
-          key=$(grep -o 'PUBLIC_KEY: &str = "[^"]*"' aquilum-app/native/src/updater.rs | cut -d'"' -f2)
+          key=$(grep -rho 'PUBLIC_KEY: &str = "[^"]*"' aquilum-app/native/src | head -n 1 | cut -d'"' -f2)
           echo "$key" | base64 -d > aquilum.pub
           cd dist
           ls -la
