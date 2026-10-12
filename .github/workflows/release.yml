@@ -21,6 +21,7 @@ env:
 jobs:
   windows:
     runs-on: windows-latest
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v7
         with:
@@ -59,6 +60,7 @@ jobs:
           Get-ChildItem $dist
 
       - name: Update over 0.2.6, launch, close, uninstall
+        timeout-minutes: 10
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -78,7 +80,7 @@ jobs:
           $data = "$env:APPDATA\com.dmitriy.aquilum-app"
 
           gh release download v0.2.6 -R Freaction/Aquilum -p 'Aquilum_0.2.6_x64-setup.exe' -D old
-          Start-Process old\Aquilum_0.2.6_x64-setup.exe -ArgumentList '/S' -Wait
+          (Start-Process old\Aquilum_0.2.6_x64-setup.exe -ArgumentList '/S' -PassThru).WaitForExit()
           $installed = (Get-ItemProperty "$uninstall\Aquilum").DisplayVersion
           "installed before update: $installed"
           if ($installed -ne '0.2.6') { throw "0.2.6 is not installed" }
@@ -86,7 +88,7 @@ jobs:
           Start-Sleep -Seconds 10
 
           $setup = Get-ChildItem dist\*-setup.exe | Select-Object -First 1
-          Start-Process $setup.FullName -ArgumentList '/S', '/R', '/UPDATE', '/ARGS' -Wait
+          (Start-Process $setup.FullName -ArgumentList '/S', '/R', '/UPDATE', '/ARGS' -PassThru).WaitForExit()
           $installed = (Get-ItemProperty "$uninstall\Aquilum").DisplayVersion
           "installed after update: $installed"
           if ($installed -ne $version) { throw "expected $version" }
@@ -109,8 +111,8 @@ jobs:
           if (-not (Test-Path "$data\window-state.json")) { throw "window state was not saved on close" }
           "window state saved on close"
 
-          Start-Process "$dir\uninstall.exe" -ArgumentList '/S' -Wait
-          for ($i = 0; $i -lt 30 -and (Test-Path "$dir\aquilum-app.exe"); $i++) { Start-Sleep -Seconds 1 }
+          (Start-Process "$dir\uninstall.exe" -ArgumentList '/S' -PassThru).WaitForExit()
+          for ($i = 0; $i -lt 60 -and ((Test-Path "$dir\aquilum-app.exe") -or (Test-Path "$uninstall\Aquilum")); $i++) { Start-Sleep -Seconds 1 }
           if (Test-Path "$dir\aquilum-app.exe") { throw "uninstall left the app" }
           if (-not (Test-Path $data)) { throw "uninstall removed the app data" }
           if (Test-Path "$uninstall\Aquilum") { throw "uninstall left the registry entry" }
@@ -140,6 +142,7 @@ jobs:
           - target: x86_64-apple-darwin
             arch: x64
     runs-on: macos-latest
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v7
         with:
@@ -179,6 +182,7 @@ jobs:
           ls -la
 
       - name: Install from DMG, launch, quit with Cmd+Q
+        timeout-minutes: 10
         run: |
           mkdir -p shots
           if [ "${{ matrix.arch }}" = x64 ] && ! arch -x86_64 /usr/bin/true 2>/dev/null; then
@@ -240,6 +244,7 @@ jobs:
 
   linux:
     runs-on: ubuntu-22.04
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v7
         with:
@@ -305,6 +310,7 @@ jobs:
           dpkg-deb -c "$dist/Aquilum_${version}_amd64.deb"
 
       - name: AppImage under a window manager
+        timeout-minutes: 10
         run: |
           mkdir -p shots "$RUNNER_TEMP/vault" "$RUNNER_TEMP/data"
           printf '# Проверка\n\nОбычный абзац с **жирным** и *курсивом*.\n' > "$RUNNER_TEMP/vault/Проверка.md"
@@ -329,6 +335,7 @@ jobs:
           echo "window state saved on close"
 
       - name: deb and rpm on clean distributions
+        timeout-minutes: 25
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -382,6 +389,7 @@ jobs:
   manifest:
     needs: [windows, macos, linux]
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:

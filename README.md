@@ -154,7 +154,7 @@ Aquilum exposes an optional local MCP server. Compatible AI tools can search and
 ## Installation
 
 1. Open the [latest release](https://github.com/Freaction/Aquilum/releases/latest).
-2. Download `aquilum-app_<version>_x64-setup.exe`.
+2. Download `Aquilum_<version>_x64-setup.exe`.
 3. Run the installer and choose a new or existing folder for your vault.
 
 Aquilum installs for the current user and does not require administrator rights. The installer is not currently signed with a Windows code-signing certificate, so SmartScreen may show a warning. Choose **More info → Run anyway** if you downloaded it from this repository.
@@ -175,13 +175,17 @@ curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/unin
 
 The uninstall script removes `Aquilum.app` from `~/Applications`. Vault folders, Markdown files, and app settings remain untouched.
 
-### Linux (Ubuntu 24, x86_64)
+### Linux (x86_64)
 
-Download the `.deb` package or AppImage from the [latest release](https://github.com/Freaction/Aquilum/releases/latest).
+Download from the [latest release](https://github.com/Freaction/Aquilum/releases/latest):
+
+- `.deb` for Ubuntu 22.04 or later and Debian-based distributions: `sudo apt install ./Aquilum_<version>_amd64.deb`;
+- `.rpm` for Fedora and other RPM-based distributions: `sudo dnf install ./Aquilum-<version>-1.x86_64.rpm`;
+- AppImage for any distribution: make it executable and run it.
 
 ## Updates
 
-Aquilum checks this public repository for updates at launch. When a newer version is available, it can download it, show progress, verify the signed update package, install it, and restart. Without a network connection, the app starts normally and your local vault remains available.
+Aquilum checks this public repository for updates at launch. When a newer version is available, it can download it, show progress, verify the signed update package, install it, and restart. On Linux the app updates itself only when it runs as an AppImage; `.deb` and `.rpm` installations are updated by installing the new package. Without a network connection, the app starts normally and your local vault remains available.
 
 ## Requirements
 
