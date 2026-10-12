@@ -5,7 +5,7 @@
 <h1 align="center">Aquilum</h1>
 
 <p align="center">
-  A fast, local-first knowledge base for Windows.<br>
+  A fast, local-first knowledge base for Windows, macOS and Linux.<br>
   Plain Markdown on your disk, with a focused editor, instant search, links, queries, and a built-in book reader.
 </p>
 
@@ -51,7 +51,7 @@ The graph is part of the same navigation system as backlinks, outgoing links, an
 
 ### 4. Write with live Markdown preview
 
-The CodeMirror editor renders headings, emphasis, links, lists, callouts, code, and embedded content close to their final appearance while you write. Markdown markers are hidden only where that improves readability and reappear when the caret enters the corresponding construct, so the source never becomes inaccessible. A document outline provides quick navigation through long notes, while link completion helps connect the current paragraph to existing material.
+The editor renders headings, emphasis, links, lists, callouts, code, and embedded content close to their final appearance while you write. Markdown markers are hidden only where that improves readability and reappear when the caret enters the corresponding construct, so the source never becomes inaccessible. A document outline provides quick navigation through long notes, while link completion helps connect the current paragraph to existing material.
 
 The result remains portable Markdown on disk. Nested lists, both numbered-list styles, empty list items, tasks, fenced blocks, frontmatter, and wiki links are preserved as text rather than converted into a private document format. Page covers and book callouts add richer presentation without changing that ownership model.
 
@@ -121,7 +121,7 @@ Trash is one layer of a broader recovery model. Note history handles edits insid
 
 ### Writing and organization
 
-- CodeMirror-based editor with live Markdown preview and document outline.
+- Native editor with live Markdown preview and document outline.
 - Reorderable tabs, restored workspace sessions, and back and forward navigation.
 - A file tree for creating folders, renaming, moving, duplicating, and safely deleting notes.
 - YAML frontmatter presented as editable fields, plus quick insertion of a metadata starter block.
@@ -186,9 +186,10 @@ Aquilum checks this public repository for updates at launch. When a newer versio
 ## Requirements
 
 - Windows 10 or Windows 11, 64-bit.
-- Microsoft Edge WebView2. It is normally present on Windows; the installer can obtain it when needed.
-- macOS on Apple Silicon (arm64) or Intel (x86_64).
-- Ubuntu 22.04 or later, x86_64.
+- macOS 12 or later on Apple Silicon (arm64) or Intel (x86_64).
+- Ubuntu 22.04 or later, x86_64, with the GStreamer 1.0 libraries (used for video; present on most desktop installs).
+
+Aquilum does not use a WebView or a browser engine, so Microsoft Edge WebView2 (Windows) and WebKitGTK (Linux) are not required.
 
 ## Privacy and data locations
 

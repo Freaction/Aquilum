@@ -113,6 +113,16 @@ jobs:
           sleep 8
           screencapture -x shots/macos-11s.png || true
           if ! kill -0 $pid 2>/dev/null; then echo "app exited"; status=1; fi
+          rm -f "$RUNNER_TEMP/data/window-state.json"
+          osascript -e 'tell application "System Events" to set frontmost of first process whose name is "aquilum-native" to true' -e 'tell application "System Events" to keystroke "q" using command down' || echo "keystroke is not permitted on this runner"
+          for i in $(seq 1 20); do kill -0 $pid 2>/dev/null || break; sleep 0.5; done
+          if kill -0 $pid 2>/dev/null; then
+            echo "still running after Cmd+Q"
+          elif [ -f "$RUNNER_TEMP/data/window-state.json" ]; then
+            echo "window state saved on Cmd+Q"
+          else
+            echo "window state not saved on Cmd+Q"; status=1
+          fi
           kill $pid 2>/dev/null || true
           echo "--- app.log"; head -40 shots/app.log || true
           echo "--- metrics"; cat shots/metrics.json 2>/dev/null || echo "no metrics: no frame was presented"
