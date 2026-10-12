@@ -206,11 +206,12 @@ impl Host {
     }
 
     fn show_title(&self) {
+        let Some(window) = self.window.as_deref() else { return };
         let title = match self.metrics.summary() {
             Some(summary) => format!("{} · {summary}", self.app.title()),
             None => self.app.title(),
         };
-        self.window().set_title(&title);
+        window.set_title(&title);
     }
 
     fn touchpad_scroll(&mut self, event_loop: &dyn ActiveEventLoop, vblank: Instant) {

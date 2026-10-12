@@ -62,7 +62,7 @@ impl ApplicationHandler for Host {
             root.focus_on(self.app.editor_id());
         }
         self.root = Some(root);
-        self.handle_signals(event_loop);
+        self.proxy_wake_up(event_loop);
         self.redraw();
         if self.output.is_none() {
             self.shown = true;
@@ -71,6 +71,9 @@ impl ApplicationHandler for Host {
     }
 
     fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
+        if self.window.is_none() {
+            return;
+        }
         let _zone = aq_trace::zone("пробуждение");
         let mut retitle = false;
         if let Some(root) = &mut self.root {
@@ -161,8 +164,9 @@ impl ApplicationHandler for Host {
         if self.args.trace {
             eprintln!("{:>8.1} мс  {event:?}", self.started.elapsed().as_secs_f64() * 1000.0);
         }
-        if let (Some(accessibility), Some(window)) = (self.accessibility.as_mut(), self.window.as_deref()) {
-            accessibility.window_event(window, &event);
+        let Some(window) = self.window.clone() else { return };
+        if let Some(accessibility) = self.accessibility.as_mut() {
+            accessibility.window_event(&*window, &event);
         }
         match event {
             WindowEvent::CloseRequested => {
@@ -196,9 +200,9 @@ impl ApplicationHandler for Host {
                     self.request_redraw();
                 }
             }
-            WindowEvent::SurfaceResized(_) if self.window().is_minimized() == Some(true) => {}
+            WindowEvent::SurfaceResized(_) if window.is_minimized() == Some(true) => {}
             WindowEvent::SurfaceResized(size) => {
-                let maximized = self.window().is_maximized();
+                let maximized = window.is_maximized();
                 let logical = self.logical_size();
                 if let Some(root) = &mut self.root {
                     self.app.set_maximized(root, maximized);
@@ -260,7 +264,7 @@ impl ApplicationHandler for Host {
                     && button.clone().mouse_button() == Some(MouseButton::Left)
                     && let Some(edge) = self.resize_edge
                 {
-                    let _ = self.window().drag_resize_window(edge);
+                    let _ = window.drag_resize_window(edge);
                     return;
                 }
                 self.pointer.position = position;

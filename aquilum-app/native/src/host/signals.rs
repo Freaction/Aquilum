@@ -2,6 +2,7 @@ use super::*;
 
 impl Host {
     pub(super) fn handle_signals(&mut self, event_loop: &dyn ActiveEventLoop) {
+        let Some(window) = self.window.clone() else { return };
         let signals = std::mem::take(&mut *self.signals.borrow_mut());
         let mut actions = Vec::new();
         for signal in signals {
@@ -9,7 +10,6 @@ impl Host {
                 self.request_redraw();
                 continue;
             }
-            let window = self.window.as_deref().expect("окно создано");
             match signal {
                 RenderRootSignal::RequestAnimFrame => {
                     self.anim_pending = true;
@@ -78,10 +78,10 @@ impl Host {
         let mut title_changed = false;
         let mut rescale = false;
         let mut commands = Vec::new();
-        let window = self.logical_size();
+        let size = self.logical_size();
         if let Some(root) = &mut self.root {
             for (action, id) in actions {
-                let outcome = self.app.on_action(root, id, action, window);
+                let outcome = self.app.on_action(root, id, action, size);
                 title_changed |= outcome.title;
                 rescale |= outcome.rescale;
                 commands.extend(outcome.window);
@@ -91,7 +91,6 @@ impl Host {
             self.rescale();
         }
         for command in commands {
-            let window = self.window();
             match command {
                 WindowCommand::Drag => {
                     let _ = window.drag_window();
