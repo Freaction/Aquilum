@@ -4,7 +4,7 @@ impl ApplicationHandler for Host {
     fn can_create_surfaces(&mut self, event_loop: &dyn ActiveEventLoop) {
         let attributes = WindowAttributes::default()
             .with_title("Aquilum")
-            .with_decorations(false)
+            .with_decorations(NATIVE_FRAME)
             .with_visible(false)
             .with_window_icon(window_icon());
         #[cfg(target_os = "windows")]

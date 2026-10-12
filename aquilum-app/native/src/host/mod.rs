@@ -95,6 +95,7 @@ struct Host {
 }
 
 const RESIZE_BORDER: f64 = 6.0;
+const NATIVE_FRAME: bool = cfg!(target_os = "macos");
 
 pub fn run(args: Args) -> Result<(), String> {
     #[cfg(not(feature = "installed"))]

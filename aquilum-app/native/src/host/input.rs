@@ -15,7 +15,7 @@ fn latin(code: Code) -> Option<char> {
 impl Host {
     pub(super) fn update_resize_edge(&mut self, position: winit::dpi::PhysicalPosition<f64>) {
         let window = self.window();
-        let edge = if window.is_maximized() {
+        let edge = if NATIVE_FRAME || window.is_maximized() {
             None
         } else {
             let size = window.surface_size();

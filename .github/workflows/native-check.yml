@@ -44,7 +44,7 @@ jobs:
           sudo apt-get remove -y $(dpkg-query -W -f='${Package}\n' 'libunwind-*-dev' 2>/dev/null) || true
           sudo apt-get install -y libunwind-dev libgtk-3-dev libxkbcommon-dev libxkbcommon-x11-0 libfontconfig1-dev librsvg2-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good xvfb imagemagick
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good xvfb imagemagick openbox wmctrl
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -116,21 +116,37 @@ jobs:
           kill $pid 2>/dev/null || true
           echo "--- app.log"; head -40 shots/app.log || true
           echo "--- metrics"; cat shots/metrics.json 2>/dev/null || echo "no metrics: no frame was presented"
+          moved=$(grep -c 'Moved(' shots/app.log || true)
+          echo "window Moved events: $moved"
+          if [ "$moved" -gt 20 ]; then echo "window keeps moving"; status=1; fi
           exit $status
 
       - name: Launch (Linux)
         if: ${{ runner.os == 'Linux' && !inputs.tests-only }}
         run: |
           ldd ./.artifacts/cargo-native/release/aquilum-native | sort | tee shots/ldd.txt
-          Xvfb :99 -screen 0 1920x1080x24 &
+          Xvfb :99 -screen 0 1366x768x24 &
           export DISPLAY=:99
           sleep 2
-          ./.artifacts/cargo-native/release/aquilum-native --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" &
+          openbox &
+          sleep 2
+          ./.artifacts/cargo-native/release/aquilum-native --trace --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" > shots/app.log 2>&1 &
           pid=$!
-          sleep 15
+          sleep 12
           import -window root shots/linux.png || true
-          if ! kill -0 $pid 2>/dev/null; then wait $pid; echo "app exited with $?"; exit 1; fi
-          kill $pid
+          status=0
+          if ! kill -0 $pid 2>/dev/null; then echo "app exited"; status=1; fi
+          wmctrl -lG | tee shots/wmctrl.txt
+          wmctrl -i -r "$(wmctrl -l | awk 'NR==1{print $1}')" -b add,maximized_vert,maximized_horz || true
+          sleep 3
+          import -window root shots/linux-maximized.png || true
+          wmctrl -lG | tee -a shots/wmctrl.txt
+          kill $pid 2>/dev/null || true
+          echo "--- app.log"; grep -E 'SurfaceResized|Moved' shots/app.log | tail -10 || true
+          widest=$(grep -o 'SurfaceResized(PhysicalSize { width: [0-9]*' shots/app.log | grep -oE '[0-9]+$' | sort -n | tail -1)
+          echo "widest surface: ${widest:-none}"
+          if [ "${widest:-0}" -le 1000 ]; then echo "window did not stretch to the screen"; status=1; fi
+          exit $status
 
       - name: Crash log
         if: always()
