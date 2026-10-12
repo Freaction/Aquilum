@@ -1,77 +1,444 @@
-# Release builds for Windows, macOS and Linux.
-# Pushing a tag v* builds every platform into a draft release with latest.json for the updater.
-# The draft is published by hand once all jobs are green, so the updater never sees a partial release.
+# Release packages for Windows, macOS and Linux: cargo-packager (NSIS, .app, DMG, AppImage) and nfpm (deb, rpm).
+# Run by hand. Every package is installed and launched on a clean machine before it is uploaded as an artifact;
+# the GitHub release is created from these artifacts by hand, so the updater never sees an unchecked build.
 name: Release
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or commit to package
+        required: true
+        default: main
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  CARGO_PACKAGER_VERSION: 0.11.8
+  NFPM_VERSION: 2.47.0
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-            args: ''
-          - platform: macos-latest
-            args: '--target aarch64-apple-darwin'
-            rust-targets: aarch64-apple-darwin
-          - platform: macos-latest
-            args: '--target x86_64-apple-darwin'
-            rust-targets: x86_64-apple-darwin
-          - platform: ubuntu-22.04
-            args: ''
-    runs-on: ${{ matrix.platform }}
+  windows:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          submodules: recursive
-
-      - name: Linux dependencies
-        if: startsWith(matrix.platform, 'ubuntu')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libxkbcommon-dev libfontconfig1-dev librsvg2-dev patchelf \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: aquilum-app/package-lock.json
+          ref: ${{ inputs.ref }}
 
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-targets }}
 
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: aquilum-app -> ../.artifacts/cargo-native
-          key: ${{ matrix.args }}
+          key: release
+          cache-on-failure: true
 
-      - name: Install frontend dependencies
+      - name: cargo-packager
+        run: cargo install cargo-packager --version ${{ env.CARGO_PACKAGER_VERSION }} --locked
+
+      - name: Build
         working-directory: aquilum-app
-        run: npm ci
+        run: cargo build --release -p aquilum-native --features installed
 
-      - uses: tauri-apps/tauri-action@action-v0.6.2
+      - name: Package
+        shell: pwsh
+        working-directory: aquilum-app
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $release = "..\.artifacts\cargo-native\release"
+          $dist = "$env:GITHUB_WORKSPACE\dist"
+          Copy-Item "$release\aquilum-native.exe" "$release\aquilum-app.exe" -Force
+          cargo packager -p aquilum-native --release --formats nsis --out-dir $dist
+          $setup = Get-ChildItem "$dist\*-setup.exe" | Select-Object -First 1
+          $name = $setup.Name -replace '^aquilum-app_', 'Aquilum_'
+          Move-Item $setup.FullName "$dist\$name"
+          Move-Item "$($setup.FullName).sig" "$dist\$name.sig"
+          Get-ChildItem $dist
+
+      - name: Update over 0.2.6, launch, close, uninstall
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force shots | Out-Null
+          function Shot($name) {
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save("shots\$name.png")
+          }
+          $version = (cargo metadata --no-deps --format-version 1 --manifest-path aquilum-app\Cargo.toml | ConvertFrom-Json).packages | Where-Object name -eq 'aquilum-native' | ForEach-Object version
+          $dir = "$env:LOCALAPPDATA\Aquilum"
+          $uninstall = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
+          $data = "$env:APPDATA\com.dmitriy.aquilum-app"
+
+          gh release download v0.2.6 -R Freaction/Aquilum -p 'Aquilum_0.2.6_x64-setup.exe' -D old
+          Start-Process old\Aquilum_0.2.6_x64-setup.exe -ArgumentList '/S' -Wait
+          $installed = (Get-ItemProperty "$uninstall\Aquilum").DisplayVersion
+          "installed before update: $installed"
+          if ($installed -ne '0.2.6') { throw "0.2.6 is not installed" }
+          Start-Process "$dir\aquilum-app.exe" | Out-Null
+          Start-Sleep -Seconds 10
+
+          $setup = Get-ChildItem dist\*-setup.exe | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/S', '/R', '/UPDATE', '/ARGS' -Wait
+          $installed = (Get-ItemProperty "$uninstall\Aquilum").DisplayVersion
+          "installed after update: $installed"
+          if ($installed -ne $version) { throw "expected $version" }
+          $entries = @(Get-ChildItem $uninstall | Where-Object { (Get-ItemProperty $_.PSPath).DisplayName -eq 'Aquilum' })
+          if ($entries.Count -ne 1) { throw "uninstall entries for Aquilum: $($entries.Count)" }
+          $built = (Get-FileHash ".artifacts\cargo-native\release\aquilum-native.exe").Hash
+          if ((Get-FileHash "$dir\aquilum-app.exe").Hash -ne $built) { throw "installed exe is not the one just built" }
+
+          $p = $null
+          for ($i = 0; $i -lt 30 -and -not $p; $i++) { Start-Sleep -Seconds 1; $p = Get-Process aquilum-app -ErrorAction SilentlyContinue | Select-Object -First 1 }
+          if (-not $p) { throw "the installer did not start the app again (/R)" }
+          Start-Sleep -Seconds 8
+          $p.Refresh()
+          Shot 'windows-after-update'
+          if ($p.MainWindowHandle -eq 0) { throw "no window after update" }
+
+          Remove-Item "$data\window-state.json" -ErrorAction SilentlyContinue
+          $p.CloseMainWindow() | Out-Null
+          if (-not $p.WaitForExit(20000)) { throw "the app did not close" }
+          if (-not (Test-Path "$data\window-state.json")) { throw "window state was not saved on close" }
+          "window state saved on close"
+
+          Start-Process "$dir\uninstall.exe" -ArgumentList '/S' -Wait
+          for ($i = 0; $i -lt 30 -and (Test-Path "$dir\aquilum-app.exe"); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path "$dir\aquilum-app.exe") { throw "uninstall left the app" }
+          if (-not (Test-Path $data)) { throw "uninstall removed the app data" }
+          if (Test-Path "$uninstall\Aquilum") { throw "uninstall left the registry entry" }
+          "uninstalled, data kept"
+
+      - uses: actions/upload-artifact@v7
         with:
-          projectPath: aquilum-app
-          tauriScript: node scripts/bundle-native.mjs
-          args: ${{ matrix.args }}
-          tagName: v__VERSION__
-          releaseName: __VERSION__
-          releaseBody: See the release notes below.
-          releaseDraft: true
-          prerelease: false
-          includeUpdaterJson: true
+          name: packages-windows
+          path: |
+            dist/*-setup.exe
+            dist/*-setup.exe.sig
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: smoke-windows
+          path: shots/
+          retention-days: 7
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            arch: aarch64
+          - target: x86_64-apple-darwin
+            arch: x64
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: aquilum-app -> ../.artifacts/cargo-native
+          key: release-${{ matrix.target }}
+          cache-on-failure: true
+
+      - name: cargo-packager
+        run: cargo install cargo-packager --version ${{ env.CARGO_PACKAGER_VERSION }} --locked
+
+      - name: Build
+        working-directory: aquilum-app
+        run: cargo build --release -p aquilum-native --features installed --target ${{ matrix.target }}
+
+      - name: Package
+        working-directory: aquilum-app
+        env:
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          release=../.artifacts/cargo-native/${{ matrix.target }}/release
+          cp "$release/aquilum-native" "$release/aquilum-app"
+          cargo packager -p aquilum-native --release --target ${{ matrix.target }} --formats app,dmg --out-dir "$GITHUB_WORKSPACE/dist"
+          cd "$GITHUB_WORKSPACE/dist"
+          mv Aquilum.app.tar.gz Aquilum_${{ matrix.arch }}.app.tar.gz
+          mv Aquilum.app.tar.gz.sig Aquilum_${{ matrix.arch }}.app.tar.gz.sig
+          tar -tzf Aquilum_${{ matrix.arch }}.app.tar.gz | head -3
+          tar -tzf Aquilum_${{ matrix.arch }}.app.tar.gz | head -1 | grep -q '^Aquilum.app/'
+          ls -la
+
+      - name: Install from DMG, launch, quit with Cmd+Q
+        run: |
+          mkdir -p shots
+          if [ "${{ matrix.arch }}" = x64 ] && ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+            echo "::warning::Rosetta is not available, the Intel build is not launched"
+            exit 0
+          fi
+          hdiutil attach dist/Aquilum_*_${{ matrix.arch }}.dmg -nobrowse -mountpoint /tmp/aquilum-dmg
+          mkdir -p ~/Applications
+          cp -R /tmp/aquilum-dmg/Aquilum.app ~/Applications/
+          hdiutil detach /tmp/aquilum-dmg
+          app=~/Applications/Aquilum.app
+          codesign --verify --deep --strict "$app"
+          file "$app/Contents/MacOS/aquilum-app"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' -c 'Print :CFBundleShortVersionString' -c 'Print :LSMinimumSystemVersion' "$app/Contents/Info.plist"
+          cat > check.swift <<'EOF'
+          import CoreGraphics
+          import Foundation
+          let start = Date()
+          while Date().timeIntervalSince(start) < 30 {
+              let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+              if windows.contains(where: { ["Aquilum", "aquilum-app"].contains(($0[kCGWindowOwnerName as String] as? String) ?? "") && ($0[kCGWindowLayer as String] as? Int) == 0 }) {
+                  print(String(format: "Window visible after %.2f s", Date().timeIntervalSince(start)))
+                  exit(0)
+              }
+              usleep(100_000)
+          }
+          print("Window not visible within 30 s")
+          exit(1)
+          EOF
+          swiftc -O check.swift -o check
+          data="$HOME/Library/Application Support/com.dmitriy.aquilum-app"
+          open "$app"
+          ./check
+          sleep 5
+          screencapture -x shots/macos-${{ matrix.arch }}.png || true
+          pid=$(pgrep -f "Aquilum.app/Contents/MacOS/aquilum-app" | head -1)
+          echo "pid: $pid"
+          rm -f "$data/window-state.json"
+          osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $pid) to true" -e 'tell application "System Events" to keystroke "q" using command down'
+          for i in $(seq 1 40); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+          if kill -0 "$pid" 2>/dev/null; then echo "the app did not quit on Cmd+Q"; exit 1; fi
+          test -f "$data/window-state.json" || { echo "window state was not saved on Cmd+Q"; exit 1; }
+          echo "window state saved on Cmd+Q"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages-macos-${{ matrix.arch }}
+          path: |
+            dist/*.dmg
+            dist/*.app.tar.gz
+            dist/*.app.tar.gz.sig
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: smoke-macos-${{ matrix.arch }}
+          path: shots/
+          retention-days: 7
+
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get remove -y $(dpkg-query -W -f='${Package}\n' 'libunwind-*-dev' 2>/dev/null) || true
+          sudo apt-get install -y libunwind-dev libxkbcommon-dev libxkbcommon-x11-0 libfontconfig1-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav \
+            xvfb openbox wmctrl imagemagick file
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: aquilum-app -> ../.artifacts/cargo-native
+          key: release
+          cache-on-failure: true
+
+      - name: cargo-packager and nfpm
+        run: |
+          cargo install cargo-packager --version ${{ env.CARGO_PACKAGER_VERSION }} --locked
+          base=https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}
+          curl -fsSLO "$base/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz"
+          curl -fsSLO "$base/checksums.txt"
+          grep " nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz\$" checksums.txt | sha256sum -c -
+          tar -xzf "nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" nfpm
+          sudo mv nfpm /usr/local/bin/nfpm
+          nfpm --version
+
+      - name: Build
+        working-directory: aquilum-app
+        run: cargo build --release -p aquilum-native --features installed
+
+      - name: Package
+        working-directory: aquilum-app
+        env:
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "aquilum-native") | .version')
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          release=../.artifacts/cargo-native/release
+          dist="$GITHUB_WORKSPACE/dist"
+          cp "$release/aquilum-native" "$release/aquilum-app"
+          cargo packager -p aquilum-native --release --formats appimage --out-dir "$dist"
+          image=$(ls "$dist"/*.AppImage)
+          mv "$image" "$dist/Aquilum_${version}_amd64.AppImage"
+          mv "$image.sig" "$dist/Aquilum_${version}_amd64.AppImage.sig"
+          mkdir -p native/packaging/stage
+          cp "$release/aquilum-native" native/packaging/stage/aquilum-app
+          cd native
+          VERSION=$version nfpm package -f packaging/nfpm.yaml -p deb -t "$dist/Aquilum_${version}_amd64.deb"
+          VERSION=$version nfpm package -f packaging/nfpm.yaml -p rpm -t "$dist/Aquilum-${version}-1.x86_64.rpm"
+          cargo packager signer sign "$dist/Aquilum_${version}_amd64.deb"
+          cargo packager signer sign "$dist/Aquilum-${version}-1.x86_64.rpm"
+          ls -la "$dist"
+          dpkg-deb -I "$dist/Aquilum_${version}_amd64.deb"
+          dpkg-deb -c "$dist/Aquilum_${version}_amd64.deb"
+
+      - name: AppImage under a window manager
+        run: |
+          mkdir -p shots "$RUNNER_TEMP/vault" "$RUNNER_TEMP/data"
+          printf '# Проверка\n\nОбычный абзац с **жирным** и *курсивом*.\n' > "$RUNNER_TEMP/vault/Проверка.md"
+          Xvfb :99 -screen 0 1366x768x24 &
+          export DISPLAY=:99
+          sleep 2
+          openbox &
+          sleep 2
+          APPIMAGE_EXTRACT_AND_RUN=1 dist/Aquilum_${VERSION}_amd64.AppImage --trace --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" > shots/appimage.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 30); do wmctrl -l | grep -q . && break; sleep 1; done
+          sleep 5
+          import -window root shots/appimage.png || true
+          wmctrl -lG
+          kill -0 $pid || { echo "the AppImage exited"; tail -40 shots/appimage.log; exit 1; }
+          grep -q RedrawRequested shots/appimage.log || { echo "no frame was drawn"; tail -40 shots/appimage.log; exit 1; }
+          rm -f "$RUNNER_TEMP/data/window-state.json"
+          wmctrl -i -c "$(wmctrl -l | awk 'NR==1{print $1}')"
+          for i in $(seq 1 40); do kill -0 $pid 2>/dev/null || break; sleep 0.5; done
+          if kill -0 $pid 2>/dev/null; then echo "the AppImage did not close"; exit 1; fi
+          test -f "$RUNNER_TEMP/data/window-state.json" || { echo "window state was not saved on close"; exit 1; }
+          echo "window state saved on close"
+
+      - name: deb and rpm on clean distributions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v0.2.6 -R Freaction/Aquilum -p 'Aquilum_0.2.6_amd64.deb' -D old
+          cat > check.sh <<'EOF'
+          set -e
+          missing=$(ldd /usr/bin/aquilum-app | grep 'not found' || true)
+          if [ -n "$missing" ]; then echo "$missing"; exit 1; fi
+          for lib in libxkbcommon.so.0 libxkbcommon-x11.so.0 libX11.so.6 libX11-xcb.so.1 libXcursor.so.1 libXrandr.so.2 libXi.so.6 libxcb.so.1 libwayland-client.so.0; do
+            ldconfig -p | grep -q "$lib" || { echo "missing $lib"; exit 1; }
+          done
+          mkdir -p /tmp/vault /tmp/data
+          printf '# Test\n' > /tmp/vault/Test.md
+          Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
+          sleep 2
+          DISPLAY=:99 aquilum-app --trace --vault /tmp/vault --data-dir /tmp/data > /tmp/app.log 2>&1 &
+          pid=$!
+          sleep 12
+          kill -0 $pid || { echo "the app exited"; tail -40 /tmp/app.log; exit 1; }
+          grep -q RedrawRequested /tmp/app.log || { echo "no frame was drawn"; tail -40 /tmp/app.log; exit 1; }
+          kill $pid
+          echo "runs on $(. /etc/os-release; echo $PRETTY_NAME)"
+          EOF
+          for image in ubuntu:22.04 ubuntu:24.04; do
+            docker run --rm -v "$PWD/dist:/dist" -v "$PWD/check.sh:/check.sh" -e DEBIAN_FRONTEND=noninteractive "$image" bash -c \
+              "apt-get update -qq && apt-get install -y -qq /dist/Aquilum_${VERSION}_amd64.deb xvfb >/dev/null && dpkg-query -W aquilum && bash /check.sh"
+          done
+          docker run --rm -v "$PWD/dist:/dist" -v "$PWD/old:/old" -e DEBIAN_FRONTEND=noninteractive ubuntu:22.04 bash -c \
+            "apt-get update -qq && apt-get install -y -qq /old/Aquilum_0.2.6_amd64.deb >/dev/null && dpkg-query -W aquilum && apt-get install -y -qq /dist/Aquilum_${VERSION}_amd64.deb >/dev/null && dpkg-query -W aquilum | grep -q '${VERSION}' && echo 'deb upgrade from 0.2.6 ok'"
+          docker run --rm -v "$PWD/dist:/dist" -v "$PWD/check.sh:/check.sh" fedora:latest bash -c \
+            "dnf install -y -q /dist/Aquilum-${VERSION}-1.x86_64.rpm xorg-x11-server-Xvfb >/dev/null && rpm -q aquilum && bash /check.sh"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages-linux
+          path: |
+            dist/*.AppImage
+            dist/*.AppImage.sig
+            dist/*.deb
+            dist/*.deb.sig
+            dist/*.rpm
+            dist/*.rpm.sig
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: smoke-linux
+          path: shots/
+          retention-days: 7
+
+  manifest:
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: packages-*
+          merge-multiple: true
+          path: dist
+
+      - name: Verify signatures and write latest.json
+        run: |
+          sudo apt-get install -y minisign
+          version=$(grep -m1 '^version' aquilum-app/native/Cargo.toml | cut -d'"' -f2)
+          key=$(grep -o 'PUBLIC_KEY: &str = "[^"]*"' aquilum-app/native/src/updater.rs | cut -d'"' -f2)
+          echo "$key" | base64 -d > aquilum.pub
+          cd dist
+          ls -la
+          for sig in *.sig; do
+            file="${sig%.sig}"
+            base64 -d "$sig" > "/tmp/$file.minisig"
+            minisign -Vm "$file" -x "/tmp/$file.minisig" -p ../aquilum.pub -q
+            echo "signature ok: $file"
+          done
+          url="https://github.com/Freaction/Aquilum/releases/download/v$version"
+          entry() { printf '{"signature":"%s","url":"%s/%s"}' "$(cat "$1.sig")" "$url" "$1"; }
+          setup="Aquilum_${version}_x64-setup.exe"
+          appimage="Aquilum_${version}_amd64.AppImage"
+          deb="Aquilum_${version}_amd64.deb"
+          rpm="Aquilum-${version}-1.x86_64.rpm"
+          for f in "$setup" Aquilum_aarch64.app.tar.gz Aquilum_x64.app.tar.gz "$appimage" "$deb" "$rpm" "Aquilum_${version}_aarch64.dmg" "Aquilum_${version}_x64.dmg"; do
+            test -f "$f" || { echo "missing $f"; exit 1; }
+          done
+          cat > latest.json <<EOF
+          {
+            "version": "$version",
+            "notes": "",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)",
+            "platforms": {
+              "windows-x86_64": $(entry "$setup"),
+              "windows-x86_64-nsis": $(entry "$setup"),
+              "darwin-aarch64": $(entry Aquilum_aarch64.app.tar.gz),
+              "darwin-aarch64-app": $(entry Aquilum_aarch64.app.tar.gz),
+              "darwin-x86_64": $(entry Aquilum_x64.app.tar.gz),
+              "darwin-x86_64-app": $(entry Aquilum_x64.app.tar.gz),
+              "linux-x86_64": $(entry "$appimage"),
+              "linux-x86_64-appimage": $(entry "$appimage"),
+              "linux-x86_64-deb": $(entry "$deb"),
+              "linux-x86_64-rpm": $(entry "$rpm")
+            }
+          }
+          EOF
+          jq . latest.json > /dev/null
+          jq -r '.platforms | to_entries[] | "\(.key) -> \(.value.url)"' latest.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: dist/
