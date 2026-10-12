@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 
 use masonry::peniko::{Blob, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality};
 use vello_cpu::{PixelMetadata, Pixmap};
@@ -8,27 +7,34 @@ use vello_cpu::{PixelMetadata, Pixmap};
 const KEPT: usize = 2;
 const POOL: usize = 6;
 
-static PUBLISHED: Mutex<VecDeque<(u64, u64, Arc<Pixmap>)>> = Mutex::new(VecDeque::new());
-static OWNERS: AtomicU64 = AtomicU64::new(0);
+type Published = (u64, Weak<()>, Arc<Pixmap>);
+
+static PUBLISHED: Mutex<VecDeque<Published>> = Mutex::new(VecDeque::new());
 
 pub struct Surfaces {
-    owner: u64,
+    alive: Arc<()>,
     pool: Vec<Arc<Pixmap>>,
 }
 
 impl Default for Surfaces {
     fn default() -> Self {
-        Surfaces { owner: OWNERS.fetch_add(1, Ordering::Relaxed), pool: Vec::new() }
+        Surfaces { alive: Arc::new(()), pool: Vec::new() }
     }
 }
 
 impl Drop for Surfaces {
     fn drop(&mut self) {
-        PUBLISHED.lock().unwrap_or_else(|e| e.into_inner()).retain(|(_, owner, _)| *owner != self.owner);
+        let mine = Arc::as_ptr(&self.alive);
+        PUBLISHED.lock().unwrap_or_else(|e| e.into_inner()).retain(|(_, owner, _)| owner.as_ptr() != mine);
     }
 }
 
 impl Surfaces {
+    #[cfg(test)]
+    pub fn pool_len(&self) -> usize {
+        self.pool.len()
+    }
+
     pub fn frame(&mut self, width: u16, height: u16, fill: [u8; 3], draw: impl FnOnce(&mut [u8])) -> ImageBrush {
         if self.pool.len() > POOL {
             let mut excess = self.pool.len() - POOL;
@@ -50,12 +56,13 @@ impl Surfaces {
         draw(pixmap.data_as_u8_slice_mut());
         let blob: Blob<u8> = Blob::new(Arc::new(Vec::new()));
         let id = blob.id();
+        let mine = Arc::as_ptr(&self.alive);
         let mut published = PUBLISHED.lock().unwrap_or_else(|e| e.into_inner());
-        published.push_back((id, self.owner, Arc::clone(&self.pool[index])));
-        let mut mine = published.iter().filter(|(_, owner, _)| *owner == self.owner).count();
+        published.push_back((id, Arc::downgrade(&self.alive), Arc::clone(&self.pool[index])));
+        let mut count = published.iter().filter(|(_, owner, _)| owner.as_ptr() == mine).count();
         published.retain(|(_, owner, _)| {
-            let stale = *owner == self.owner && mine > KEPT;
-            mine -= usize::from(stale);
+            let stale = owner.as_ptr() == mine && count > KEPT;
+            count -= usize::from(stale);
             !stale
         });
         let data = ImageData { data: blob, format: ImageFormat::Rgba8, alpha_type: ImageAlphaType::AlphaPremultiplied, width: u32::from(width), height: u32::from(height) };
@@ -63,8 +70,7 @@ impl Surfaces {
     }
 }
 
-pub fn take(id: u64) -> Option<Arc<Pixmap>> {
-    let mut published = PUBLISHED.lock().unwrap_or_else(|e| e.into_inner());
-    let at = published.iter().position(|(i, _, _)| *i == id)?;
-    published.remove(at).map(|(_, _, p)| p)
+pub fn find(id: u64) -> Option<(Arc<Pixmap>, Weak<()>)> {
+    let published = PUBLISHED.lock().unwrap_or_else(|e| e.into_inner());
+    published.iter().find(|(i, _, _)| *i == id).map(|(_, owner, pixmap)| (Arc::clone(pixmap), owner.clone()))
 }

@@ -7,6 +7,9 @@ use std::time::SystemTime;
 use masonry::peniko::{Blob, ImageAlphaType, ImageBrush, WeakBlob};
 
 mod decode;
+mod kind;
+
+pub use kind::{MediaKind, extension, kind};
 
 pub const MAX_WIDTH: u32 = 1600;
 const MIN_WIDTH: u32 = 320;
@@ -15,7 +18,7 @@ const RECENT_BYTES: usize = 8 << 20;
 
 static SHOWN: AtomicU32 = AtomicU32::new(MAX_WIDTH);
 
-pub const DEFAULT_BOOK_COVER: &[u8] = include_bytes!("../../assets/covers/default-book-cover.webp");
+const DEFAULT_BOOK_COVER: &[u8] = include_bytes!("../../assets/covers/default-book-cover.webp");
 
 #[derive(Clone)]
 pub struct Picture {
@@ -62,10 +65,6 @@ fn modified(path: &Path) -> Option<SystemTime> {
 
 pub const EXTENSIONS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "webp", "bmp"];
 
-pub fn decodable(extension: &str) -> bool {
-    EXTENSIONS.iter().any(|e| extension.eq_ignore_ascii_case(e))
-}
-
 pub fn show(width: f64) {
     SHOWN.store((width.ceil() as u32).clamp(MIN_WIDTH, MAX_WIDTH), Ordering::Relaxed);
 }
@@ -74,7 +73,7 @@ fn shown() -> u32 {
     SHOWN.load(Ordering::Relaxed)
 }
 
-pub fn decode_within(bytes: &[u8], limit: u32) -> Option<Picture> {
+fn decode_within(bytes: &[u8], limit: u32) -> Option<Picture> {
     let decoded = decode::decode(bytes, limit, MAX_PIXELS)?;
     let image = crate::render::from_rgba(decoded.pixels, decoded.width, decoded.height, ImageAlphaType::Alpha)?;
     Some(Picture { image, natural: decoded.natural })

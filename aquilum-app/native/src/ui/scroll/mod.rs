@@ -1,6 +1,7 @@
 mod area;
 pub mod bar;
 mod glide;
+mod input;
 mod widget;
 
 #[cfg(test)]

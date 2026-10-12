@@ -29,7 +29,8 @@ $cargoArgs = @(
     '--config', "profile.native-watch.package.'*'.opt-level=3",
     '--config', 'profile.native-watch.opt-level=3',
     '--config', 'profile.native-watch.debug-assertions=false',
-    '--config', "profile.native-watch.debug='line-tables-only'"
+    '--config', "profile.native-watch.debug='line-tables-only'",
+    '--config', 'profile.native-watch.incremental=false'
 )
 
 $watched = @(

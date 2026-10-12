@@ -23,7 +23,8 @@ impl Host {
         if self.metrics.frames == 0 || settling && self.replay.as_ref().is_some_and(|r| !r.running()) {
             return;
         }
-        if self.replay.as_ref().is_some_and(crate::replay::Replay::is_graph) {
+        let graph = self.replay.as_ref().is_some_and(crate::replay::Replay::is_graph);
+        if graph {
             let Some(root) = &mut self.root else { return };
             if !self.app.graph_ready() {
                 self.app.open_graph_for_replay(root);
@@ -31,20 +32,19 @@ impl Host {
             }
         }
         let Some(step) = self.replay.as_mut().and_then(|r| r.step(now)) else {
-            if self.replay.as_ref().is_some_and(crate::replay::Replay::finished) {
-                if let Some(replay) = &self.replay {
-                    replay.write();
-                }
+            if let Some(replay) = self.replay.as_ref().filter(|r| r.finished()) {
+                replay.write();
                 self.close(event_loop);
             }
             return;
         };
         let _zone = aq_trace::zone("прогон: колесо");
         let scale = self.scale();
-        let target = self.app.graph_view().or_else(|| self.app.editor_id());
+        let target = if graph { self.app.graph_view() } else { self.app.editor_id() };
         let center = self.root.as_ref().zip(target).and_then(|(root, id)| root.get_widget(id)).map(|body| body.ctx().bounding_box().center());
         if let Some(center) = center {
-            self.pointer.position = winit::dpi::PhysicalPosition::new(center.x * scale * 0.8, (center.y * scale).min(f64::from(self.window().surface_size().height) * 0.8));
+            let height = f64::from(self.window().surface_size().height);
+            self.pointer.position = winit::dpi::PhysicalPosition::new(center.x * scale * 0.8, (center.y * scale).clamp(height * 0.2, height * 0.8));
         }
         let state = self.pointer_state();
         match step {

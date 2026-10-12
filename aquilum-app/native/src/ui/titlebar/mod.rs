@@ -17,10 +17,12 @@ use super::widgets::Press;
 use super::tokens::size;
 use super::{text, theme};
 
+mod rename;
 mod strip;
 mod tab;
 mod window;
 
+pub use rename::*;
 pub use strip::*;
 pub use tab::*;
 pub use window::*;
@@ -48,21 +50,5 @@ pub(super) fn drag_or_maximize(ctx: &mut EventCtx<'_>, event: &PointerEvent) {
     {
         let action = if e.state.count >= 2 { TitlebarAction::ToggleMaximize } else { TitlebarAction::Drag };
         ctx.submit_action::<TitlebarAction>(action);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::reorder_layout;
-
-    #[test]
-    fn dragging_past_middle_moves_target() {
-        let boxes = [(0.0, 100.0), (100.0, 100.0), (200.0, 100.0)];
-        assert_eq!(reorder_layout(&boxes, 0, 30.0).0, 0);
-        let (target, shift) = reorder_layout(&boxes, 0, 60.0);
-        assert_eq!(target, 1);
-        assert_eq!(shift, [60.0, -100.0, 0.0]);
-        assert_eq!(reorder_layout(&boxes, 0, 160.0).0, 2);
-        assert_eq!(reorder_layout(&boxes, 2, -160.0).0, 0);
     }
 }

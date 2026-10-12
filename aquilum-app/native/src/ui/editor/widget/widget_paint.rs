@@ -2,7 +2,7 @@ use std::ops::Range;
 use masonry::core::{PaintCtx, PropertiesRef, render_text};
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, RoundedRect};
-use masonry::parley::{Affinity, BoundingBox, Cursor, Selection};
+use masonry::parley::{Affinity, BoundingBox, Cursor};
 use masonry::properties::{ContentColor, SelectionColor};
 use super::{Fold, Paragraph};
 use crate::ui::editor::markdown;
@@ -96,9 +96,8 @@ impl TextEditor {
             let layout = p.layout();
             let a = range.start.max(p.start) - p.start;
             let b = range.end.min(p.end()) - p.start;
-            let selection = Selection::new(Cursor::from_byte_index(layout, a, Affinity::Downstream), Cursor::from_byte_index(layout, b, Affinity::Upstream));
-            for (bounds, _) in selection.geometry(layout) {
-                painter.fill(super::rect(bounds, 0.0) + p.origin() + self.shift(), color).draw();
+            for (bounds, _) in markdown::range_rects(layout, a, b) {
+                painter.fill(super::rect(BoundingBox::new(bounds.x0, bounds.y0, bounds.x1, bounds.y1), 0.0) + p.origin() + self.shift(), color).draw();
             }
             if range.end > p.end() && b == p.len {
                 let end = Cursor::from_byte_index(layout, p.len, Affinity::Upstream).geometry(layout, 1.0);

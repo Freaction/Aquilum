@@ -1,4 +1,7 @@
+use aquilum_core::search::wiki::target::split;
 use masonry::parley::Alignment;
+
+use crate::images;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImageParams {
@@ -12,34 +15,27 @@ pub struct EmbedLine {
     pub src: String,
     pub wiki: bool,
     pub params: ImageParams,
+    pub title: String,
 }
 
-const VIDEO: [&str; 7] = ["mp4", "webm", "ogv", "ogg", "mov", "m4v", "mkv"];
-const IMAGE: [&str; 8] = ["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "svg"];
-
-fn has_extension(source: &str, list: &[&str]) -> bool {
-    let clean = source.split(['?', '#']).next().unwrap_or(source);
-    std::path::Path::new(clean).extension().is_some_and(|e| list.iter().any(|v| e.eq_ignore_ascii_case(v)))
-}
-
-pub fn is_video(source: &str) -> bool {
-    has_extension(source, &VIDEO)
+fn embeddable(source: &str) -> bool {
+    images::kind(source).is_some() || images::extension(source).is_none()
 }
 
 pub fn is_embed(line: &str) -> bool {
     let line = line.trim();
     if let Some(inner) = line.strip_prefix("![[").and_then(|l| l.strip_suffix("]]")) {
-        let target = inner.split('|').next().unwrap_or_default().trim();
-        return !inner.contains(['[', ']']) && (has_extension(target, &IMAGE) || is_video(target));
+        return !inner.contains(['[', ']']) && images::kind(split(inner).note).is_some();
     }
     let Some(rest) = line.strip_prefix("![") else { return false };
     let Some(close) = rest.find(']') else { return false };
     let Some(body) = rest[close + 1..].strip_prefix('(').and_then(|b| b.strip_suffix(')')) else { return false };
     let body = body.trim();
-    match body.strip_prefix('<').and_then(|b| b.strip_suffix('>')) {
+    let balanced = match body.strip_prefix('<').and_then(|b| b.strip_suffix('>')) {
         Some(source) => !source.is_empty() && !source.contains(['<', '>']),
         None => !body.is_empty() && !body.contains(['(', ')']),
-    }
+    };
+    balanced && embeddable(&parse(line).src)
 }
 
 fn round(v: f64) -> f64 {
@@ -49,15 +45,18 @@ fn round(v: f64) -> f64 {
 pub fn parse(line: &str) -> EmbedLine {
     let line = line.trim();
     let wiki = line.starts_with("![[");
-    let (src, params) = if let Some(inner) = line.strip_prefix("![[").and_then(|l| l.strip_suffix("]]")) {
-        let mut parts = inner.split('|');
-        (parts.next().unwrap_or_default().trim().to_owned(), parts.map(str::to_owned).collect::<Vec<_>>())
+    let (src, params, title) = if let Some(inner) = line.strip_prefix("![[").and_then(|l| l.strip_suffix("]]")) {
+        let link = split(inner);
+        (link.note.to_owned(), link.label.map_or_else(Vec::new, |label| label.split('|').map(str::to_owned).collect()), "")
     } else {
         let close = line.find("](").unwrap_or(line.len());
         let alt = &line[2.min(line.len())..close.min(line.len())];
-        let url = line[(close + 2).min(line.len())..].trim_end_matches(')').trim();
-        let url = url.strip_prefix('<').and_then(|u| u.strip_suffix('>')).unwrap_or(url);
-        (url.to_owned(), alt.split('|').map(str::to_owned).collect())
+        let body = line[(close + 2).min(line.len())..].trim_end_matches(')').trim();
+        let (url, title) = match body.strip_prefix('<') {
+            Some(rest) => rest.split_once('>').unwrap_or((rest, "")),
+            None => body.split_once(char::is_whitespace).unwrap_or((body, "")),
+        };
+        (url.to_owned(), alt.split('|').map(str::to_owned).collect(), title.trim())
     };
     let mut out = ImageParams { width: None, align: Alignment::Center, crop: None };
     for p in params {
@@ -83,7 +82,7 @@ pub fn parse(line: &str) -> EmbedLine {
             }
         }
     }
-    EmbedLine { src, wiki, params: out }
+    EmbedLine { src, wiki, params: out, title: title.to_owned() }
 }
 
 fn number(v: f64) -> String {
@@ -110,8 +109,13 @@ pub fn format(embed: &EmbedLine) -> String {
         format!("![[{}]]", parts.join("|"))
     } else {
         let src = if embed.src.chars().any(char::is_whitespace) { format!("<{}>", embed.src) } else { embed.src.clone() };
-        format!("![{}]({src})", params.join("|"))
+        let title = if embed.title.is_empty() { String::new() } else { format!(" {}", embed.title) };
+        format!("![{}]({src}{title})", params.join("|"))
     }
+}
+
+pub fn media_line(src: &str, width: Option<f64>) -> String {
+    format(&EmbedLine { src: src.to_owned(), wiki: false, params: ImageParams { width, align: Alignment::Center, crop: None }, title: String::new() })
 }
 
 #[cfg(test)]
@@ -127,9 +131,29 @@ mod tests {
         assert_eq!(e.params.width, Some(300.0));
         assert_eq!(format(&e), "![300](a.png)");
     }
-}
 
-/// Строка встраивания для нового файла: ширина и выравнивание по центру.
-pub fn media_line(src: &str, width: Option<f64>) -> String {
-    format(&EmbedLine { src: src.to_owned(), wiki: false, params: ImageParams { width, align: Alignment::Center, crop: None } })
+    #[test]
+    fn title_is_not_part_of_the_address() {
+        for (line, src) in [("![x](https://e.com/a.png?t=1 \"Подсказка\")", "https://e.com/a.png?t=1"), ("![x](<Files/image 6.png> 'Подсказка')", "Files/image 6.png")] {
+            let e = parse(line);
+            assert_eq!(e.src, src);
+            assert_eq!(format(&e), line.replacen("![x]", "![]", 1), "заголовок потерялся при пересборке строки");
+        }
+    }
+
+    #[test]
+    fn only_decodable_images_and_playable_videos_are_embeds() {
+        for line in ["![[a.png]]", "![[a.PNG|300]]", "![[clip.mp4]]", "![[a.png#x|10]]", "![](a.jpg)", "![](https://x.io/photo)", "![alt](<Files/a b.webp> \"t\")"] {
+            assert!(is_embed(line), "{line}");
+        }
+        for line in ["![[a.svg]]", "![[a.avif|200]]", "![[doc.pdf]]", "![[Заметка]]", "![](a.svg)", "![](https://x.io/a.avif?w=1)", "![](a.png", "![](a.pdf)"] {
+            assert!(!is_embed(line), "{line}");
+        }
+    }
+
+    #[test]
+    fn wiki_address_loses_anchor_and_label() {
+        let e = parse("![[ a.png # p | 300 | left ]]");
+        assert_eq!((e.src.as_str(), e.params.width, e.params.align), ("a.png", Some(300.0), Alignment::Start));
+    }
 }

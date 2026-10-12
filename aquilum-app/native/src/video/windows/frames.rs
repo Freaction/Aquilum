@@ -51,7 +51,7 @@ impl Frames {
     pub fn seek(&mut self, seconds: f64) {
         self.next = None;
         self.ended = false;
-        super::seek(&self.reader, seconds);
+        super::worker::seek(&self.reader, seconds);
     }
 
     fn read(&mut self) -> Option<(f64, IMFSample)> {

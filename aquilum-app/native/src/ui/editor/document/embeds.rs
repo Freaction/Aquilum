@@ -1,6 +1,8 @@
 use std::hash::{Hash, Hasher};
 use std::ops::Range;
 
+use aquilum_core::search::paths::strip_markdown_extension;
+use aquilum_core::search::wiki::target::split;
 use masonry::core::{BrushIndex, StyleSet};
 use masonry::parley::{FontContext, LayoutContext};
 
@@ -26,6 +28,15 @@ pub enum Reveal {
     Never,
     Source,
     Above,
+}
+
+fn book_header(header: &str) -> (bool, String, String) {
+    let header = header.trim();
+    let Some(rest) = header.strip_prefix("[[") else {
+        return (false, header.to_owned(), strip_markdown_extension(header).to_owned());
+    };
+    let link = split(rest.find("]]").map_or(rest, |close| &rest[..close]));
+    (true, link.note.to_owned(), strip_markdown_extension(link.label.unwrap_or(link.note)).to_owned())
 }
 
 impl Document {
@@ -90,6 +101,10 @@ impl Document {
                     line.params.width = Some(width);
                 }
                 let (fetched, stamp) = resolver.media(&line.src, line.wiki);
+                if matches!(fetched, Fetch::Missing(_)) {
+                    self.paragraphs[first].embed = None;
+                    return None;
+                }
                 (Fetched::Media(line, fetched), stamp)
             }
             (Block::Quote { callout: Some(_), .. }, Some(resolver)) => {
@@ -101,10 +116,7 @@ impl Document {
                         _ => None,
                     })
                     .map(|header| {
-                        let wiki = header.trim().starts_with("[[");
-                        let name = header.trim().trim_start_matches("[[").trim_end_matches("]]");
-                        let target = name.split('|').next().unwrap_or(name).to_owned();
-                        let title = name.rsplit('|').next().unwrap_or(name).trim_end_matches(".md").to_owned();
+                        let (wiki, target, title) = book_header(header);
                         let (mut book, stamp) = resolver.book(&target);
                         if let Fetch::Ready(book) = &mut book {
                             book.linked |= wiki;
@@ -124,26 +136,39 @@ impl Document {
         (self.uncropped == Some(start)).hash(&mut hasher);
         self.resized.filter(|(at, _)| *at == start).map(|(_, w)| w.to_bits()).hash(&mut hasher);
         stamp.hash(&mut hasher);
+        self.unresolved.1.hash(&mut hasher);
         let key = hasher.finish();
         if let Some(embed) = self.paragraphs[first].embed.as_ref().filter(|e| e.key == key) {
             return Some(embed.view.height());
         }
-        let mut make = |spec: &Spec| text::spec_layout(fcx, lcx, styles, fonts, spec);
+        let unresolved = &self.unresolved.0;
         let view = match fetched {
-            Fetched::Table => View::Table(table::parse(&lines)?.layout(available, editing, |text, wrap, align, link| {
-                let links = [0..text.len()];
-                let spec = match wrap {
-                    Some(w) => Spec { wrap: Some(w), align, links: if link { &links } else { &[] }, underline: link, ..Spec::plain(text, Font::Editor, markdown::TEXT) },
-                    None => Spec::plain(text, Font::Mono(LABEL_SIZE), markdown::SYNTAX),
-                };
-                make(&spec)
+            Fetched::Table => View::Table(table::parse_with(&lines, editing)?.layout(available, editing, |text, wrap, align, styled| match wrap {
+                Some(w) if styled => text::build(fcx, lcx, styles, text, None, Some(w as f32), align, Some((fonts, &Block::Text, None, unresolved))),
+                Some(w) => (text::spec_layout(fcx, lcx, styles, fonts, &Spec { wrap: Some(w), align, ..Spec::plain(text, Font::Editor, markdown::TEXT) }), markdown::Decor::default()),
+                None => (text::spec_layout(fcx, lcx, styles, fonts, &Spec::plain(text, Font::Mono(LABEL_SIZE), markdown::SYNTAX)), markdown::Decor::default()),
             })),
-            Fetched::Grid(grid) => View::Drawing(embed::dataview(&grid, available, &mut make)),
+            Fetched::Grid(grid) => View::Drawing(embed::dataview(&grid, available, &mut |spec| text::spec_layout(fcx, lcx, styles, fonts, spec))),
             Fetched::Media(line, fetched) => View::Media(MediaView::new(&fetched, line, available, self.uncropped == Some(start))),
-            Fetched::Books(rows) => View::Drawing(embed::books(&rows, available, &mut make)),
+            Fetched::Books(rows) => View::Drawing(embed::books(&rows, available, &mut |spec| text::spec_layout(fcx, lcx, styles, fonts, spec))),
         };
         let height = view.height();
         self.paragraphs[first].embed = Some(Box::new(Embed { key, view }));
         Some(height)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::book_header;
+
+    #[test]
+    fn book_headers_split_note_alias_and_extension() {
+        assert_eq!(book_header(" [[Книга]] "), (true, "Книга".into(), "Книга".into()));
+        assert_eq!(book_header("[[Папка/Книга.MD|Красивое имя]]"), (true, "Папка/Книга.MD".into(), "Красивое имя".into()));
+        assert_eq!(book_header("[[Книга.md#Глава 1]]"), (true, "Книга.md".into(), "Книга".into()));
+        assert_eq!(book_header("[[a|b|c]]"), (true, "a".into(), "b|c".into()));
+        assert_eq!(book_header("[[Книга]] и ещё"), (true, "Книга".into(), "Книга".into()));
+        assert_eq!(book_header("C# in depth.MD"), (false, "C# in depth.MD".into(), "C# in depth".into()));
     }
 }

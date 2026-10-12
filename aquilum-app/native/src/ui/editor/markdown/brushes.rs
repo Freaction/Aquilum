@@ -20,31 +20,25 @@ pub const MUTED: BrushIndex = BrushIndex(EXTRA + 3);
 pub const SUCCESS: BrushIndex = BrushIndex(EXTRA + 4);
 pub const LINK_MISSING: BrushIndex = BrushIndex(EXTRA + 5);
 
+pub(super) const LIST_CALLOUTS: [(char, fn(&Theme) -> Color); 7] = [
+    ('!', |t| t.list_callout_important),
+    ('?', |t| t.list_callout_question),
+    ('&', |t| t.list_callout_highlight),
+    ('~', |t| t.list_callout_idea),
+    ('@', |t| t.list_callout_info),
+    ('$', |t| t.list_callout_success),
+    ('%', |t| t.list_callout_muted),
+];
+
 pub fn palette(tm: &Theme, text: Color) -> Vec<Brush> {
-    let tones = [
-        tm.list_callout_important,
-        tm.list_callout_question,
-        tm.list_callout_highlight,
-        tm.list_callout_idea,
-        tm.list_callout_info,
-        tm.list_callout_success,
-        tm.list_callout_muted,
-    ];
+    let tones = LIST_CALLOUTS.iter().map(|(_, color)| color(tm));
     let code = [tm.editor_code_keyword, tm.editor_code_string, tm.editor_code_number, tm.editor_code_comment, tm.editor_code_function, tm.editor_code_type, tm.editor_code_property];
     let extra = [tm.text_secondary, tm.text_danger, tm.text_on_accent, tm.text_muted, tm.text_success, tm.text_link.multiply_alpha(0.6)];
     [text, Color::TRANSPARENT, tm.text_tertiary, tm.text_link, tm.editor_list_marker_color, tm.text_accent].into_iter().chain(tones).chain(code).chain(extra).map(Brush::from).collect()
 }
 
 pub fn tone(theme: &Theme, index: u8) -> Color {
-    [
-        theme.list_callout_important,
-        theme.list_callout_question,
-        theme.list_callout_highlight,
-        theme.list_callout_idea,
-        theme.list_callout_info,
-        theme.list_callout_success,
-        theme.list_callout_muted,
-    ][usize::from(index)]
+    (LIST_CALLOUTS[usize::from(index)].1)(theme)
 }
 
 pub(super) fn token_brush(token: Token) -> BrushIndex {

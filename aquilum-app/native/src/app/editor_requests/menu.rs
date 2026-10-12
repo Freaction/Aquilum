@@ -99,11 +99,11 @@ impl App {
                 body.edit(root, |mut e| TextEditor::insert_text(&mut e, "> [!book] [[Название книги]]\n"));
             }
             EditorCommand::InsertTable => {
-                body.edit(root, |mut e| TextEditor::insert_text(&mut e, "|  |  |\n| --- | --- |\n|  |  |\n"));
+                body.edit(root, |mut e| TextEditor::insert_table(&mut e, 2, 2));
             }
             EditorCommand::InsertFrontmatter => {
                 if frontmatter::end(&self.editor_text).is_none() {
-                    let new_text = format!("---\ntags: []\n---\n{}", self.editor_text);
+                    let new_text = frontmatter::template(&[(frontmatter::TAGS, "[]")]) + &self.editor_text;
                     self.commit_editor_text(root, new_text);
                 }
             }

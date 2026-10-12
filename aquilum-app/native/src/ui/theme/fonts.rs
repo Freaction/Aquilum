@@ -1,0 +1,90 @@
+use std::borrow::Cow;
+use std::sync::{Arc, RwLock};
+
+use masonry::app::RenderRoot;
+use masonry::parley::FontFamily;
+use masonry::peniko::Blob;
+
+use crate::ui::tokens::{number, size};
+
+pub(super) mod bundled {
+    include!(concat!(env!("OUT_DIR"), "/fonts.rs"));
+}
+
+static UI_FONT: RwLock<Option<Arc<UiFont>>> = RwLock::new(None);
+static EDITOR_FONT: RwLock<Option<Arc<EditorFont>>> = RwLock::new(None);
+
+#[derive(Debug)]
+pub struct UiFont {
+    pub family: String,
+    pub size: f32,
+    pub weight: f32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EditorFont {
+    pub family: String,
+    pub size: f32,
+    pub weight: f32,
+    pub line_height: f32,
+    pub max_width_ch: u32,
+}
+
+macro_rules! symbols {
+    ($stack:literal) => {
+        concat!($stack, ", \"Segoe UI Emoji\", \"Apple Color Emoji\", \"Noto Color Emoji\", \"Segoe UI Symbol\", \"Cambria Math\", \"Apple Symbols\", \"STIX Two Math\", \"Noto Sans Math\", \"Noto Sans Symbols 2\", \"DejaVu Sans\"")
+    };
+}
+
+pub fn register_fonts(root: &mut RenderRoot) {
+    for data in bundled::FONTS {
+        root.register_fonts(Blob::new(Arc::new(*data)));
+    }
+}
+
+pub fn set_ui_font(font: UiFont) {
+    *UI_FONT.write().expect("шрифт интерфейса") = Some(Arc::new(font));
+}
+
+pub fn ui_font_settings() -> Arc<UiFont> {
+    UI_FONT.read().expect("шрифт интерфейса").clone().unwrap_or_else(|| {
+        Arc::new(UiFont {
+            family: "Inter".to_owned(),
+            size: size::FONT_SIZE_UI_BASE as f32,
+            weight: number::FONT_WEIGHT_UI_BASE as f32,
+        })
+    })
+}
+
+pub fn set_editor_font(font: EditorFont) {
+    *EDITOR_FONT.write().expect("шрифт редактора") = Some(Arc::new(font));
+}
+
+pub fn editor_font_settings() -> Arc<EditorFont> {
+    EDITOR_FONT.read().expect("шрифт редактора").clone().unwrap_or_else(|| {
+        Arc::new(EditorFont {
+            family: "iA Writer Mono".to_owned(),
+            size: size::EDITOR_FONT_SIZE as f32,
+            weight: number::EDITOR_FONT_WEIGHT as f32,
+            line_height: number::EDITOR_LINE_HEIGHT as f32,
+            max_width_ch: 65,
+        })
+    })
+}
+
+pub fn editor_font(family: &str) -> FontFamily<'static> {
+    match family {
+        "Inter" => ui_font("Inter"),
+        "iA Writer Quattro" => FontFamily::Source(Cow::Borrowed(symbols!("\"iA Writer Quattro\", sans-serif"))),
+        _ => FontFamily::Source(Cow::Borrowed(symbols!("\"iA Writer Mono\", monospace"))),
+    }
+}
+
+pub fn ui_font(family: &str) -> FontFamily<'static> {
+    let base = symbols!("Inter, \"Inter Cyrillic\", sans-serif");
+    let stack = match family {
+        "Inter" | "" => base.to_owned(),
+        other => format!("\"{other}\", {base}"),
+    };
+    FontFamily::Source(Cow::Owned(stack))
+}

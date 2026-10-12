@@ -4,7 +4,6 @@ pub mod created;
 pub mod dataview;
 pub mod error;
 pub mod guest;
-pub mod markdown;
 pub mod fields;
 pub mod graph;
 pub mod headings;

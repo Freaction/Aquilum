@@ -61,18 +61,11 @@ pub(super) fn locate(inner: &Inner, source: &str) -> Option<PathBuf> {
     bases.find_map(|base| Some(crate::paths::join(base, &decoded)).filter(|p| p.is_file()))
 }
 
-
-
-fn extension(source: &str) -> String {
-    let clean = source.split(['?', '#']).next().unwrap_or(source);
-    Path::new(clean).extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default()
-}
-
 fn download(inner: &Inner, url: &str) -> Option<PathBuf> {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::hash::DefaultHasher::new();
     url.hash(&mut hasher);
-    let ext = extension(url);
+    let ext = crate::images::extension(url).map(str::to_ascii_lowercase).unwrap_or_default();
     let name = if ext.is_empty() { format!("{:016x}", hasher.finish()) } else { format!("{:016x}.{ext}", hasher.finish()) };
     let target = inner.cache.join(name);
     if target.is_file() {
@@ -110,7 +103,7 @@ pub(super) fn load(inner: &Inner, source: &str, wiki: bool) -> Fetch<Media> {
     if let Some(fetched) = inline_image(source) {
         return fetched;
     }
-    let video = crate::ui::editor::is_video(source);
+    let video = crate::images::kind(source) == Some(crate::images::MediaKind::Video);
     let remote = source.starts_with("http://") || source.starts_with("https://");
     let path = if remote {
         if video {

@@ -54,3 +54,5 @@ tauri-version/tmp-fm.*
 
 # Корзина приложения в базе знаний (служебная папка Aquilum)
 .trash/
+
+__pycache__/

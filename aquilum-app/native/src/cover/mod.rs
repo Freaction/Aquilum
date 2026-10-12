@@ -109,9 +109,7 @@ fn named_pattern(name: &str) -> Option<&'static str> {
 pub fn suggest_patterns(query: &str) -> Vec<String> {
     let query = query.trim().to_lowercase();
     let query = query.strip_prefix(PREFIX).unwrap_or(&query);
-    let (mut first, rest): (Vec<&str>, Vec<&str>) = PATTERN_IDS.iter().filter(|id| id.contains(query)).partition(|id| id.starts_with(query));
-    first.extend(rest);
-    first.into_iter().map(str::to_owned).collect()
+    crate::rank::rank(PATTERN_IDS, query).into_iter().map(str::to_owned).collect()
 }
 
 pub fn random_pattern(current: Option<&str>) -> String {

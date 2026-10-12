@@ -1,4 +1,4 @@
-use crate::search::markdown::{lines_outside_fences, list_item_body};
+use crate::markdown::{fence, list};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Task {
@@ -8,25 +8,14 @@ pub struct Task {
 }
 
 pub fn note_tasks(body: &str) -> Vec<Task> {
-    lines_outside_fences(body)
+    fence::outside(body)
         .into_iter()
         .filter_map(|(index, line)| {
-            let (done, text) = checkbox(line.trim_start())?;
-            Some(Task { line: index + 1, done, text })
+            let item = list::item(line)?;
+            let task = item.task?;
+            Some(Task { line: index + 1, done: task.done, text: line[item.content..].trim().to_owned() })
         })
         .collect()
-}
-
-fn checkbox(trimmed: &str) -> Option<(bool, String)> {
-    let rest = list_item_body(trimmed)?;
-    let rest = rest.strip_prefix('[')?;
-    let mut symbols = rest.chars();
-    let state = symbols.next()?;
-    let rest = symbols.as_str().strip_prefix(']')?;
-    if !rest.is_empty() && !rest.starts_with([' ', '\t']) {
-        return None;
-    }
-    Some((!state.is_whitespace(), rest.trim().to_owned()))
 }
 
 #[cfg(test)]
@@ -69,10 +58,10 @@ mod tests {
     }
 
     #[test]
-    fn a_task_follows_the_list_markers_of_the_editor() {
+    fn every_list_marker_can_carry_a_task() {
         assert_eq!(
-            note_tasks("- [ ] дефис\n1. [ ] точка\n1) [x] скобка\n* [ ] звезда\n+ [ ] плюс"),
-            vec![task(1, false, "дефис"), task(2, false, "точка"), task(3, true, "скобка")]
+            note_tasks("- [ ] дефис\n1. [ ] точка\n1) [x] скобка\n* [ ] звезда\n+ [x] плюс"),
+            vec![task(1, false, "дефис"), task(2, false, "точка"), task(3, true, "скобка"), task(4, false, "звезда"), task(5, true, "плюс")]
         );
     }
 

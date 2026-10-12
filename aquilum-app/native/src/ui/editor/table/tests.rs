@@ -1,9 +1,16 @@
+use masonry::core::BrushIndex;
+use masonry::parley::{Alignment, Layout};
+
 use super::markdown::parse;
 use super::model::{Align, Range2, Table};
-use super::view::letters;
+use super::view::{TableView, letters};
 
-fn table(text: &str) -> Table {
+pub(super) fn table(text: &str) -> Table {
     parse(&text.split('\n').collect::<Vec<_>>()).unwrap()
+}
+
+pub(super) fn blank_view(table: &Table) -> TableView {
+    table.layout(500.0, None, |_: &str, _: Option<f64>, _: Alignment, _: bool| (Layout::<BrushIndex>::default(), crate::ui::editor::markdown::Decor::default()))
 }
 
 #[test]
@@ -26,7 +33,7 @@ fn legacy_spans_are_inferred() {
 fn edits_sanitize_and_structure_ops_keep_merges() {
     let mut t = table("| a | b | c |\n| --- | --- | --- |\n| 1 | 2 | 3 |\n| 4 | 5 | 6 |");
     t.set(1, 1, "x|y\n");
-    assert_eq!(t.value(1, 1), "x\u{2223}y");
+    assert_eq!(t.value(1, 1), "x|y ");
     assert!(t.merge(Range2::span((1, 0), (2, 1))));
     assert_eq!(t.value(2, 1), "1");
     t.add_col();
@@ -42,10 +49,8 @@ fn edits_sanitize_and_structure_ops_keep_merges() {
 #[test]
 fn borders_are_found_where_they_are_painted_after_the_table_narrows() {
     use super::view::{Hit, Line};
-    use masonry::core::BrushIndex;
     use masonry::kurbo::Point;
-    use masonry::parley::{Alignment, Layout};
-    let make = |_: &str, _: Option<f64>, _: Alignment, _: bool| Layout::<BrushIndex>::default();
+    let make = |_: &str, _: Option<f64>, _: Alignment, _: bool| (Layout::<BrushIndex>::default(), crate::ui::editor::markdown::Decor::default());
     let wide = table("| a | b | c | d |\n| --- | --- | --- | --- |\n| 1 | 2 | 3 | 4 |\n<!--q-table:{\"merges\":[],\"cols\":[300,300,300,300]}-->");
     let scroll = wide.layout(500.0, None, make).max_scroll();
     let mut narrow = wide.clone();

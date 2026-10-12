@@ -1,5 +1,6 @@
 use super::*;
 use crate::ui::editor::resolve::Request;
+use aquilum_core::markdown::escape;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Smart {
@@ -22,46 +23,16 @@ impl Smart {
 
 pub fn separate_pasted_frontmatter(text: &str) -> std::borrow::Cow<'_, str> {
     use std::borrow::Cow::{Borrowed, Owned};
-    let Some(first) = text.strip_prefix("---").and_then(|_| text.find('\n')) else { return Borrowed(text) };
-    let mut from = first + 1;
-    while let Some(rel) = text[from..].find("---") {
-        let close = from + rel;
-        if text[..close].ends_with('\n') {
-            let after = close + 3;
-            return match text[after..].strip_prefix('\n') {
-                None if after == text.len() => Owned(format!("{text}\n\n")),
-                Some(rest) if !rest.starts_with('\n') => Owned(format!("{}\n\n{rest}", &text[..after])),
-                _ => Borrowed(text),
-            };
-        }
-        from = close + 3;
+    let Some(end) = crate::frontmatter::end(text) else { return Borrowed(text) };
+    match text[end..].strip_prefix('\n') {
+        None if end == text.len() => Owned(format!("{text}\n\n")),
+        Some(rest) if !rest.starts_with('\n') => Owned(format!("{}\n\n{rest}", &text[..end])),
+        _ => Borrowed(text),
     }
-    Borrowed(text)
 }
-
 
 fn is_bare_url(text: &str) -> bool {
-    let rest = text.strip_prefix("https://").or_else(|| text.strip_prefix("http://")).unwrap_or(text);
-    let host = rest.strip_prefix("www.").unwrap_or(rest);
-    (rest.len() < text.len() || text.starts_with("www."))
-        && !text.chars().any(char::is_whitespace)
-        && host.split(['/', '?', '#']).next().is_some_and(|h| h.contains('.') && h.len() >= 4)
-}
-
-fn is_image(url: &str) -> bool {
-    let path = url.split(['?', '#']).next().unwrap_or(url);
-    path.rsplit_once('.').is_some_and(|(_, ext)| crate::images::decodable(ext))
-}
-
-pub(super) fn escape_title(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
-        if matches!(c, '*' | '_' | '`' | '|' | '<' | '>' | '~' | '\\' | '[' | ']') {
-            out.push('\\');
-        }
-        out.push(c);
-    }
-    out
+    markdown::bare_urls(text).first().is_some_and(|url| *url == (0..text.len()))
 }
 
 impl TextEditor {
@@ -96,12 +67,12 @@ impl TextEditor {
         let full = self.doc.text();
         let before = &full[full.floor_char_boundary(range.start.saturating_sub(64))..range.start];
         let in_link = before.rfind("](").is_some_and(|i| !before[i..].contains([')', ' ']));
-        if !self.smart.links || self.doc.markdown.is_none() || !is_bare_url(url) || is_image(url) || in_link {
+        if !self.smart.links || self.doc.markdown.is_none() || !is_bare_url(url) || crate::images::kind(url) == Some(crate::images::MediaKind::Image) || in_link {
             return false;
         }
         let selected = full[range].trim().to_owned();
         if !selected.is_empty() {
-            self.insert(&format!("[{}]({url})", escape_title(&selected)), Kind::Other);
+            self.insert(&format!("[{}]({url})", escape::label(&selected)), Kind::Other);
             return true;
         }
         let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
@@ -116,12 +87,31 @@ impl TextEditor {
     pub fn resolve_link_title(this: &mut WidgetMut<'_, Self>, placeholder: &str, title: &str) {
         let Some(at) = this.widget.doc.text().find(placeholder) else { return };
         let (anchor, focus) = (this.widget.anchor, this.widget.focus);
-        let title = escape_title(title);
+        let title = escape::label(title);
         this.widget.replace(at..at + placeholder.len(), &title, Kind::Other);
         let shift = |p: usize| if p > at { p + title.len() - placeholder.len() } else { p };
         (this.widget.anchor, this.widget.focus) = (shift(anchor), shift(focus));
         this.ctx.submit_action::<TextAction>(this.widget.doc.changed());
         this.ctx.request_layout();
         this.ctx.request_render();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::separate_pasted_frontmatter;
+
+    #[test]
+    fn pasted_frontmatter_gets_a_blank_line_after_the_closing_fence() {
+        assert_eq!(separate_pasted_frontmatter("---\na: 1\n---\nтекст"), "---\na: 1\n---\n\nтекст");
+        assert_eq!(separate_pasted_frontmatter("---\na: 1\n---"), "---\na: 1\n---\n\n");
+        assert_eq!(separate_pasted_frontmatter("---\na: 1\n---  \nтекст"), "---\na: 1\n---  \n\nтекст");
+    }
+
+    #[test]
+    fn only_a_real_fence_line_counts() {
+        for text in ["---\na: 1\n---\n\nтекст", "---\na: 1\n----\nтекст", "---\na: 1\n---abc\nтекст", "текст\n---\na: 1\n---\nтекст", "----\na: 1\n---\nтекст"] {
+            assert!(matches!(separate_pasted_frontmatter(text), std::borrow::Cow::Borrowed(_)), "{text}");
+        }
     }
 }

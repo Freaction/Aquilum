@@ -2,7 +2,9 @@ use super::super::error::SearchError;
 use super::super::models::OutgoingLink;
 use super::parser::extract;
 use super::resolver::resolve_many;
+use super::target::split;
 use super::LINK_LIST_LIMIT;
+use crate::search::paths::strip_markdown_extension;
 use rusqlite::Connection;
 use std::path::Path;
 
@@ -37,22 +39,15 @@ pub fn outgoing_links(
 }
 
 fn target_title(target: &str) -> String {
-    let filename = target.trim().rsplit(['/', '\\']).next().unwrap_or_default();
-    filename
-        .get(..filename.len().saturating_sub(3))
-        .filter(|_| {
-            filename
-                .get(filename.len().saturating_sub(3)..)
-                .is_some_and(|ending| ending.eq_ignore_ascii_case(".md"))
-        })
-        .unwrap_or(filename)
-        .to_owned()
+    let note = split(target).note;
+    let filename = note.rsplit(['/', '\\']).next().unwrap_or_default();
+    strip_markdown_extension(filename).to_owned()
 }
 
 #[cfg(test)]
 mod tests {
     use super::outgoing_links;
-    use crate::search::wiki::{index_document, open_schema};
+    use crate::search::wiki::{index_document, open_schema, resolve_many};
     use rusqlite::Connection;
     use std::fs;
 
@@ -90,5 +85,38 @@ mod tests {
         assert_eq!(links[1].title, "Missing Note");
         assert!(links[1].path.is_none());
         assert_eq!(links[2].title, "Research.v2");
+    }
+
+    #[test]
+    fn anchors_resolve_to_the_note_and_files_are_not_links() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let source = root.join("Source.md");
+        let target = root.join("Target.md");
+        let body = "[[#Раздел]] ![[pic.png|10]] ![[document.pdf#page=3]] ![[Target]] [[Target#h|x]] [[Missing#h]]";
+        fs::write(&source, body).unwrap();
+        fs::write(&target, "target").unwrap();
+        let mut connection = Connection::open_in_memory().unwrap();
+        open_schema(&connection).unwrap();
+        let transaction = connection.transaction().unwrap();
+        index_document(&transaction, root, &source, body).unwrap();
+        index_document(&transaction, root, &target, "target").unwrap();
+        transaction.commit().unwrap();
+
+        let links = outgoing_links(&connection, root, &source).unwrap();
+        assert_eq!(links.len(), 3);
+        assert_eq!(links[0].path.as_deref(), target.to_str());
+        assert_eq!(links[1].target, "Target#h");
+        assert_eq!(links[1].title, "Target");
+        assert!(links[2].path.is_none());
+        assert_eq!(links[2].title, "Missing");
+
+        let own = resolve_many(&connection, root, &source, &["#Раздел".to_owned(), "Target#h".to_owned()]).unwrap();
+        assert_eq!(own[0].as_deref(), Some(source.as_path()));
+        assert_eq!(own[1].as_deref(), Some(target.as_path()));
+        let edges = connection
+            .query_row("SELECT COUNT(*) FROM wiki_links", [], |row| row.get::<_, i64>(0))
+            .unwrap();
+        assert_eq!(edges, 3);
     }
 }

@@ -1,18 +1,12 @@
-//! Картинки и видео из буфера обмена и перетаскивания (`extensions/image/paste.ts`): файл
-//! копируется в папку вложений, в заметку вставляется встраивание.
-
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use masonry::app::RenderRoot;
 use masonry::kurbo::Point;
 
 use super::App;
-use crate::ui::editor::{TextEditor, is_video, media_line};
+use crate::images::{MediaKind, kind};
+use crate::ui::editor::{TextEditor, media_line};
 use crate::vault_files::{self, Source};
-
-fn is_image(path: &Path) -> bool {
-    path.extension().and_then(|e| e.to_str()).is_some_and(crate::images::decodable)
-}
 
 fn natural_width(source: &Source<'_>) -> Option<f64> {
     let (width, _) = match source {
@@ -28,7 +22,7 @@ impl App {
     }
 
     pub fn drop_files(&mut self, root: &mut RenderRoot, paths: &[PathBuf], at: Point) {
-        let media: Vec<Source<'_>> = paths.iter().filter(|p| is_image(p) || is_video(&p.to_string_lossy())).map(|p| Source::Path(p)).collect();
+        let media: Vec<Source<'_>> = paths.iter().filter(|p| kind(&p.to_string_lossy()).is_some()).map(|p| Source::Path(p)).collect();
         self.insert_media(root, &media, Some(at));
     }
 
@@ -42,8 +36,8 @@ impl App {
             .iter()
             .filter_map(|source| {
                 let video = match source {
-                    Source::Path(path) => is_video(&path.to_string_lossy()),
-                    Source::Bytes(_, name) => is_video(name),
+                    Source::Path(path) => kind(&path.to_string_lossy()) == Some(MediaKind::Video),
+                    Source::Bytes(_, name) => kind(name) == Some(MediaKind::Video),
                 };
                 let (name, ext) = if video { ("video", "mp4") } else { ("image", "png") };
                 let relative = vault_files::import(&self.workspace.core, workspace, *source, name, ext).ok()?;

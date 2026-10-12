@@ -6,11 +6,8 @@ impl Host {
         let signals = std::mem::take(&mut *self.signals.borrow_mut());
         let mut actions = Vec::new();
         for signal in signals {
-            if matches!(signal, RenderRootSignal::RequestRedraw) {
-                self.request_redraw();
-                continue;
-            }
             match signal {
+                RenderRootSignal::RequestRedraw => self.request_redraw(),
                 RenderRootSignal::RequestAnimFrame => {
                     self.anim_pending = true;
                     if !self.occluded {

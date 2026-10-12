@@ -1,7 +1,10 @@
+mod draws;
+mod glyphs;
 mod hash;
 mod merge;
 mod region;
 mod sink;
+mod stack;
 
 use masonry::kurbo::{Affine, Rect, RoundedRect, Vec2};
 

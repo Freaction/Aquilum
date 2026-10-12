@@ -14,6 +14,7 @@ const NOTE_DIRECTORIES = ['knowledge base/', 'research_notes/', 'reports/', '.aq
 const PUBLISHED_MARKDOWN = [
   'aquilum-app/README.md',
   'aquilum-app/native/assets/fonts/LICENSE-iA-Writer.md',
+  'aquilum-app/native/testdata/markdown-test.md',
 ];
 const VENDORED = 'aquilum-app/native/vendor/';
 const PUBLIC_ONLY_MARKDOWN = ['README.md', 'README.ru.md', 'DEVELOPMENT.md'];

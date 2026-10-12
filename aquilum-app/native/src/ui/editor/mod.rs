@@ -11,7 +11,7 @@ mod widget;
 mod tests;
 
 pub use table::Command as TableCommand;
-pub use embed::media::{is_video, media_line};
+pub use embed::media::media_line;
 pub use widget::{Smart, TextEditor};
 
 #[derive(Clone, Debug, PartialEq)]

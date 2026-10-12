@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use aquilum_core::search::paths::is_markdown;
 use masonry::app::RenderRoot;
 use masonry::widgets::IndexedStack;
 
@@ -13,54 +14,7 @@ impl App {
         if let Some((layer, _)) = self.suggest_layer.take() {
             root.remove_layer(layer);
         }
-        for _ in 0..self.tabs.tabs().len().max(1) {
-            let tab = self.tabs.active().clone();
-            if tab.graph && self.tree.root().is_some() {
-                self.leave_note();
-                self.drop_note_page(root);
-                self.tree.set_active(root, None);
-                self.show_graph(root);
-                self.show_page(root, 4);
-                break;
-            }
-            let Some(path) = tab.path else {
-                self.leave_note();
-                self.drop_note_page(root);
-                self.tree.set_active(root, None);
-                self.show_page(root, if self.tree.root().is_some() { 1 } else { 3 });
-                break;
-            };
-            if self.note.as_ref().is_some_and(|n| n.is(&path)) {
-                self.reveal_pending(root);
-                self.show_page(root, 0);
-                break;
-            }
-            self.leave_note();
-            match Note::open(path.clone()) {
-                Ok((note, text)) => {
-                    self.open_error = None;
-                    self.open_error_ids = None;
-                    self.editor_text = text;
-                    self.note = Some(note);
-                    self.render_note(root);
-                    self.reveal_pending(root);
-                    self.hold = Some(std::time::Instant::now() + super::super::HOLD);
-                    self.tree.set_active(root, Some(path));
-                    self.show_page(root, 0);
-                    break;
-                }
-                Err(error) => {
-                    let err_str = format!("{error}");
-                    report!("заметка {} не прочитана: {err_str}", path.display());
-                    self.open_error = Some((path.clone(), err_str.clone()));
-                    self.show_open_error(root, &path, &err_str);
-                    self.hold = Some(std::time::Instant::now() + super::super::HOLD);
-                    self.tree.set_active(root, Some(path));
-                    self.show_page(root, 0);
-                    break;
-                }
-            }
-        }
+        self.show_tab(root);
         self.version_view = None;
         self.show_version(root);
         self.refresh_tabs(root);
@@ -68,9 +22,54 @@ impl App {
         self.workspace.core.active_note.set(self.note.as_ref().map(|n| n.path.clone()));
     }
 
+    fn show_tab(&mut self, root: &mut RenderRoot) {
+        let tab = self.tabs.active().clone();
+        if tab.graph && self.tree.root().is_some() {
+            self.leave_note();
+            self.drop_note_page(root);
+            self.tree.set_active(root, None);
+            self.show_graph(root);
+            self.show_page(root, 4);
+            return;
+        }
+        let Some(path) = tab.path else {
+            self.leave_note();
+            self.drop_note_page(root);
+            self.tree.set_active(root, None);
+            self.show_page(root, if self.tree.root().is_some() { 1 } else { 3 });
+            return;
+        };
+        if self.note.as_ref().is_some_and(|n| n.is(&path)) {
+            self.reveal_pending(root);
+            self.show_page(root, 0);
+            return;
+        }
+        self.leave_note();
+        match Note::open(path.clone()) {
+            Ok((note, text)) => {
+                self.open_error = None;
+                self.open_error_ids = None;
+                self.editor_text = text;
+                self.note = Some(note);
+                self.render_note(root);
+                self.reveal_pending(root);
+            }
+            Err(error) => {
+                let err_str = format!("{error}");
+                report!("заметка {} не прочитана: {err_str}", path.display());
+                self.open_error = Some((path.clone(), err_str.clone()));
+                self.show_open_error(root, &path, &err_str);
+            }
+        }
+        self.hold = Some(std::time::Instant::now() + super::super::HOLD);
+        self.tree.set_active(root, Some(path));
+        self.show_page(root, 0);
+    }
+
     pub(in crate::app) fn show_open_error(&mut self, root: &mut RenderRoot, path: &Path, error: &str) {
         self.note = None;
         self.note_ids = None;
+        self.embeds = None;
         let (page, ids) = crate::ui::note::open_error_page(path, error);
         self.open_error_ids = Some(ids);
         if let Some(chrome) = &self.chrome {
@@ -79,6 +78,7 @@ impl App {
     }
 
     fn drop_note_page(&mut self, root: &mut RenderRoot) {
+        self.embeds = None;
         if self.note_ids.take().is_none() {
             return;
         }
@@ -125,7 +125,7 @@ impl App {
     }
 
     pub(crate) fn open_in_with_offset(&mut self, root: &mut RenderRoot, path: PathBuf, new_tab: bool, offset: Option<usize>) -> bool {
-        if path.extension().is_none_or(|ext| !ext.eq_ignore_ascii_case("md")) {
+        if !is_markdown(&path) {
             return false;
         }
         if let Some(current) = self.note.as_ref().map(|n| n.path.clone()) {

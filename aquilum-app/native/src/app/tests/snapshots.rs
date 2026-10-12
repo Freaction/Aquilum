@@ -30,6 +30,55 @@ fn chrome_snapshots() {
 
 #[test]
 #[ignore]
+fn tree_toolbar_snapshot() {
+    let out = std::path::PathBuf::from(std::env::var("AQ_OUT").unwrap());
+    let scale = 1.75;
+    let mut h = Harness::with(None, scale);
+    let folder = h.vault.path().join("Проекты");
+    std::fs::create_dir(&folder).unwrap();
+    std::fs::write(folder.join("План.md"), "").unwrap();
+    std::fs::write(h.vault.path().join("Идеи.md"), "").unwrap();
+    h.app.tree.paths_changed(&mut h.root, &[folder.clone(), h.vault.path().join("Идеи.md")]);
+    let (w, hh) = ((f64::from(W) * scale) as u16, (f64::from(H) * scale) as u16);
+    let shot = |h: &mut Harness, name: &str| {
+        let (layers, _) = h.root.redraw();
+        let mut r = crate::render::Renderer::new(2);
+        r.render(&layers, w, hh, scale, theme::background()).unwrap();
+        std::fs::write(out.join(name), r.png()).unwrap();
+    };
+    shot(&mut h, "tree-toolbar.png");
+    let [_, _, sort, _] = h.app.tree.toolbar_ids().unwrap();
+    h.app.open_sort_menu(&mut h.root, sort);
+    shot(&mut h, "tree-sort-menu.png");
+}
+
+#[test]
+#[ignore]
+fn hotkeys_snapshot() {
+    let out = std::path::PathBuf::from(std::env::var("AQ_OUT").unwrap());
+    let scale = 1.75;
+    let mut h = Harness::with(None, scale);
+    let (w, hh) = ((f64::from(W) * scale) as u16, (f64::from(H) * scale) as u16);
+    let shot = |h: &mut Harness, name: &str| {
+        let (layers, _) = h.root.redraw();
+        let mut r = crate::render::Renderer::new(2);
+        r.render(&layers, w, hh, scale, theme::background()).unwrap();
+        std::fs::write(out.join(name), r.png()).unwrap();
+    };
+    h.app.interface.set_settings_section("shortcuts");
+    h.app.open_settings(&mut h.root);
+    for _ in 0..30 {
+        h.root.handle_window_event(masonry::core::WindowEvent::AnimFrame(std::time::Duration::from_millis(16)));
+        h.deliver();
+    }
+    shot(&mut h, "settings-shortcuts.png");
+    let mut h = Harness::with(None, scale);
+    h.app.open_search(&mut h.root);
+    shot(&mut h, "search-footer.png");
+}
+
+#[test]
+#[ignore]
 fn markdown_snapshot() {
     let out = std::path::PathBuf::from(std::env::var("AQ_OUT").unwrap());
     let scale = 1.75;

@@ -44,10 +44,10 @@ pub fn spec_layout(fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, s
         builder.push_default(StyleProperty::FontWeight(FontWeight::new(weight)));
     }
     for link in spec.links {
-        builder.push(StyleProperty::Brush(markdown::LINK), link.clone());
+        markdown::push(&mut builder, StyleProperty::Brush(markdown::LINK), link.clone());
         if spec.underline {
-            builder.push(StyleProperty::Underline(true), link.clone());
-            builder.push(StyleProperty::UnderlineBrush(Some(markdown::LINK)), link.clone());
+            markdown::push(&mut builder, StyleProperty::Underline(true), link.clone());
+            markdown::push(&mut builder, StyleProperty::UnderlineBrush(Some(markdown::LINK)), link.clone());
         }
     }
     let mut layout = builder.build(spec.text);
@@ -64,6 +64,7 @@ pub fn build(
     text: &str,
     underline: Option<Range<usize>>,
     width: Option<f32>,
+    align: Alignment,
     markdown: Option<(&Fonts, &Block, Option<usize>, &HashSet<String>)>,
 ) -> (Layout<BrushIndex>, Decor) {
     let mut builder = lcx.ranged_builder(fcx, text, 1.0, true);
@@ -78,7 +79,7 @@ pub fn build(
         None => Decor::default(),
     };
     if let Some(range) = underline {
-        builder.push(StyleProperty::Underline(true), range);
+        markdown::push(&mut builder, StyleProperty::Underline(true), range);
     }
     let mut layout = builder.build(text);
     let wrap = width.map(|w| (w - decor.inset as f32).max(0.0));
@@ -88,6 +89,6 @@ pub fn build(
         layout.set_text_indent(x as f32, IndentOptions { each_line: false, hanging: true });
     }
     layout.break_all_lines(wrap);
-    layout.align(wrap, Alignment::Start, AlignmentOptions::default());
+    layout.align(wrap, align, AlignmentOptions::default());
     (layout, decor)
 }

@@ -106,6 +106,29 @@ fn big_image_frame_cost() {
 }
 
 #[test]
+fn published_frame_survives_regions_that_miss_it() {
+    use masonry::kurbo::Affine;
+    let mut surfaces = surface::Surfaces::default();
+    let frame = surfaces.frame(8, 8, [200, 30, 30], |_| {});
+    let mut painter = paint::Painter::new(8, 8, paint::settings(0));
+    let mut center = |with_image: bool| {
+        painter.begin(0, 0, 8, 8);
+        if with_image {
+            masonry::imaging::Painter::new(&mut painter).draw_image(&frame, Affine::IDENTITY);
+        }
+        painter.finish().unwrap();
+        let mut pixmap = vello_cpu::Pixmap::new(8, 8);
+        painter.ctx.render_with(&mut pixmap, &mut painter.resources, vello_cpu::RasterizerSettings::default());
+        pixmap.data()[4 * 8 + 4].r
+    };
+    assert_eq!(center(true), 200, "кадр не нарисован");
+    for _ in 0..3 {
+        center(false);
+    }
+    assert_eq!(center(true), 200, "кадр пропал после областей, которые его не задевали");
+}
+
+#[test]
 fn overlay_leaves_no_trace() {
     use super::overlay::{Mark, Overlay};
     use super::stamp::Stamps;

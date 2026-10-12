@@ -6,7 +6,8 @@ use masonry::parley::Layout;
 
 use super::super::markdown::{DANGER, SECONDARY, TEXT};
 use super::super::resolve::{Fetch, Grid, Part, Shape};
-use super::{Action, BAR_HEIGHT, BAR_MIN, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, Drawing, Font, Item, NATURAL_MAX, PAD, PENDING, Spec, Tone, card, link_hits};
+use super::metrics::{BAR_HEIGHT, BAR_MIN, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, NATURAL_MAX, PAD, PENDING};
+use super::{Action, Drawing, Font, Item, Spec, Tone, card, link_hits};
 
 fn cell_text(parts: &[Part]) -> (String, Vec<(Range<usize>, String)>) {
     let mut text = String::new();

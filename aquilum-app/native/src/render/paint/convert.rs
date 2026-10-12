@@ -1,7 +1,7 @@
 //! Преобразования типов между Masonry/imaging и vello_cpu.
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use masonry::imaging::{ClipRef, Composite, Filter, GeometryRef};
 use masonry::kurbo::{Affine, BezPath, Rect, Shape as _, StrokeOpts, stroke};
@@ -13,20 +13,23 @@ const IMAGE_FRAMES: u64 = 2;
 
 #[derive(Default)]
 pub struct Images {
-    sources: HashMap<u64, (ImageSource, u64)>,
+    sources: HashMap<u64, (ImageSource, u64, Option<Weak<()>>)>,
     frame: u64,
 }
 
 impl Images {
     fn source(&mut self, data: &ImageData) -> ImageSource {
         let frame = self.frame;
-        let (source, used) = self.sources.entry(data.data.id()).or_insert_with(|| {
-            let source = match crate::render::surface::take(data.data.id()).or_else(|| crate::render::pixels::lookup(data.data.id())) {
+        let (source, used, _) = self.sources.entry(data.data.id()).or_insert_with(|| {
+            if let Some((pixmap, owner)) = crate::render::surface::find(data.data.id()) {
+                return (ImageSource::Pixmap(pixmap), frame, Some(owner));
+            }
+            let source = match crate::render::pixels::lookup(data.data.id()) {
                 Some(pixmap) => ImageSource::Pixmap(pixmap),
                 None if data.data.data().len() != data.width as usize * data.height as usize * 4 => ImageSource::Pixmap(Arc::new(vello_cpu::Pixmap::new(1, 1))),
                 None => ImageSource::from_peniko_image_data(data),
             };
-            (source, frame)
+            (source, frame, None)
         });
         *used = frame;
         source.clone()
@@ -35,7 +38,7 @@ impl Images {
     pub fn next_frame(&mut self) {
         self.frame += 1;
         let frame = self.frame;
-        self.sources.retain(|_, (_, used)| frame - *used < IMAGE_FRAMES);
+        self.sources.retain(|_, (_, used, owner)| frame - *used < IMAGE_FRAMES && owner.as_ref().is_none_or(|o| o.strong_count() > 0));
     }
 }
 
@@ -70,9 +73,6 @@ pub fn clip_to_path(clip: ClipRef<'_>, tolerance: f64) -> (Affine, BezPath, Fill
 }
 
 pub fn filters_to_vello(filters: &[Filter]) -> Option<VelloFilter> {
-    if filters.is_empty() {
-        return None;
-    }
     let mut graph = FilterGraph::new();
     let mut last = None;
     for f in filters {

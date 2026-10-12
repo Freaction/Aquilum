@@ -1,3 +1,4 @@
+pub mod anchor;
 pub mod backlinks;
 pub mod edges;
 pub mod outgoing;
@@ -16,3 +17,5 @@ pub use outgoing::outgoing_links;
 pub use rename::{plan_for_rename, LinkRewrite};
 pub use repository::{candidate_sources, index_document, open_schema, remove_document};
 pub use resolver::resolve_many;
+#[cfg(test)]
+mod rename_tests;

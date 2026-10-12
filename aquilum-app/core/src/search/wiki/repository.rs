@@ -53,7 +53,7 @@ pub fn index_document(
             path_text,
             target_key,
             target_kind,
-            link.target_range.start as i64,
+            link.note_range.start as i64,
             link.offset_utf16 as i64,
         ])?;
     }

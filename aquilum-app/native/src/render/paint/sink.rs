@@ -7,7 +7,7 @@ use masonry::imaging::record::Glyph as SceneGlyph;
 use masonry::kurbo::{Affine, Shape as _};
 use masonry::peniko::{BlendMode, BrushRef};
 
-use super::Painter;
+use super::{Painter, TOLERANCE};
 use super::convert;
 use super::error::PaintError;
 use super::mask;
@@ -33,7 +33,7 @@ impl PaintSink for Painter {
                 }
             }
         } else {
-            let (transform, path, fill_rule) = convert::clip_to_path(clip, self.tolerance);
+            let (transform, path, fill_rule) = convert::clip_to_path(clip, TOLERANCE);
             self.set_transform(transform);
             self.ctx.set_fill_rule(fill_rule);
             self.ctx.push_clip_path(&path);
@@ -60,7 +60,7 @@ impl PaintSink for Painter {
         let (clip_path, clip_transform) = match group.clip {
             None => (None, Affine::IDENTITY),
             Some(clip) => {
-                let (transform, path, fill_rule) = convert::clip_to_path(clip, self.tolerance);
+                let (transform, path, fill_rule) = convert::clip_to_path(clip, TOLERANCE);
                 self.ctx.set_fill_rule(fill_rule);
                 (Some(path), transform)
             }
@@ -79,9 +79,8 @@ impl PaintSink for Painter {
                     width,
                     height,
                     self.settings,
-                    self.tolerance,
                 ) {
-                    Ok(m) => m,
+                    Ok(m) => Some(m),
                     Err(err) => {
                         self.set_error_once(err);
                         None
@@ -90,17 +89,7 @@ impl PaintSink for Painter {
             }
             None => None,
         };
-        let filter = if !group.filters.is_empty() {
-            match convert::filters_to_vello(group.filters) {
-                Some(f) => Some(f),
-                None => {
-                    self.set_error_once(PaintError::EmptyFilter);
-                    None
-                }
-            }
-        } else {
-            None
-        };
+        let filter = convert::filters_to_vello(group.filters);
         self.ctx.push_layer(clip_path.as_ref(), blend, opacity, mask, filter);
         self.groups.push(!group.filters.is_empty());
     }
@@ -145,7 +134,7 @@ impl PaintSink for Painter {
         self.ctx.set_paint(paint);
         match draw.shape {
             GeometryRef::Rect(r) => self.ctx.fill_rect(&r),
-            GeometryRef::RoundedRect(rr) => self.ctx.fill_path(&rr.to_path(self.tolerance)),
+            GeometryRef::RoundedRect(rr) => self.ctx.fill_path(&rr.to_path(TOLERANCE)),
             GeometryRef::Path(p) => self.ctx.fill_path(p),
             GeometryRef::OwnedPath(p) => self.ctx.fill_path(&p),
         }
@@ -164,7 +153,7 @@ impl PaintSink for Painter {
         self.ctx.set_paint(paint);
         match draw.shape {
             GeometryRef::Rect(r) => self.ctx.stroke_rect(&r),
-            GeometryRef::RoundedRect(rr) => self.ctx.stroke_path(&rr.to_path(self.tolerance)),
+            GeometryRef::RoundedRect(rr) => self.ctx.stroke_path(&rr.to_path(TOLERANCE)),
             GeometryRef::Path(p) => self.ctx.stroke_path(p),
             GeometryRef::OwnedPath(p) => self.ctx.stroke_path(&p),
         }

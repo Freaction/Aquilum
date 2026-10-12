@@ -1,8 +1,8 @@
 use serde::Deserialize;
 
 use super::model::{Align, DEFAULT_COL, DEFAULT_ROW, MIN_COL, MIN_ROW, Range2, Table};
+use super::syntax::{META, align_of, cells, escape, is_meta, is_separator_row, shape, split_row, unescape};
 
-const META: &str = "<!--q-table:";
 const EMPTY: &str = "<!--q-empty-->";
 const ESCAPED_EMPTY: &str = "&lt;!--q-empty--&gt;";
 const ROWSPAN: &str = "^^";
@@ -15,57 +15,12 @@ struct Meta {
     cols: Option<Vec<f64>>,
 }
 
-fn split_row(line: &str) -> Option<Vec<String>> {
-    let line = line.trim();
-    if !line.starts_with('|') {
-        return None;
-    }
-    let inner = &line[1..];
-    let inner = if inner.ends_with('|') && !inner.ends_with("\\|") { &inner[..inner.len() - 1] } else { inner };
-    let mut out = Vec::new();
-    let mut cell = String::new();
-    let mut escaped = false;
-    for c in inner.chars() {
-        if c == '|' && !escaped {
-            out.push(std::mem::take(&mut cell));
-        } else {
-            cell.push(c);
-        }
-        escaped = c == '\\' && !escaped;
-    }
-    out.push(cell);
-    Some(out.into_iter().map(|c| c.trim().to_owned()).collect())
-}
-
-fn separator_cell(cell: &str) -> bool {
-    let c = cell.trim().trim_start_matches(':').trim_end_matches(':');
-    !c.is_empty() && c.bytes().all(|b| b == b'-')
-}
-
-pub fn is_separator(line: &str) -> bool {
-    split_row(line).is_some_and(|cells| !cells.is_empty() && cells.iter().all(|c| separator_cell(c)))
-}
-
-pub fn is_meta(line: &str) -> bool {
-    line.trim_start().starts_with(META)
-}
-
-fn align_of(cell: &str) -> Option<Align> {
-    let v = cell.trim();
-    match (v.starts_with(':'), v.ends_with(':')) {
-        (true, true) => Some(Align::Center),
-        (true, false) => Some(Align::Left),
-        (false, true) => Some(Align::Right),
-        _ => None,
-    }
-}
-
 fn from_markdown(value: &str) -> String {
-    match value {
+    match value.trim_end() {
         EMPTY | ROWSPAN => String::new(),
         ESCAPED_EMPTY => EMPTY.to_owned(),
         ESCAPED_ROWSPAN => ROWSPAN.to_owned(),
-        other => other.to_owned(),
+        _ => unescape(value),
     }
 }
 
@@ -74,7 +29,7 @@ fn to_markdown(value: &str) -> String {
         "" => EMPTY.to_owned(),
         EMPTY => ESCAPED_EMPTY.to_owned(),
         ROWSPAN => ESCAPED_ROWSPAN.to_owned(),
-        other => other.to_owned(),
+        other => escape(other),
     }
 }
 
@@ -118,28 +73,37 @@ fn inferred(raw: &[Vec<String>], columns: usize) -> Vec<Range2> {
     merges
 }
 
+fn read_meta(line: &str) -> Meta {
+    line.trim().strip_prefix(META).and_then(|j| j.strip_suffix("-->")).and_then(|j| serde_json::from_str(j).ok()).unwrap_or_default()
+}
+
+#[cfg(test)]
 pub fn parse(lines: &[&str]) -> Option<Table> {
-    let header = split_row(lines.first()?)?;
+    parse_with(lines, None)
+}
+
+pub fn parse_with(lines: &[&str], editing: Option<(usize, usize)>) -> Option<Table> {
     let separator = split_row(lines.get(1)?)?;
-    if !separator.iter().all(|c| separator_cell(c)) {
+    if !is_separator_row(&separator) {
         return None;
     }
-    let columns = header.len().max(separator.len());
-    let normalize = |mut row: Vec<String>| {
-        row.resize(columns, String::new());
-        row
-    };
-    let mut raw = vec![normalize(header)];
+    let mut raw = vec![cells(lines.first()?)?];
     let mut line = 2;
-    while let Some(row) = lines.get(line).and_then(|l| split_row(l)) {
-        raw.push(normalize(row));
+    while let Some(row) = lines.get(line).and_then(|l| cells(l)) {
+        raw.push(row);
         line += 1;
     }
     if raw.len() < 2 {
         return None;
     }
-    let meta_line = lines.get(line).filter(|l| is_meta(l));
-    let meta: Option<Meta> = meta_line.map(|l| l.trim().strip_prefix(META).and_then(|j| j.strip_suffix("-->")).and_then(|j| serde_json::from_str(j).ok()).unwrap_or_default());
+    let columns = raw.iter().map(Vec::len).chain([separator.len()]).max()?;
+    for (r, row) in raw.iter_mut().enumerate() {
+        row.resize(columns, EMPTY.to_owned());
+        for (c, cell) in row.iter_mut().enumerate() {
+            *cell = shape(cell, editing == Some((r, c)));
+        }
+    }
+    let meta = lines.get(line).filter(|l| is_meta(l)).map(|l| read_meta(l));
     let rows = raw.len();
     let merges = match &meta {
         Some(m) => m.merges.clone().unwrap_or_default().into_iter().map(|[top, left, bottom, right]| Range2 { top, left, bottom, right }).collect(),
@@ -200,4 +164,3 @@ impl Table {
         lines.join("\n")
     }
 }
-

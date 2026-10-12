@@ -1,0 +1,130 @@
+use std::path::PathBuf;
+
+use masonry::app::RenderRoot;
+use masonry::core::{ErasedAction, WidgetId};
+use masonry::kurbo::Point;
+
+use super::row::RowAction;
+use super::{FileTree, Press, TreeAction};
+use crate::ui::editor::{TextAction, TextEditor};
+use crate::ui::scroll::Scrolled;
+use crate::ui::widgets::Pressed;
+
+impl FileTree {
+    pub fn on_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Option<TreeAction> {
+        if let Some(Scrolled(offset)) = action.downcast_ref::<Scrolled>() {
+            if self.scroll.is_some_and(|s| s.id() == id) {
+                self.offset = *offset;
+                self.show_rows_from(root, *offset);
+            }
+            return None;
+        }
+        if Some(id) == self.create_button && action.downcast_ref::<Pressed>().is_some() {
+            return Some(TreeAction::CreateNote);
+        }
+        if let Some(toolbar) = &self.toolbar
+            && action.downcast_ref::<Pressed>().is_some()
+        {
+            if id == toolbar.collapse {
+                if self.model.collapse_all() {
+                    self.save_expanded();
+                    self.first = Self::first_near(self.offset);
+                    self.refresh(root);
+                }
+                return None;
+            }
+            let folder = self.model.target_folder();
+            if id == toolbar.new_note {
+                return folder.map(|folder| TreeAction::NewNote { folder });
+            }
+            if id == toolbar.new_folder {
+                return folder.map(|folder| TreeAction::NewFolder { folder });
+            }
+            if id == toolbar.sort {
+                return Some(TreeAction::SortMenu { button: id });
+            }
+        }
+        if let Some(text) = action.downcast_ref::<TextAction>() {
+            return match text {
+                TextAction::Entered(name) => self.commit_rename(root, name),
+                TextAction::Cancelled => {
+                    self.model.stop_rename();
+                    self.refresh(root);
+                    None
+                }
+                TextAction::Changed(_) | TextAction::Edited(_) => None,
+            };
+        }
+        self.on_row_action(root, id, action.downcast_ref::<RowAction>()?)
+    }
+
+    fn on_row_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &RowAction) -> Option<TreeAction> {
+        if self.model.renaming().is_some() {
+            let name = self.rename.and_then(|field| field.get(root)).map(|f| f.inner().text().to_string());
+            if let Some(name) = name {
+                return self.commit_rename(root, &name);
+            }
+        }
+        let index = self.first + self.row_ids.iter().position(|&row| row == id)?;
+        let modifiers = match action {
+            RowAction::Press(modifiers) => *modifiers,
+            RowAction::DragStart(at) => {
+                self.start_drag(root, index, *at);
+                return None;
+            }
+            RowAction::DragMove(at) => {
+                self.drag_to(root, *at);
+                return None;
+            }
+            RowAction::Drop(at) => {
+                self.drag_to(root, *at);
+                return self.drop(root);
+            }
+            RowAction::ContextMenu(at) => return self.context_menu(root, index, *at),
+        };
+        match self.model.press(index, modifiers)? {
+            Press::Rebuild => {
+                self.save_expanded();
+                self.refresh(root);
+                None
+            }
+            Press::Open { path, new_tab } => Some(TreeAction::Open { path, new_tab }),
+        }
+    }
+
+    fn context_menu(&mut self, root: &mut RenderRoot, index: usize, at: Point) -> Option<TreeAction> {
+        let row = self.model.rows()[index].clone();
+        let note = aquilum_core::search::paths::is_markdown(&row.path);
+        if !row.folder && !note {
+            return None;
+        }
+        let targets = self.model.focus(index);
+        self.refresh(root);
+        Some(TreeAction::ContextMenu { targets, clicked: row.path, folder: row.folder, at })
+    }
+
+    pub fn start_rename(&mut self, root: &mut RenderRoot, path: PathBuf) {
+        self.model.start_rename(path);
+        self.rename = None;
+        self.refresh(root);
+        let Some(field) = self.rename else { return };
+        field.edit(root, |mut field| {
+            let len = field.widget.text().to_string().len();
+            TextEditor::select_byte_range(&mut field, 0, len);
+        });
+        root.focus_on(Some(field.id()));
+    }
+
+    fn commit_rename(&mut self, root: &mut RenderRoot, input: &str) -> Option<TreeAction> {
+        let from = self.model.renaming()?.to_path_buf();
+        self.model.stop_rename();
+        let Some((to, name)) = crate::file_ops::rename_target(&from, input) else {
+            self.refresh(root);
+            return None;
+        };
+        self.model.patch(&from, &to, &name);
+        self.save_expanded();
+        self.refresh(root);
+        Some(TreeAction::Rename { from, to })
+    }
+}

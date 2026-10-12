@@ -105,10 +105,7 @@ impl Session {
             }
             Command::DeleteTable => return Outcome::Remove,
         };
-        self.range = None;
-        self.active = Some(model.anchor(resume.0, resume.1));
-        self.caret = model.value(resume.0, resume.1).len();
-        self.anchor = self.caret;
+        self.enter(model.anchor(resume.0, resume.1), model.value(resume.0, resume.1).len());
         Outcome::Write(model)
     }
 }

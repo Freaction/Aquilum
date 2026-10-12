@@ -30,6 +30,20 @@ impl App {
         self.popup = Some(Popup::FileMenu { layer, targets, clicked, tab });
     }
 
+    pub(super) fn open_sort_menu(&mut self, root: &mut RenderRoot, button: WidgetId) {
+        let Some(trigger) = root.get_widget(button).map(|w| w.ctx().bounding_box()) else { return };
+        let labels: Vec<String> = crate::ui::file_tree::Sort::ALL.iter().map(|s| t(s.label())).collect();
+        let items: Vec<&str> = labels.iter().map(String::as_str).collect();
+        let checked = crate::ui::file_tree::Sort::ALL.iter().position(|s| *s == self.tree.sort()).unwrap_or(0);
+        let origin = Menu::list_origin(trigger, items.len(), self.window);
+        let menu = Menu::list(&t("fileTree.sort"), &items, checked, trigger);
+        let layer = menu.id();
+        root.add_layer(menu, origin);
+        root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), true));
+        root.focus_on(Some(layer));
+        self.popup = Some(Popup::SortMenu { layer, button });
+    }
+
     pub(super) fn on_popup_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Outcome {
         match self.popup.take() {
             Some(Popup::FileMenu { layer, targets, clicked, tab }) => {
@@ -69,6 +83,26 @@ impl App {
             Some(Popup::TableMenu { layer, commands }) => self.on_table_menu(root, layer, commands, action),
             Some(Popup::EditorMenu { layer, commands }) => self.on_editor_menu(root, layer, commands, action),
             Some(Popup::NoteActionsMenu { layer }) => return self.on_note_actions_menu(root, layer, action),
+            Some(Popup::SortMenu { layer, button }) => {
+                if id == button && action.downcast_ref::<crate::ui::widgets::Pressed>().is_some() {
+                    root.remove_layer(layer);
+                    root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), false));
+                    return Outcome::default();
+                }
+                let Some(choice) = action.downcast_ref::<MenuChoice>() else {
+                    self.popup = Some(Popup::SortMenu { layer, button });
+                    return Outcome::default();
+                };
+                if let MenuChoice::Item(_) = choice {
+                    root.remove_layer(layer);
+                }
+                root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), false));
+                if let MenuChoice::Item(index) = choice
+                    && let Some(sort) = crate::ui::file_tree::Sort::ALL.get(*index)
+                {
+                    self.tree.set_sort(root, *sort);
+                }
+            }
             Some(Popup::Viewer { layer }) => {
                 if action.downcast_ref::<crate::ui::viewer::ViewerClosed>().is_some() {
                     root.remove_layer(layer);

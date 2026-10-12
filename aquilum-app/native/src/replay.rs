@@ -2,6 +2,8 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 const STEP: Duration = Duration::from_millis(64);
+const FLING_STEP: Duration = Duration::from_millis(8);
+const FLING_LINES: f32 = 3.0;
 const REFRESH_MS: f64 = 1000.0 / 120.0;
 const FOCUS_SECONDS: f64 = 1.2;
 
@@ -15,6 +17,7 @@ pub enum Step {
 #[derive(Clone, Copy, PartialEq)]
 pub enum Kind {
     Scroll,
+    Fling,
     Graph,
     Focus,
 }
@@ -33,6 +36,7 @@ impl Replay {
     pub fn new(kind: Kind, output: PathBuf) -> Self {
         let seconds = match kind {
             Kind::Scroll => 4.0,
+            Kind::Fling => 6.0,
             Kind::Graph => 20.0,
             Kind::Focus => FOCUS_SECONDS * 2.0,
         };
@@ -45,7 +49,7 @@ impl Replay {
 
     pub fn step(&mut self, now: Instant) -> Option<Step> {
         match self.kind {
-            Kind::Scroll => return self.scroll(now).map(Step::Wheel),
+            Kind::Scroll | Kind::Fling => return self.scroll(now).map(Step::Wheel),
             Kind::Focus => return self.focus(now),
             Kind::Graph => {}
         }
@@ -86,7 +90,7 @@ impl Replay {
         self.next
     }
 
-    pub fn scroll(&mut self, now: Instant) -> Option<f32> {
+    fn scroll(&mut self, now: Instant) -> Option<f32> {
         let started = *self.started.get_or_insert(now);
         let next = *self.next.get_or_insert(now);
         if now < next {
@@ -97,8 +101,9 @@ impl Replay {
             self.next = None;
             return None;
         }
-        self.next = Some(next + STEP);
-        Some(if elapsed < self.length / 2 { -1.0 } else { 1.0 })
+        let (step, lines) = if self.kind == Kind::Fling { (FLING_STEP, FLING_LINES) } else { (STEP, 1.0) };
+        self.next = Some(next + step);
+        Some(if elapsed < self.length / 2 { -lines } else { lines })
     }
 
     pub fn running(&self) -> bool {

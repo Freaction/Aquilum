@@ -1,5 +1,6 @@
 use super::super::error::SearchError;
 use super::target::{select_candidate, target_key};
+use crate::search::paths::is_markdown;
 use rusqlite::{Connection, Statement};
 use std::path::{Path, PathBuf};
 
@@ -24,6 +25,9 @@ impl<'connection> LinkResolver<'connection> {
         target: &str,
     ) -> Result<Option<PathBuf>, SearchError> {
         let (key, kind) = target_key(target);
+        if key.is_empty() {
+            return Ok(is_markdown(source).then(|| source.to_path_buf()));
+        }
         let candidates = if kind == "path" {
             query(&mut self.by_relative_path, &key)?
         } else {

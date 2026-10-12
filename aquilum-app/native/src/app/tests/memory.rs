@@ -78,6 +78,25 @@ fn memory_session_report() {
     }
     settle(&mut h, &mut renderer);
     line("граф");
+    let graph_tab = h.app.tabs.active_id();
+    let note_tab = h.app.tabs.tabs().iter().map(|t| t.id).find(|id| *id != graph_tab);
+    if let Some(id) = note_tab
+        && h.app.tabs.select(id)
+    {
+        h.app.show_active(&mut h.root);
+        settle(&mut h, &mut renderer);
+        line("граф в фоне, открыта заметка");
+        if h.app.tabs.select(graph_tab) {
+            h.app.show_active(&mut h.root);
+            settle(&mut h, &mut renderer);
+        }
+    }
+    let _ = h.app.close_active_tab(&mut h.root);
+    settle(&mut h, &mut renderer);
+    line("закрыта вкладка графа");
+    if std::env::var_os("AQ_REPORT_GRAPH").is_some() {
+        eprintln!("{}", crate::memory_probe::report());
+    }
     while h.app.tabs.tabs().len() > 1 {
         let _ = h.app.close_active_tab(&mut h.root);
         settle(&mut h, &mut renderer);

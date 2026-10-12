@@ -34,10 +34,10 @@ pub(super) fn install_crash_log(file: std::path::PathBuf) {
             .set_buttons(rfd::MessageButtons::YesNo)
             .show();
 
-        if restart == rfd::MessageDialogResult::Yes {
-            if let Ok(exe) = std::env::current_exe() {
-                let _ = std::process::Command::new(exe).spawn();
-            }
+        if restart == rfd::MessageDialogResult::Yes
+            && let Ok(exe) = std::env::current_exe()
+        {
+            let _ = std::process::Command::new(exe).spawn();
         }
 
         default(info);

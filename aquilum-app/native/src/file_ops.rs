@@ -5,6 +5,7 @@ use aquilum_core::Core;
 use aquilum_core::files::error::FileCommandError;
 use aquilum_core::files::gate;
 use aquilum_core::history::Source;
+use aquilum_core::search::paths::is_markdown;
 
 const FREE_NAME_ATTEMPTS: usize = 1000;
 const UNTITLED_NOTE: &str = "Без названия";
@@ -65,7 +66,7 @@ pub fn sanitize_file_name(value: &str) -> String {
 }
 
 pub fn rename_target(from: &Path, input: &str) -> Option<(PathBuf, String)> {
-    let note = from.extension().is_some_and(|e| e.eq_ignore_ascii_case("md"));
+    let note = is_markdown(from);
     let current = if note { from.file_stem() } else { from.file_name() }.map(|n| n.to_string_lossy().into_owned());
     let name = if note { sanitize_file_name(input.trim()) } else { input.trim().to_owned() };
     if name.is_empty() || Some(&name) == current.as_ref() {
@@ -91,6 +92,16 @@ pub fn create_note(core: &Core, workspace: &Path, title: Option<&str>) -> Result
     let sanitized = title.map(sanitize_file_name).filter(|t| !t.is_empty());
     let base = sanitized.as_deref().unwrap_or(UNTITLED_NOTE);
     first_free(|i| workspace.join(if i == 0 { format!("{base}.md") } else { format!("{base} {i}.md") }), |path| gate::create(core, path, "", Source::Me, None))
+}
+
+pub fn create_folder(parent: &Path) -> Result<PathBuf, FileCommandError> {
+    first_free(
+        |i| parent.join(if i == 0 { UNTITLED_NOTE.to_owned() } else { format!("{UNTITLED_NOTE} {i}") }),
+        |path| match std::fs::create_dir(path) {
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Err(FileCommandError::AlreadyExists { path: path.to_string_lossy().into_owned() }),
+            result => result.map_err(FileCommandError::from),
+        },
+    )
 }
 
 pub fn trash_all(core: &Arc<Core>, workspace: PathBuf, targets: Vec<PathBuf>) {

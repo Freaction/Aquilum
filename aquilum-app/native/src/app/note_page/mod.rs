@@ -1,5 +1,7 @@
 pub mod actions;
+pub mod edit;
 pub mod export;
+pub mod focus;
 pub mod menu;
 pub mod view;
 

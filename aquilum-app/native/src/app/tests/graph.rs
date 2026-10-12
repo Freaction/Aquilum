@@ -53,6 +53,46 @@ fn graph_tab_loads_opens_notes_and_unloads() {
 }
 
 #[test]
+fn hidden_graph_gives_back_frames_and_draws_labels_again() {
+    let mut h = Harness::new();
+    let vault = h.vault.path().to_path_buf();
+    std::fs::write(vault.join("b.md"), "[[a]] [[c]]").unwrap();
+    std::fs::write(vault.join("c.md"), "[[a]]").unwrap();
+    h.app.tree.paths_changed(&mut h.root, &[vault.join("b.md"), vault.join("c.md")]);
+    let note = h.app.tabs.active_id();
+    h.app.open_graph(&mut h.root);
+    for _ in 0..300 {
+        h.app.on_core_events(&mut h.root);
+        let _ = h.root.redraw();
+        if h.app.graph_loaded() == Some(3) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let graph = h.app.tabs.active_id();
+    let retained = |h: &Harness| {
+        let view = h.app.graph_view().expect("виджет графа");
+        h.root.get_widget(view).unwrap().downcast::<crate::ui::graph::GraphView>().unwrap().inner().retained()
+    };
+    for _ in 0..20 {
+        h.settle();
+    }
+    let (sprites, frames) = retained(&h);
+    assert!(sprites > 0 && frames > 0, "граф не нарисован: подписей {sprites}, кадров {frames}");
+    assert!(h.app.tabs.select(note));
+    h.app.show_active(&mut h.root);
+    h.settle();
+    assert_eq!(retained(&h), (0, 0), "спрятанный граф держит подписи и кадры");
+    assert!(h.app.tabs.select(graph));
+    h.app.show_active(&mut h.root);
+    for _ in 0..20 {
+        h.settle();
+    }
+    let (sprites, frames) = retained(&h);
+    assert!(sprites > 0 && frames > 0, "после возврата граф не нарисован: подписей {sprites}, кадров {frames}");
+}
+
+#[test]
 #[ignore]
 fn graph_snapshot() {
     use masonry::core::{PointerScrollEvent, ScrollDelta};

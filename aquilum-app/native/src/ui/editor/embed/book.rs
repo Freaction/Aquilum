@@ -4,7 +4,8 @@ use masonry::parley::Layout;
 
 use super::super::markdown::{ACCENT, MUTED, ON_ACCENT, SUCCESS, TEXT};
 use super::super::resolve::{Book, Fetch};
-use super::{COVER_H, COVER_RADIUS, COVER_W, Drawing, Font, Item, Spec, Tone};
+use super::metrics::{COVER_H, COVER_RADIUS, COVER_W};
+use super::{Drawing, Font, Item, Spec, Tone};
 use crate::i18n::{t, t_with};
 use crate::ui::tokens::{number, size};
 

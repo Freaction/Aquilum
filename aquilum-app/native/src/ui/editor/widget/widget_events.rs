@@ -60,7 +60,7 @@ impl TextEditor {
                 self.close_suggest();
                 let point = ctx.local_position(state.position);
                 let new_tab = state.modifiers.ctrl() || state.modifiers.meta();
-                if self.table_press(ctx, point, state.modifiers.shift(), new_tab)
+                if self.table_press(ctx, point, state.modifiers.shift(), new_tab, state.count)
                     || self.media_press(ctx, point, state.count)
                     || self.card_click(ctx, point, new_tab)
                     || self.toggle_task(ctx, point)

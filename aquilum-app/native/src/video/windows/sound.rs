@@ -146,7 +146,7 @@ impl Sound {
         self.written = 0;
         self.ended = false;
         self.skip = Some(seconds);
-        super::seek(&self.reader, seconds);
+        super::worker::seek(&self.reader, seconds);
     }
 
     pub fn mute(&self, muted: bool) {

@@ -3,55 +3,35 @@ use crate::ui::editor::resolve::Request;
 
 impl TextEditor {
     fn link_at(&self, point: Point) -> Option<&crate::ui::editor::markdown::Link> {
-        if self.doc.markdown.is_none() || !self.laid_out() {
-            return None;
-        }
-        let p = self.doc.paragraph(self.doc.at_y(point.y.max(0.0)));
-        if matches!(p.fold, Fold::Head | Fold::Member) || p.decor().links.is_empty() {
+        let p = self.paragraph_at(point)?;
+        if matches!(p.fold, Fold::Head | Fold::Member) {
             return None;
         }
         let local = point - self.shift() - p.origin();
-        let layout = p.layout.as_deref()?;
-        if local.y < 0.0 || local.y > f64::from(layout.height()) || local.x < 0.0 || local.x > f64::from(layout.width()) {
-            return None;
-        }
-        let (cluster, _) = masonry::parley::Cluster::from_point_exact(layout, local.x as f32, local.y as f32)?;
-        let at = cluster.text_range().start;
-        p.decor().links.iter().find(|l| l.label.start <= at && at < l.label.end)
+        p.decor().link_at(p.layout.as_deref()?, local.x, local.y)
     }
 
-    fn task_at(&self, point: Point) -> Option<(usize, bool)> {
-        if self.doc.markdown.is_none() || !self.laid_out() {
-            return None;
-        }
-        let p = self.doc.paragraph(self.doc.at_y(point.y.max(0.0)));
+    fn task_at(&self, point: Point) -> Option<(Range<usize>, bool)> {
+        let p = self.paragraph_at(point)?;
         let Block::Item(item) = &p.block else { return None };
         let (range, done) = item.task()?;
-        if p.layout.is_none() || matches!(p.fold, Fold::Head | Fold::Member) || p.decor().caret.is_some_and(|c| range.start <= c && c <= range.start + super::marks::TASK_BOX) {
+        if p.layout.is_none() || matches!(p.fold, Fold::Head | Fold::Member) || p.decor().caret.is_some_and(|c| range.start <= c && c <= range.end) {
             return None;
         }
         let rect = self.checkbox_rect(p, range.start);
-        rect.contains(point).then_some((p.start + range.start, done))
+        rect.contains(point).then_some((p.start + range.start + 1..p.start + range.end - 1, done))
     }
 
     fn card_action_at(&self, point: Point) -> Option<crate::ui::editor::embed::Action> {
-        if self.doc.markdown.is_none() || !self.laid_out() {
-            return None;
-        }
-        let p = self.doc.paragraph(self.doc.at_y(point.y.max(0.0)));
-        match (p.fold, p.embed.as_deref().map(|e| &e.view)) {
-            (Fold::Head, Some(crate::ui::editor::embed::View::Drawing(drawing))) => drawing.action_at(Point::new(point.x - self.shift().x, point.y - p.top)).cloned(),
+        match self.head_embed_at(point)? {
+            (_, crate::ui::editor::embed::View::Drawing(drawing), local) => drawing.action_at(local).cloned(),
             _ => None,
         }
     }
 
     fn card_link_at(&self, point: Point) -> Option<(usize, usize)> {
-        if self.doc.markdown.is_none() || !self.laid_out() {
-            return None;
-        }
-        let p = self.doc.paragraph(self.doc.at_y(point.y.max(0.0)));
-        match (p.fold, p.embed.as_deref().map(|e| &e.view)) {
-            (Fold::Head, Some(crate::ui::editor::embed::View::Drawing(drawing))) => drawing.link_at(Point::new(point.x - self.shift().x, point.y - p.top)).map(|hit| (p.start, hit)),
+        match self.head_embed_at(point)? {
+            (p, crate::ui::editor::embed::View::Drawing(drawing), local) => drawing.link_at(local).map(|hit| (p.start, hit)),
             _ => None,
         }
     }
@@ -86,9 +66,9 @@ impl TextEditor {
     }
 
     pub(super) fn toggle_task(&mut self, ctx: &mut EventCtx<'_>, point: Point) -> bool {
-        let Some((at, done)) = self.task_at(point) else { return false };
+        let Some((mark, done)) = self.task_at(point) else { return false };
         let keep = (self.anchor, self.focus);
-        self.replace(at + 1..at + 2, if done { " " } else { "x" }, Kind::Other);
+        self.replace(mark, if done { " " } else { "x" }, Kind::Other);
         (self.anchor, self.focus) = keep;
         ctx.set_handled();
         self.changed(ctx);

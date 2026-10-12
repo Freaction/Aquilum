@@ -1,5 +1,5 @@
 use crate::search::analyzer::frontmatter_body;
-use crate::search::markdown::{lines_outside_fences, list_item_body};
+use crate::markdown::{fence, list};
 use super::parse::{note_fields, scalar_or_list};
 use super::value::Field;
 
@@ -20,7 +20,7 @@ const SEPARATOR: &str = "::";
 
 fn inline_pairs(text: &str) -> Vec<(String, String)> {
     let mut found = Vec::new();
-    for (_, line) in lines_outside_fences(frontmatter_body(text)) {
+    for (_, line) in fence::outside(frontmatter_body(text)) {
         let line = strip_code_spans(line);
         let content = strip_markers(&line);
         if let Some(pair) = whole_line(content) {
@@ -52,11 +52,8 @@ fn strip_markers(line: &str) -> &str {
     loop {
         let before = rest;
         rest = rest.trim_start_matches(['>', ' ', '\t']);
-        if let Some(body) = list_item_body(rest) {
-            rest = ["[ ] ", "[x] ", "[X] "]
-                .iter()
-                .find_map(|checkbox| body.strip_prefix(checkbox))
-                .map_or(body, str::trim_start);
+        if let Some(item) = list::item(rest) {
+            rest = rest[item.content..].trim_start();
         }
         if rest == before {
             return rest;
@@ -131,15 +128,16 @@ mod tests {
     }
 
     #[test]
-    fn a_field_in_a_task_or_a_bracket_numbered_item_is_read_and_a_star_is_not_a_marker() {
+    fn a_field_in_any_kind_of_list_item_is_read() {
         assert_eq!(
-            pairs("- [x] Статус:: готово\n1) Автор:: Лем"),
+            pairs("- [x] Статус:: готово\n1) Автор:: Лем\n* Год:: 1961\n+ [ ] Жанр:: фантастика"),
             vec![
                 ("Статус".to_owned(), "готово".to_owned()),
                 ("Автор".to_owned(), "Лем".to_owned()),
+                ("Год".to_owned(), "1961".to_owned()),
+                ("Жанр".to_owned(), "фантастика".to_owned()),
             ]
         );
-        assert!(!pairs("* Автор:: Лем").iter().any(|(key, _)| key == "Автор"));
     }
 
     #[test]

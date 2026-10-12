@@ -28,14 +28,12 @@ pub fn get_or_render_mask(
     width: u16,
     height: u16,
     settings: RenderSettings,
-    tolerance: f64,
-) -> Result<Option<Mask>, PaintError> {
+) -> Result<Mask, PaintError> {
     if let Some(entry) = cache.iter().find(|e| e.mode == mode && e.transform == transform && e.scene == *scene) {
-        return Ok(Some(entry.mask.clone()));
+        return Ok(entry.mask.clone());
     }
 
     let mut sub = Painter::new(width, height, settings);
-    sub.tolerance = tolerance;
     replay_transformed(scene, &mut sub, transform);
     sub.finish()?;
     let mut pixmap = Pixmap::new(width, height);
@@ -48,5 +46,5 @@ pub fn get_or_render_mask(
         cache.pop_front();
     }
     cache.push_back(CachedMask { scene: scene.clone(), mode, transform, mask: mask.clone() });
-    Ok(Some(mask))
+    Ok(mask)
 }

@@ -1,20 +1,15 @@
-use std::time::Duration;
-
 use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, WidgetId};
 use masonry::kurbo::Point;
 use crate::ui::editor::TextAction;
 
 use super::super::{App, Outcome};
-use crate::file_ops;
-use crate::frontmatter;
 use crate::ui::editor::TextEditor;
 use crate::ui::note::{MetadataToggled, TitleAction, TitleField};
-use crate::ui::widgets::{Pressed, Slot};
+use crate::ui::widgets::Pressed;
 
 impl App {
     pub(in crate::app) fn on_note_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Option<Outcome> {
-        // Проверяем кнопки на экране ошибки открытия
         if let Some(err_ids) = &self.open_error_ids {
             if action.downcast_ref::<Pressed>().is_some() {
                 if id == err_ids.retry {
@@ -36,7 +31,6 @@ impl App {
             }
         }
 
-        // Проверяем кнопку «Повторить» в баннере ошибки сохранения
         if let Some(save_ids) = &self.save_error_ids {
             if action.downcast_ref::<Pressed>().is_some() && id == save_ids.retry {
                 self.retry_save(root);
@@ -119,93 +113,5 @@ impl App {
         self.tabs.open(path);
         self.show_active(root);
         Outcome { title: true, ..Outcome::default() }
-    }
-
-    pub fn toggle_focus_mode(&mut self, root: &mut RenderRoot) {
-        use crate::ui::widgets::{Collapse, TextButton, Visible};
-        let focus = !self.interface.focus_mode();
-        self.interface.set_focus_mode(focus);
-        let (sidebar, panel) = self.visible_panels();
-        self.shown = Some((sidebar, panel));
-        let (home, home_button) = crate::ui::home_widget(self.home.is_some() && !focus);
-        if let Some(chrome) = &mut self.chrome {
-            chrome.sidebar.edit(root, |mut c| Collapse::set_open(&mut c, sidebar));
-            chrome.panel.edit(root, |mut c| Collapse::set_open(&mut c, panel));
-            chrome.controls_inset.edit(root, |mut c| Collapse::set_open(&mut c, !panel));
-            for shown in &chrome.focus_hidden {
-                shown.edit(root, |mut v| Visible::set_shown(&mut v, !focus));
-            }
-            chrome.focus_shown.edit(root, |mut v| Visible::set_shown(&mut v, focus));
-            chrome.home_slot.edit(root, |mut slot| Slot::set_child(&mut slot, home));
-            chrome.home_button = home_button;
-        }
-        if let Some(ids) = &self.note_ids {
-            for shown in &ids.focus_hidden {
-                shown.edit(root, |mut v| Visible::set_shown(&mut v, !focus));
-            }
-            ids.focus_button.edit(root, |mut b| TextButton::set_pressed(&mut b, focus));
-        }
-        if panel {
-            self.request_panel(root);
-        }
-    }
-
-    fn body_edited(&mut self, root: &mut RenderRoot, edits: &[crate::ui::editor::Edit]) {
-        let had = frontmatter::end(&self.editor_text).is_some();
-        for edit in edits {
-            self.editor_text.replace_range(self.hidden + edit.range.start..self.hidden + edit.range.end, &edit.insert);
-        }
-        self.queue_save();
-        self.refresh_hero(root);
-        self.metadata_changed(root, had);
-    }
-
-    pub(in crate::app) fn commit_editor_text(&mut self, root: &mut RenderRoot, text: String) {
-        let had = frontmatter::end(&self.editor_text).is_some();
-        self.editor_text = text;
-        self.queue_save();
-        self.metadata_changed(root, had);
-        self.sync_body(root);
-        self.refresh_hero(root);
-    }
-
-    fn queue_save(&mut self) {
-        if let Some(note) = &mut self.note {
-            let debounce = self.workspace.core.settings.get_config().editor.save_debounce_ms;
-            note.edit(Duration::from_millis(u64::from(debounce)));
-        }
-    }
-
-    fn metadata_changed(&mut self, root: &mut RenderRoot, had: bool) {
-        let has = frontmatter::end(&self.editor_text).is_some();
-        if has == had {
-            return;
-        }
-        if has && let Some(note) = &self.note {
-            self.interface.set_metadata_expanded(&note.path, true);
-        }
-        let metadata = crate::ui::note::metadata_widget(self.metadata_state());
-        if let Some(ids) = &self.note_ids {
-            ids.metadata.edit(root, |mut slot| Slot::set_child(&mut slot, metadata));
-        }
-    }
-
-    fn toggle_metadata(&mut self, root: &mut RenderRoot) {
-        let Some(expanded) = self.metadata_state() else { return };
-        let Some(path) = self.note.as_ref().map(|n| n.path.clone()) else { return };
-        self.interface.set_metadata_expanded(&path, !expanded);
-        self.sync_body(root);
-    }
-
-    fn commit_title(&mut self, root: &mut RenderRoot, input: &str) {
-        let Some(from) = self.note.as_ref().map(|n| n.path.clone()) else { return };
-        match file_ops::rename_target(&from, input) {
-            Some((to, _)) if self.renaming_to.as_ref() == Some(&to) => {}
-            Some((to, _)) => {
-                self.renaming_to = Some(to.clone());
-                file_ops::rename(&self.workspace.core, from, to);
-            }
-            None => self.refresh_note_names(root),
-        }
     }
 }

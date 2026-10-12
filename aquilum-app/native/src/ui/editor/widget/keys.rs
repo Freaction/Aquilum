@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::editor::markdown::Mark;
 
 impl TextEditor {
     pub(super) fn keyboard(&mut self, ctx: &mut EventCtx<'_>, event: &masonry::core::keyboard::KeyboardEvent) {
@@ -104,9 +105,9 @@ impl TextEditor {
             }
             Key::Character(c) if action && !self.single_line && self.doc.markdown.is_some() && (c.eq_ignore_ascii_case("b") || c.eq_ignore_ascii_case("i") || shift && c.eq_ignore_ascii_case("s")) => {
                 let mark = match c.to_ascii_lowercase().as_str() {
-                    "b" => format::BOLD,
-                    "i" => format::ITALIC,
-                    _ => format::STRIKE,
+                    "b" => Mark::Bold,
+                    "i" => Mark::Italic,
+                    _ => Mark::Strike,
                 };
                 edited = self.toggle_mark(mark);
             }

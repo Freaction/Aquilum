@@ -1,4 +1,10 @@
-use super::*;
+use std::collections::HashSet;
+
+use masonry::core::BrushIndex;
+use masonry::parley::Layout;
+
+use super::super::embed::View;
+use super::{Document, Paragraph};
 
 impl Document {
     pub fn probe_stats(&self) -> String {

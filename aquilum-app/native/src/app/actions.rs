@@ -105,6 +105,22 @@ impl App {
         }
     }
 
+    pub(super) fn create_note_in(&mut self, root: &mut RenderRoot, folder: &Path) -> bool {
+        match file_ops::create_note(&self.workspace.core, folder, None) {
+            Ok(path) => {
+                self.tree.paths_changed(root, std::slice::from_ref(&path));
+                self.tree.reveal(root, &path);
+                let opened = self.open(root, path.clone());
+                self.tree.start_rename(root, path);
+                opened
+            }
+            Err(error) => {
+                report!("заметка не создана: {error}");
+                false
+            }
+        }
+    }
+
     /// Действие в основном окне; `true` — сменилась открытая заметка (и заголовок окна).
     pub(super) fn on_main_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction, window: Size) -> bool {
         match self.tree.on_action(root, id, action) {
@@ -114,6 +130,22 @@ impl App {
                 return false;
             }
             Some(TreeAction::CreateNote) => return self.create_note_titled(root, None),
+            Some(TreeAction::NewNote { folder }) => return self.create_note_in(root, &folder),
+            Some(TreeAction::NewFolder { folder }) => {
+                match file_ops::create_folder(&folder) {
+                    Ok(path) => {
+                        self.tree.paths_changed(root, std::slice::from_ref(&path));
+                        self.tree.reveal(root, &path);
+                        self.tree.start_rename(root, path);
+                    }
+                    Err(error) => report!("папка не создана: {error}"),
+                }
+                return false;
+            }
+            Some(TreeAction::SortMenu { button }) => {
+                self.open_sort_menu(root, button);
+                return false;
+            }
             Some(TreeAction::Move { sources, target }) => {
                 file_ops::move_all(&self.workspace.core, sources, target);
                 return false;
