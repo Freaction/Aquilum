@@ -251,6 +251,12 @@ impl Host {
         if let Some(out) = &self.args.trace_frames {
             let _ = aq_trace::write(out);
         }
+        event_loop.exit();
+    }
+}
+
+impl Drop for Host {
+    fn drop(&mut self) {
         if self.args.size.is_none() {
             if let Some(window) = &self.window {
                 self.window_state.persist(&**window);
@@ -258,7 +264,5 @@ impl Host {
         }
         self.app.shutdown();
         self.metrics.write();
-        event_loop.exit();
     }
-
 }
