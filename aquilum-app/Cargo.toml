@@ -1,6 +1,5 @@
 [workspace]
 members = ["core", "native"]
-exclude = ["src-tauri"]
 resolver = "2"
 
 [profile.release]

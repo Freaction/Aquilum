@@ -1,0 +1,9 @@
+[Desktop Entry]
+Categories=Office;
+Comment=Fast local-first Markdown knowledge base
+Exec=aquilum-app
+StartupWMClass=aquilum-app
+Icon=aquilum-app
+Name=Aquilum
+Terminal=false
+Type=Application

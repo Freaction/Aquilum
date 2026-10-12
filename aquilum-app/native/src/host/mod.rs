@@ -18,6 +18,7 @@ use masonry::core::{
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalPosition, LogicalSize, Position, Size};
 use winit::event::{ElementState, Ime, MouseButton, MouseScrollDelta, WindowEvent};
+use winit::event_loop::run_on_demand::EventLoopExtRunOnDemand;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{self as wk, ModifiersState, PhysicalKey};
 use winit::cursor::CursorIcon;
@@ -110,7 +111,7 @@ pub fn run(args: Args) -> Result<(), String> {
         return Ok(());
     };
     crate::autostart::repoint();
-    let event_loop = EventLoop::new().map_err(|e| format!("цикл событий: {e}"))?;
+    let mut event_loop = EventLoop::new().map_err(|e| format!("цикл событий: {e}"))?;
     let proxy = event_loop.create_proxy();
     let vsync_proxy = event_loop.create_proxy();
     let vsync = crate::vsync::Vsync::new(move || vsync_proxy.wake_up());
@@ -168,7 +169,7 @@ pub fn run(args: Args) -> Result<(), String> {
     {
         host.probe = host.args.memory_probe.clone().map(|out| crate::memory_probe::Probe::new(out, host.args.probe_notes.clone()));
     }
-    event_loop.run_app(host).map_err(|e| format!("цикл событий завершился с ошибкой: {e}"))
+    event_loop.run_app_on_demand(host).map_err(|e| format!("цикл событий завершился с ошибкой: {e}"))
 }
 
 impl Host {
@@ -257,12 +258,12 @@ impl Host {
 
 impl Drop for Host {
     fn drop(&mut self) {
+        self.app.shutdown();
         if self.args.size.is_none() {
             if let Some(window) = &self.window {
                 self.window_state.persist(&**window);
             }
         }
-        self.app.shutdown();
         self.metrics.write();
     }
 }

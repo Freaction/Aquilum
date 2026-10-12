@@ -21,17 +21,23 @@ cargo test -p aquilum-core
 
 ## Релиз
 
+Пакеты собирает workflow `Release` в публичном репозитории (запуск руками). Сборка с фичей `installed` (автообновление, автозапуск), упаковка:
+- [cargo-packager](https://github.com/crabnebula-dev/cargo-packager) по `[package.metadata.packager]` в `native/Cargo.toml`: установщик NSIS, `.app` и DMG, AppImage;
+- [nfpm](https://nfpm.goreleaser.com) по `native/packaging/nfpm.yaml`: `.deb` и `.rpm` с явным списком зависимостей.
+
+Установщик ставится туда же, куда ставилась версия на Tauri, с тем же ключом удаления в реестре, и обновляет её; имена пакетов deb и rpm (`aquilum`) прежние. Подпись — тот же ключ minisign, `latest.json` в прежнем формате. Перед выгрузкой каждый пакет ставится и запускается на чистой машине.
+
+Локально установщик Windows без подписи:
+
 ```powershell
-npm install
-npm run release
+cargo install cargo-packager --version 0.11.8 --locked
+cargo build --release -p aquilum-native --features installed
+copy ..\.artifacts\cargo-native\release\aquilum-native.exe ..\.artifacts\cargo-native\release\aquilum-app.exe
+cargo packager -p aquilum-native --release --formats nsis --out-dir ..\.artifacts\packages
 ```
 
-Собирает нативное приложение с фичей `installed` (автообновление, автозапуск) и упаковывает его в установщик по `native/tauri.conf.json` через CLI Tauri. Установщик ставится туда же, куда ставилась версия на Tauri, и обновляет её. Подпись — тот же ключ minisign, `latest.json` в прежнем формате.
+Версия задаётся в `package.json` и переносится в `Cargo.toml` командой `npm run version:sync`.
 
-Финальные файлы: `../.artifacts/releases/<version>/`.
-
-Кэши:
-- `../.artifacts/cargo-native/` — разработка и тесты;
-- `../.artifacts/native-bundle/` — сборка релиза.
+Кэш сборки: `../.artifacts/cargo-native/`.
 
 Прежняя версия на Tauri лежит в `../tauri-version/` и нужна только для сверки возможностей.

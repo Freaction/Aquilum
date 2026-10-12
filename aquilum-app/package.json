@@ -6,12 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File native/scripts/watch.ps1",
-    "release": "node scripts/release.mjs",
-    "bundle": "node scripts/bundle-native.mjs build",
-    "icons:sync": "node scripts/sync-icons.mjs",
+    "version:sync": "node scripts/sync-version.mjs",
     "publish:source": "node scripts/publish-source.mjs"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "2.11.4"
   }
 }

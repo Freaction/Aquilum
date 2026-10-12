@@ -14,7 +14,7 @@ const MIN_HEIGHT: f64 = 240.0;
 const MAX_WIDTH: f64 = 7_680.0;
 const MAX_HEIGHT: f64 = 4_320.0;
 
-/// Размер окна при первом запуске — как `width`/`height` в `tauri.conf.json`.
+/// Размер окна при первом запуске — как у прежней версии на Tauri.
 pub const DEFAULT_SIZE: LogicalSize<f64> = LogicalSize::new(1000.0, 600.0);
 
 #[derive(Clone, Copy, Deserialize, Serialize)]

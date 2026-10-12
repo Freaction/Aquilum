@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
 const packageJsonPath = join(projectRoot, 'package.json');
-const tauriConfPath = join(projectRoot, 'native', 'tauri.conf.json');
 const coreCargoTomlPath = join(projectRoot, 'core', 'Cargo.toml');
 const nativeCargoTomlPath = join(projectRoot, 'native', 'Cargo.toml');
 
@@ -22,11 +21,10 @@ async function setFilePattern(path, pattern, replacement) {
   return true;
 }
 
-const tauriChanged = await setFilePattern(tauriConfPath, /"version"\s*:\s*"[^"]+"/, `"version": "${version}"`);
 const coreChanged = await setFilePattern(coreCargoTomlPath, /^version\s*=\s*"[^"]+"/m, `version = "${version}"`);
 const nativeChanged = await setFilePattern(nativeCargoTomlPath, /^version\s*=\s*"[^"]+"/m, `version = "${version}"`);
 
-if (tauriChanged || coreChanged || nativeChanged) {
+if (coreChanged || nativeChanged) {
   console.log(`Synced app version ${version} from package.json`);
 }
 

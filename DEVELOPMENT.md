@@ -26,7 +26,7 @@
 | Картинки | **image** (PNG, JPEG, WebP, GIF, BMP); PNG и JPEG декодируются сразу под размер показа (`png`, `jpeg-decoder`) |
 | Экспорт PDF | **krilla** |
 | Сеть | **ureq** + **rustls** (обновления, загрузка картинок, заголовки ссылок) |
-| Установщик | CLI **Tauri** только упаковывает нативный бинарник (NSIS на Windows) |
+| Установщики | **cargo-packager** (NSIS, `.app`, DMG, AppImage) и **nfpm** (deb, rpm) |
 
 ---
 
@@ -97,7 +97,7 @@
 ### Требования
 - **Rust**: актуальная стабильная версия (`rustup update stable`)
 - **Visual Studio Build Tools** (для Windows): компонент C++ x64/x86 build tools
-- **Node.js** v20+ — только для сборки установщика (CLI Tauri упаковывает нативное приложение)
+- **Node.js** v20+ — только для служебных скриптов (`npm run dev`, синхронизация версии, публикация исходников)
 
 ### Запуск для разработки
 
@@ -106,7 +106,7 @@ cd aquilum-app
 npm run dev
 ```
 
-Как `npm run tauri dev`: собирает, открывает окно и перезапускает его после каждой правки кода, ядра, стилей или переводов. Каталог данных отдельный — `com.dmitriy.aquilum-app.native-dev`. В окне F12 включает подсветку перерисовки (в релизе её нет).
+Собирает, открывает окно и перезапускает его после каждой правки кода, ядра, стилей или переводов. Каталог данных отдельный — `com.dmitriy.aquilum-app.native-dev`. В окне F12 включает подсветку перерисовки (в релизе её нет).
 
 `aquilum-app\native\run.bat` собирает release и открывает окно с обычными данными.
 
@@ -123,18 +123,14 @@ cargo test --workspace
 
 ## Сборка релиза
 
-Установщик Windows (NSIS `.exe`):
+Все пакеты собирает workflow `Release` в публичном репозитории (Actions → Release, запуск руками):
 
-```powershell
-cd aquilum-app
-npm install
-npm run release
-```
+- Windows — установщик NSIS `Aquilum_<версия>_x64-setup.exe`;
+- macOS — DMG и архивы `.app.tar.gz` для автообновления (Apple Silicon и Intel);
+- Linux — AppImage, `.deb` и `.rpm`;
+- `latest.json` для автообновления, все файлы подписаны тем же ключом minisign.
 
-- Результат сборки: `.artifacts/releases/<версия>/`
-- Файлы: `Aquilum_<версия>_x64-setup.exe` и манифест `latest.json` для автообновлений.
-- Установщик собирается по `aquilum-app/native/tauri.conf.json` и ставится поверх прежней версии на Tauri.
-- Установщики для macOS и Linux собирает GitHub Actions в публичном репозитории.
+Упаковка — [cargo-packager](https://github.com/crabnebula-dev/cargo-packager) (`[package.metadata.packager]` в `aquilum-app/native/Cargo.toml`) и [nfpm](https://nfpm.goreleaser.com) (`aquilum-app/native/packaging/nfpm.yaml`). Установщик ставится поверх прежней версии на Tauri. Перед выгрузкой каждый пакет ставится и запускается на чистой машине; локальная сборка установщика Windows описана в `aquilum-app/README.md`.
 
 ---
 

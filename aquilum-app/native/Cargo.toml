@@ -7,6 +7,24 @@ license = "AGPL-3.0-only"
 edition = "2024"
 workspace = ".."
 
+[package.metadata.packager]
+productName = "Aquilum"
+identifier = "com.dmitriy.aquilum-app"
+description = "Fast local-first Markdown knowledge base"
+homepage = "https://github.com/Freaction/Aquilum"
+binaries = [{ path = "aquilum-app", main = true }]
+icons = ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+
+[package.metadata.packager.nsis]
+installerIcon = "icons/icon.ico"
+
+[package.metadata.packager.macos]
+minimumSystemVersion = "12.0"
+signingIdentity = "-"
+
+[package.metadata.packager.appimage]
+linuxdeployPlugins = { gstreamer = "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gstreamer/432af639725bc8b99df12351e86bb2e8a6b3585f/linuxdeploy-plugin-gstreamer.sh" }
+
 [features]
 installed = []
 memory-probe = []

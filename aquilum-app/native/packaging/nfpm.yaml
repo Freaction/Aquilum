@@ -1,0 +1,78 @@
+name: aquilum
+arch: amd64
+platform: linux
+version: ${VERSION}
+release: 1
+section: text
+priority: optional
+maintainer: Dmitriy Chaplinskiy
+description: Fast local-first Markdown knowledge base
+vendor: Dmitriy Chaplinskiy
+homepage: https://github.com/Freaction/Aquilum
+license: AGPL-3.0-only
+
+contents:
+  - src: packaging/stage/aquilum-app
+    dst: /usr/bin/aquilum-app
+    file_info:
+      mode: 0755
+  - src: packaging/Aquilum.desktop
+    dst: /usr/share/applications/Aquilum.desktop
+    file_info:
+      mode: 0644
+  - src: icons/32x32.png
+    dst: /usr/share/icons/hicolor/32x32/apps/aquilum-app.png
+    file_info:
+      mode: 0644
+  - src: icons/128x128.png
+    dst: /usr/share/icons/hicolor/128x128/apps/aquilum-app.png
+    file_info:
+      mode: 0644
+  - src: icons/128x128@2x.png
+    dst: /usr/share/icons/hicolor/256x256/apps/aquilum-app.png
+    file_info:
+      mode: 0644
+
+overrides:
+  deb:
+    depends:
+      - libc6
+      - libgcc-s1
+      - libglib2.0-0 | libglib2.0-0t64
+      - libfontconfig1
+      - libfreetype6
+      - libgstreamer1.0-0
+      - libgstreamer-plugins-base1.0-0
+      - gstreamer1.0-plugins-base
+      - gstreamer1.0-plugins-good
+      - libxkbcommon0
+      - libxkbcommon-x11-0
+      - libx11-6
+      - libx11-xcb1
+      - libxcursor1
+      - libxrandr2
+      - libxi6
+      - libxcb1
+      - libwayland-client0
+  rpm:
+    depends:
+      - libglib-2.0.so.0()(64bit)
+      - libgobject-2.0.so.0()(64bit)
+      - libgio-2.0.so.0()(64bit)
+      - libfontconfig.so.1()(64bit)
+      - libfreetype.so.6()(64bit)
+      - libgstreamer-1.0.so.0()(64bit)
+      - libgstbase-1.0.so.0()(64bit)
+      - libgstapp-1.0.so.0()(64bit)
+      - libgstvideo-1.0.so.0()(64bit)
+      - gstreamer1-plugins-base
+      - gstreamer1-plugins-good
+      - libxkbcommon.so.0()(64bit)
+      - libxkbcommon-x11.so.0()(64bit)
+      - libX11.so.6()(64bit)
+      - libX11-xcb.so.1()(64bit)
+      - libXcursor.so.1()(64bit)
+      - libXrandr.so.2()(64bit)
+      - libXi.so.6()(64bit)
+      - libxcb.so.1()(64bit)
+      - libwayland-client.so.0()(64bit)
