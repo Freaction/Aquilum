@@ -92,6 +92,10 @@ impl App {
                 self.toggle_focus_mode(root);
                 return Some(Outcome::default());
             }
+            if id == ids.search {
+                self.open_find(root);
+                return Some(Outcome::default());
+            }
             if id == ids.more {
                 let transform = root.get_widget(id).map_or(Point::ORIGIN, |w| w.ctx().window_transform() * Point::ZERO);
                 self.open_note_actions_menu(root, Point::new(transform.x, transform.y + crate::ui::tokens::size::SIZE_32));

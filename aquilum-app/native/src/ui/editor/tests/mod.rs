@@ -1,4 +1,5 @@
 mod cards;
+mod emoji;
 mod clipboard;
 mod images;
 mod input;

@@ -165,6 +165,8 @@ impl App {
             self.shown = Some(self.visible_panels());
         } else if (id == chrome.settings || id == chrome.rail_settings) && action.downcast_ref::<Pressed>().is_some() {
             self.open_settings(root);
+        } else if id == chrome.search_button && action.downcast_ref::<Pressed>().is_some() {
+            self.open_search(root);
         } else if id == chrome.tab_list && action.downcast_ref::<Pressed>().is_some() {
             self.open_tabs_menu(root, id);
         } else if Some(id) == chrome.graph_button && action.downcast_ref::<Pressed>().is_some() {

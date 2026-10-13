@@ -1,4 +1,20 @@
+use unicode_segmentation::GraphemeCursor;
+
 use super::*;
+
+fn on_boundary(text: &str, index: usize) -> bool {
+    GraphemeCursor::new(index, text.len(), true).is_boundary(text, 0).unwrap_or(true)
+}
+
+fn nearest_boundary(text: &str, index: usize) -> usize {
+    let index = index.min(text.len());
+    if on_boundary(text, index) {
+        return index;
+    }
+    let before = GraphemeCursor::new(index, text.len(), true).prev_boundary(text, 0).ok().flatten().unwrap_or(0);
+    let after = GraphemeCursor::new(index, text.len(), true).next_boundary(text, 0).ok().flatten().unwrap_or(text.len());
+    if index - before <= after - index { before } else { after }
+}
 
 impl TextEditor {
     pub(super) fn local(&self, offset: usize) -> (usize, usize, Option<&Layout<BrushIndex>>) {
@@ -80,7 +96,8 @@ impl TextEditor {
         let local = point - p.origin();
         let Some(layout) = p.layout.as_deref() else { return (p.start, Affinity::Downstream) };
         let cursor = Cursor::from_point(layout, local.x as f32, local.y as f32);
-        (p.start + cursor.index(), cursor.affinity())
+        let text = &self.doc.text()[p.start..p.start + p.len];
+        (p.start + nearest_boundary(text, cursor.index()), cursor.affinity())
     }
 
     pub(super) fn step(&self, forward: bool, word: bool) -> (usize, Affinity) {
@@ -99,13 +116,21 @@ impl TextEditor {
                 None => (0, Affinity::Downstream),
             };
         }
-        let cursor = Cursor::from_byte_index(layout, local, self.affinity);
-        let moved = match (forward, word) {
+        let advance = |cursor: Cursor| match (forward, word) {
             (true, false) => cursor.next_visual(layout),
             (false, false) => cursor.previous_visual(layout),
             (true, true) => cursor.next_visual_word(layout),
             (false, true) => cursor.previous_visual_word(layout),
         };
+        let text = &self.doc.text()[p.start..p.start + p.len];
+        let mut moved = advance(Cursor::from_byte_index(layout, local, self.affinity));
+        while !on_boundary(text, moved.index()) {
+            let next = advance(moved);
+            if next.index() == moved.index() {
+                break;
+            }
+            moved = next;
+        }
         (p.start + moved.index(), moved.affinity())
     }
 

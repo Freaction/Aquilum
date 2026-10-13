@@ -134,3 +134,13 @@ fn sort_menu_reorders_the_tree_and_remembers_the_choice() {
     press(&mut h, sort);
     assert!(h.app.popup.is_none(), "повторный щелчок по кнопке не закрыл меню");
 }
+
+#[test]
+fn search_button_in_the_rail_opens_the_omni_search() {
+    let mut h = Harness::new();
+    let search = h.app.chrome.as_ref().expect("оболочка").search_button;
+    assert!(rect(&h, search).x1 <= rect(&h, h.app.tree.scroll_id().unwrap()).x0, "кнопка поиска не в левой колонке иконок");
+    assert!(!matches!(h.app.popup, Some(Popup::Search(_))));
+    press(&mut h, search);
+    assert!(matches!(h.app.popup, Some(Popup::Search(_))), "омнипоиск не открылся");
+}

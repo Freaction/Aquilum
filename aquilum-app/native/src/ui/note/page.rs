@@ -36,6 +36,7 @@ pub struct NoteIds {
     pub focus: WidgetId,
     pub focus_button: Handle<TextButton>,
     pub focus_hidden: Vec<Handle<Visible>>,
+    pub search: WidgetId,
     pub more: WidgetId,
     pub error_slot: Handle<Slot>,
     pub name: Handle<Caption>,
@@ -81,6 +82,9 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let focus = NewWidget::new(TextButton::new(t("editor.focusMode"), Variant::Ghost).size(ButtonSize::Xs).pressed(view.focus_mode));
     let focus_id = focus.id();
     let focus_button = Handle::of(&focus);
+    let search = NewWidget::new(IconButton::new(icons::SEARCH, t("editor.findInNote")));
+    let search_id = search.id();
+    let search = Visible::new(search, !view.focus_mode);
     let more = NewWidget::new(IconButton::new(icons::MORE_HORIZONTAL, t("editor.noteActions")));
     let more_id = more.id();
     let name = NewWidget::new(Caption::new(view.file_name));
@@ -88,8 +92,8 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let name = Visible::new(name, !view.focus_mode);
     let left = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(back).with_fixed(forward);
     let left = Visible::new(NewWidget::new(left).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4)))), !view.focus_mode);
-    let focus_hidden = vec![Handle::of(&left), Handle::of(&name)];
-    let right = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(focus).with_fixed(more);
+    let focus_hidden = vec![Handle::of(&left), Handle::of(&name), Handle::of(&search)];
+    let right = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(focus).with_fixed(search).with_fixed(more);
     let right = NewWidget::new(right).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))));
     let toolbar = Flex::row().main_axis_alignment(MainAxisAlignment::SpaceBetween).cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(left);
     let toolbar = toolbar.with(name, 1.0).with_fixed(right);
@@ -157,6 +161,7 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
         focus: focus_id,
         focus_button,
         focus_hidden,
+        search: search_id,
         more: more_id,
         error_slot: error_slot_handle,
         name: name_handle,

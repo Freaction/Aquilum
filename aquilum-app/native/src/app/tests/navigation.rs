@@ -224,3 +224,26 @@ fn tree_rows_return_after_small_scroll_up() {
     }
     assert_eq!(h.app.tree.built_rows().start, 0, "после возврата наверх верхние строки не построены");
 }
+
+#[test]
+fn note_search_button_sits_left_of_the_menu_opens_the_find_bar_and_hides_in_focus_mode() {
+    let mut h = Harness::new();
+    h.app.open(&mut h.root, h.vault.path().join("a.md"));
+    h.settle();
+    let (search, more) = {
+        let ids = h.app.note_ids.as_ref().unwrap();
+        (ids.search, ids.more)
+    };
+    let bounds = |h: &Harness, id| h.root.get_widget(id).unwrap().ctx().bounding_box();
+    assert!(bounds(&h, search).x1 <= bounds(&h, more).x0, "поиск не слева от троеточия");
+    assert!(h.app.find.is_none());
+    let center = bounds(&h, search).center();
+    h.click(center.x, center.y);
+    assert!(h.app.find.is_some(), "кнопка не открыла поиск по заметке");
+    h.app.toggle_focus_mode(&mut h.root);
+    h.settle();
+    assert!(h.root.get_widget(search).unwrap().ctx().is_stashed(), "кнопка поиска осталась в режиме фокуса");
+    h.app.toggle_focus_mode(&mut h.root);
+    h.settle();
+    assert!(!h.root.get_widget(search).unwrap().ctx().is_stashed(), "кнопка поиска не вернулась после режима фокуса");
+}

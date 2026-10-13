@@ -25,6 +25,7 @@
     "wideMode": "Full width",
     "normalWidth": "Normal width",
     "noteActions": "Note actions",
+    "findInNote": "Find in note",
     "metadata": "Metadata",
     "createNote": "Create a note",
     "openFile": "Go to the file",
@@ -403,6 +404,7 @@
     "toolbar": "Toolbar",
     "hideSidebar": "Hide the left sidebar",
     "showSidebar": "Show the left sidebar",
+    "search": "Search the vault",
     "home": "Open the home page",
     "graph": "Open the link graph"
   },
