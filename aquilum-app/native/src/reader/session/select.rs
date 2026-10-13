@@ -1,10 +1,42 @@
+use masonry::core::BrushIndex;
 use masonry::kurbo::{Point as Pos, Rect};
-use masonry::parley::{Affinity, Cursor, Selection};
+use masonry::parley::{Affinity, Cursor, Layout, Selection};
 
 use crate::reader::flow::Block;
 use crate::reader::hyphen;
 use crate::reader::page::Item;
 use super::{Session, Spot};
+
+const SEAM: f64 = 2.0;
+
+fn words(text: &str, breaks: &[(usize, char)], a: usize, b: usize) -> (usize, usize) {
+    let (from, to) = (hyphen::to_text(breaks, a), hyphen::to_text(breaks, b));
+    let span = text.get(from..to).unwrap_or_default();
+    let lead = span.len() - span.trim_start().len();
+    (hyphen::to_layout(breaks, from + lead), hyphen::to_layout(breaks, from + lead + span.trim().len()))
+}
+
+fn line_spans(layout: &Layout<BrushIndex>, breaks: &[(usize, char)], text: &str, start: usize, end: usize) -> Vec<(f64, f64, f64, f64)> {
+    let (lo, hi) = (hyphen::to_layout(breaks, start), hyphen::to_layout(breaks, end));
+    let edge = |index, affinity| Cursor::from_byte_index(layout, index, affinity).geometry(layout, 0.0).x0;
+    layout
+        .lines()
+        .filter_map(|line| {
+            let range = line.text_range();
+            let (a, b) = words(text, breaks, lo.max(range.start), hi.min(range.end));
+            let metrics = line.metrics();
+            (a < b).then(|| (edge(a, Affinity::Downstream), f64::from(metrics.min_coord), edge(b, Affinity::Upstream), f64::from(metrics.max_coord)))
+        })
+        .collect()
+}
+
+fn close_seams(rects: &mut [Rect]) {
+    for i in 1..rects.len() {
+        if (rects[i].y0 - rects[i - 1].y1).abs() <= SEAM {
+            rects[i - 1].y1 = rects[i].y0;
+        }
+    }
+}
 
 impl Session {
     pub fn hit(&self, p: Pos, word: bool) -> Option<(Spot, Spot)> {
@@ -37,6 +69,9 @@ impl Session {
 
     fn block_range(&self, block: usize, from: Spot, to: Spot) -> Option<(usize, usize)> {
         let Block::Text { text, .. } = self.blocks.get(block)? else { return None };
+        if !(from.block..=to.block).contains(&block) {
+            return None;
+        }
         let start = if block == from.block { from.byte } else { 0 };
         let end = if block == to.block { to.byte } else { text.len() };
         (start < end).then_some((start, end))
@@ -46,31 +81,18 @@ impl Session {
         let Some(laid) = &self.laid else { return Vec::new() };
         let mut out = Vec::new();
         for (rect, y0, column) in self.visible() {
+            let first = out.len();
             for piece in &column.pieces {
-                if piece.item < from.block || piece.item > to.block {
-                    continue;
-                }
                 let Some((start, end)) = self.block_range(piece.item, from, to) else { continue };
-                let Item::Text { layout, x, breaks, .. } = &laid.items[piece.item] else { continue };
-                let anchor = Cursor::from_byte_index(layout, hyphen::to_layout(breaks, start), Affinity::Downstream);
-                let focus = Cursor::from_byte_index(layout, hyphen::to_layout(breaks, end), Affinity::Upstream);
-                let mut lines: Vec<(usize, f64, f64)> = Vec::new();
-                for (b, line) in Selection::new(anchor, focus).geometry(layout) {
-                    match lines.iter_mut().find(|(l, ..)| *l == line) {
-                        Some((_, x0, x1)) => (*x0, *x1) = (x0.min(b.x0), x1.max(b.x1)),
-                        None => lines.push((line, b.x0, b.x1)),
-                    }
-                }
+                let (Item::Text { layout, x, breaks, .. }, Block::Text { text, .. }) = (&laid.items[piece.item], &self.blocks[piece.item]) else { continue };
                 let dy = y0 + piece.y - piece.from;
-                for (line, x0, x1) in lines {
-                    let Some(metrics) = layout.get(line).map(|l| *l.metrics()) else { continue };
-                    let (top, bottom) = (f64::from(metrics.min_coord), f64::from(metrics.max_coord));
-                    if bottom <= piece.from + 0.5 || top >= piece.to - 0.5 {
-                        continue;
+                for (left, top, right, bottom) in line_spans(layout, breaks, text, start, end) {
+                    if (piece.from..piece.to).contains(&((top + bottom) / 2.0)) {
+                        out.push(Rect::new(rect.x0 + x + left, top + dy, rect.x0 + x + right, bottom + dy));
                     }
-                    out.push(Rect::new(rect.x0 + x + x0, top + dy, rect.x0 + x + x1, bottom + dy));
                 }
             }
+            close_seams(&mut out[first..]);
         }
         out
     }

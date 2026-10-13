@@ -8,8 +8,7 @@ use masonry::kurbo::{Axis, Point, Rect, Size};
 use masonry::layout::{LenReq, Length};
 use masonry::peniko::Color;
 
-const WIDTH_SECONDS: f64 = 0.2;
-const FADE_SECONDS: f64 = 0.1;
+use crate::ui::motion::{self, EASE_IN, EASE_IN_OUT};
 
 pub fn bezier((x1, y1, x2, y2): (f64, f64, f64, f64), t: f64) -> f64 {
     if t <= 0.0 || t >= 1.0 {
@@ -23,9 +22,6 @@ pub fn bezier((x1, y1, x2, y2): (f64, f64, f64, f64), t: f64) -> f64 {
     }
     curve((lo + hi) / 2.0, y1, y2)
 }
-
-pub const EASE_IN: (f64, f64, f64, f64) = (0.4, 0.0, 1.0, 1.0);
-pub const EASE_IN_OUT: (f64, f64, f64, f64) = (0.42, 0.0, 0.58, 1.0);
 
 pub struct Collapse {
     child: WidgetPod<dyn Widget>,
@@ -73,8 +69,8 @@ impl Widget for Collapse {
     fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
         let seconds = interval as f64 / 1e9;
         let goal = self.goal();
-        self.progress = approach(self.progress, goal, seconds / WIDTH_SECONDS);
-        self.fade = approach(self.fade, goal, seconds / FADE_SECONDS);
+        self.progress = approach(self.progress, goal, motion::step(seconds, motion::NORMAL));
+        self.fade = approach(self.fade, goal, motion::step(seconds, motion::FAST));
         ctx.request_layout();
         if self.progress != goal || self.fade != goal {
             ctx.request_anim_frame();

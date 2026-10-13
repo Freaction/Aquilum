@@ -15,6 +15,7 @@ pub struct Chrome {
     pub toggle_sidebar: WidgetId,
     pub settings: WidgetId,
     pub new_tab: WidgetId,
+    pub tab_list: WidgetId,
     pub tab_strip: Handle<TabStrip>,
     pub panel_toggle: WidgetId,
     pub controls_inset: Handle<Collapse>,
@@ -29,6 +30,7 @@ pub struct Chrome {
     pub open_vault: WidgetId,
     pub sidebar: Handle<Collapse>,
     pub note_page: Handle<Slot>,
+    pub rail: Handle<Collapse>,
     pub rail_settings: WidgetId,
     pub home_slot: Handle<Slot>,
     pub home_button: Option<WidgetId>,
@@ -66,8 +68,7 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
     let note_page = Slot::new(note);
     let note_handle = Handle::of(&note_page);
     let titlebar = titlebar(tabs, panel_open, panel_from, focus_mode);
-    let mut focus_hidden = rail.focus_hidden;
-    focus_hidden.push(titlebar.toggle_shown);
+    let focus_hidden = vec![titlebar.toggle_shown];
     let (panel, panel_handle, panel_parts) = backlinks::panel(panel_mode, has_analysis, panel_open, panel_from);
     let (empty, create_note, open_file, close_tab) = new_tab_view();
     let version_page = Slot::new(NewWidget::new(Flex::column()).erased());
@@ -100,6 +101,7 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
         toggle_sidebar: rail.toggle_sidebar,
         settings: sidebar.settings,
         new_tab: titlebar.new_tab,
+        tab_list: titlebar.tab_list,
         tab_strip: titlebar.strip,
         panel_toggle: titlebar.toggle,
         controls_inset: titlebar.inset,
@@ -114,13 +116,14 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
         open_vault,
         sidebar: sidebar.handle,
         note_page: note_handle,
-        rail_settings: rail.settings,
+        rail: rail.handle,
+        rail_settings: titlebar.settings,
         home_slot: rail.home_slot,
         home_button: rail.home_button,
         graph_page: graph_handle,
         graph_button: rail.graph_button,
         focus_hidden,
-        focus_shown: rail.focus_shown,
+        focus_shown: titlebar.settings_shown,
     };
     (NewWidget::new(window), chrome)
 }

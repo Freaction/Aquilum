@@ -27,6 +27,7 @@ pub enum DialogAnswer {
 pub enum CardSize {
     Fit(f64),
     Window(fn(Size) -> Size),
+    Anchored(fn(Size) -> Size),
 }
 
 pub struct Modal {

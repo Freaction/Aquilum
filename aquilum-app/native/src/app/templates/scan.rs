@@ -8,6 +8,16 @@ pub struct NoteTemplate {
     pub relative: String,
 }
 
+impl NoteTemplate {
+    pub fn title(&self) -> &str {
+        self.relative.rsplit_once('.').map_or(&self.relative, |(stem, _)| stem)
+    }
+
+    pub fn extension(&self) -> &str {
+        self.relative.rsplit_once('.').map_or("", |(_, extension)| extension)
+    }
+}
+
 pub(super) fn scan_dir(base: &Path, current: &Path, list: &mut Vec<NoteTemplate>) {
     let Ok(entries) = std::fs::read_dir(current) else { return };
     for entry in entries.flatten() {
@@ -16,7 +26,7 @@ pub(super) fn scan_dir(base: &Path, current: &Path, list: &mut Vec<NoteTemplate>
             scan_dir(base, &path, list);
         } else if is_markdown(&path) {
             let name = path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-            let relative = path.strip_prefix(base).map_or_else(|_| name.clone(), |p| p.to_string_lossy().into_owned());
+            let relative = path.strip_prefix(base).map_or_else(|_| name.clone(), |p| p.to_string_lossy().replace('\\', "/"));
             list.push(NoteTemplate { name, path, relative });
         }
     }

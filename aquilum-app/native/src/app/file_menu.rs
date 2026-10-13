@@ -44,6 +44,48 @@ impl App {
         self.popup = Some(Popup::SortMenu { layer, button });
     }
 
+    pub(super) fn open_tabs_menu(&mut self, root: &mut RenderRoot, button: WidgetId) {
+        let Some(trigger) = root.get_widget(button).map(|w| w.ctx().bounding_box()) else { return };
+        let titles: Vec<String> = self.tabs.tabs().iter().map(|tab| if tab.graph { t("tabs.graph") } else { tab.title().unwrap_or_else(|| t("tabs.newTab")) }).collect();
+        let items: Vec<&str> = titles.iter().map(String::as_str).collect();
+        let checked = self.tabs.tabs().iter().position(|tab| tab.id == self.tabs.active_id()).unwrap_or(0);
+        let width = crate::ui::tokens::size::TAB_LIST_WIDTH;
+        let origin = Menu::dropdown_origin(trigger, self.window, width);
+        let menu = Menu::dropdown(&t("tabs.list"), &items, checked, trigger, self.window, width);
+        let layer = menu.id();
+        root.add_layer(menu, origin);
+        root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), true));
+        root.focus_on(Some(layer));
+        self.popup = Some(Popup::TabsMenu { layer, button });
+    }
+
+    fn dropdown_answer(&mut self, root: &mut RenderRoot, layer: WidgetId, button: WidgetId, id: WidgetId, action: &ErasedAction) -> Option<Option<usize>> {
+        let release = |root: &mut RenderRoot| root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), false));
+        if id == button && action.downcast_ref::<crate::ui::widgets::Pressed>().is_some() {
+            root.remove_layer(layer);
+            release(root);
+            return Some(None);
+        }
+        let choice = action.downcast_ref::<MenuChoice>()?;
+        if let MenuChoice::Item(_) = choice {
+            root.remove_layer(layer);
+        }
+        release(root);
+        Some(match choice {
+            MenuChoice::Item(index) => Some(*index),
+            MenuChoice::Dismissed => None,
+        })
+    }
+
+    fn pick_tab(&mut self, root: &mut RenderRoot, index: usize) -> Outcome {
+        let Some(id) = self.tabs.tabs().get(index).map(|tab| tab.id) else { return Outcome::default() };
+        let outcome = self.on_titlebar(root, &crate::ui::titlebar::TitlebarAction::Select(id), self.window);
+        if let Some(chrome) = &self.chrome {
+            chrome.tab_strip.edit(root, |mut strip| crate::ui::titlebar::TabStrip::reveal(&mut strip, index));
+        }
+        outcome
+    }
+
     pub(super) fn on_popup_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Outcome {
         match self.popup.take() {
             Some(Popup::FileMenu { layer, targets, clicked, tab }) => {
@@ -83,26 +125,18 @@ impl App {
             Some(Popup::TableMenu { layer, commands }) => self.on_table_menu(root, layer, commands, action),
             Some(Popup::EditorMenu { layer, commands }) => self.on_editor_menu(root, layer, commands, action),
             Some(Popup::NoteActionsMenu { layer }) => return self.on_note_actions_menu(root, layer, action),
-            Some(Popup::SortMenu { layer, button }) => {
-                if id == button && action.downcast_ref::<crate::ui::widgets::Pressed>().is_some() {
-                    root.remove_layer(layer);
-                    root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), false));
-                    return Outcome::default();
+            Some(Popup::SortMenu { layer, button }) => match self.dropdown_answer(root, layer, button, id, action) {
+                None => self.popup = Some(Popup::SortMenu { layer, button }),
+                Some(chosen) => {
+                    if let Some(sort) = chosen.and_then(|index| crate::ui::file_tree::Sort::ALL.get(index)) {
+                        self.tree.set_sort(root, *sort);
+                    }
                 }
-                let Some(choice) = action.downcast_ref::<MenuChoice>() else {
-                    self.popup = Some(Popup::SortMenu { layer, button });
-                    return Outcome::default();
-                };
-                if let MenuChoice::Item(_) = choice {
-                    root.remove_layer(layer);
-                }
-                root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), false));
-                if let MenuChoice::Item(index) = choice
-                    && let Some(sort) = crate::ui::file_tree::Sort::ALL.get(*index)
-                {
-                    self.tree.set_sort(root, *sort);
-                }
-            }
+            },
+            Some(Popup::TabsMenu { layer, button }) => match self.dropdown_answer(root, layer, button, id, action) {
+                None => self.popup = Some(Popup::TabsMenu { layer, button }),
+                Some(chosen) => return chosen.map_or_else(Outcome::default, |index| self.pick_tab(root, index)),
+            },
             Some(Popup::Viewer { layer }) => {
                 if action.downcast_ref::<crate::ui::viewer::ViewerClosed>().is_some() {
                     root.remove_layer(layer);

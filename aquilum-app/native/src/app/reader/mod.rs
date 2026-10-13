@@ -80,7 +80,8 @@ impl App {
         }
         let workspace_id = self.workspace.core.ui_state.resolve_workspace(&workspace.to_string_lossy(), crate::dates::now_ms()).ok();
         let cached = workspace_id.and_then(|id| self.workspace.core.ui_state.load_reader_state(id, &key).ok().flatten());
-        let target = match (initial.filter(|c| !c.trim().is_empty()), cached) {
+        let active = initial.filter(|c| !c.trim().is_empty());
+        let target = match (active.clone(), cached) {
             (Some(cfi), _) => Target::Cfi(cfi),
             _ if current == 0 => Target::Start,
             (None, Some(state)) if state.current == i64::from(current) && state.cfi.is_some() => Target::Cfi(state.cfi.unwrap_or_default()),
@@ -92,7 +93,7 @@ impl App {
         };
         let settings = reader_settings(&self.workspace.core.settings.get_config());
         let target = self.note.as_ref().map(|n| n.path.clone());
-        let (view, ids) = ReaderView::new(session, settings, title, total, target.is_some());
+        let (view, ids) = ReaderView::new(session, settings, title, total, target.is_some(), active);
         let layer = view.id();
         root.add_layer(view, Point::ORIGIN);
         root.focus_on(Some(layer));

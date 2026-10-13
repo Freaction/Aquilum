@@ -18,6 +18,17 @@ impl ColorPicker {
         painter.fill(card, t.dialog_bg).draw();
         box_shadow(painter, card, t.shadow_ring);
 
+        let current = self.hex();
+        for (index, preset) in presets::colors().into_iter().enumerate() {
+            let swatch = presets::swatch(bounds, index);
+            let circle = Circle::new(swatch.center(), swatch.width() / 2.0);
+            painter.fill(circle, preset).draw();
+            painter.stroke(&circle, &Stroke::new(1.0), Color::BLACK.with_alpha(0.12)).draw();
+            if presets::hex(preset) == current {
+                painter.stroke(&Circle::new(swatch.center(), swatch.width() / 2.0 + 3.0), &Stroke::new(2.0), preset).draw();
+            }
+        }
+
         let field = Self::field(bounds);
         let shape = RoundedRect::from_rect(field, size::RADIUS_MD);
         painter.fill(shape, color(self.hue, 1.0, 1.0)).draw();

@@ -1,5 +1,6 @@
 use crate::files::document::write_file_atomic_impl;
 use crate::settings::models::AppConfig;
+use serde_json::Value;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -22,7 +23,7 @@ impl SettingsManager {
 
     fn load_or_default(path: &Path) -> AppConfig {
         match fs::read_to_string(path) {
-            Ok(content) => match serde_json::from_str(&content) {
+            Ok(content) => match parse(&content) {
                 Ok(config) => return config,
                 Err(error) => set_aside_unreadable(path, &error),
             },
@@ -45,6 +46,23 @@ impl SettingsManager {
         *self.current_config.write().unwrap() = new_config;
         Ok(())
     }
+}
+
+fn overlay(base: &mut Value, over: Value) {
+    match (base, over) {
+        (Value::Object(base), Value::Object(over)) => {
+            for (key, value) in over {
+                overlay(base.entry(key).or_insert(Value::Null), value);
+            }
+        }
+        (base, over) => *base = over,
+    }
+}
+
+fn parse(content: &str) -> Result<AppConfig, serde_json::Error> {
+    let mut merged = serde_json::to_value(AppConfig::default())?;
+    overlay(&mut merged, serde_json::from_str(content)?);
+    serde_json::from_value(merged)
 }
 
 fn write_config(path: &Path, config: &AppConfig) -> Result<(), String> {
@@ -86,6 +104,24 @@ mod tests {
         assert_eq!(config.editor.font.font_family, "iA Writer Quattro");
         assert_eq!(config.editor.save_debounce_ms, 1000);
         assert!(config.analysis.enable_bm25f);
+        assert!(config.ui.animations);
+    }
+
+    #[test]
+    fn a_fresh_profile_starts_with_small_fonts_and_a_65_character_column() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = SettingsManager::new(dir.path()).get_config();
+        assert_eq!((config.ui.font.font_size_base, config.editor.font.font_size_base, config.editor.max_width_ch), (14, 16, 65));
+        assert_eq!((config.editor.font.font_family.as_str(), config.ui.font.font_family.as_str()), ("iA Writer Mono", "Inter"));
+    }
+
+    #[test]
+    fn an_editor_section_without_font_keys_keeps_the_editor_font_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("settings.json"), r#"{"editor":{"maxWidthCh":70}}"#).unwrap();
+        let config = SettingsManager::new(dir.path()).get_config();
+        assert_eq!(config.editor.max_width_ch, 70);
+        assert_eq!((config.editor.font.font_size_base, config.editor.font.font_family.as_str()), (16, "iA Writer Mono"));
     }
 
     #[test]

@@ -18,6 +18,7 @@ pub mod theme;
 pub mod titlebar;
 pub mod timer;
 pub mod graph;
+pub mod motion;
 pub mod reader;
 pub mod suggest;
 pub mod viewer;

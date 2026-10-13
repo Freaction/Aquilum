@@ -8,8 +8,6 @@ pub struct Switch {
     travel: f64,
 }
 
-pub(super) const SWITCH_SECONDS: f64 = 0.2;
-
 pub(super) fn ease_standard(t: f64) -> f64 {
     crate::ui::widgets::bezier(crate::ui::widgets::EASE_STANDARD, t)
 }
@@ -52,7 +50,7 @@ impl Widget for Switch {
 
     fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
         let goal = if self.on { 1.0 } else { 0.0 };
-        let step = interval as f64 / 1e9 / SWITCH_SECONDS;
+        let step = crate::ui::motion::step(interval as f64 / 1e9, crate::ui::motion::NORMAL);
         self.travel = if self.travel < goal { (self.travel + step).min(goal) } else { (self.travel - step).max(goal) };
         ctx.request_paint_only();
         if self.travel != goal {

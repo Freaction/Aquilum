@@ -33,15 +33,35 @@ pub enum CardAction {
     Open { new_tab: bool },
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum CardKind {
+    Result,
+    Template,
+}
+
+impl CardKind {
+    pub fn height(self) -> f64 {
+        match self {
+            CardKind::Result => size::SEARCH_RESULT_HEIGHT,
+            CardKind::Template => size::SIZE_44,
+        }
+    }
+}
+
 pub struct ResultCard {
     data: CardData,
+    kind: CardKind,
     selected: bool,
     press: Press,
 }
 
 impl ResultCard {
     pub fn new(data: CardData, selected: bool) -> NewWidget<Self> {
-        NewWidget::new(ResultCard { data, selected, press: Press::default() })
+        NewWidget::new(ResultCard { data, kind: CardKind::Result, selected, press: Press::default() })
+    }
+
+    pub fn template(data: CardData, selected: bool) -> NewWidget<Self> {
+        NewWidget::new(ResultCard { data, kind: CardKind::Template, selected, press: Press::default() })
     }
 
     pub fn set_selected(this: &mut WidgetMut<'_, Self>, selected: bool) {
@@ -113,7 +133,7 @@ impl Widget for ResultCard {
 
     fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, _cross: Option<Length>) -> Length {
         match (axis, len_req) {
-            (Axis::Vertical, _) => Length::px(size::SEARCH_RESULT_HEIGHT),
+            (Axis::Vertical, _) => Length::px(self.kind.height()),
             (Axis::Horizontal, LenReq::FitContent(space)) => space,
             (Axis::Horizontal, _) => Length::ZERO,
         }
@@ -125,13 +145,19 @@ impl Widget for ResultCard {
         let t = theme::current();
         let bounds = ctx.content_box();
         let shape = RoundedRect::from_rect(bounds.inflate(-0.5, -0.5), size::ROUNDED_XL);
-        let bg = if self.selected || ctx.is_hovered() { t.search_result_bg_hover } else { t.search_result_bg };
-        painter.fill(shape, bg).draw();
-        painter.stroke(&shape, &Stroke::new(size::BORDER_1), t.search_result_border).draw();
+        let hot = self.selected || ctx.is_hovered();
+        let template = self.kind == CardKind::Template;
+        if hot || !template {
+            painter.fill(shape, if hot { t.search_result_bg_hover } else { t.search_result_bg }).draw();
+        }
+        if !template {
+            painter.stroke(&shape, &Stroke::new(size::BORDER_1), t.search_result_border).draw();
+        }
 
         let pad = size::SPACE_12;
         let top = bounds.y0 + pad;
-        icons::FILE.draw(painter, Point::new(bounds.x0 + pad, top), size::SIZE_20, 1.2, t.icon_secondary);
+        let (icon, tint, extension_color) = if template { (icons::FILE_TEXT, t.icon_muted, t.text_disabled) } else { (icons::FILE, t.icon_secondary, t.text_tertiary) };
+        icon.draw(painter, Point::new(bounds.x0 + pad, top), size::SIZE_20, 1.2, tint);
 
         let line = size::SIZE_20 as f32;
         let count = marked_layout(ctx, &self.data.count, &[], line, None);
@@ -148,7 +174,7 @@ impl Widget for ResultCard {
             let extension = format!(".{}", self.data.extension);
             let marks: Vec<_> = self.data.extension_marks.iter().map(|(s, e)| (s + 1, e + 1)).collect();
             let layout = marked_layout(ctx, &extension, &marks, line, None);
-            paint_marked(painter, &layout, &marks, Point::new(name_x + title_width, top), t.text_tertiary);
+            paint_marked(painter, &layout, &marks, Point::new(name_x + title_width, top), extension_color);
         }
         painter.pop_clip();
 

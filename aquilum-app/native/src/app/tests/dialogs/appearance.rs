@@ -78,10 +78,10 @@ fn color_picker_previews_live_and_saves_on_close() {
     let picker = h.root.focused_widget().expect("фокус в колорпикере");
     let area = h.root.get_widget(picker).unwrap().ctx().bounding_box();
     let state = |x: f64, y: f64| PointerState { position: PhysicalPosition::new(x, y), count: 1, scale_factor: 1.0, ..PointerState::default() };
-    let mut s = state(area.x0 + 30.0, area.y0 + 30.0);
+    let mut s = state(area.x0 + 30.0, area.y0 + 70.0);
     s.buttons.insert(PointerButton::Primary);
     h.root.handle_pointer_event(PointerEvent::Down(PointerButtonEvent { pointer: MOUSE, button: Some(PointerButton::Primary), state: s.clone() }));
-    s.position = PhysicalPosition::new(area.x0 + 150.0, area.y0 + 60.0);
+    s.position = PhysicalPosition::new(area.x0 + 150.0, area.y0 + 100.0);
     h.root.handle_pointer_event(PointerEvent::Move(PointerUpdate { pointer: MOUSE, current: s.clone(), coalesced: vec![], predicted: vec![] }));
     s.buttons.remove(PointerButton::Primary);
     h.root.handle_pointer_event(PointerEvent::Up(PointerButtonEvent { pointer: MOUSE, button: Some(PointerButton::Primary), state: s }));
@@ -92,4 +92,21 @@ fn color_picker_previews_live_and_saves_on_close() {
     h.escape();
     assert!(!h.menu_open(), "колорпикер не закрылся");
     assert_ne!(h.config().ui.primary_color, before, "цвет не сохранился при закрытии");
+}
+
+#[test]
+fn a_preset_swatch_sets_the_accent_at_once_and_is_saved_on_close() {
+    let mut h = Harness::new();
+    h.app.open_settings(&mut h.root);
+    h.settle();
+    let swatch = h.binding("образец цвета", |b| matches!(b, Binding::Color(_)));
+    let rect = h.root.get_widget(swatch).unwrap().ctx().bounding_box();
+    h.click(rect.center().x, rect.center().y);
+    assert!(h.menu_open(), "колорпикер не открылся");
+    let picker = h.root.focused_widget().expect("фокус в колорпикере");
+    let area = h.root.get_widget(picker).unwrap().ctx().bounding_box();
+    h.click(area.x0 + 12.0 + 22.0 + 15.2 + 11.0, area.y0 + 12.0 + 11.0);
+    assert_eq!(theme::current().bg_accent.to_rgba8().to_u8_array(), [0x93, 0x33, 0xea, 0xff], "второй готовый цвет не применился");
+    h.escape();
+    assert_eq!(h.config().ui.primary_color, "#9333ea");
 }

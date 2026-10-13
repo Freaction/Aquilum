@@ -36,7 +36,11 @@ fn quote_links_open_reader_at_quote() {
     let source_vault = std::path::PathBuf::from(std::env::var("AQ_VAULT").unwrap());
     let out = std::path::PathBuf::from(std::env::var("AQ_OUT").unwrap());
     let doc = std::fs::read_to_string(&source_note).unwrap();
-    let book = crate::frontmatter::parse(&doc).and_then(|f| f.text(crate::frontmatter::BOOK_FILE).map(str::to_owned)).unwrap();
+    let hrefs = || doc.lines().filter_map(|l| l.rsplit_once("](")).map(|(_, href)| href.trim_end().trim_end_matches(')').to_owned());
+    let book = crate::frontmatter::parse(&doc)
+        .and_then(|f| f.text(crate::frontmatter::BOOK_FILE).map(str::to_owned))
+        .or_else(|| hrefs().find_map(|href| crate::links::reader::parse_href(&href).and_then(|(_, book)| book)))
+        .unwrap();
     let mut h = Harness::new();
     let vault = h.vault.path().to_path_buf();
     std::fs::create_dir_all(vault.join(&book).parent().unwrap()).unwrap();
@@ -51,7 +55,6 @@ fn quote_links_open_reader_at_quote() {
         assert!(h.reader(), "читалка не открылась");
         h.settle();
         h.settle();
-        std::fs::write(out.join(format!("quote-{n}.png")), h.frame(W as u16, H as u16, 1.0).png()).unwrap();
-        h.escape();
+        std::fs::write(out.join(format!("quote-{n}.png")), h.frame(W as u16, H as u16, 1.0).png()).unwrap();        h.escape();
     }
 }

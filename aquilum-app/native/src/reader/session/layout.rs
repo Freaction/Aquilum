@@ -36,7 +36,7 @@ impl Session {
         if self.laid.is_some() && self.key.as_ref() == Some(&key) {
             return;
         }
-        if self.laid.is_some() {
+        if self.laid.is_some() && (self.page, self.scroll) != self.placed {
             self.anchor = self.current();
         }
         self.view = view;
@@ -95,6 +95,7 @@ impl Session {
                 (self.page, self.scroll) = ((column / self.geometry.columns).min(pages - 1), y.min(max));
             }
         }
+        self.placed = (self.page, self.scroll);
     }
 
     fn current(&self) -> Anchor {

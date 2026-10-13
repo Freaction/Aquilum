@@ -54,6 +54,7 @@ pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
             c.ui.primary_color = format!("#{r:02x}{g:02x}{b:02x}");
         }
     }));
+    display.push(row(t("settings.ui.animations"), Some(t("settings.ui.animationsHint")), Control::Switch(config.ui.animations), |c, v| c.ui.animations = flag(v)));
     vec![
         Block { title: t("settings.ui.display"), rows: display },
         Block { title: t("settings.font.section"), rows: fonts },

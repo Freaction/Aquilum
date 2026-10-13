@@ -1,3 +1,4 @@
+mod cards;
 mod clipboard;
 mod images;
 mod input;

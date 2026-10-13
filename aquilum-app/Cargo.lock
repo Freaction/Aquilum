@@ -186,7 +186,7 @@ version = "0.1.0"
 
 [[package]]
 name = "aquilum-core"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "atomic-write-file",
  "blake3",
@@ -208,7 +208,7 @@ dependencies = [
 
 [[package]]
 name = "aquilum-native"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "accesskit_macos",
  "accesskit_unix",

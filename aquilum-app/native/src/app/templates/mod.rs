@@ -9,8 +9,7 @@ use masonry::accesskit::Role;
 use masonry::app::RenderRoot;
 use masonry::core::keyboard::{Key, Modifiers, NamedKey};
 use masonry::core::{NewWidget, WidgetId};
-use masonry::kurbo::{Axis, Point};
-use masonry::properties::types::CrossAxisAlignment;
+use masonry::kurbo::Point;
 use masonry::widgets::Flex;
 
 use super::{App, Outcome, Popup};
@@ -19,9 +18,8 @@ use crate::ui::dialog::{CardSize, Modal};
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
-use crate::ui::search;
-use crate::ui::theme;
-use crate::ui::widgets::{Rule, Slot};
+use crate::ui::search::{self, Placeholder};
+use crate::ui::widgets::Slot;
 
 pub use placeholders::apply_placeholders;
 pub use scan::NoteTemplate;
@@ -31,6 +29,8 @@ use starters::template_text;
 pub struct TemplatesState {
     pub layer: WidgetId,
     pub field: Handle<TextEditor>,
+    pub placeholder: Handle<Placeholder>,
+    pub query: String,
     pub body: Handle<Slot>,
     pub list: Option<Handle<ScrollArea<Flex>>>,
     pub templates: Vec<NoteTemplate>,
@@ -45,17 +45,11 @@ impl App {
         if matches!(self.popup, Some(Popup::Templates(_))) {
             return;
         }
-        let search_box = search::search_box("");
-        let body = Slot::new(NewWidget::new(Flex::column()).erased());
+        let search_box = search::find_box(t("templateDialog.find"));
+        let body = Slot::fit(NewWidget::new(Flex::column()).erased());
         let body_handle = Handle::of(&body);
-        let card = Flex::column()
-            .cross_axis_alignment(CrossAxisAlignment::Stretch)
-            .with_fixed(search_box.widget)
-            .with_fixed(Rule::new(Axis::Horizontal, || theme::current().border_default))
-            .with(body, 1.0)
-            .with_fixed(Rule::new(Axis::Horizontal, || theme::current().border_default))
-            .with_fixed(search::footer());
-        let layer = Modal::new(NewWidget::new(card), &t("templateDialog.title"), CardSize::Window(search::card_size), Role::Dialog, false);
+        let card = search::dialog_card(search_box.widget, body, search::template_footer());
+        let layer = Modal::new(card, &t("templateDialog.title"), CardSize::Anchored(search::card_size), Role::Dialog, false);
         let layer_id = layer.id();
         root.add_layer(layer, Point::ORIGIN);
         root.focus_on(Some(search_box.field.id()));
@@ -65,6 +59,8 @@ impl App {
         self.popup = Some(Popup::Templates(TemplatesState {
             layer: layer_id,
             field: search_box.field,
+            placeholder: search_box.placeholder,
+            query: String::new(),
             body: body_handle,
             list: None,
             templates,
@@ -162,8 +158,8 @@ impl App {
         self.tree.paths_changed(root, &created);
         let scanned = self.scan_templates();
         if let Some(Popup::Templates(state)) = &mut self.popup {
+            state.filtered = dialog::filtered(&scanned, &state.query);
             state.templates = scanned;
-            state.filtered = (0..state.templates.len()).collect();
             state.selected = 0;
         }
         self.render_templates(root);

@@ -14,7 +14,7 @@ use crate::ui::widgets::Pressed;
 impl App {
     fn select_result(&mut self, root: &mut RenderRoot, index: usize) {
         let Some(Popup::Search(state)) = &mut self.popup else { return };
-        select_card(root, &state.cards, state.list, &mut state.selected, index);
+        select_card(root, crate::ui::search::CardKind::Result, &state.cards, state.list, &mut state.selected, index);
     }
 
     fn open_selected(&mut self, root: &mut RenderRoot, new_tab: bool) -> Outcome {

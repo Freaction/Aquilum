@@ -70,6 +70,7 @@ enum Popup {
     EditorMenu { layer: WidgetId, commands: Vec<editor_requests::EditorCommand> },
     NoteActionsMenu { layer: WidgetId },
     SortMenu { layer: WidgetId, button: WidgetId },
+    TabsMenu { layer: WidgetId, button: WidgetId },
     Viewer { layer: WidgetId },
     Reader(Box<reader::ReaderState>),
     Search(search::SearchState),

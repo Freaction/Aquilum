@@ -1,7 +1,7 @@
 use super::*;
 
 impl ReaderView {
-    pub fn new(session: Session, settings: Settings, title: String, total: u32, can_quote: bool) -> (NewWidget<Self>, ReaderIds) {
+    pub fn new(session: Session, settings: Settings, title: String, total: u32, can_quote: bool, active: Option<String>) -> (NewWidget<Self>, ReaderIds) {
         let settings_button = NewWidget::new(IconButton::new(icons::SETTINGS_2, t("reader.settings")));
         let close = NewWidget::new(IconButton::new(icons::X, t("reader.close")));
         let quote_button = can_quote.then(|| NewWidget::new(TextButton::new(t("reader.quote"), Variant::Primary).size(ButtonSize::S)));
@@ -30,6 +30,9 @@ impl ReaderView {
             selecting: false,
             quotes: Vec::new(),
             marks: None,
+            active,
+            hovered: None,
+            quote_rects: Vec::new(),
             labels: Vec::new(),
             quote_button: quote_button.map(NewWidget::to_pod),
             toolbar: Rect::ZERO,
@@ -90,9 +93,38 @@ impl ReaderView {
         &self.marks.as_ref().expect("метки посчитаны выше").1
     }
 
+    pub(super) fn quote_shapes(&mut self) -> Vec<(Vec<Rect>, String, String)> {
+        let marks = self.marks().to_vec();
+        marks.into_iter().map(|(a, b, cfi, label)| (self.session.rects(a, b), cfi, label)).filter(|(rects, ..)| !rects.is_empty()).collect()
+    }
+
+    pub(super) fn quote_fill(&self, index: usize, cfi: &str) -> masonry::peniko::Color {
+        let tm = theme::current();
+        if self.active.as_deref() == Some(cfi) {
+            tm.reader_quote_active_bg
+        } else if self.hovered == Some(index) {
+            tm.reader_quote_hover_bg
+        } else {
+            tm.reader_quote_bg
+        }
+    }
+
+    pub(super) fn set_quote_hover(&mut self, ctx: &mut EventCtx<'_>, hovered: Option<usize>) {
+        if hovered != self.hovered {
+            self.hovered = hovered;
+            ctx.request_paint_only();
+        }
+    }
+
     #[cfg(test)]
     pub fn label_rects(&self) -> Vec<Rect> {
         self.labels.iter().map(|(r, _)| *r).collect()
+    }
+
+    #[cfg(test)]
+    pub fn quote_boxes(&self) -> Vec<(String, Vec<Rect>)> {
+        let offset = self.body.origin().to_vec2();
+        self.quote_rects.iter().map(|(cfi, rects)| (cfi.clone(), rects.iter().map(|r| *r + offset).collect())).collect()
     }
 
     pub fn has_popover(&self) -> bool {

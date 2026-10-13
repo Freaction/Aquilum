@@ -46,8 +46,14 @@ impl ReaderView {
                 }
                 let hover = self.body.contains(p).then(|| self.side(p));
                 self.set_hover(ctx, hover);
+                let local = p - self.body.origin().to_vec2();
+                let quote = if self.popover.is_some() { None } else { self.quote_rects.iter().position(|(_, rects)| rects.iter().any(|r| r.contains(local))) };
+                self.set_quote_hover(ctx, quote);
             }
-            PointerEvent::Leave(_) => self.set_hover(ctx, None),
+            PointerEvent::Leave(_) => {
+                self.set_hover(ctx, None);
+                self.set_quote_hover(ctx, None);
+            }
             PointerEvent::Down(down) => {
                 let p = ctx.local_position(down.state.position);
                 if self.popover.is_some() {

@@ -21,6 +21,7 @@ pub struct Menu {
     child: WidgetPod<ScrollArea<Flex>>,
     label: String,
     width: Option<f64>,
+    max_width: f64,
     max_height: f64,
     exclude: Option<Rect>,
 }
@@ -45,6 +46,14 @@ impl Menu {
         menu
     }
 
+    pub fn dropdown(label: &str, items: &[&str], checked: usize, trigger: Rect, window: Size, width: f64) -> NewWidget<Self> {
+        let mut menu = Self::list(label, items, checked, trigger);
+        menu.widget.width = Some(width);
+        menu.widget.max_width = width;
+        menu.widget.max_height = (window.height - Self::dropdown_origin(trigger, window, width).y - size::SPACE_8).max(MenuItem::height());
+        menu
+    }
+
     pub fn context_origin(at: Point, items: usize, window: Size) -> Point {
         let size = Self::estimated_size(items);
         let x = if at.x + size.width > window.width { (at.x - size.width).max(size::SPACE_8) } else { at.x };
@@ -59,6 +68,11 @@ impl Menu {
         Point::new(trigger.x0, y)
     }
 
+    pub fn dropdown_origin(trigger: Rect, window: Size, width: f64) -> Point {
+        let right = (window.width - width - size::SPACE_8).max(size::SPACE_8);
+        Point::new((trigger.x1 - width).clamp(size::SPACE_8, right), trigger.y1 + size::SPACE_4)
+    }
+
     fn build(label: &str, items: &[Entry<'_>], checked: Option<usize>, width: Option<f64>) -> NewWidget<Self> {
         let mut column = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch);
         for (index, item) in items.iter().enumerate() {
@@ -70,7 +84,7 @@ impl Menu {
                 .with(Padding::all(Length::px(size::GAP_XS))),
         );
         let scroll = NewWidget::new(ScrollArea::new(column));
-        NewWidget::new(Menu { child: scroll.to_pod(), label: label.to_owned(), width, max_height: f64::INFINITY, exclude: None })
+        NewWidget::new(Menu { child: scroll.to_pod(), label: label.to_owned(), width, max_width: f64::INFINITY, max_height: f64::INFINITY, exclude: None })
     }
 
     pub fn estimated_size(items: usize) -> Size {
@@ -111,8 +125,8 @@ impl Widget for Menu {
         let context = LayoutSize::maybe(axis.cross(), cross);
         let length = ctx.compute_length(&mut self.child, len_req.into(), context, axis, cross);
         match (axis, self.width) {
-            (Axis::Horizontal, Some(width)) => Length::px(width.max(length.get()).max(Self::MIN_WIDTH)),
-            (Axis::Horizontal, None) => Length::px(length.get().max(Self::MIN_WIDTH)),
+            (Axis::Horizontal, Some(width)) => Length::px(width.max(length.get()).max(Self::MIN_WIDTH).min(self.max_width)),
+            (Axis::Horizontal, None) => Length::px(length.get().max(Self::MIN_WIDTH).min(self.max_width)),
             (Axis::Vertical, _) => Length::px(length.get().min(self.max_height)),
         }
     }

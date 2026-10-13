@@ -59,6 +59,9 @@ impl TextEditor {
     }
 
     pub fn reveal_external_insert(this: &mut masonry::core::WidgetMut<'_, Self>, range: Range<usize>) {
+        if !crate::ui::motion::on() {
+            return;
+        }
         this.widget.external_reveal = Some((range, Instant::now()));
         this.ctx.request_anim_frame();
         this.ctx.request_paint_only();

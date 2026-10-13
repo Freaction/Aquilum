@@ -1,16 +1,16 @@
 use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
-use masonry::kurbo::Size;
+use masonry::kurbo::{Axis, Size};
 use masonry::layout::Length;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{Gap, Padding};
 use masonry::widgets::Flex;
 
-use super::card::ResultCard;
+use super::card::{CardKind, ResultCard};
 use crate::i18n::t;
 use crate::ui::icons::Icon;
 use crate::ui::theme;
 use crate::ui::tokens::{number, size};
-use crate::ui::widgets::{IconView, Label, Leading, MaxWidth, Paint, Scale, kbd};
+use crate::ui::widgets::{IconView, Label, Leading, MaxWidth, Paint, Rule, Scale, Slot, kbd};
 
 pub fn empty_state(icon: Icon, title: &str, description: &str) -> NewWidget<Flex> {
     empty_state_with(icon, title, Some(description), None)
@@ -47,17 +47,27 @@ fn hint(keys: &str, text: &str) -> NewWidget<Flex> {
     NewWidget::new(row).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))))
 }
 
-pub fn footer() -> NewWidget<Flex> {
-    let row = Flex::row()
-        .main_axis_alignment(MainAxisAlignment::Center)
-        .cross_axis_alignment(CrossAxisAlignment::Center)
-        .with_fixed(hint("↕", &t("search.navigate")))
-        .with_fixed(hint("↵", &t("search.open")))
-        .with_fixed(hint("Ctrl ↵", &t("search.newPane")))
-        .with_fixed(hint("Shift ↵", &t("search.create")));
+fn hints(list: &[(&str, String)]) -> NewWidget<Flex> {
+    let mut row = Flex::row().main_axis_alignment(MainAxisAlignment::Center).cross_axis_alignment(CrossAxisAlignment::Center);
+    for (keys, text) in list {
+        row = row.with_fixed(hint(keys, text));
+    }
     NewWidget::new(row).with_props(
         PropertySet::new().with(Gap::new(Length::px(size::SPACE_12))).with(Padding::all(Length::px(size::DIALOG_PADDING))),
     )
+}
+
+pub fn footer() -> NewWidget<Flex> {
+    hints(&[("↕", t("search.navigate")), ("↵", t("search.open")), ("Ctrl ↵", t("search.newPane")), ("Shift ↵", t("search.create"))])
+}
+
+pub fn template_footer() -> NewWidget<Flex> {
+    hints(&[("↕", t("search.navigate")), ("↵", t("search.open")), ("Esc", t("templateDialog.close"))])
+}
+
+pub fn dialog_card(head: NewWidget<Flex>, body: NewWidget<Slot>, footer: NewWidget<Flex>) -> NewWidget<Flex> {
+    let rule = || Rule::new(Axis::Horizontal, || theme::current().border_default);
+    NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(head).with_fixed(rule()).with(body, 1.0).with_fixed(rule()).with_fixed(footer))
 }
 
 pub fn card_size(room: Size) -> Size {
@@ -80,7 +90,7 @@ pub fn results_list(cards: Vec<NewWidget<ResultCard>>) -> (NewWidget<Flex>, Vec<
     (column, ids)
 }
 
-pub fn offset_of(index: usize) -> (f64, f64) {
-    let top = size::SPACE_8 + index as f64 * (size::SEARCH_RESULT_HEIGHT + size::SPACE_6);
-    (top, top + size::SEARCH_RESULT_HEIGHT)
+pub fn offset_of(kind: CardKind, index: usize) -> (f64, f64) {
+    let top = size::SPACE_8 + index as f64 * (kind.height() + size::SPACE_6);
+    (top, top + kind.height())
 }

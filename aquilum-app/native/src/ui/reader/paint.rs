@@ -23,12 +23,14 @@ impl ReaderView {
 
         let body = self.body;
         let offset = body.origin().to_vec2();
-        let marks: Vec<(Vec<Rect>, String, String)> = self.marks().to_vec().into_iter().map(|(a, b, cfi, label)| (self.session.rects(a, b), cfi, label)).filter(|(r, ..)| !r.is_empty()).collect();
+        let marks = self.quote_shapes();
+        self.quote_rects = marks.iter().map(|(rects, cfi, _)| (cfi.clone(), rects.clone())).collect();
         let selection = self.ordered().map(|(a, b)| self.session.rects(a, b)).unwrap_or_default();
         painter.with_fill_clip(body, |painter| {
-            for (rects, ..) in &marks {
+            for (index, (rects, cfi, _)) in marks.iter().enumerate() {
+                let fill = self.quote_fill(index, cfi);
                 for r in rects {
-                    painter.fill(*r + offset, tm.text_accent.multiply_alpha(0.3)).draw();
+                    painter.fill(*r + offset, fill).draw();
                 }
             }
             for r in &selection {

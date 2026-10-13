@@ -12,6 +12,8 @@ mod perf;
 mod reader;
 mod snapshots;
 mod support;
+mod tab_list;
+mod templates;
 mod tree_toolbar;
 mod wiki;
 

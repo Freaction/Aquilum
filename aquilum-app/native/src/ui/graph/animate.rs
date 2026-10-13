@@ -1,13 +1,12 @@
 use super::*;
 
 const HIGHLIGHT_FADE: f64 = 0.055;
-const MORPH_SECONDS: f64 = 0.45;
 
 impl GraphView {
     pub(super) fn step(&mut self, seconds: f64) -> bool {
         let mut busy = self.camera.advance(seconds);
         if let (Some((from, progress)), Some(graph)) = (&mut self.morph, &self.graph) {
-            *progress = (*progress + seconds / MORPH_SECONDS).min(1.0);
+            *progress = (*progress + crate::ui::motion::step(seconds, crate::ui::motion::MORPH)).min(1.0);
             let e = (*progress * *progress * (3.0 - 2.0 * *progress)) as f32;
             for (i, p) in self.positions.iter_mut().enumerate() {
                 let (a, b) = (from[i], graph.positions[i]);
@@ -18,7 +17,7 @@ impl GraphView {
                 self.morph = None;
             }
         }
-        let fade = approach(seconds, HIGHLIGHT_FADE) as f32;
+        let fade = crate::ui::motion::eased(approach(seconds, HIGHLIGHT_FADE)) as f32;
         let gap = self.dimming_target - self.dimming;
         self.dimming = if gap.abs() < 1.0 / 255.0 { self.dimming_target } else { self.dimming + gap * f64::from(fade) };
         busy |= self.dimming != self.dimming_target;
@@ -33,7 +32,7 @@ impl GraphView {
         if self.revealing
             && let Some(graph) = self.graph.clone()
         {
-            let step = approach(seconds, FADE) as f32;
+            let step = crate::ui::motion::eased(approach(seconds, FADE)) as f32;
             let mut moving = false;
             for node in 0..self.reveal.len() {
                 let goal = if self.shown(&graph, node) { 1.0 } else { 0.0 };

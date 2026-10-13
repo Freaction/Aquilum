@@ -80,6 +80,34 @@ fn tree_rows_survive_focus_mode() {
 }
 
 #[test]
+fn focus_mode_removes_the_rail_and_puts_settings_in_the_top_left_corner() {
+    let mut h = Harness::new();
+    h.app.open(&mut h.root, h.vault.path().join("a.md"));
+    h.settle();
+    let (rail, settings, strip, toggle) = {
+        let chrome = h.app.chrome.as_ref().unwrap();
+        (chrome.rail.id(), chrome.rail_settings, chrome.tab_strip.id(), chrome.toggle_sidebar)
+    };
+    let bounds = |h: &Harness, id| h.root.get_widget(id).unwrap().ctx().bounding_box();
+    let (before, tabs) = (bounds(&h, toggle), bounds(&h, strip));
+    assert!(bounds(&h, rail).width() > 0.0, "ряд значков слева не виден до режима фокуса");
+    h.app.toggle_focus_mode(&mut h.root);
+    h.settle();
+    assert_eq!(bounds(&h, rail).width(), 0.0, "ряд значков остался в режиме фокуса");
+    let corner = bounds(&h, settings);
+    assert_eq!((corner.x0, corner.y0, corner.width(), corner.height()), (before.x0, before.y0, before.width(), before.height()), "настройки не на месте кнопки левого сайдбара");
+    assert!(bounds(&h, strip).x0 >= corner.x1, "вкладки наезжают на кнопку настроек");
+    h.click(corner.center().x, corner.center().y);
+    assert!(h.section().is_some(), "кнопка в углу не открыла настройки");
+    h.escape();
+    h.app.toggle_focus_mode(&mut h.root);
+    h.settle();
+    assert!(bounds(&h, rail).width() > 0.0, "ряд значков не вернулся");
+    assert!(h.root.get_widget(settings).unwrap().ctx().is_stashed(), "кнопка настроек в углу осталась после выхода из режима");
+    assert_eq!(bounds(&h, strip).x0, tabs.x0, "после выхода из режима вкладки сдвинуты");
+}
+
+#[test]
 fn wiki_link_opens_note_from_subfolder_without_creating_duplicate() {
     let mut h = Harness::new();
     let vault = h.vault.path().to_path_buf();

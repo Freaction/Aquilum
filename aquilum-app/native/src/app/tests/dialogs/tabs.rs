@@ -9,8 +9,8 @@ fn tabs_open_new_select_and_close() {
     assert_eq!(h.app.tabs.tabs().len(), 1);
     assert!(h.app.note.is_some());
 
-    let plus = 1000.0 - 320.0 - 44.0 - 6.0 - 16.0;
-    let outcome = h.click(plus, 20.0);
+    let plus = h.root.get_widget(h.app.chrome.as_ref().unwrap().new_tab).unwrap().ctx().bounding_box().center();
+    let outcome = h.click(plus.x, plus.y);
     assert!(outcome.title);
     assert_eq!(h.app.tabs.tabs().len(), 2);
     assert!(h.app.tabs.active().path.is_none());

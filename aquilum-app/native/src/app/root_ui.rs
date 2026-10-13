@@ -25,6 +25,7 @@ impl App {
     fn apply_appearance(&self) {
         let config = self.workspace.core.settings.get_config();
         theme::apply_setting(&config.ui.theme, self.system_dark, &config.ui.primary_color);
+        crate::ui::motion::set(config.ui.animations);
         i18n::set_language(&config.ui.language);
         theme::set_ui_font(UiFont {
             family: config.ui.font.font_family.clone(),

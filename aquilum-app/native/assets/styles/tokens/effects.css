@@ -1,12 +1,15 @@
 :root {
   --q-duration-fast: 100ms;
+  --q-duration-medium: 150ms;
   --q-duration-normal: 200ms;
+  --q-duration-morph: 450ms;
   --q-duration-slower: 500ms;
 
   --q-ease-default: cubic-bezier(0.4, 0, 0.2, 1);
   --q-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --q-ease-out: cubic-bezier(0, 0, 0.2, 1);
   --q-ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
+  --q-ease-linear: cubic-bezier(0, 0, 1, 1);
 
   --q-z-header: 300;
   --q-z-modal: 500;

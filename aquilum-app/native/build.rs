@@ -14,7 +14,9 @@
 //! На выходе `$OUT_DIR/tokens.rs`:
 //! - `Theme` — цвета и тени (зависят от темы), значения `LIGHT` и `DARK`;
 //! - модули `size` (логические пиксели), `number`, `em`, `ms`, `text` — константы, одинаковые
-//!   для обеих тем.
+//!   для обеих тем;
+//! - модуль `motion` — длительности в секундах (`FAST`, `MEDIUM`, `NORMAL`, `MORPH`, `SLOWER`) и кривые
+//!   `EASE_*` четвёркой чисел из токенов `--q-duration-*` и `--q-ease-*`.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -87,6 +89,15 @@ fn main() {
                     format!("{}: {ty}", ident(name).to_uppercase()),
                     literal,
                 ));
+                let id = ident(name);
+                if let (Value::Time(ms), Some(short)) = (l, id.strip_prefix("duration_")) {
+                    consts.entry("motion").or_default().push((format!("{}: f64", short.to_uppercase()), float(ms / 1000.0)));
+                }
+                if let (Value::Text(css), true) = (l, id.starts_with("ease_"))
+                    && let Some(curve) = bezier(css)
+                {
+                    consts.entry("motion").or_default().push((format!("{}: (f64, f64, f64, f64)", id.to_uppercase()), curve));
+                }
             }
             (Ok(_), Ok(_)) => problems.push(format!("{name}: значение без цвета зависит от темы")),
             (Err(e), _) if e == DYNAMIC => consts
@@ -704,6 +715,13 @@ impl<'a> Parser<'a> {
 fn ident(name: &str) -> String {
     let id = name.replace('-', "_");
     if id.starts_with(|c: char| c.is_ascii_digit()) { format!("_{id}") } else { id }
+}
+
+fn bezier(css: &str) -> Option<String> {
+    let inner = css.strip_prefix("cubic-bezier(")?.strip_suffix(')')?;
+    let numbers: Vec<f64> = inner.split(',').map(|n| n.trim().parse().ok()).collect::<Option<_>>()?;
+    let [a, b, c, d] = numbers[..] else { return None };
+    Some(format!("({}, {}, {}, {})", float(a), float(b), float(c), float(d)))
 }
 
 fn float(v: f64) -> String {

@@ -122,17 +122,28 @@ impl App {
             _ => return None,
         };
         let field = root.focused_widget()?;
-        let Some(Popup::Settings { dialog, menu: None }) = &mut self.popup else { return None };
-        let Some(&Binding::Number { setter, .. }) = dialog.bindings.get(&field) else { return None };
-        let mut bindings = std::mem::take(&mut dialog.bindings);
+        let &Binding::Number { setter, .. } = self.popup_bindings()?.get(&field)? else { return None };
+        let mut bindings = std::mem::take(self.popup_bindings()?);
         let effect = self.step_number(root, &mut bindings, field, direction);
         if let Some(Binding::Number { number, .. }) = bindings.get(&field) {
             let text = schema::format_number(number.value);
             self.typing = Some((setter, text.clone(), text.len()));
         }
-        if let Some(Popup::Settings { dialog, .. }) = &mut self.popup {
-            dialog.bindings = bindings;
+        if let Some(slot) = self.popup_bindings() {
+            *slot = bindings;
+        }
+        if let Some(Popup::Reader(state)) = &self.popup {
+            let settings = crate::app::reader::reader_settings(&self.workspace.core.settings.get_config());
+            root.edit_widget(state.layer, |mut w| crate::ui::reader::ReaderView::set_settings(&mut w.downcast(), settings));
         }
         Some(self.finish(root, effect))
+    }
+
+    fn popup_bindings(&mut self) -> Option<&mut HashMap<WidgetId, Binding>> {
+        match &mut self.popup {
+            Some(Popup::Settings { dialog, menu: None }) => Some(&mut dialog.bindings),
+            Some(Popup::Reader(state)) => Some(&mut state.bindings),
+            _ => None,
+        }
     }
 }

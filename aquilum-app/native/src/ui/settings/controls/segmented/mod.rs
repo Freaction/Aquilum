@@ -15,7 +15,6 @@ pub struct Segmented {
 pub(super) const SEGMENT_PAD: f64 = 3.0;
 pub(super) const SEGMENT_GAP: f64 = 2.0;
 pub(super) const SEGMENT_HEIGHT: f64 = 24.0;
-pub(super) const SEGMENT_SECONDS: f64 = 0.15;
 
 impl Segmented {
     pub fn new(options: Vec<String>, selected: usize) -> NewWidget<Self> {
@@ -117,7 +116,7 @@ impl Widget for Segmented {
 
     fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
         let goal = self.selected as f64;
-        let step = interval as f64 / 1e9 / SEGMENT_SECONDS;
+        let step = crate::ui::motion::step(interval as f64 / 1e9, crate::ui::motion::MEDIUM);
         self.shown = if self.shown < goal { (self.shown + step).min(goal) } else { (self.shown - step).max(goal) };
         ctx.request_paint_only();
         if self.shown != goal {

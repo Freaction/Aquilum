@@ -2,10 +2,11 @@ use masonry::accesskit::{Node, Role};
 use masonry::core::keyboard::{Key, KeyState, NamedKey};
 use masonry::core::{
     AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update,
-    UpdateCtx, Widget,
+    UpdateCtx, Widget, WidgetPod,
 };
 use masonry::imaging::Painter;
-use masonry::kurbo::{Affine, Axis, Point, RoundedRect, Size, Stroke};
+use masonry::kurbo::{Affine, Axis, Point, Rect, RoundedRect, Size, Stroke};
+use masonry::widgets::Flex;
 use masonry::layout::{LenReq, Length};
 
 use super::{CardSize, DialogAnswer, Modal};
@@ -72,19 +73,26 @@ impl Widget for Modal {
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size: Size) {
         let room = Size::new((size.width - size::SPACE_16 * 2.0).max(0.0), (size.height - size::SPACE_16 * 2.0).max(0.0));
-        let card = match self.size {
+        let fit = |ctx: &mut LayoutCtx<'_>, card: &mut WidgetPod<Flex>, frame: Size| {
+            let height = ctx.compute_length(card, LenReq::MaxContent.into(), size.into(), Axis::Vertical, Some(Length::px(frame.width))).get();
+            Size::new(frame.width, height.min(frame.height))
+        };
+        let (card, anchor) = match self.size {
             CardSize::Fit(max) => {
-                let width = room.width.min(max);
-                let height = ctx
-                    .compute_length(&mut self.card, LenReq::MaxContent.into(), size.into(), Axis::Vertical, Some(Length::px(width)))
-                    .get()
-                    .min(room.height);
-                Size::new(width, height)
+                let card = fit(ctx, &mut self.card, Size::new(room.width.min(max), room.height));
+                (card, card)
             }
-            CardSize::Window(of) => of(room),
+            CardSize::Window(of) => {
+                let card = of(room);
+                (card, card)
+            }
+            CardSize::Anchored(of) => {
+                let frame = of(room);
+                (fit(ctx, &mut self.card, frame), frame)
+            }
         };
         ctx.run_layout(&mut self.card, card);
-        self.card_rect = Self::centered(size, card);
+        self.card_rect = Rect::from_origin_size(Self::centered(size, anchor).origin(), card);
         ctx.place_child(&mut self.card, self.card_rect.origin());
     }
 

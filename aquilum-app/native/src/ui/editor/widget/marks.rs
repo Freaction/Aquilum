@@ -50,9 +50,11 @@ impl TextEditor {
             };
             let (top, bottom) = (ps[a].top, ps[b].top + ps[b].height);
             if block.is_code() {
-                painter.fill(RoundedRect::new(x, top, x + inner, bottom, BLOCK_RADIUS), tm.block_bg).draw();
-                let border = RoundedRect::new(x + 0.5, top + 0.5, x + inner - 0.5, bottom - 0.5, BLOCK_RADIUS - 0.5);
-                painter.stroke(border, &Stroke::new(size::BORDER_1), tm.block_border).draw();
+                if ps[a].fold != Fold::Head {
+                    painter.fill(RoundedRect::new(x, top, x + inner, bottom, BLOCK_RADIUS), tm.block_bg).draw();
+                    let border = RoundedRect::new(x + 0.5, top + 0.5, x + inner - 0.5, bottom - 0.5, BLOCK_RADIUS - 0.5);
+                    painter.stroke(border, &Stroke::new(size::BORDER_1), tm.block_border).draw();
+                }
             } else if !matches!(ps[a].block, Block::Quote { callout: Some((_, Callout::Book)), .. }) {
                 for (dx, from, to) in self.quote_bars(a, b) {
                     painter.fill(RoundedRect::new(x + dx, from + QUOTE_INSET, x + dx + QUOTE_BAR, to - QUOTE_INSET, QUOTE_BAR / 2.0), tm.bg_accent).draw();

@@ -59,6 +59,7 @@
     "renameAria": "New note name",
     "closeNamed": "Close the {{title}} tab",
     "close": "Close tab",
+    "list": "All tabs",
     "actions": "Note actions"
   },
   "search": {
@@ -202,7 +203,9 @@
       "homePage": "Home page",
       "homePageHint": "Note name for the home button. Empty — no button",
       "homePageAria": "Home page note name",
-      "primaryColor": "Accent color"
+      "primaryColor": "Accent color",
+      "animations": "Animations",
+      "animationsHint": "Transitions and fades. Animated covers, graph zoom and panning stay smooth. Scrolling is not affected"
     },
     "editor": {
       "lineHeight": "Line height",

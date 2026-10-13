@@ -52,7 +52,7 @@ impl App {
             return;
         }
         self.home = home;
-        let (widget, id) = ui::home_widget(self.home.is_some() && !self.interface.focus_mode());
+        let (widget, id) = ui::home_widget(self.home.is_some());
         if let Some(chrome) = &mut self.chrome {
             chrome.home_slot.edit(root, |mut slot| Slot::set_child(&mut slot, widget));
             chrome.home_button = id;

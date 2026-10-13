@@ -91,19 +91,38 @@ pub fn field(query: &str, hint: String) -> (NewWidget<Placeholder>, Handle<TextE
     (placeholder, field_handle, placeholder_handle)
 }
 
-pub fn search_box(query: &str) -> SearchBox {
-    let (placeholder, field_handle, placeholder_handle) = field(query, t("search.title"));
-    let clear = NewWidget::new(IconButton::new(icons::X, t("search.clear")));
-    let clear_handle = Handle::of(&clear);
-    let row = Flex::row()
+pub struct FindBox {
+    pub widget: NewWidget<Flex>,
+    pub field: Handle<TextEditor>,
+    pub placeholder: Handle<Placeholder>,
+}
+
+fn row(query: &str, hint: String, clear: Option<NewWidget<IconButton>>) -> FindBox {
+    let (placeholder, field, placeholder_handle) = field(query, hint);
+    let has_clear = clear.is_some();
+    let mut row = Flex::row()
         .cross_axis_alignment(CrossAxisAlignment::Center)
         .with_fixed(IconView::new(icons::SEARCH, size::SIZE_20, size::SIZE_20, 1.4, || theme::current().icon_secondary))
-        .with(placeholder, 1.0)
-        .with_fixed(clear);
-    let row = NewWidget::new(row).with_props(
+        .with(placeholder, 1.0);
+    if let Some(clear) = clear {
+        row = row.with_fixed(clear);
+    }
+    let content = if has_clear { size::SIZE_32 } else { size::SIZE_24 };
+    let widget = NewWidget::new(row).with_props(
         PropertySet::new()
             .with(Gap::new(Length::px(size::SPACE_6)))
-            .with(Padding::from_vh(Length::px(size::SPACE_8), Length::px(size::SPACE_16))),
+            .with(Padding::from_vh(Length::px((size::SEARCH_BOX_HEIGHT - content) / 2.0), Length::px(size::SPACE_16))),
     );
-    SearchBox { widget: row, field: field_handle, placeholder: placeholder_handle, clear: clear_handle }
+    FindBox { widget, field, placeholder: placeholder_handle }
+}
+
+pub fn find_box(hint: String) -> FindBox {
+    row("", hint, None)
+}
+
+pub fn search_box(query: &str) -> SearchBox {
+    let clear = NewWidget::new(IconButton::new(icons::X, t("search.clear")));
+    let clear_handle = Handle::of(&clear);
+    let FindBox { widget, field, placeholder } = row(query, t("search.title"), Some(clear));
+    SearchBox { widget, field, placeholder, clear: clear_handle }
 }

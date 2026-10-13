@@ -46,6 +46,14 @@ impl TabStrip {
         }
         this.ctx.children_changed();
     }
+
+    pub fn reveal(this: &mut WidgetMut<'_, Self>, index: usize) {
+        let strip = &mut this.widget;
+        let Some(&(left, width)) = strip.boxes.get(index) else { return };
+        strip.offset = strip.offset.max(left + width - strip.width).min(left);
+        strip.clamp();
+        this.ctx.request_layout();
+    }
 }
 
 impl Widget for TabStrip {

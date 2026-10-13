@@ -94,7 +94,9 @@ impl App {
                 let json = |c: &aquilum_core::settings::models::AppConfig| serde_json::to_value((&c.analysis, &c.search)).ok();
                 let analysis_changed = json(&before) != json(&after);
                 let methods_toggled = crate::links::Method::enabled(&before).is_empty() != crate::links::Method::enabled(&after).is_empty();
-                let rows_changed = before.analysis.enable_bm25f != after.analysis.enable_bm25f
+                crate::ui::motion::set(after.ui.animations);
+                let rows_changed = before.ui.animations != after.ui.animations
+                    || before.analysis.enable_bm25f != after.analysis.enable_bm25f
                     || before.updates.auto != after.updates.auto
                     || before.templates.folder != after.templates.folder
                     || mcp_changed

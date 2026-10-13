@@ -143,3 +143,17 @@ fn mcp_code_scrolls_sideways() {
     assert!(offset(&h, id) < dragged, "горизонтальный жест не прокрутил код");
     h.snapshot("mcp-code.png");
 }
+
+#[test]
+fn animations_switch_turns_motion_off_and_on() {
+    let mut h = Harness::new();
+    h.click(242.0, 578.0);
+    assert!(h.config().ui.animations && crate::ui::motion::on());
+    let switch = h.binding("переключатель анимаций", |b| matches!(b, Binding::Switch(_)));
+    let center = h.root.get_widget(switch).unwrap().ctx().bounding_box().center();
+    h.click(center.x, center.y);
+    assert!(!h.config().ui.animations);
+    assert!(!crate::ui::motion::on(), "после выключения анимации продолжают идти");
+    h.click(center.x, center.y);
+    assert!(h.config().ui.animations && crate::ui::motion::on());
+}

@@ -32,6 +32,7 @@ impl ReaderView {
             return;
         }
         self.report = true;
+        self.hovered = None;
         if self.selection.take().is_some() {
             ctx.request_layout();
         }

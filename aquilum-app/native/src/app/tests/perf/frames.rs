@@ -66,6 +66,50 @@ fn live_cover_frames_match_full_frames() {
 }
 
 #[test]
+fn every_animated_cover_changes_between_frames() {
+    for id in ["tunnel", "city", "dreams"] {
+        let mut h = Harness::new();
+        let note = h.write_note("Обложка.md", &format!("---\ncover: true\nPage_cover: {id}\n---\nТекст под обложкой."));
+        h.app.open(&mut h.root, note);
+        h.wait_cover(true);
+        h.anim(Duration::from_secs(1));
+        let (layers, _) = h.root.redraw();
+        let mut live = Renderer::new(2);
+        crate::render::live::freeze(Some(0.0));
+        live.draw_frame(&layers, W as u16, H as u16, 1.0, theme::background(), true).unwrap();
+        assert!(live.has_live(), "{id}: обложка не стала живым слоем");
+        let first = live.frame_pixels().to_vec();
+        crate::render::live::freeze(Some(0.5));
+        assert!(!live.live_frame(&layers).unwrap().is_empty(), "{id}: живой слой не перерисован");
+        let moved = differing_pixels(&first, live.frame_pixels());
+        crate::render::live::freeze(None);
+        assert!(moved > 100, "{id}: между кадрами изменилось {moved} пикселей");
+    }
+}
+
+#[test]
+fn the_animations_switch_does_not_touch_an_animated_cover() {
+    let mut h = Harness::new();
+    let note = h.write_note("Туннель.md", "---\ncover: true\nPage_cover: tunnel\n---\nТекст под обложкой.");
+    h.app.open(&mut h.root, note);
+    h.wait_cover(true);
+    h.click(242.0, 578.0);
+    let switch = h.binding("переключатель анимаций", |b| matches!(b, crate::ui::settings::Binding::Switch(_)));
+    let center = h.root.get_widget(switch).unwrap().ctx().bounding_box().center();
+    let alive = |h: &mut Harness| {
+        h.anim(Duration::from_secs(1));
+        let (layers, _) = h.root.redraw();
+        let mut renderer = Renderer::new(2);
+        renderer.draw_frame(&layers, W as u16, H as u16, 1.0, theme::background(), true).unwrap();
+        renderer.has_live()
+    };
+    assert!(alive(&mut h), "обложка не анимирована при включённых анимациях");
+    h.click(center.x, center.y);
+    assert!(!h.config().ui.animations && !crate::ui::motion::on(), "переключатель не выключил анимации");
+    assert!(alive(&mut h), "выключенные анимации остановили обложку");
+}
+
+#[test]
 fn modal_intro_leaves_frames_like_full_redraw() {
     for close_early in [false, true] {
         let mut h = Harness::new();

@@ -39,6 +39,7 @@
   --q-tab-border: var(--q-border-subtle);
   --q-tab-min-width: 8rem;
   --q-tab-max-width: 23rem;
+  --q-tab-list-width: 17.5rem;
   --q-window-close-bg-hover: #ff3c29;
   --q-window-close-bg-active: #e63524;
   --q-window-control-width: 2.875rem;
@@ -198,6 +199,9 @@
   --q-book-content-gap: var(--q-space-56);
   --q-reader-nav-width: clamp(2.5rem, 8vw, 4.5rem);
   --q-reader-progress-height: 3px;
+  --q-reader-quote-bg: var(--q-blue-alpha-30);
+  --q-reader-quote-hover-bg: var(--q-blue-alpha-46);
+  --q-reader-quote-active-bg: var(--q-blue-alpha-70);
 
   --q-switch-width: 2.375rem;
   --q-switch-height: 1.375rem;
@@ -223,6 +227,13 @@
   --q-graph-settings-bg: var(--q-bg-surface-raised);
 
   --q-book-callout-cover-bg: var(--q-gray-150);
+
+  --q-accent-preset-1: #1471eb;
+  --q-accent-preset-2: #9333ea;
+  --q-accent-preset-3: #ec4899;
+  --q-accent-preset-4: #d76e04;
+  --q-accent-preset-5: #12a210;
+  --q-accent-preset-6: #1e9487;
 
   --q-list-callout-highlight: color-mix(in srgb, var(--q-yellow-alpha-main) 50%, var(--q-amber-600));
   --q-list-callout-question: var(--q-amber-600);

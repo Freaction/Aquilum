@@ -1,5 +1,6 @@
 mod color;
 mod paint;
+mod presets;
 
 use masonry::core::keyboard::{Key, KeyState, NamedKey};
 use masonry::core::{Layer, TextEvent};
@@ -41,11 +42,18 @@ impl ColorPicker {
     }
 
     pub fn size() -> Size {
-        Size::new(PAD * 2.0 + FIELD.width, PAD * 2.0 + FIELD.height + GAP + HUE)
+        Size::new(PAD * 2.0 + FIELD.width, PAD * 2.0 + presets::SWATCH + GAP + FIELD.height + GAP + HUE)
     }
 
     fn field(bounds: Rect) -> Rect {
-        Rect::from_origin_size((bounds.x0 + PAD, bounds.y0 + PAD), FIELD)
+        Rect::from_origin_size((bounds.x0 + PAD, bounds.y0 + PAD + presets::SWATCH + GAP), FIELD)
+    }
+
+    fn choose(&mut self, ctx: &mut EventCtx<'_>, color: masonry::peniko::Color) {
+        let rgba = color.to_rgba8();
+        (self.hue, self.saturation, self.value) = hsv(rgba.r, rgba.g, rgba.b);
+        ctx.submit_action::<Picked>(Picked::Color(self.hex()));
+        ctx.request_paint_only();
     }
 
     fn hue_bar(bounds: Rect) -> Rect {
@@ -89,6 +97,11 @@ impl Widget for ColorPicker {
             PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
                 let at = ctx.local_position(e.state.position);
                 let bounds = ctx.content_box();
+                if let Some(index) = presets::at(bounds, at) {
+                    self.choose(ctx, presets::colors()[index]);
+                    ctx.set_handled();
+                    return;
+                }
                 let part = if Self::field(bounds).inflate(KNOB, KNOB).contains(at) {
                     Part::Field
                 } else if Self::hue_bar(bounds).inflate(KNOB, KNOB).contains(at) {

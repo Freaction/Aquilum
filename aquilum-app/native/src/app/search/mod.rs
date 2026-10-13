@@ -8,8 +8,7 @@ use aquilum_core::search::models::{SearchIndexStatus, SearchResult};
 use masonry::accesskit::Role;
 use masonry::app::RenderRoot;
 use masonry::core::{NewWidget, WidgetId};
-use masonry::kurbo::{Axis, Point};
-use masonry::properties::types::CrossAxisAlignment;
+use masonry::kurbo::Point;
 use masonry::widgets::Flex;
 
 use super::{App, Popup};
@@ -17,9 +16,8 @@ use crate::i18n::t;
 use crate::ui::dialog::{CardSize, Modal};
 use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
-use crate::ui::search::{self, Placeholder, ResultCard};
-use crate::ui::widgets::{Rule, Slot};
-use crate::ui::theme;
+use crate::ui::search::{self, CardKind, Placeholder, ResultCard};
+use crate::ui::widgets::Slot;
 
 pub(super) use query::Found;
 
@@ -55,7 +53,7 @@ impl SearchState {
     }
 }
 
-pub(super) fn select_card(root: &mut RenderRoot, cards: &[WidgetId], list: Option<Handle<ScrollArea<Flex>>>, selected: &mut usize, index: usize) {
+pub(super) fn select_card(root: &mut RenderRoot, kind: CardKind, cards: &[WidgetId], list: Option<Handle<ScrollArea<Flex>>>, selected: &mut usize, index: usize) {
     if index >= cards.len() {
         return;
     }
@@ -66,7 +64,7 @@ pub(super) fn select_card(root: &mut RenderRoot, cards: &[WidgetId], list: Optio
         }
     }
     if let Some(list) = list {
-        let (top, bottom) = search::offset_of(index);
+        let (top, bottom) = search::offset_of(kind, index);
         list.edit(root, |mut area| ScrollArea::reveal(&mut area, top, bottom));
     }
 }
@@ -79,14 +77,8 @@ impl App {
         let search_box = search::search_box("");
         let body = Slot::new(NewWidget::new(Flex::column()).erased());
         let body_handle = Handle::of(&body);
-        let card = Flex::column()
-            .cross_axis_alignment(CrossAxisAlignment::Stretch)
-            .with_fixed(search_box.widget)
-            .with_fixed(Rule::new(Axis::Horizontal, || theme::current().border_default))
-            .with(body, 1.0)
-            .with_fixed(Rule::new(Axis::Horizontal, || theme::current().border_default))
-            .with_fixed(search::footer());
-        let layer = Modal::new(NewWidget::new(card), &t("search.title"), CardSize::Window(search::card_size), Role::Dialog, false);
+        let card = search::dialog_card(search_box.widget, body, search::footer());
+        let layer = Modal::new(card, &t("search.title"), CardSize::Window(search::card_size), Role::Dialog, false);
         let layer_id = layer.id();
         root.add_layer(layer, Point::ORIGIN);
         root.focus_on(Some(search_box.field.id()));

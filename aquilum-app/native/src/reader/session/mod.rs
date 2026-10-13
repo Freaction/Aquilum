@@ -47,6 +47,7 @@ pub struct Session {
     page: usize,
     scroll: f64,
     anchor: Anchor,
+    placed: (usize, f64),
     images: HashMap<String, Option<ImageBrush>>,
 }
 
@@ -73,6 +74,7 @@ impl Session {
             page: 0,
             scroll: 0.0,
             anchor: Anchor::Start,
+            placed: (0, 0.0),
             images: HashMap::new(),
         };
         session.go(target);
