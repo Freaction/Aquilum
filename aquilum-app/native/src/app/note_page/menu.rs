@@ -11,6 +11,7 @@ const ACTIONS_MENU_WIDTH: f64 = 220.0;
 
 #[derive(Clone, Copy)]
 enum NoteCommand {
+    Wide,
     ExportPdf,
     Reveal,
     CopyPath,
@@ -19,11 +20,12 @@ enum NoteCommand {
     Close,
 }
 
-const NOTE_COMMANDS: [NoteCommand; 6] = [NoteCommand::ExportPdf, NoteCommand::Reveal, NoteCommand::CopyPath, NoteCommand::Duplicate, NoteCommand::Delete, NoteCommand::Close];
+const NOTE_COMMANDS: [NoteCommand; 7] = [NoteCommand::Wide, NoteCommand::ExportPdf, NoteCommand::Reveal, NoteCommand::CopyPath, NoteCommand::Duplicate, NoteCommand::Delete, NoteCommand::Close];
 
 impl NoteCommand {
-    fn entry(self) -> (String, icons::Icon) {
+    fn entry(self, wide: bool) -> (String, icons::Icon) {
         match self {
+            NoteCommand::Wide => (t(if wide { "editor.normalWidth" } else { "editor.wideMode" }), icons::MOVE_HORIZONTAL),
             NoteCommand::ExportPdf => (t("editor.exportPdf"), icons::FILE_TEXT),
             NoteCommand::Reveal => (t("editor.revealFile"), icons::FOLDER),
             NoteCommand::CopyPath => (t("editor.copyPath"), icons::CLIPBOARD),
@@ -36,7 +38,7 @@ impl NoteCommand {
 
 impl App {
     pub(in crate::app) fn open_note_actions_menu(&mut self, root: &mut RenderRoot, at: Point) {
-        let labels: Vec<(String, icons::Icon)> = NOTE_COMMANDS.iter().map(|command| command.entry()).collect();
+        let labels: Vec<(String, icons::Icon)> = NOTE_COMMANDS.iter().map(|command| command.entry(self.interface.wide())).collect();
         let entries: Vec<Entry<'_>> = labels.iter().map(|(label, icon)| Entry { label, icon: Some(*icon), disabled: false }).collect();
         let menu = Menu::entries(&t("editor.noteActions"), &entries);
         let estimate = Menu::estimated_size(entries.len());
@@ -58,6 +60,7 @@ impl App {
         root.remove_layer(layer);
         let path = self.note.as_ref().map(|note| note.path.clone());
         match (NOTE_COMMANDS.get(*item), path) {
+            (Some(NoteCommand::Wide), _) => self.toggle_wide_mode(root),
             (Some(NoteCommand::ExportPdf), _) => self.export_pdf(root),
             (Some(NoteCommand::Reveal), Some(path)) => crate::system::reveal(&path),
             (Some(NoteCommand::CopyPath), Some(path)) => {

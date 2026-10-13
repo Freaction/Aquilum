@@ -56,9 +56,10 @@ impl WorkspaceWatcher {
         let (sender, receiver) = mpsc::channel::<WatchBatch>();
         let wake = sender.clone();
         forget_attachments();
+        let watched = root.to_path_buf();
         let mut watcher = notify::recommended_watcher(move |result| {
             forget_attachments_after(&result);
-            if let Some(batch) = classify(result) {
+            if let Some(batch) = classify(result, &watched) {
                 let _ = sender.send(batch);
             }
         })

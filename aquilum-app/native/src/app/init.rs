@@ -2,7 +2,7 @@ use super::*;
 
 impl App {
     pub fn new(workspace: Workspace, initial_text: String) -> Self {
-        let tree = FileTree::new(workspace.root.clone(), &workspace.data_dir);
+        let tree = FileTree::new(workspace.root.clone(), &workspace.data_dir, Arc::clone(&workspace.wake));
         let interface = Interface::load(&workspace.data_dir);
         let navigation = crate::navigation::Navigation::load(&workspace.data_dir, workspace.root.as_deref());
         let (session, tabs) = match workspace.root.as_deref().and_then(|root| Session::open(&workspace.core, root)) {

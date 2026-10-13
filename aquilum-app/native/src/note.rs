@@ -104,7 +104,7 @@ impl Note {
     }
 
     pub fn is(&self, path: &Path) -> bool {
-        self.path == path
+        aquilum_core::search::paths::same_path(&self.path, path)
     }
 }
 

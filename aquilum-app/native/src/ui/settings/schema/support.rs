@@ -76,16 +76,24 @@ pub(super) fn language_index(language: &str) -> usize {
     usize::from(language != "ru")
 }
 
+pub(super) fn families(base: &[&str]) -> Vec<String> {
+    base.iter().map(|name| (*name).to_owned()).chain(crate::ui::theme::installed_families(base)).collect()
+}
+
+pub(super) fn family(base: &[&str], value: &Value) -> String {
+    families(base).into_iter().nth(index(value)).unwrap_or_else(|| base[0].to_owned())
+}
+
 pub(super) fn font_rows(
     font: &FontSettings,
-    families: &[&str],
+    families: &[String],
     set_family: fn(&mut AppConfig, &Value),
     set_weight: fn(&mut AppConfig, &Value),
     set_size: fn(&mut AppConfig, &Value),
 ) -> Vec<Row> {
-    let options = families.iter().map(|f| (*f).to_owned()).collect();
+    let selected = families.iter().position(|name| *name == font.font_family).unwrap_or(0);
     vec![
-        row(t("settings.font.family"), None, Control::Dropdown { options, selected: position(families, &font.font_family.as_str()) }, set_family),
+        row(t("settings.font.family"), None, Control::Dropdown { options: families.to_vec(), selected }, set_family),
         row(
             t("settings.font.weight"),
             Some(t("settings.font.weightHint")),

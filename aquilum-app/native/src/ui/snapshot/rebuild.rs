@@ -13,7 +13,7 @@ fn root_can_be_rebuilt() {
     let vault = crate::test_dir::tempdir();
     let data = crate::test_dir::tempdir();
     std::fs::write(vault.path().join("a.md"), "").unwrap();
-    let mut tree = FileTree::new(Some(vault.path().to_path_buf()), data.path());
+    let mut tree = FileTree::new(Some(vault.path().to_path_buf()), data.path(), std::sync::Arc::new(|| {}));
     let (widget, mut chrome) = root(tree.widget(), parts("текст"));
     let slot = Slot::new(widget.erased()).with_tag(ROOT_TAG);
     let mut root_render = RenderRoot::new(slot.erased(), |_| {}, options(1.0, 1.0));

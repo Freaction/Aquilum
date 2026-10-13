@@ -57,7 +57,7 @@ impl App {
 
     pub(super) fn commit_title(&mut self, root: &mut RenderRoot, input: &str) {
         let Some(from) = self.note.as_ref().map(|n| n.path.clone()) else { return };
-        match file_ops::rename_target(&from, input) {
+        match file_ops::title_target(&from, input) {
             Some((to, _)) if self.renaming_to.as_ref() == Some(&to) => {}
             Some((to, _)) => {
                 self.renaming_to = Some(to.clone());

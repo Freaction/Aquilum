@@ -171,7 +171,7 @@ impl App {
             session.save(&self.workspace.core, &mut self.tabs);
         }
         self.workspace.root = Some(path.clone());
-        self.tree = FileTree::new(Some(path.clone()), &self.workspace.data_dir);
+        self.tree = FileTree::new(Some(path.clone()), &self.workspace.data_dir, std::sync::Arc::clone(&self.workspace.wake));
         self.navigation = crate::navigation::Navigation::load(&self.workspace.data_dir, Some(&path));
         (self.session, self.tabs) = match Session::open(&self.workspace.core, &path) {
             Some((session, tabs)) => (Some(session), tabs),

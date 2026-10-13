@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use aquilum_core::search::paths::is_markdown;
+use aquilum_core::search::paths::{is_markdown, is_plain_text, same_path};
 use masonry::app::RenderRoot;
 use masonry::widgets::IndexedStack;
 
@@ -125,7 +125,7 @@ impl App {
     }
 
     pub(crate) fn open_in_with_offset(&mut self, root: &mut RenderRoot, path: PathBuf, new_tab: bool, offset: Option<usize>) -> bool {
-        if !is_markdown(&path) {
+        if !is_markdown(&path) && !is_plain_text(&path) {
             return false;
         }
         if let Some(current) = self.note.as_ref().map(|n| n.path.clone()) {
@@ -166,20 +166,15 @@ impl App {
         self.refresh_tabs(root);
     }
 
-    pub(in crate::app) fn close_missing_tabs(&mut self, root: &mut RenderRoot, removed: &[PathBuf]) {
-        let gone: Vec<_> = self
-            .tabs
-            .tabs()
-            .iter()
-            .filter(|tab| tab.path.as_ref().is_some_and(|p| removed.contains(p) && !p.exists()))
-            .map(|tab| tab.id)
-            .collect();
-        if gone.is_empty() {
-            return;
+    pub(in crate::app) fn close_missing_tabs(&mut self, root: &mut RenderRoot, removed: &[PathBuf]) -> bool {
+        let inside = |path: &Path| path.ancestors().any(|ancestor| removed.iter().any(|gone| same_path(ancestor, gone)));
+        let gone: Vec<_> = self.tabs.tabs().iter().filter(|tab| tab.path.as_ref().is_some_and(|p| !p.exists() && inside(p))).map(|tab| tab.id).collect();
+        for id in &gone {
+            self.tabs.close(*id);
         }
-        for id in gone {
-            self.tabs.close(id);
+        if !gone.is_empty() {
+            self.show_active(root);
         }
-        self.show_active(root);
+        !gone.is_empty()
     }
 }

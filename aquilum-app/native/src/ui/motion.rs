@@ -30,6 +30,10 @@ pub fn eased(fraction: f64) -> f64 {
     if on() { fraction } else { 1.0 }
 }
 
+pub fn approach(value: f64, goal: f64, step: f64) -> f64 {
+    if value < goal { (value + step).min(goal) } else { (value - step).max(goal) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

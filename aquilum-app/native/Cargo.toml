@@ -1,6 +1,6 @@
 [package]
 name = "aquilum-native"
-version = "0.3.3"
+version = "0.3.4"
 description = "Aquilum native UI (Masonry on winit + vello_cpu), no WebView"
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"

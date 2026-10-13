@@ -18,7 +18,7 @@ impl App {
         let Some(root) = self.workspace.root.clone() else { return };
         let core = Arc::clone(&self.workspace.core);
         std::thread::spawn(move || {
-            let canonical = std::fs::canonicalize(&root).unwrap_or_else(|_| root.clone());
+            let canonical = aquilum_core::search::paths::canonical_path(&root);
             if let Err(error) = core.watcher.watch(&canonical) {
                 report!("наблюдение за базой не запущено: {error}");
             }

@@ -34,8 +34,8 @@ pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     );
     let fonts = font_rows(
         &config.ui.font,
-        &UI_FAMILIES,
-        |c, v| c.ui.font.font_family = UI_FAMILIES[index(v).min(1)].to_owned(),
+        &families(&UI_FAMILIES),
+        |c, v| c.ui.font.font_family = family(&UI_FAMILIES, v),
         |c, v| c.ui.font.font_weight = WEIGHTS[index(v).min(4)],
         |c, v| c.ui.font.font_size_base = font_size(v, 14),
     );
@@ -65,8 +65,8 @@ pub(super) fn editor(config: &AppConfig) -> Vec<Block> {
     let e = &config.editor;
     let mut fonts = font_rows(
         &e.font,
-        &EDITOR_FAMILIES,
-        |c, v| c.editor.font.font_family = EDITOR_FAMILIES[index(v).min(2)].to_owned(),
+        &families(&EDITOR_FAMILIES),
+        |c, v| c.editor.font.font_family = family(&EDITOR_FAMILIES, v),
         |c, v| c.editor.font.font_weight = WEIGHTS[index(v).min(4)],
         |c, v| c.editor.font.font_size_base = font_size(v, 16),
     );
@@ -126,8 +126,8 @@ pub(super) fn reader(config: &AppConfig) -> Vec<Block> {
     let r = &config.reader;
     let mut fonts = font_rows(
         &r.font,
-        &READER_FAMILIES,
-        |c, v| c.reader.font.font_family = READER_FAMILIES[index(v).min(2)].to_owned(),
+        &families(&READER_FAMILIES),
+        |c, v| c.reader.font.font_family = family(&READER_FAMILIES, v),
         |c, v| c.reader.font.font_weight = WEIGHTS[index(v).min(4)],
         |c, v| c.reader.font.font_size_base = font_size(v, 18),
     );

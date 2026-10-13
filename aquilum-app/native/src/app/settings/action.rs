@@ -78,7 +78,7 @@ impl App {
                     root.focus_on(Some(dialog.layer));
                     self.popup = Some(Popup::Settings { dialog, menu: None });
                 }
-                None => self.popup = Some(Popup::Settings { dialog, menu: Some(menu) }),
+                None | Some(MenuChoice::Hover(_) | MenuChoice::Sub(_)) => self.popup = Some(Popup::Settings { dialog, menu: Some(menu) }),
             }
             return self.finish(root, effect);
         }

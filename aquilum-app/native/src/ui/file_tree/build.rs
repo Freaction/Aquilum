@@ -3,12 +3,15 @@ use masonry::core::{NewWidget, PropertySet};
 use masonry::layout::Length;
 use masonry::properties::types::CrossAxisAlignment;
 use masonry::properties::{Gap, Padding};
-use masonry::widgets::{Flex, SizedBox};
+use masonry::layout::UnitPoint;
+use masonry::widgets::{ChildAlignment, Flex, SizedBox, ZStack};
 
 use super::model::comparable;
+use super::pinned::Pinned;
+use super::pins::pins;
 use super::parts::{empty_state, rename_field, toolbar};
 use super::row::TreeRow;
-use super::{FileTree, LIST_TOP, MARGIN, SPAN, step};
+use super::{FileTree, MARGIN, SPAN, step};
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
@@ -22,6 +25,9 @@ impl FileTree {
     pub fn widget(&mut self) -> NewWidget<Flex> {
         let scroll = NewWidget::new(ScrollArea::new(self.list()).fill(true).at(self.offset));
         self.scroll = Some(Handle::of(&scroll));
+        let pinned = NewWidget::new(Pinned::new(&self.pins(), self.model.rows()));
+        self.pinned = Some(Handle::of(&pinned));
+        let stack = ZStack::new().with(scroll, ChildAlignment::ParentAligned).with(pinned, UnitPoint::TOP_LEFT);
         let mut column = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch);
         self.toolbar = None;
         if self.model.root().is_some() {
@@ -29,7 +35,7 @@ impl FileTree {
             self.toolbar = Some(ids);
             column = column.with_fixed(toolbar);
         }
-        NewWidget::new(column.with(scroll, 1.0))
+        NewWidget::new(column.with(NewWidget::new(stack), 1.0))
     }
 
     fn list(&mut self) -> NewWidget<Flex> {
@@ -68,12 +74,23 @@ impl FileTree {
             PropertySet::new()
                 .with(Gap::new(Length::px(size::SPACE_2)))
                 .with(Padding {
-                    top: Length::px(LIST_TOP),
+                    top: Length::ZERO,
                     left: Length::px(size::SPACE_8),
                     right: Length::px(size::SPACE_8),
                     bottom: Length::ZERO,
                 }),
         )
+    }
+
+    fn pins(&self) -> Vec<usize> {
+        pins(self.model.rows(), self.offset, step())
+    }
+
+    pub(super) fn update_pins(&mut self, root: &mut RenderRoot) {
+        if let Some(pinned) = self.pinned {
+            let pins = self.pins();
+            pinned.edit(root, |mut pinned| Pinned::set(&mut pinned, &pins, self.model.rows()));
+        }
     }
 
     pub fn refresh(&mut self, root: &mut RenderRoot) {
@@ -94,6 +111,7 @@ impl FileTree {
                 root.focus_on(Some(field.id()));
             }
         }
+        self.update_pins(root);
     }
 
     pub(super) fn first_near(offset: f64) -> usize {
@@ -122,7 +140,7 @@ impl FileTree {
     }
 
     fn scroll_to(&mut self, root: &mut RenderRoot, index: usize) {
-        let top = LIST_TOP + index as f64 * step();
+        let top = index as f64 * step();
         let bottom = top + step() - size::SPACE_2;
         if let Some(offset) = self.scroll.and_then(|scroll| scroll.edit(root, |mut scroll| {
             ScrollArea::reveal(&mut scroll, top, bottom);

@@ -151,6 +151,7 @@ fn workspace_filters_and_sorts_entries() {
             "Beta",
             "doc.pdf",
             "Gamma",
+            "notes.txt",
             "novel.epub",
             "photo.png"
         ]

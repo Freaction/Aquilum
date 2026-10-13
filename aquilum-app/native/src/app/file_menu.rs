@@ -1,4 +1,6 @@
 use super::*;
+use crate::ui::menu::{Submenu, Swatch};
+use crate::ui::palette;
 
 impl App {
     pub(super) fn open_file_menu(
@@ -22,8 +24,16 @@ impl App {
         if tab.is_some() {
             labels.push((t("tabs.close"), crate::ui::icons::X));
         }
+        let colored = folder && tab.is_none();
+        if colored {
+            labels.push((t("palette.color"), crate::ui::icons::PALETTE));
+        }
         let items: Vec<crate::ui::menu::Entry<'_>> = labels.iter().map(|(label, icon)| crate::ui::menu::Entry { label, icon: Some(*icon), disabled: false }).collect();
-        let menu = Menu::entries(&label, &items);
+        let names: Vec<String> = std::iter::once(t("palette.none")).chain(palette::NAMES.iter().map(|name| palette::label(name))).collect();
+        let theme = crate::ui::theme::current();
+        let swatches: Vec<Swatch<'_>> = names.iter().zip(std::iter::once(None).chain(palette::NAMES.iter().map(|name| palette::color(name, &theme)))).map(|(label, color)| Swatch { label, color }).collect();
+        let current = self.tree.color(&clicked).and_then(|name| palette::NAMES.iter().position(|known| *known == name)).map_or(0, |at| at + 1);
+        let menu = if colored { Menu::with_submenu(&label, &items, &Submenu { at: MENU_COLOR, items: &swatches, checked: current }) } else { Menu::entries(&label, &items) };
         let layer = menu.id();
         root.add_layer(menu, Menu::context_origin(at, items.len(), window));
         root.focus_on(Some(layer));
@@ -73,7 +83,7 @@ impl App {
         release(root);
         Some(match choice {
             MenuChoice::Item(index) => Some(*index),
-            MenuChoice::Dismissed => None,
+            MenuChoice::Dismissed | MenuChoice::Hover(_) | MenuChoice::Sub(_) => None,
         })
     }
 
@@ -93,10 +103,19 @@ impl App {
                     self.popup = Some(Popup::FileMenu { layer, targets, clicked, tab });
                     return Outcome::default();
                 };
-                if let MenuChoice::Item(_) = choice {
+                if let MenuChoice::Hover(index) = choice {
+                    root.edit_widget(layer, |mut menu| Menu::show_sub(&mut menu.downcast(), *index == MENU_COLOR));
+                    self.popup = Some(Popup::FileMenu { layer, targets, clicked, tab });
+                    return Outcome::default();
+                }
+                if let MenuChoice::Item(_) | MenuChoice::Sub(_) = choice {
                     root.remove_layer(layer);
                 }
                 match choice {
+                    MenuChoice::Sub(index) => {
+                        let folders: Vec<PathBuf> = targets.into_iter().filter(|path| path.is_dir()).collect();
+                        self.tree.set_color(root, &folders, index.checked_sub(1).and_then(|at| palette::NAMES.get(at).copied()));
+                    }
                     MenuChoice::Item(MENU_DUPLICATE) => file_ops::duplicate_all(&self.workspace.core, targets),
                     MenuChoice::Item(MENU_DELETE) => self.confirm_delete(root, targets),
                     MenuChoice::Item(MENU_CLOSE) if let Some(tab) = tab => {
@@ -106,7 +125,7 @@ impl App {
                     }
                     MenuChoice::Item(MENU_RENAME) if tab.is_some() => self.start_tab_rename(root, &clicked),
                     MenuChoice::Item(MENU_RENAME) => self.tree.start_rename(root, clicked),
-                    MenuChoice::Item(_) | MenuChoice::Dismissed => {}
+                    MenuChoice::Item(_) | MenuChoice::Dismissed | MenuChoice::Hover(_) => {}
                 }
             }
             Some(Popup::Delete { dialog, targets }) => match dialog.answer(id, action) {

@@ -211,7 +211,7 @@
     var(--q-switch-width) - var(--q-switch-handle-size) - var(--q-switch-handle-inset) * 2
   );
 
-  --q-graph-backdrop: var(--q-bg-primary);
+  --q-graph-backdrop: var(--q-editor-bg);
   --q-graph-node: var(--q-bg-accent);
   --q-graph-node-rim: var(--q-bg-primary);
   --q-graph-edge: var(--q-border-solid);

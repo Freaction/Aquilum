@@ -8,6 +8,7 @@ const BATCH_WINDOW: Duration = Duration::from_millis(80);
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum WatchScope {
     Content,
+    Listing,
     Structure,
     Rescan,
 }
@@ -49,6 +50,8 @@ mod tests {
     #[test]
     fn deeper_scope_wins_over_a_shallower_one() {
         assert!(WatchScope::Rescan > WatchScope::Structure);
+        assert!(WatchScope::Structure > WatchScope::Listing);
+        assert!(WatchScope::Listing > WatchScope::Content);
         assert!(WatchScope::Structure > WatchScope::Content);
     }
 

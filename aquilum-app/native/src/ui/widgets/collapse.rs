@@ -8,7 +8,7 @@ use masonry::kurbo::{Axis, Point, Rect, Size};
 use masonry::layout::{LenReq, Length};
 use masonry::peniko::Color;
 
-use crate::ui::motion::{self, EASE_IN, EASE_IN_OUT};
+use crate::ui::motion::{self, EASE_IN, EASE_IN_OUT, approach};
 
 pub fn bezier((x1, y1, x2, y2): (f64, f64, f64, f64), t: f64) -> f64 {
     if t <= 0.0 || t >= 1.0 {
@@ -53,10 +53,6 @@ impl Collapse {
     fn shown(&self) -> f64 {
         self.width * bezier(EASE_IN_OUT, self.progress)
     }
-}
-
-fn approach(value: f64, goal: f64, step: f64) -> f64 {
-    if value < goal { (value + step).min(goal) } else { (value - step).max(goal) }
 }
 
 impl Widget for Collapse {

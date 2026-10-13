@@ -1,3 +1,4 @@
+mod counts;
 mod edit;
 mod load;
 mod select;
@@ -10,6 +11,7 @@ use std::path::{Path, PathBuf};
 
 use aquilum_core::files::models::FileItem;
 
+pub use counts::Counts;
 pub use sort::Sort;
 
 pub fn comparable(path: &Path) -> String {
@@ -23,6 +25,8 @@ pub struct Row {
     pub folder: bool,
     pub depth: usize,
     pub expanded: bool,
+    pub color: Option<&'static str>,
+    pub items: Option<u32>,
     pub guides: Vec<usize>,
     pub active: bool,
     pub selected: bool,
@@ -52,6 +56,8 @@ pub struct TreeModel {
     rows: Vec<Row>,
     sort: Sort,
     times: HashMap<String, (i128, i128)>,
+    counts: Counts,
+    colors: BTreeMap<String, (PathBuf, &'static str)>,
 }
 
 impl TreeModel {
@@ -68,6 +74,39 @@ impl TreeModel {
 
     pub fn rows(&self) -> &[Row] {
         &self.rows
+    }
+
+    pub fn set_counts(&mut self, counts: Counts) {
+        self.counts = counts;
+        self.rebuild();
+    }
+
+    pub fn set_colors(&mut self, colors: impl IntoIterator<Item = (PathBuf, String)>) {
+        self.colors = colors.into_iter().filter_map(|(path, name)| Some((comparable(&path), (path, crate::ui::palette::name(&name)?)))).collect();
+        self.rebuild();
+    }
+
+    pub fn set_color(&mut self, folders: &[PathBuf], color: Option<&'static str>) {
+        for folder in folders {
+            let key = comparable(folder);
+            match color {
+                Some(color) => {
+                    self.colors.insert(key, (folder.clone(), color));
+                }
+                None => {
+                    self.colors.remove(&key);
+                }
+            }
+        }
+        self.rebuild();
+    }
+
+    pub fn color(&self, path: &Path) -> Option<&'static str> {
+        self.colors.get(&comparable(path)).map(|(_, color)| *color)
+    }
+
+    pub fn color_entries(&self) -> Vec<(PathBuf, &'static str)> {
+        self.colors.values().cloned().collect()
     }
 
     pub fn expanded_paths(&self) -> Vec<PathBuf> {

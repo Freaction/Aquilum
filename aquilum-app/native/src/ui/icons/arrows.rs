@@ -34,6 +34,7 @@ pub const UNFOLD_VERTICAL: Icon = Icon::lucide(&[
     Shape::Path("m15 19-3 3-3-3"),
     Shape::Path("m15 5-3-3-3 3"),
 ]);
+pub const MOVE_HORIZONTAL: Icon = Icon::lucide(&[Shape::Path("m18 8 4 4-4 4"), Shape::Path("M2 12h20"), Shape::Path("m6 8-4 4 4 4")]);
 pub const MOVE_DIAGONAL: Icon = Icon::lucide(&[Shape::Path("M19 13v6h-6"), Shape::Path("M5 11V5h6"), Shape::Path("m5 5 14 14")]);
 pub const SHUFFLE: Icon = Icon::lucide(&[
     Shape::Path("m18 14 4 4-4 4"),

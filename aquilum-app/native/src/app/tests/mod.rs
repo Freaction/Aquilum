@@ -1,5 +1,7 @@
 mod damage;
 mod dialogs;
+mod external;
+mod folder_colors;
 mod graph;
 mod harness;
 #[cfg(feature = "memory-probe")]
@@ -14,7 +16,10 @@ mod snapshots;
 mod support;
 mod tab_list;
 mod templates;
+mod text_files;
+mod tree_pins;
 mod tree_toolbar;
+mod wide;
 mod wiki;
 
 use std::cell::RefCell;

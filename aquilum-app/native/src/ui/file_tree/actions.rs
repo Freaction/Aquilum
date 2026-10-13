@@ -4,6 +4,8 @@ use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, WidgetId};
 use masonry::kurbo::Point;
 
+use super::model::Modifiers;
+use super::pinned::Unpin;
 use super::row::RowAction;
 use super::{FileTree, Press, TreeAction};
 use crate::ui::editor::{TextAction, TextEditor};
@@ -16,6 +18,14 @@ impl FileTree {
             if self.scroll.is_some_and(|s| s.id() == id) {
                 self.offset = *offset;
                 self.show_rows_from(root, *offset);
+                self.update_pins(root);
+            }
+            return None;
+        }
+        if let Some(Unpin(index)) = action.downcast_ref::<Unpin>() {
+            if self.model.press(*index, Modifiers::default()).is_some() {
+                self.save_expanded();
+                self.show_row(root, Some(*index));
             }
             return None;
         }
@@ -94,7 +104,7 @@ impl FileTree {
 
     fn context_menu(&mut self, root: &mut RenderRoot, index: usize, at: Point) -> Option<TreeAction> {
         let row = self.model.rows()[index].clone();
-        let note = aquilum_core::search::paths::is_markdown(&row.path);
+        let note = aquilum_core::search::paths::is_markdown(&row.path) || aquilum_core::search::paths::is_plain_text(&row.path);
         if !row.folder && !note {
             return None;
         }
@@ -124,6 +134,7 @@ impl FileTree {
         };
         self.model.patch(&from, &to, &name);
         self.save_expanded();
+        self.save_colors();
         self.refresh(root);
         Some(TreeAction::Rename { from, to })
     }

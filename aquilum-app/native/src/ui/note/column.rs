@@ -9,8 +9,10 @@ use masonry::layout::{LenDef, LenReq, Length, SizeDef};
 use masonry::parley::style::StyleProperty;
 use masonry::widgets::Flex;
 
+use crate::ui::motion::{self, EASE_IN_OUT, approach};
 use crate::ui::text;
 use crate::ui::theme::{self, EditorFont};
+use crate::ui::widgets::bezier;
 use crate::ui::tokens::size;
 
 pub struct Caption {
@@ -87,15 +89,32 @@ pub fn ch_width(ctx: &mut MeasureCtx<'_>) -> f64 {
     (f64::from(layout.width()) * f64::from(font.max_width_ch)).round()
 }
 
+const WIDE_MARGIN: f64 = size::SPACE_32 - size::EDITOR_PADDING_X;
+
 pub struct EditorColumn {
     child: WidgetPod<Flex>,
     ch: Option<(EditorFont, f64)>,
     inset: f64,
+    wide: bool,
+    blend: f64,
 }
 
 impl EditorColumn {
-    pub fn new(child: NewWidget<Flex>, inset: f64) -> NewWidget<Self> {
-        NewWidget::new(EditorColumn { child: child.to_pod(), ch: None, inset })
+    pub fn new(child: NewWidget<Flex>, inset: f64, wide: bool) -> NewWidget<Self> {
+        NewWidget::new(EditorColumn { child: child.to_pod(), ch: None, inset, wide, blend: if wide { 1.0 } else { 0.0 } })
+    }
+
+    pub fn set_wide(this: &mut WidgetMut<'_, Self>, wide: bool) {
+        if this.widget.wide != wide {
+            this.widget.wide = wide;
+            this.ctx.request_anim_frame();
+        }
+    }
+
+    fn inner(&self, width: f64, max: f64) -> f64 {
+        let narrow = width.min(max);
+        let wide = (width - WIDE_MARGIN * 2.0).max(narrow);
+        narrow + (wide - narrow) * bezier(EASE_IN_OUT, self.blend)
     }
 
     pub fn set_inset(this: &mut WidgetMut<'_, Self>, inset: f64) {
@@ -129,6 +148,15 @@ impl Widget for EditorColumn {
         }
     }
 
+    fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
+        let goal = if self.wide { 1.0 } else { 0.0 };
+        self.blend = approach(self.blend, goal, motion::step(interval as f64 / 1e9, motion::NORMAL));
+        ctx.request_layout();
+        if self.blend != goal {
+            ctx.request_anim_frame();
+        }
+    }
+
     fn register_children(&mut self, ctx: &mut RegisterCtx<'_>) {
         ctx.register_child(&mut self.child);
     }
@@ -142,7 +170,7 @@ impl Widget for EditorColumn {
                 LenReq::FitContent(space) => space,
             },
             Axis::Vertical => {
-                let inner = Length::px(cross.map_or(max, |c| c.get().min(max)));
+                let inner = Length::px(cross.map_or(max, |c| self.inner(c.get(), max)));
                 let context = masonry::layout::LayoutSize::maybe(Axis::Horizontal, Some(inner));
                 ctx.compute_length(&mut self.child, LenReq::MaxContent.into(), context, Axis::Vertical, Some(inner))
             }
@@ -151,7 +179,7 @@ impl Widget for EditorColumn {
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
         let max = self.ch.as_ref().map_or(size_.width, |(_, w)| *w);
-        let inner = size_.width.min(max);
+        let inner = self.inner(size_.width, max);
         crate::images::show(inner * ctx.scale_factor().max(1.0));
         let auto = SizeDef::new(LenDef::Fixed(Length::px(inner)), LenDef::MaxContent);
         let child = ctx.compute_size(&mut self.child, auto, Size::new(inner, size_.height).into());

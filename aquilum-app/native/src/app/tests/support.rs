@@ -43,6 +43,11 @@ pub(super) fn dump(name: &str, renderer: &Renderer) {
 }
 
 impl Harness {
+    pub(super) fn watch_vault(&self) {
+        let root = aquilum_core::search::paths::canonical_path(self.vault.path());
+        self.app.workspace.core.watcher.watch(&root).expect("наблюдатель за базой запущен");
+    }
+
     pub(super) fn write_note(&self, name: &str, text: &str) -> std::path::PathBuf {
         let path = self.vault.path().join(name);
         std::fs::write(&path, text).unwrap();

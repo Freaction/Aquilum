@@ -72,11 +72,21 @@ pub fn editor_font_settings() -> Arc<EditorFont> {
     })
 }
 
+pub fn installed_families(known: &[&str]) -> Vec<String> {
+    use masonry::parley::fontique::{Collection, CollectionOptions};
+    let mut collection = Collection::new(CollectionOptions { system_fonts: true, ..CollectionOptions::default() });
+    let mut names: Vec<String> = collection.family_names().filter(|name| !name.starts_with(['.', '@']) && !known.contains(name)).map(str::to_owned).collect();
+    names.sort_by_key(|name| name.to_lowercase());
+    names.dedup();
+    names
+}
+
 pub fn editor_font(family: &str) -> FontFamily<'static> {
     match family {
         "Inter" => ui_font("Inter"),
         "iA Writer Quattro" => FontFamily::Source(Cow::Borrowed(symbols!("\"iA Writer Quattro\", sans-serif"))),
-        _ => FontFamily::Source(Cow::Borrowed(symbols!("\"iA Writer Mono\", monospace"))),
+        "iA Writer Mono" => FontFamily::Source(Cow::Borrowed(symbols!("\"iA Writer Mono\", monospace"))),
+        other => FontFamily::Source(Cow::Owned(format!("\"{other}\", {}", symbols!("\"iA Writer Quattro\", sans-serif")))),
     }
 }
 

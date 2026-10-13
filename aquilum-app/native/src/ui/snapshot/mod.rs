@@ -32,6 +32,7 @@ fn parts(text: &str) -> RootParts<'_> {
             can_back: true,
             can_forward: false,
             focus_mode: false,
+            wide: false,
             hero: None,
             resolver: None,
             smart: Default::default(),
@@ -73,7 +74,7 @@ fn open(widget: NewWidget<dyn Widget>, size_scale: f64, scale_factor: f64) -> Re
 }
 
 fn open_parts(vault: Option<&Path>, data: &Path, parts: RootParts<'_>) -> (RenderRoot, Chrome) {
-    let mut tree = FileTree::new(vault.map(Path::to_path_buf), data);
+    let mut tree = FileTree::new(vault.map(Path::to_path_buf), data, std::sync::Arc::new(|| {}));
     let (widget, chrome) = root(tree.widget(), parts);
     (open(widget.erased(), 1.0, 1.0), chrome)
 }
@@ -83,7 +84,7 @@ fn shell(vault: &Path, data: &Path) -> (RenderRoot, FileTree) {
 }
 
 fn shell_with(vault: &Path, data: &Path, size_scale: f64, scale_factor: f64) -> (RenderRoot, FileTree) {
-    let mut tree = FileTree::new(Some(vault.to_path_buf()), data);
+    let mut tree = FileTree::new(Some(vault.to_path_buf()), data, std::sync::Arc::new(|| {}));
     let (widget, _) = root(tree.widget(), parts("# Заметка\n\nТекст заметки."));
     (open(widget.erased(), size_scale, scale_factor), tree)
 }

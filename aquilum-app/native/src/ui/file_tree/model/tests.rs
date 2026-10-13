@@ -139,3 +139,20 @@ fn ctrl_and_shift_select() {
     model.press(0, Modifiers { action: false, shift: true });
     assert!((0..=3).all(|i| model.rows()[i].selected));
 }
+
+#[test]
+fn folder_colors_follow_renames_and_moves() {
+    let (_dir, mut model) = tree();
+    let projects = model.rows()[1].path.clone();
+    model.set_color(std::slice::from_ref(&projects), Some("blue"));
+    assert_eq!(model.rows()[1].color, Some("blue"));
+    let renamed = projects.with_file_name("Дела");
+    model.patch(&projects, &renamed, "Дела");
+    assert_eq!(model.color(&renamed), Some("blue"));
+    assert_eq!(model.color(&projects), None);
+    let archive = model.rows()[0].path.clone();
+    model.moved(std::slice::from_ref(&renamed), &archive);
+    assert_eq!(model.color(&archive.join("Дела")), Some("blue"));
+    model.set_color(&[archive.join("Дела")], None);
+    assert!(model.color_entries().is_empty());
+}

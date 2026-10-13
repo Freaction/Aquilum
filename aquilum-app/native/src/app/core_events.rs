@@ -16,6 +16,7 @@ impl App {
         {
             ids.body.edit(root, |mut body| crate::ui::editor::TextEditor::refresh_embeds(&mut body));
         }
+        self.tree.poll(root);
         self.on_panel_results(root);
         self.on_search_results(root);
         self.on_home_resolved(root);
@@ -26,11 +27,15 @@ impl App {
         let mut links_changed = false;
         let mut history_changed = false;
         let mut changed = Vec::new();
+        let mut edited: Vec<PathBuf> = Vec::new();
+        let mut rescan = false;
         let mut navigations = Vec::new();
         for event in self.workspace.drain_events() {
             match event {
                 CoreEvent::Navigate(navigation) => navigations.push(navigation),
+                CoreEvent::WorkspaceRescanned => rescan = true,
                 CoreEvent::WorkspaceChanged(paths) => changed.extend(paths.into_iter().map(PathBuf::from)),
+                CoreEvent::ContentChanged(paths) => edited.extend(paths.into_iter().map(PathBuf::from)),
                 CoreEvent::LinksChanged(_) => {
                     links_changed = true;
                     if let Some(embeds) = &self.embeds {
@@ -57,23 +62,30 @@ impl App {
                         changed.push(PathBuf::from(&moved.to));
                     }
                     let removed: Vec<PathBuf> = relocation.removed.iter().map(PathBuf::from).collect();
-                    self.close_missing_tabs(root, &removed);
+                    title |= self.close_missing_tabs(root, &removed);
                     changed.extend(removed);
                 }
                 _ => {}
             }
         }
-        if !changed.is_empty() {
+        if rescan || !changed.is_empty() || !edited.is_empty() {
+            let touched: Vec<PathBuf> = changed.iter().chain(&edited).cloned().collect();
             if let Some(embeds) = &self.embeds {
-                embeds.forget_paths(&changed);
+                embeds.forget_paths(&touched);
             }
-            // Открытую заметку изменили снаружи (агент, другая программа) — показать новый текст.
-            if let Some(note) = self.note.as_mut().filter(|n| changed.iter().any(|p| n.is(p)))
+            if let Some(note) = self.note.as_mut().filter(|n| rescan || touched.iter().any(|p| n.is(p)))
                 && let Some(text) = note.reload()
             {
                 self.set_editor_text(root, text);
             }
+        }
+        if rescan {
+            self.tree.reload(root);
+            let vault: Vec<PathBuf> = self.tree.root().map(Path::to_path_buf).into_iter().collect();
+            title |= self.close_missing_tabs(root, &vault);
+        } else if !changed.is_empty() {
             self.tree.paths_changed(root, &changed);
+            title |= self.close_missing_tabs(root, &changed);
         }
         for navigation in navigations {
             title |= match navigation {

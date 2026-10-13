@@ -33,7 +33,7 @@ fn toolbar_is_four_small_buttons_above_the_tree() {
     assert_eq!(rects[0].x0, tree.x0 + size::SPACE_8);
     assert!(rects.iter().all(|r| r.y0 == rects[0].y0));
     let first = rect(&h, h.app.tree.row_id("a").expect("строка заметки"));
-    assert_eq!(first.y0 - rects[0].y1, size::SPACE_4 + size::SPACE_8 + size::SPACE_8, "между кнопками и деревом нет линии, только отступы");}
+    assert_eq!(first.y0 - rects[0].y1, size::SPACE_4 + size::SPACE_8, "между кнопками и деревом нет линии, только отступы");}
 
 #[test]
 fn new_note_goes_into_clicked_folder_and_starts_rename() {
@@ -94,7 +94,7 @@ fn collapse_all_closes_folders_and_remembers_it() {
     let [.., collapse] = h.app.tree.toolbar_ids().unwrap();
     press(&mut h, collapse);
     assert_eq!(h.app.tree.names(), ["Проекты", "a"]);
-    let reopened = FileTree::new(Some(h.vault.path().to_path_buf()), h._data.path());
+    let reopened = FileTree::new(Some(h.vault.path().to_path_buf()), h._data.path(), std::sync::Arc::new(|| {}));
     assert_eq!(reopened.names(), ["Проекты", "a"], "свёрнутое дерево не запомнилось");
 }
 
@@ -127,7 +127,7 @@ fn sort_menu_reorders_the_tree_and_remembers_the_choice() {
     h.app.on_action(&mut h.root, layer, choice, Size::new(f64::from(W), f64::from(H)));
     assert!(h.app.popup.is_none(), "меню не закрылось после выбора");
     assert_eq!(h.app.tree.names(), ["c", "b", "a"]);
-    let reopened = FileTree::new(Some(vault), h._data.path());
+    let reopened = FileTree::new(Some(vault), h._data.path(), std::sync::Arc::new(|| {}));
     assert_eq!(reopened.sort(), Sort::ModifiedNew, "выбор сортировки не запомнился");
     press(&mut h, sort);
     assert!(matches!(h.app.popup, Some(Popup::SortMenu { .. })));

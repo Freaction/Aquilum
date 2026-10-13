@@ -8,7 +8,7 @@ use super::Decor;
 use super::metrics::INLINE_CODE_PADDING;
 use crate::ui::theme;
 
-const TAG_PAD_X: f64 = 4.0;
+const TAG_PAD_X: f64 = 6.0;
 const TAG_HEIGHT: f64 = 24.0;
 const TAG_ALPHA: f32 = 0.1;
 const CODE_PAD_X: f64 = INLINE_CODE_PADDING as f64;

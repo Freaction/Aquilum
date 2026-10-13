@@ -40,6 +40,10 @@ impl Host {
             self.app.toggle_focus_mode(root);
             return true;
         }
+        if action_modifier && modifiers.shift() && code == Code::KeyL {
+            self.app.toggle_wide_mode(root);
+            return true;
+        }
         if action_modifier && !modifiers.shift() && code == Code::KeyN {
             if self.app.new_note(root) {
                 self.show_title();

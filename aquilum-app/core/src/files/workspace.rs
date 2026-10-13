@@ -5,7 +5,7 @@ use super::models::{FileItem, FileItemType};
 use std::fs;
 use std::path::Path;
 
-const DOCUMENT_EXTENSIONS: &[&str] = &["pdf", "epub", "mobi", "azw3", "fb2"];
+const DOCUMENT_EXTENSIONS: &[&str] = &["pdf", "epub", "mobi", "azw3", "fb2", "txt"];
 
 fn is_attachment(extension: &str) -> bool {
     MEDIA_EXTENSIONS.contains(&extension) || DOCUMENT_EXTENSIONS.contains(&extension)

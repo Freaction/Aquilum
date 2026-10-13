@@ -1,6 +1,8 @@
 mod paint;
 mod pointer;
 
+pub(super) use paint::{Look, Texts, paint as paint_row};
+
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
     AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent,
@@ -11,7 +13,6 @@ use masonry::kurbo::{Axis, Point, Size};
 use masonry::layout::{LenReq, Length};
 
 use super::model::{Modifiers, Row};
-use crate::ui::text;
 use crate::ui::tokens::size;
 
 #[derive(Debug)]
@@ -29,12 +30,12 @@ pub struct TreeRow {
     down_at: Option<Point>,
     dragging: bool,
     drop_over: bool,
-    name: text::Line,
+    texts: Texts,
 }
 
 impl TreeRow {
     pub fn new(row: Row) -> Self {
-        TreeRow { row, pressed: false, down_at: None, dragging: false, drop_over: false, name: text::Line::default() }
+        TreeRow { row, pressed: false, down_at: None, dragging: false, drop_over: false, texts: Texts::default() }
     }
 
     pub fn set_drop_over(this: &mut WidgetMut<'_, Self>, drop_over: bool) {
@@ -48,13 +49,6 @@ impl TreeRow {
         size::SIDEBAR_ITEM_PADDING * 2.0 + size::SIDEBAR_ICON_SIZE
     }
 
-    fn icon_x(&self) -> f64 {
-        size::SIDEBAR_ITEM_PADDING + self.row.depth as f64 * size::SIDEBAR_TREE_INDENT
-    }
-
-    fn text_x(&self) -> f64 {
-        self.icon_x() + size::SIDEBAR_ICON_SIZE + size::SIDEBAR_ITEM_GAP
-    }
 }
 
 impl Widget for TreeRow {
@@ -74,7 +68,7 @@ impl Widget for TreeRow {
         match event {
             Update::HoveredChanged(_) => ctx.request_paint_only(),
             Update::FontsChanged => {
-                self.name.clear();
+                self.texts.clear();
                 ctx.request_layout();
             }
             _ => {}
@@ -94,14 +88,16 @@ impl Widget for TreeRow {
         match (axis, len_req) {
             (Axis::Vertical, _) => Length::px(Self::height()),
             (Axis::Horizontal, LenReq::FitContent(space)) => space,
-            (Axis::Horizontal, _) => Length::px(self.text_x() + size::SIDEBAR_ITEM_PADDING),
+            (Axis::Horizontal, _) => Length::px(paint::text_x(self.row.depth) + size::SIDEBAR_ITEM_PADDING),
         }
     }
 
     fn layout(&mut self, _ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, _size: Size) {}
 
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
-        self.draw(ctx, painter);
+        let look = Look { hovered: ctx.is_hovered(), drop_over: self.drop_over };
+        let bounds = ctx.content_box();
+        paint_row(ctx, painter, bounds, &self.row, look, &mut self.texts);
     }
 
     fn get_cursor(&self, _ctx: &masonry::core::QueryCtx<'_>, _pos: Point) -> masonry::core::CursorIcon {

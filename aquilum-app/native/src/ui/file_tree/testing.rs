@@ -22,6 +22,22 @@ impl FileTree {
         self.row_ids.get(index.checked_sub(self.first)?).copied()
     }
 
+    pub fn items(&self, name: &str) -> Option<u32> {
+        self.model.rows().iter().find(|r| r.name == name)?.items
+    }
+
+    pub fn counted(&self) -> bool {
+        self.counting.is_none()
+    }
+
+    pub fn offset(&self) -> f64 {
+        self.offset
+    }
+
+    pub fn pinned_names(&self, root: &masonry::app::RenderRoot) -> Vec<String> {
+        self.pinned.and_then(|pinned| pinned.get(root)).map(|pinned| pinned.inner().names()).unwrap_or_default()
+    }
+
     pub fn names(&self) -> Vec<String> {
         self.model.rows().iter().map(|r| r.name.clone()).collect()
     }

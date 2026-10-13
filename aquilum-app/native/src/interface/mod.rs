@@ -25,6 +25,7 @@ struct State {
     settings_section: Option<String>,
     metadata_expanded: Vec<String>,
     focus_mode: bool,
+    wide: bool,
     graph: GraphPrefs,
 }
 
@@ -39,6 +40,7 @@ impl Default for State {
             settings_section: None,
             metadata_expanded: Vec::new(),
             focus_mode: false,
+            wide: false,
             graph: GraphPrefs::default(),
         }
     }
@@ -129,6 +131,15 @@ impl Interface {
 
     pub fn set_focus_mode(&mut self, focus: bool) {
         self.state.focus_mode = focus;
+        self.save();
+    }
+
+    pub fn wide(&self) -> bool {
+        self.state.wide
+    }
+
+    pub fn set_wide(&mut self, wide: bool) {
+        self.state.wide = wide;
         self.save();
     }
 

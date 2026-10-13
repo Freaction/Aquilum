@@ -24,6 +24,7 @@ pub struct NoteView<'a> {
     pub can_back: bool,
     pub can_forward: bool,
     pub focus_mode: bool,
+    pub wide: bool,
     pub hero: Option<crate::ui::book::HeroView>,
     pub resolver: Option<std::sync::Arc<dyn crate::ui::editor::resolve::Resolver>>,
     pub smart: crate::ui::editor::Smart,
@@ -128,7 +129,7 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let hero_slot_handle = Handle::of(&hero_slot);
     let spacer = NewWidget::new(SizedBox::empty().height(Length::px(parts.top)));
     let spacer_handle = Handle::of(&spacer);
-    let column = EditorColumn::new(NewWidget::new(content), parts.inset);
+    let column = EditorColumn::new(NewWidget::new(content), parts.inset, view.wide);
     let column_handle = Handle::of(&column);
     let wrapper = NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(spacer).with_fixed(column)).with_props(
         PropertySet::new().with(Padding {

@@ -15,6 +15,7 @@ pub(super) fn snapshots(scene: &Scene) {
             can_back: true,
             can_forward: false,
             focus_mode: false,
+            wide: false,
             hero: Some(HeroView {
                 cover: Some(visual),
                 position: 30.0,

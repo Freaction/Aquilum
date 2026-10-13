@@ -22,6 +22,8 @@
     "forward": "Forward",
     "searchInNote": "Search in the note",
     "focusMode": "Focus mode",
+    "wideMode": "Full width",
+    "normalWidth": "Normal width",
     "noteActions": "Note actions",
     "metadata": "Metadata",
     "createNote": "Create a note",
@@ -216,8 +218,8 @@
       "input": "Input",
       "smartDashes": "Smart dashes",
       "smartDashesHint": "-- and a space → —",
-      "listCallouts": "List callouts",
-      "listCalloutsHint": "- ! / - $ and other markers in lists",
+      "listCallouts": "Row highlight",
+      "listCalloutsHint": "A list row with a marker after \"- \" is highlighted: ! important, ? question, & highlight, ~ idea, @ info, $ success, % muted",
       "autoLinkTitle": "Automatic link titles",
       "autoLinkTitleHint": "Pastes the page title when a URL is inserted",
       "completion": "Autocomplete",
@@ -373,6 +375,7 @@
       "searchOpenNewPane": "Open in a new tab",
       "searchCreate": "Create a note",
       "focusMode": "Focus mode",
+      "wideMode": "Full-width note",
       "pageSearch": "Find in note",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
@@ -406,6 +409,18 @@
   "titlebar": {
     "hideRightSidebar": "Hide the right sidebar",
     "showRightSidebar": "Show the right sidebar"
+  },
+  "palette": {
+    "color": "Color",
+    "none": "No color",
+    "red": "Red",
+    "amber": "Orange",
+    "green": "Green",
+    "teal": "Teal",
+    "blue": "Blue",
+    "purple": "Purple",
+    "pink": "Pink",
+    "gray": "Gray"
   },
   "fileTree": {
     "renameAria": "New file name",

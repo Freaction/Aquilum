@@ -98,6 +98,16 @@ pub fn is_markdown(path: &Path) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("md"))
 }
 
+pub fn is_note(path: &Path) -> bool {
+    is_markdown(path) || is_plain_text(path)
+}
+
+pub fn is_plain_text(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("txt"))
+}
+
 pub fn is_hidden(root: &Path, path: &Path) -> bool {
     path.strip_prefix(root).is_ok_and(|relative| {
         relative.components().any(|component| match component {

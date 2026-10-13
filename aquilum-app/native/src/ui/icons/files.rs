@@ -6,6 +6,13 @@ const FOLDER_OUTLINE: &str = "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 
 const ROTATE_ARC: &str = "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8";
 const ROTATE_ARROW: &str = "M3 3v5h5";
 
+pub const PALETTE: Icon = Icon::lucide(&[
+    Shape::Path("M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"),
+    Shape::Path("M13.5 6.5h.01"),
+    Shape::Path("M17.5 10.5h.01"),
+    Shape::Path("M6.5 12.5h.01"),
+    Shape::Path("M8.5 7.5h.01"),
+]);
 pub const ROTATE_CCW: Icon = Icon::lucide(&[Shape::Path(ROTATE_ARC), Shape::Path(ROTATE_ARROW)]);
 pub const HISTORY: Icon = Icon::lucide(&[Shape::Path(ROTATE_ARC), Shape::Path(ROTATE_ARROW), Shape::Path("M12 7v5l4 2")]);
 pub const FILE: Icon = Icon::lucide(&[Shape::Path(FILE_OUTLINE), Shape::Path(FILE_FOLD)]);

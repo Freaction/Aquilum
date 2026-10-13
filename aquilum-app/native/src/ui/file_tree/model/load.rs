@@ -44,7 +44,15 @@ impl TreeModel {
         for dir in dirs {
             self.load(&dir);
         }
+        self.recount(changed);
         self.rebuild();
+    }
+
+    fn recount(&mut self, changed: &[PathBuf]) {
+        let known: HashSet<PathBuf> = changed.iter().filter_map(|path| path.ancestors().skip(1).find(|dir| self.counts.knows(dir))).map(Path::to_path_buf).collect();
+        for dir in known {
+            self.counts.refresh(&dir);
+        }
     }
 
     pub(super) fn load(&mut self, dir: &Path) {
@@ -88,12 +96,16 @@ impl TreeModel {
             let key = comparable(&path);
             let folder = item.item_type == FileItemType::Folder;
             let expanded = folder && self.expanded.contains_key(&key);
+            let count = if folder { self.counts.total(&path) } else { None };
+            let color = if folder { self.colors.get(&key).map(|(_, color)| *color) } else { None };
             rows.push(Row {
                 path,
                 name: item.name.clone(),
                 folder,
                 depth,
                 expanded,
+                color,
+                items: count,
                 guides: continuing.to_vec(),
                 active: active.as_deref() == Some(key.as_str()),
                 selected: self.selected.contains(&key),

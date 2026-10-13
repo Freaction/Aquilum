@@ -1,15 +1,19 @@
 mod item;
 mod layer;
 mod shadow;
+mod sub;
 
 use super::icons;
 
 pub use layer::Menu;
 pub use shadow::{box_shadow, shadow_reach};
+pub use sub::{Submenu, Swatch};
 
 #[derive(Debug)]
 pub enum MenuChoice {
     Item(usize),
+    Hover(usize),
+    Sub(usize),
     Dismissed,
 }
 

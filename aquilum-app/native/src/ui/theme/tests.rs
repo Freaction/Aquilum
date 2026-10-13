@@ -82,3 +82,31 @@ fn default_primary_recolors_to_original_tokens() {
     assert_eq!(parse_hex("#E05A2B"), Some([0xe0, 0x5a, 0x2b]));
     assert_eq!(parse_hex("e05a2"), None);
 }
+
+#[test]
+fn graph_backdrop_is_the_note_background_in_both_themes() {
+    let _lock = super::test_lock();
+    let before = super::is_dark();
+    for dark in [true, false] {
+        super::apply_setting(if dark { "dark" } else { "light" }, dark, "#1471eb");
+        let theme = super::current();
+        assert_eq!(theme.graph_backdrop, theme.editor_bg, "фон графа не совпадает с фоном заметки (тёмная тема: {dark})");
+    }
+    super::apply_setting(if before { "dark" } else { "light" }, before, "#1471eb");
+}
+
+#[test]
+fn a_system_family_is_asked_for_by_its_own_name_with_a_fallback() {
+    let masonry::parley::FontFamily::Source(stack) = super::editor_font("Georgia") else { panic!("ожидался список имён") };
+    assert!(stack.starts_with("\"Georgia\", \"iA Writer Quattro\""), "{stack}");
+    let masonry::parley::FontFamily::Source(mono) = super::editor_font("iA Writer Mono") else { panic!("ожидался список имён") };
+    assert!(mono.contains("monospace"));
+}
+
+#[test]
+fn installed_families_are_sorted_unique_and_skip_the_bundled_ones() {
+    let known = ["Inter", "iA Writer Quattro", "iA Writer Mono"];
+    let names = super::installed_families(&known);
+    assert!(names.windows(2).all(|pair| pair[0].to_lowercase() <= pair[1].to_lowercase()));
+    assert!(names.iter().all(|name| !known.contains(&name.as_str()) && !name.starts_with(['.', '@'])));
+}

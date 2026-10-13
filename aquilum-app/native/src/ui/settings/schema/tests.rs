@@ -38,3 +38,14 @@ fn templates_path_and_trash_size() {
     assert_eq!(format_size(512), "512 Б");
     assert_eq!(format_size(1_572_864), "1,5 МБ");
 }
+
+#[test]
+fn font_lists_start_with_the_bundled_families_and_go_on_with_installed_ones() {
+    let list = families(&EDITOR_FAMILIES);
+    assert_eq!(list[..3], ["iA Writer Mono", "iA Writer Quattro", "Inter"]);
+    assert_eq!(family(&EDITOR_FAMILIES, &Value::Index(1)), "iA Writer Quattro");
+    if let Some(installed) = list.get(3) {
+        assert_eq!(&family(&EDITOR_FAMILIES, &Value::Index(3)), installed);
+    }
+    assert_eq!(family(&EDITOR_FAMILIES, &Value::Index(10_000)), "iA Writer Mono");
+}

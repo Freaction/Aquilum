@@ -6,6 +6,7 @@ use masonry::kurbo::Rect;
 mod checks;
 mod frames;
 mod reports;
+mod tree;
 
 use frames::{Frames, Report, summary};
 

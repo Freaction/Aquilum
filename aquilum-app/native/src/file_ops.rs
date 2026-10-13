@@ -65,6 +65,14 @@ pub fn sanitize_file_name(value: &str) -> String {
     if reserved { format!("{limited} note") } else { limited }
 }
 
+pub fn title_target(from: &Path, input: &str) -> Option<(PathBuf, String)> {
+    if is_markdown(from) {
+        return rename_target(from, input);
+    }
+    let extension = from.extension()?.to_string_lossy().into_owned();
+    rename_target(from, &format!("{}.{extension}", sanitize_file_name(input.trim())))
+}
+
 pub fn rename_target(from: &Path, input: &str) -> Option<(PathBuf, String)> {
     let note = is_markdown(from);
     let current = if note { from.file_stem() } else { from.file_name() }.map(|n| n.to_string_lossy().into_owned());

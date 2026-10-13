@@ -94,6 +94,7 @@ pub(super) fn shortcuts() -> Vec<Block> {
                 ("newFromTemplate", "Ctrl + U"),
                 ("globalSearch", "Ctrl + O"),
                 ("focusMode", "Ctrl + Shift + F"),
+                ("wideMode", "Ctrl + Shift + L"),
                 ("pageSearch", "Ctrl + F"),
                 ("zoomIn", "Ctrl + +"),
                 ("zoomOut", "Ctrl + -"),

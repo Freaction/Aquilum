@@ -9,7 +9,7 @@ use super::models::{FileRenameResult, FileWriteResult};
 use super::rename::rename_with_links;
 use super::trash::{move_to_trash_impl, restore_from_trash_impl};
 use crate::history::{NoteWrite, Source};
-use crate::search::paths::is_markdown;
+use crate::search::paths::{is_markdown, is_note};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -49,7 +49,9 @@ pub fn write(
     if history.saved(&|| core.known_roots(), path, write) {
         announce_history(core, path);
     }
-    core.search.notify_content_path(path.to_path_buf());
+    if is_markdown(path) {
+        core.search.notify_content_path(path.to_path_buf());
+    }
     Ok(result)
 }
 
@@ -61,7 +63,7 @@ pub fn create(
     version_name: Option<&str>,
 ) -> Result<FileWriteResult, FileCommandError> {
     let result = create_file_impl(path, content)?;
-    if is_markdown(path) {
+    if is_note(path) {
         let write = NoteWrite {
             disk_before: Some((String::new(), SystemTime::now())),
             text: content,
@@ -152,7 +154,7 @@ pub fn trash(
 
 fn trash_now(core: &Core, workspace: &Path, path: &Path) -> Result<PathBuf, FileCommandError> {
     let moved = move_to_trash_impl(workspace, path)?;
-    let notes = markdown_moves(&moved.files);
+    let notes = note_moves(&moved.files);
     let history = &core.history;
     for (note, trashed_at) in &notes {
         history.trashed(&|| core.known_roots(), note, trashed_at);
@@ -190,7 +192,7 @@ fn restore_all(
     for path in trashed {
         match restore_from_trash_impl(workspace, path) {
             Ok(restored) => {
-                for (trashed_note, back) in markdown_moves(&restored.files) {
+                for (trashed_note, back) in note_moves(&restored.files) {
                     history.restored(&|| core.known_roots(), &trashed_note, &back);
                 }
                 roots.push(restored.root);
@@ -231,10 +233,10 @@ fn follow_moves(core: &Core, relocation: &Relocation) {
     }
 }
 
-fn markdown_moves(files: &[(PathBuf, PathBuf)]) -> Vec<(PathBuf, PathBuf)> {
+fn note_moves(files: &[(PathBuf, PathBuf)]) -> Vec<(PathBuf, PathBuf)> {
     files
         .iter()
-        .filter(|(from, _)| is_markdown(from))
+        .filter(|(from, _)| is_note(from))
         .cloned()
         .collect()
 }
@@ -260,7 +262,7 @@ fn notes_under(path: &Path) -> Vec<PathBuf> {
     WalkDir::new(path)
         .into_iter()
         .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file() && is_markdown(entry.path()))
+        .filter(|entry| entry.file_type().is_file() && is_note(entry.path()))
         .map(|entry| entry.into_path())
         .collect()
 }
@@ -315,6 +317,19 @@ mod tests {
                 to: target.to_string_lossy().into_owned(),
             }]
         );
+    }
+
+    #[test]
+    fn a_text_file_moves_and_disappears_like_a_note() {
+        let directory = tempfile::tempdir().unwrap();
+        let text = directory.path().join("Черновик.txt");
+        fs::write(&text, "текст").unwrap();
+        let target = directory.path().join("Архив").join("Черновик.txt");
+
+        let relocation = relocated(&notes_under(&text), &text, &target);
+        assert_eq!(relocation.moves.len(), 1);
+        assert_eq!(relocation.moves[0].to, target.to_string_lossy());
+        assert_eq!(removed(notes_under(&text).iter()).removed, vec![text.to_string_lossy().into_owned()]);
     }
 
     #[test]

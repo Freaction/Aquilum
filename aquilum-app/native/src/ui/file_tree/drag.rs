@@ -50,6 +50,9 @@ impl FileTree {
         root.remove_layer(drag.ghost);
         let (row, target) = drag.over?;
         root.edit_widget(row, |mut w| TreeRow::set_drop_over(&mut w.downcast::<TreeRow>(), false));
+        self.model.moved(&drag.sources, &target);
+        self.save_expanded();
+        self.save_colors();
         Some(TreeAction::Move { sources: drag.sources, target })
     }
 }

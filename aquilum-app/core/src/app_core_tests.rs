@@ -100,3 +100,20 @@ fn trashing_a_note_announces_the_removal() {
     assert!(events.names().contains(&"notes-relocated"), "{:?}", events.names());
     assert!(!Path::new(&note).exists());
 }
+
+#[test]
+fn watch_batches_reach_the_host_as_the_event_it_can_act_on() {
+    use crate::files::watcher::{WatchBatch, WatchScope};
+    use std::path::PathBuf;
+
+    let (_directory, core, events) = open_core();
+    let batch = |paths: &[&str], scope| WatchBatch::new(paths.iter().map(PathBuf::from).collect(), scope);
+
+    core.ingest_watch(batch(&["a.md"], WatchScope::Content));
+    core.ingest_watch(batch(&["b.md"], WatchScope::Structure));
+    core.ingest_watch(batch(&["картинка.png"], WatchScope::Listing));
+    core.ingest_watch(batch(&["Папка"], WatchScope::Rescan));
+    core.ingest_watch(batch(&[], WatchScope::Rescan));
+
+    assert_eq!(events.names(), ["content-changed", "workspace-changed", "workspace-changed", "workspace-changed", "workspace-rescanned"]);
+}
