@@ -30,6 +30,7 @@ impl Harness {
         let mut root = RenderRoot::new(widget, move |s| sink.borrow_mut().push(s), options);
         theme::register_fonts(&mut root);
         app.attach_window_controls(&mut root, Size::new(f64::from(W), f64::from(H)));
+        app.window_resized(&mut root, Size::new(f64::from(W), f64::from(H)));
         let _ = root.redraw();
         let mut harness = Harness { app, root, signals, vault, _data: data, _theme: theme };
         harness.settle();
