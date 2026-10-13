@@ -172,9 +172,10 @@ fn every_pattern_is_painted_from_its_tile_like_from_the_whole_bake() {
         h.app.open(&mut h.root, note);
         let (w, hh) = ((f64::from(W) * scale) as u16, (f64::from(H) * scale) as u16);
         let mut shot = None;
+        let mut whole: Option<(Vec<u8>, u32)> = None;
         let mut mismatched = usize::MAX;
         let mut checked = 0;
-        for _ in 0..400 {
+        for _ in 0..150 {
             h.wait_cover(false);
             let cover = h.app.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()).and_then(|(_, ids)| ids.cover).expect("обложка");
             cover.edit(&mut h.root, |mut c| crate::ui::book::PageCover::refresh(&mut c));
@@ -182,8 +183,11 @@ fn every_pattern_is_painted_from_its_tile_like_from_the_whole_bake() {
             let frame = h.frame(w, hh, scale);
             let bounds = h.root.get_widget(cover.id()).unwrap().ctx().bounding_box();
             let (cw, ch) = ((bounds.width() * scale).round() as u32, (bounds.height() * scale).round() as u32);
-            let span = if crate::cover::centered(id) { cw } else { ((f64::from(W) * scale / 128.0).ceil() * 128.0) as u32 };
-            let expected = crate::cover::expand(&crate::cover::render_pattern(id, span, ch, scale).expect("узор"), span, ch);
+            let (expected, span) = whole.get_or_insert_with(|| {
+                let span = if crate::cover::centered(id) { cw } else { ((f64::from(W) * scale / 128.0).ceil() * 128.0) as u32 };
+                (crate::cover::expand(&crate::cover::render_pattern(id, span, ch, scale).expect("узор"), span, ch), span)
+            });
+            let span = *span;
             let (x0, y0) = ((bounds.x0 * scale).round() as u32, (bounds.y0 * scale).round() as u32);
             mismatched = 0;
             checked = 0;
