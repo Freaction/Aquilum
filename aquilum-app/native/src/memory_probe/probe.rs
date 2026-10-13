@@ -23,7 +23,7 @@ pub struct Probe {
 impl Probe {
     pub fn new(output: PathBuf, notes: Vec<PathBuf>) -> Self {
         let _ = std::fs::write(&output, "");
-        TRACE.store(std::env::var_os("AQ_PROBE_TRACE").is_some(), Ordering::Relaxed);
+        super::trace::configure();
         if let Some(script) = std::env::var_os("AQ_PROBE_SCRIPT") {
             let text = std::fs::read_to_string(script).unwrap_or_default();
             let (steps, pauses) = text.lines().filter_map(parse).unzip();

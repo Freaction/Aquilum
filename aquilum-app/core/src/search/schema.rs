@@ -49,10 +49,13 @@ pub fn fields(schema: &Schema) -> Result<SearchFields, SearchError> {
     })
 }
 
+const DOC_STORE_CACHE_BLOCKS: usize = 2;
+
 pub fn reader(index: &Index) -> Result<IndexReader, SearchError> {
     Ok(index
         .reader_builder()
         .reload_policy(ReloadPolicy::Manual)
+        .doc_store_cache_num_blocks(DOC_STORE_CACHE_BLOCKS)
         .try_into()?)
 }
 

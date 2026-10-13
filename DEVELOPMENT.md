@@ -97,7 +97,7 @@
 ### Требования
 - **Rust**: актуальная стабильная версия (`rustup update stable`)
 - **Visual Studio Build Tools** (для Windows): компонент C++ x64/x86 build tools
-- **Node.js** v20+ — только для служебных скриптов (`npm run dev`, синхронизация версии, публикация исходников)
+- **Node.js** v20+ — только ради `npm run dev` (пересборка на лету); без него то же делает `aquilum-app\native\watch.bat`
 
 ### Запуск для разработки
 

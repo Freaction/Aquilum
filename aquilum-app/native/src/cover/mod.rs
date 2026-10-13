@@ -4,6 +4,9 @@ mod motion;
 mod raster;
 
 pub use jobs::{Key, image, set_waker, take_finished, trim};
+pub use raster::Cell;
+#[cfg(test)]
+pub use raster::expand;
 
 pub use motion::{Target as MotionTarget, animated, fps as motion_fps, over, render as render_motion};
 
@@ -48,26 +51,26 @@ pub const PATTERN_IDS: &[&str] = &[
 ];
 
 const CSS: &str = concat!(
-    include_str!("../../assets/covers/patterns/base.css"),
-    include_str!("../../assets/covers/patterns/stripes.css"),
-    include_str!("../../assets/covers/patterns/hearts.css"),
-    include_str!("../../assets/covers/patterns/cubes.css"),
-    include_str!("../../assets/covers/patterns/origami.css"),
-    include_str!("../../assets/covers/patterns/foliage.css"),
-    include_str!("../../assets/covers/patterns/arrows.css"),
-    include_str!("../../assets/covers/patterns/moire.css"),
-    include_str!("../../assets/covers/patterns/parquet.css"),
-    include_str!("../../assets/covers/patterns/ripples.css"),
-    include_str!("../../assets/covers/patterns/trellis.css"),
-    include_str!("../../assets/covers/patterns/grids.css"),
-    include_str!("../../assets/covers/patterns/radial.css"),
-    include_str!("../../assets/covers/patterns/dreams.css"),
-    include_str!("../../assets/covers/patterns/polka.css"),
-    include_str!("../../assets/covers/patterns/weave.css"),
-    include_str!("../../assets/covers/patterns/quadrants.css"),
-    include_str!("../../assets/covers/patterns/woven-tiles.css"),
-    include_str!("../../assets/covers/patterns/city.css"),
-    include_str!("../../assets/covers/patterns/tunnel.css"),
+    include_str!("../../assets/covers/patterns/base.pattern"),
+    include_str!("../../assets/covers/patterns/stripes.pattern"),
+    include_str!("../../assets/covers/patterns/hearts.pattern"),
+    include_str!("../../assets/covers/patterns/cubes.pattern"),
+    include_str!("../../assets/covers/patterns/origami.pattern"),
+    include_str!("../../assets/covers/patterns/foliage.pattern"),
+    include_str!("../../assets/covers/patterns/arrows.pattern"),
+    include_str!("../../assets/covers/patterns/moire.pattern"),
+    include_str!("../../assets/covers/patterns/parquet.pattern"),
+    include_str!("../../assets/covers/patterns/ripples.pattern"),
+    include_str!("../../assets/covers/patterns/trellis.pattern"),
+    include_str!("../../assets/covers/patterns/grids.pattern"),
+    include_str!("../../assets/covers/patterns/radial.pattern"),
+    include_str!("../../assets/covers/patterns/dreams.pattern"),
+    include_str!("../../assets/covers/patterns/polka.pattern"),
+    include_str!("../../assets/covers/patterns/weave.pattern"),
+    include_str!("../../assets/covers/patterns/quadrants.pattern"),
+    include_str!("../../assets/covers/patterns/woven-tiles.pattern"),
+    include_str!("../../assets/covers/patterns/city.pattern"),
+    include_str!("../../assets/covers/patterns/tunnel.pattern"),
 );
 
 fn patterns() -> &'static HashMap<String, css::Pattern> {
@@ -75,7 +78,7 @@ fn patterns() -> &'static HashMap<String, css::Pattern> {
     PATTERNS.get_or_init(|| css::parse_patterns(CSS))
 }
 
-pub fn render_pattern(id: &str, width: u32, height: u32, scale: f64) -> Option<Vec<u8>> {
+pub fn render_pattern(id: &str, width: u32, height: u32, scale: f64) -> Option<Cell> {
     let pattern = patterns().get(id)?;
     Some(raster::render(&[&pattern.base, &pattern.overlay], width, height, scale))
 }
@@ -131,12 +134,32 @@ pub fn base_color(id: &str) -> Color {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn tiled_bake_matches_the_whole_bake_for_every_pattern() {
+        let mut tiled = Vec::new();
+        for (width, height, scale) in [(700u32, 300u32, 1.75), (480, 200, 1.0)] {
+            for id in super::PATTERN_IDS {
+                let pattern = super::patterns().get(*id).unwrap();
+                let backgrounds = [&pattern.base, &pattern.overlay];
+                let whole = super::raster::rasterize(&backgrounds, width, height, scale, (width, height));
+                let fast = super::raster::expand(&super::render_pattern(id, width, height, scale).unwrap(), width, height);
+                assert_eq!(whole.len(), fast.len());
+                let differ = whole.iter().zip(&fast).filter(|(a, b)| a.abs_diff(**b) > 70).count();
+                assert!(differ * 1000 < whole.len(), "{id} {width}x{height}@{scale}: {differ} из {} значений каналов отличаются", whole.len());
+                if let Some(cell) = super::raster::tile(&backgrounds, width, height, scale) {
+                    tiled.push(format!("{id}@{scale}: {}x{}", cell.0, cell.1));
+                }
+            }
+        }
+        assert!(tiled.len() >= 30, "почти все узоры должны запекаться плиткой: {tiled:?}");
+    }
+
+    #[test]
     #[ignore]
     fn snapshot_motion() {
         let dir = std::path::PathBuf::from(std::env::var_os("AQ_OUT").unwrap());
         let (w, h) = (900usize, 300usize);
         for id in ["city", "dreams", "tunnel"] {
-            let base = super::render_pattern(id, w as u32, h as u32, 1.0).unwrap();
+            let base = super::raster::expand(&super::render_pattern(id, w as u32, h as u32, 1.0).unwrap(), w as u32, h as u32);
             for t in [0.0, 0.5, 20.0] {
                 let mut motion = vec![0u32; w * h];
                 let mut target = super::MotionTarget { pixels: &mut motion, width: w, height: h, origin: (0.0, 0.0), scale: 1.0, size: (w as f64, h as f64), radius: 12.0 };
@@ -169,12 +192,47 @@ mod tests {
 
     #[test]
     #[ignore]
+    fn pattern_cost() {
+        let started = std::time::Instant::now();
+        let _ = super::patterns();
+        eprintln!("разбор всего CSS: {:?}", started.elapsed());
+        let (w, h, scale) = (1793u32, 359u32, 1.75);
+        let mut all = Vec::new();
+        for id in super::PATTERN_IDS {
+            let started = std::time::Instant::now();
+            let cell = super::render_pattern(id, w, h, scale).unwrap();
+            let ms = started.elapsed().as_secs_f64() * 1000.0;
+            all.push((ms, *id, cell.pixels.len()));
+        }
+        all.sort_by(|a, b| b.0.total_cmp(&a.0));
+        for (ms, id, bytes) in &all {
+            eprintln!("{id:<12} {ms:>7.1} мс  {:.1} МБ", *bytes as f64 / 1_048_576.0);
+        }
+        let total: f64 = all.iter().map(|a| a.0).sum();
+        eprintln!("итого {total:.0} мс на {} узоров, в среднем {:.0} мс", all.len(), total / all.len() as f64);
+    }
+
+    #[test]
+    #[ignore]
+    fn untiled_patterns() {
+        for id in super::PATTERN_IDS {
+            let pattern = super::patterns().get(*id).unwrap();
+            let backgrounds = [&pattern.base, &pattern.overlay];
+            if super::raster::tile(&backgrounds, 1793, 359, 1.75).is_none() {
+                let sizes: Vec<String> = backgrounds.iter().flat_map(|b| &b.layers).map(|l| match l.size { None => "авто".to_owned(), Some((w, h)) => format!("{}/{}%x{}/{}%", w.px, w.pct, h.px, h.pct) }).collect();
+                eprintln!("{id}: {}", sizes.join(", "));
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
     fn snapshot_patterns() {
         let dir = std::env::var_os("AQUILUM_SNAPSHOTS").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir);
         let (w, h) = (640u32, 200u32);
         for id in super::PATTERN_IDS {
             let started = std::time::Instant::now();
-            let pixels = super::render_pattern(id, w, h, 1.0).unwrap();
+            let pixels = super::raster::expand(&super::render_pattern(id, w, h, 1.0).unwrap(), w, h);
             eprintln!("{id}: {:?}", started.elapsed());
             let mut pixmap = vello_cpu::Pixmap::new(w as u16, h as u16);
             pixmap.data_as_u8_slice_mut().copy_from_slice(&pixels);

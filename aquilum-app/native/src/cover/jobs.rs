@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use masonry::peniko::{ImageAlphaType, ImageBrush};
+use masonry::peniko::{Extend, ImageAlphaType, ImageBrush, ImageQuality};
 
 use super::render_pattern;
 
@@ -71,8 +71,13 @@ fn work(id: &'static str) {
                 }
             }
         };
-        let pixels = render_pattern(key.id, key.width, key.height, f64::from(key.scale) / 1000.0);
-        let image = pixels.and_then(|pixels| crate::render::from_rgba(pixels, key.width, key.height, ImageAlphaType::AlphaPremultiplied));
+        let cell = render_pattern(key.id, key.width, key.height, f64::from(key.scale) / 1000.0);
+        let image = cell.and_then(|cell| {
+            let across = if cell.width < key.width { Extend::Repeat } else { Extend::Pad };
+            let down = if cell.height < key.height { Extend::Repeat } else { Extend::Pad };
+            let brush = crate::render::from_rgba(cell.pixels, cell.width, cell.height, ImageAlphaType::AlphaPremultiplied)?;
+            Some(brush.with_x_extend(across).with_y_extend(down).with_quality(ImageQuality::Low))
+        });
         let mut guard = JOBS.lock().unwrap_or_else(|e| e.into_inner());
         let jobs = guard.get_or_insert_with(Jobs::default);
         if let Some(image) = image {

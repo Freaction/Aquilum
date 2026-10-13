@@ -35,7 +35,7 @@ use vello_common::transforms::{RootTransforms, Transforms};
 use vello_common::util::into_fast_path_rect;
 
 #[cfg(feature = "text")]
-pub(crate) const DEFAULT_GLYPH_ATLAS_SIZE: u16 = 1024;
+pub(crate) const DEFAULT_GLYPH_ATLAS_SIZE: u16 = 512;
 // Why do we need this? The reason is that the way uploaded images work in Vello GPU
 // is different from how they work in Vello CPU.
 //

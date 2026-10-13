@@ -7,5 +7,6 @@ mod lists;
 mod quotes;
 mod scroll;
 mod selection;
+mod suggest;
 mod support;
 mod tables;

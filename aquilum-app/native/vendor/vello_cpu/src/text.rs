@@ -105,7 +105,7 @@ impl GlyphAtlasResources {
     }
 }
 
-const MAX_PAGES: usize = 2;
+const MAX_PAGES: usize = 8;
 const TRIM_FRAMES: u64 = 600;
 
 /// Ensure a pixmap exists for the given page, creating it if needed.
@@ -152,6 +152,14 @@ fn ensure_page(
 }
 
 impl Resources {
+    pub fn glyph_atlas_summary(&self) -> Option<(usize, usize, usize)> {
+        let resources = self.glyph_resources.as_ref()?;
+        let pages = resources.pixmaps.iter().filter(|p| p.width() != 0).count();
+        let bytes = resources.pixmaps.iter().map(|p| usize::from(p.width()) * usize::from(p.height()) * 4).sum();
+        let glyphs = resources.image_cache.atlas_manager().atlas_stats().into_iter().map(|(_, s)| s.allocated_count as usize).sum();
+        Some((pages, bytes, glyphs))
+    }
+
     pub(crate) fn prepare_glyph_cache(&mut self) {
         if self.glyph_resources.is_some() {
             self.sync_glyph_cache();

@@ -1,11 +1,11 @@
 //! Токены дизайн-системы для нативного интерфейса.
 //!
-//! Источник — те же CSS-файлы, что у фронтенда (`src/styles/tokens/*.css`, тёмная тема —
-//! `src/styles/themes/dark.css`; сами они генерируются из `variables.json` командой
-//! `npm run tokens:sync`). Здесь объявления `--q-*` вычисляются целиком: `var()`,
+//! Источник — файлы токенов в синтаксисе CSS-переменных (`assets/styles/tokens/*.tokens`, тёмная тема —
+//! `assets/styles/themes/dark.tokens`). Расширение не `.css`, потому что это не таблицы стилей: их читает
+//! только эта сборка. Здесь объявления `--q-*` вычисляются целиком: `var()`,
 //! `color-mix(in srgb, …)`, `calc`/`min`/`max`/`clamp`, `rem` (база 16 px → логические пиксели).
 //!
-//! Шрифты — тоже фронтендовые (`src/fonts/*.woff2`): распаковываются в TTF, у кириллической
+//! Шрифты — `assets/fonts/*.woff2`: распаковываются в TTF, у кириллической
 //! половины Inter семейство переименовывается в «Inter Cyrillic» (обе половины называются «Inter»,
 //! а fontique из одноимённых шрифтов с одинаковым начертанием берёт один — кириллица ушла бы в
 //! системный шрифт; стек «Inter, Inter Cyrillic» подбирает шрифт по кластерам). Список —
@@ -23,14 +23,14 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 const TOKEN_FILES: &[&str] = &[
-    "unit.css",
-    "colors.css",
-    "dimension.css",
-    "typography.css",
-    "effects.css",
-    "semantic.css",
-    "elevations.css",
-    "components.css",
+    "unit.tokens",
+    "colors.tokens",
+    "dimension.tokens",
+    "typography.tokens",
+    "effects.tokens",
+    "semantic.tokens",
+    "elevations.tokens",
+    "components.tokens",
 ];
 /// `--q-base-font-size`: 1rem в логических пикселях.
 const REM: f64 = 16.0;
@@ -43,7 +43,7 @@ fn main() {
     fonts();
     let styles = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/styles");
     let mut files: Vec<PathBuf> = TOKEN_FILES.iter().map(|f| styles.join("tokens").join(f)).collect();
-    files.push(styles.join("themes/dark.css"));
+    files.push(styles.join("themes/dark.tokens"));
 
     let mut light = BTreeMap::new();
     let mut dark_overrides = BTreeMap::new();
@@ -115,7 +115,7 @@ fn main() {
     }
 
     let mut out = String::new();
-    out.push_str("// Сгенерировано build.rs из src/styles/tokens/*.css — не править.\n\n");
+    out.push_str("// Сгенерировано build.rs из src/styles/tokens/*.tokens — не править.\n\n");
     out.push_str("/// Цвета и тени дизайн-системы для одной темы.\n#[derive(Clone, Copy, Debug)]\npub struct Theme {\n");
     for (field, value, _) in &theme_fields {
         let ty = if matches!(value, Value::Color(_)) { "Color" } else { "&'static [Shadow]" };

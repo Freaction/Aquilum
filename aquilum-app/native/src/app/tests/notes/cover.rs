@@ -162,6 +162,47 @@ fn scroll_frame_times() {
 }
 
 #[test]
+fn every_pattern_is_painted_from_its_tile_like_from_the_whole_bake() {
+    let scale = 1.75;
+    for id in ["foliage", "weave", "pineapple", "stripes", "origami", "polka"] {
+        let mut h = Harness::with(None, scale);
+        let note = h.write_note("обложка.md", &format!("---
+cover: true
+Page_cover: pattern:{id}
+---
+текст"));
+        h.app.open(&mut h.root, note);
+        h.wait_cover(true);
+        for _ in 0..8 {
+            h.anim(std::time::Duration::from_millis(16));
+        }
+        let (w, hh) = ((f64::from(W) * scale) as u16, (f64::from(H) * scale) as u16);
+        let shot = h.frame(w, hh, scale);
+        if let Ok(out) = std::env::var("AQ_OUT") {
+            std::fs::write(std::path::Path::new(&out).join(format!("cover-tile-{id}.png")), shot.png()).unwrap();
+        }
+        let cover = h.app.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()).and_then(|(_, ids)| ids.cover).expect("обложка");
+        let bounds = h.root.get_widget(cover.id()).unwrap().ctx().bounding_box();
+        let (cw, ch) = ((bounds.width() * scale).round() as u32, (bounds.height() * scale).round() as u32);
+        let span = if crate::cover::centered(id) { cw } else { ((f64::from(W) * scale / 128.0).ceil() * 128.0) as u32 };
+        let pattern = crate::cover::render_pattern(id, span, ch, scale).expect("узор");
+        let expected = crate::cover::expand(&pattern, span, ch);
+        let (x0, y0) = ((bounds.x0 * scale).round() as u32, (bounds.y0 * scale).round() as u32);
+        let mut checked = 0;
+        let mut differ = 0;
+        for (dx, dy) in [(40u32, 40u32), (300, 100), (cw / 2, ch / 2), (cw - 60, ch - 60), (97, ch - 30), (cw - 31, 61)] {
+            let pixel = shot.frame_pixels()[((y0 + dy) * u32::from(w) + x0 + dx) as usize];
+            let at = ((dy * span + dx) * 4) as usize;
+            let (r, g, b) = (u32::from(expected[at]), u32::from(expected[at + 1]), u32::from(expected[at + 2]));
+            let got = [(pixel >> 16) & 0xff, (pixel >> 8) & 0xff, pixel & 0xff];
+            checked += 1;
+            differ += usize::from(got.iter().zip([r, g, b]).any(|(a, b)| a.abs_diff(b) > 40));
+        }
+        assert!(differ <= 1, "{id}: {differ} из {checked} точек обложки не совпадают с узором");
+    }
+}
+
+#[test]
 fn cover_disappears_when_its_fields_are_removed() {
     use crate::ui::editor::TextAction;
     let mut h = Harness::new();

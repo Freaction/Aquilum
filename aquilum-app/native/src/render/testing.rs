@@ -49,3 +49,9 @@ impl Canvas for (u16, u16, Vec<u32>) {
         paint(Target { pixels: &mut self.2, width: self.0, height: self.1 });
     }
 }
+
+impl Renderer {
+    pub fn glyph_atlas_summary(&self) -> Option<(usize, usize, usize)> {
+        self.painter.resources.glyph_atlas_summary()
+    }
+}

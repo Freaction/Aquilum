@@ -1,12 +1,9 @@
 {
   "name": "aquilum-app",
   "private": true,
-  "version": "0.3.2",
+  "version": "0.3.3",
   "license": "AGPL-3.0-only",
-  "type": "module",
   "scripts": {
-    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File native/scripts/watch.ps1",
-    "version:sync": "node scripts/sync-version.mjs",
-    "publish:source": "node scripts/publish-source.mjs"
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File native/scripts/watch.ps1"
   }
 }

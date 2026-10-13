@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-const HORIZON: Duration = Duration::from_millis(100);
+const HORIZON: Duration = Duration::from_millis(40);
 const BEND_MS: f64 = 150.0;
 const POWER: f64 = 1.32;
 const FRICTION_PER_MS: f64 = 0.165;
@@ -96,6 +96,35 @@ mod tests {
         let (fling, last) = released(90.0, 12);
         let first = steps(fling, last)[0];
         assert!((first - 90.0).abs() < 90.0 * 0.05, "первый шаг инерции {first} вместо 90");
+    }
+
+    fn recorded(steps: &[f64]) -> (Fling, Instant, f64) {
+        let start = Instant::now();
+        let mut trail = Trail::default();
+        let mut at = 0.0;
+        for (k, step) in steps.iter().enumerate() {
+            at += step;
+            trail.push(start + FRAME * k as u32, 0.0, at);
+        }
+        let mut last: Vec<f64> = steps[steps.len() - 5..steps.len() - 1].to_vec();
+        last.sort_by(f64::total_cmp);
+        let reference = (last[1] + last[2]) / 2.0;
+        (trail.release(SCALE).expect("инерция после движения"), start + FRAME * (steps.len() as u32 - 1), reference)
+    }
+
+    #[test]
+    fn real_flicks_do_not_brake_at_the_moment_of_release() {
+        let flicks: [&[f64]; 4] = [
+            &[30.0, 37.0, 47.0, 58.0, 67.0, 74.0, 80.0, 89.0],
+            &[24.0, 32.0, 43.0, 52.0, 70.0, 77.0, 80.0, 86.0],
+            &[46.0, 44.0, 50.0, 24.0, 88.0, 106.0, 100.0, 93.0],
+            &[52.0, 75.0, 80.0, 94.0, 111.0, 120.0, 105.0, 45.0],
+        ];
+        for flick in flicks {
+            let (fling, last, reference) = recorded(flick);
+            let first = steps(fling, last)[0];
+            assert!((0.85..=1.25).contains(&(first / reference)), "первый шаг инерции {first:.0} при скорости пальцев {reference:.0}: {flick:?}");
+        }
     }
 
     #[test]

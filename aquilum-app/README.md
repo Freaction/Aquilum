@@ -36,7 +36,7 @@ copy ..\.artifacts\cargo-native\release\aquilum-native.exe ..\.artifacts\cargo-n
 cargo packager -p aquilum-native --release --formats nsis --out-dir ..\.artifacts\packages
 ```
 
-Версия задаётся в `package.json` и переносится в `Cargo.toml` командой `npm run version:sync`.
+Версия приложения указана в `core/Cargo.toml` и `native/Cargo.toml` (одинаковая в обоих).
 
 Кэш сборки: `../.artifacts/cargo-native/`.
 

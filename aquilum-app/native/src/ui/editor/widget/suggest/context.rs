@@ -56,11 +56,13 @@ impl TextEditor {
         }
         if let Some(open) = before.rfind(OPEN) {
             let query = &before[open + OPEN.len()..];
-            if !query.contains(CLOSE) && !query.contains('|') && !query.contains('#') {
+            if !query.contains(CLOSE) {
+                if query.contains(['|', '#']) {
+                    return None;
+                }
                 let after = &text[caret..line_end];
-                let close = after.find(CLOSE);
-                let to = close.map_or(caret, |c| caret + c);
-                return Some((line_start + open + OPEN.len(), to, query.to_owned(), Source::Link { wrap: false, close: close.is_none() }));
+                let stop = after.char_indices().find(|&(at, c)| matches!(c, '|' | '#') || after[at..].starts_with(CLOSE)).map(|(at, _)| at);
+                return Some((line_start + open + OPEN.len(), caret + stop.unwrap_or(0), query.to_owned(), Source::Link { wrap: false, close: stop.is_none() }));
             }
         }
         if self.in_frontmatter() {

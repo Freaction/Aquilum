@@ -25,9 +25,7 @@ pub(super) fn cover_body(painter: &mut Painter<'_>, bounds: Rect, visual: &Visua
             Visual::Pattern(id) => {
                 painter.fill(bounds, cover::base_color(id)).draw();
                 if let Some(image) = pattern {
-                    let (w, h) = (f64::from(image.image.width).max(1.0), f64::from(image.image.height).max(1.0));
-                    let (kx, ky) = ((bounds.width() * scale / w).max(1.0) / scale, (bounds.height() * scale / h).max(1.0) / scale);
-                    painter.draw_image(image, Affine::translate(bounds.origin().to_vec2()) * Affine::scale_non_uniform(kx, ky));
+                    painter.fill(bounds, image).brush_transform(Some(Affine::translate(bounds.origin().to_vec2()) * Affine::scale(1.0 / scale))).draw();
                 }
             }
             Visual::Image(image) => {

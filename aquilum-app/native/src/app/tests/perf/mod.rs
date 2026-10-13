@@ -1,6 +1,7 @@
 use super::*;
 use crate::render::Renderer;
 
+mod atlas;
 mod cost;
 mod frames;
 mod timing;
