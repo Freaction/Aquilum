@@ -14,6 +14,17 @@ impl Harness {
         config.ui.theme = if std::env::var_os("AQUILUM_BENCH_LIGHT").is_some() { "light".into() } else { "dark".into() };
         config.ui.language = "ru".into();
         std::fs::write(data.path().join("settings.json"), serde_json::to_string(&config).unwrap()).unwrap();
+        Self::assemble(vault, data, theme, real_vault, scale)
+    }
+
+    pub(super) fn restarted(self, scale: f64) -> Self {
+        let Harness { mut app, root, vault, _data, _theme, .. } = self;
+        app.shutdown();
+        drop((app, root));
+        Self::assemble(vault, _data, _theme, None, scale)
+    }
+
+    fn assemble(vault: tempfile::TempDir, data: tempfile::TempDir, theme: std::sync::MutexGuard<'static, ()>, real_vault: Option<&std::path::Path>, scale: f64) -> Self {
         let workspace = Workspace::open(Some(data.path()), Some(real_vault.unwrap_or(vault.path())), || {}).unwrap();
         let mut app = App::new(workspace, String::new());
         let signals: Rc<RefCell<Vec<RenderRootSignal>>> = Rc::default();

@@ -8,7 +8,7 @@ const CORPUS: &str = include_str!("../../../../testdata/markdown-test.md");
 
 fn corpus() -> Document {
     let mut doc = Document::new(CORPUS);
-    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true }));
+    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags: true }));
     doc
 }
 
@@ -33,7 +33,9 @@ fn frontmatter_is_metadata_and_the_body_starts_after_it() {
     let front = crate::frontmatter::end(CORPUS).expect("в тестовой заметке есть frontmatter");
     let meta = doc.paragraphs().iter().take_while(|p| p.start < front).count();
     assert_eq!(meta, 13);
-    assert!(doc.paragraphs()[..meta].iter().all(|p| p.block == Block::Meta));
+    let kinds: Vec<&Block> = doc.paragraphs()[..meta].iter().map(|p| &p.block).collect();
+    assert_eq!((kinds[0], kinds[meta - 1]), (&Block::Rule, &Block::Rule), "обе черты блока свойств — линии");
+    assert!(kinds[1..meta - 1].iter().all(|b| **b == Block::Meta));
     assert_eq!(block(&doc, "# Полный тест Markdown-редактора"), &Block::Heading { level: 1, marker: 2 });
 }
 
@@ -48,6 +50,15 @@ fn headings_atx_setext_and_non_headings() {
     assert_eq!(block(&doc, "#Без пробела — это НЕ заголовок"), &Block::Text);
     assert_eq!(block(&doc, "# Заголовок с закрывающими решётками #"), &Block::Heading { level: 1, marker: 2 });
     assert_eq!(block(&doc, "# Заголовок без пустой строки перед ним"), &Block::Heading { level: 1, marker: 2 });
+}
+
+#[test]
+fn property_fences_are_rules_and_the_lines_between_are_meta() {
+    let mut doc = Document::new("---\nтег: один\nдата: 2026\n---\nтекст");
+    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags: true }));
+    let blocks: Vec<&Block> = doc.paragraphs().iter().map(|p| &p.block).collect();
+    assert!(matches!(blocks[..], [Block::Rule, Block::Meta, Block::Meta, Block::Rule, _]), "{blocks:?}");
+    assert!(!matches!(blocks[4], Block::Rule | Block::Meta));
 }
 
 #[test]

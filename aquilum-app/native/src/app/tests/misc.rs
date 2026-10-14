@@ -49,7 +49,7 @@ fn leaving_the_note_lets_go_of_its_embeds() {
 fn settings_dropdown_toggles_like_web() {
     let mut h = Harness::new();
     h.click(242.0, 578.0);
-    h.click(115.0, 398.0);
+    h.open_section(Section::History);
     assert_eq!(h.section(), Some(Section::History));
     h.click(816.0, 173.0);
     assert!(h.menu_open());

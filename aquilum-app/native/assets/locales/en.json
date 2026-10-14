@@ -174,9 +174,7 @@
       "ui": "Interface",
       "editor": "Editor",
       "reader": "Reader",
-      "search": "Search",
-      "templates": "Templates",
-      "files": "Files",
+      "data": "Data",
       "analysis": "Analysis",
       "mcp": "AI agents",
       "history": "History",
@@ -220,6 +218,8 @@
       "smartDashes": "Smart dashes",
       "smartDashesHint": "-- and a space → —",
       "listCallouts": "Row highlight",
+      "coloredTags": "Colored tags",
+      "coloredTagsHint": "Each tag gets its own color from the app palette",
       "listCalloutsHint": "A list row with a marker after \"- \" is highlighted: ! important, ? question, & highlight, ~ idea, @ info, $ success, % muted",
       "autoLinkTitle": "Automatic link titles",
       "autoLinkTitleHint": "Pastes the page title when a URL is inserted",
@@ -252,9 +252,11 @@
       "hyphenateHint": "Break long words by syllables"
     },
     "search": {
-      "section": "Index and ranking",
-      "candidatePool": "Candidate pool size",
-      "maxQueryTerms": "Maximum query terms"
+      "section": "Similar notes (BM25F)",
+      "candidatePool": "How many notes to compare",
+      "candidatePoolHint": "How many notes to check when looking for similar ones. More is more accurate but slower.",
+      "maxQueryTerms": "How many words of the note to use",
+      "maxQueryTermsHint": "How many key words of the note to use when looking for similar ones. More is more accurate but slower."
     },
     "analysis": {
       "methods": "Analysis methods",
@@ -320,7 +322,7 @@
     "templates": {
       "section": "Note templates",
       "folder": "Templates folder path",
-      "folderHint": "Relative to the vault or absolute. Any existing folder works, a separate Templates folder is not required.",
+      "folderHint": "Name of the folder that holds your templates.",
       "create": "Create starter templates",
       "createHint": "Creates the “{{folder}}” folder with a book and a plain note template",
       "createButton": "Create templates folder"
@@ -328,7 +330,7 @@
     "files": {
       "section": "Files and attachments",
       "folder": "Attachments folder",
-      "folderHint": "Pasted images and videos, covers and book files go here. Path relative to the vault, e.g. assets."
+      "folderHint": "Pasted images, videos, covers and books are saved here. A folder inside the vault."
     },
     "trash": {
       "section": "Trash",

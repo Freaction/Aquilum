@@ -142,6 +142,11 @@ impl Harness {
         }
     }
 
+    pub(super) fn open_section(&mut self, section: Section) {
+        let center = self.root.get_widget(self.nav(section)).unwrap().ctx().bounding_box().center();
+        self.click(center.x, center.y);
+    }
+
     pub(super) fn nav(&self, section: Section) -> WidgetId {
         match &self.app.popup {
             Some(Popup::Settings { dialog, .. }) => dialog.nav.iter().find(|(_, s)| *s == section).map(|(id, _)| *id).unwrap(),

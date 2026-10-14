@@ -60,7 +60,7 @@ pub fn is_key(found: &str, key: &str) -> bool {
     names(key).any(|name| name == found)
 }
 
-fn fence(line: &str) -> bool {
+pub fn fence(line: &str) -> bool {
     line.trim_end_matches([' ', '\t']) == "---"
 }
 

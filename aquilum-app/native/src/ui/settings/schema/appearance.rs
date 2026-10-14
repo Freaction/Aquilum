@@ -95,6 +95,7 @@ pub(super) fn editor(config: &AppConfig) -> Vec<Block> {
             rows: vec![
                 switch("smartDashes", e.smart_dashes, |c, v| c.editor.smart_dashes = flag(v)),
                 switch("listCallouts", e.list_callouts, |c, v| c.editor.list_callouts = flag(v)),
+                switch("coloredTags", e.colored_tags, |c, v| c.editor.colored_tags = flag(v)),
                 switch("autoLinkTitle", e.auto_link_title, |c, v| c.editor.auto_link_title = flag(v)),
             ],
         },

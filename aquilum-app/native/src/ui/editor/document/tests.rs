@@ -9,7 +9,7 @@ use super::{Document, Fold, text};
 
 fn markdown(text: &str) -> Document {
     let mut doc = Document::new(text);
-    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true }));
+    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags: true }));
     doc
 }
 
@@ -112,7 +112,7 @@ fn typing_markdown_never_breaks_layout() {
     let mut fcx = FontContext::default();
     let mut lcx = LayoutContext::new();
     let styles = StyleSet::new(16.0);
-    let fonts = Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 8.0, callouts: true };
+    let fonts = Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 8.0, callouts: true, tags: true };
     let unresolved = HashSet::new();
     for line in TYPED.lines() {
         for end in line.char_indices().map(|(i, _)| i).chain([line.len()]) {
@@ -172,13 +172,14 @@ fn partial_classification_matches_a_full_pass() {
 fn frontmatter_lines_are_metadata_and_follow_the_block_boundary() {
     let mut doc = markdown("---\ntitle: **не жирный**\n# не заголовок\n- не пункт\n---\n# Заголовок\n- пункт");
     let kinds = blocks(&doc);
-    assert!(kinds[..5].iter().all(|b| *b == Block::Meta), "{kinds:?}");
+    let framed = |kinds: &[Block]| kinds[0] == Block::Rule && kinds[4] == Block::Rule && kinds[1..4].iter().all(|b| *b == Block::Meta);
+    assert!(framed(&kinds), "{kinds:?}");
     assert!(matches!(kinds[5], Block::Heading { .. }));
     assert!(matches!(kinds[6], Block::Item(_)));
     doc.replace(0..0, "x");
     assert!(blocks(&doc).iter().all(|b| *b != Block::Meta), "без открывающей черты блока метаданных нет");
     doc.replace(0..1, "");
-    assert!(blocks(&doc)[..5].iter().all(|b| *b == Block::Meta));
+    assert!(framed(&blocks(&doc)));
     let closing = doc.text().rfind("\n---").unwrap();
     doc.replace(closing + 1..closing + 4, "--");
     assert!(blocks(&doc).iter().all(|b| *b != Block::Meta), "без закрывающей черты блока метаданных нет");
@@ -191,4 +192,42 @@ fn indented_text_lines_keep_their_inline_markup() {
     doc.layout(&mut FontContext::default(), &mut LayoutContext::new(), &StyleSet::new(16.0), Some(600.0), None, None);
     assert_eq!((doc.paragraph(1).decor().codes.len(), doc.paragraph(1).decor().tags.len()), (1, 1), "{:?}", blocks(&doc));
     assert_eq!(doc.paragraph(2).decor().codes.len(), 1, "{:?}", blocks(&doc));
+}
+
+fn laid_out(text: &str, tags: bool) -> Document {
+    let mut doc = Document::new(text);
+    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags }));
+    doc.keep = (0.0, 10_000.0);
+    let mut fcx = FontContext::default();
+    let mut lcx = LayoutContext::new();
+    doc.layout(&mut fcx, &mut lcx, &StyleSet::new(16.0), Some(600.0), None, None);
+    doc
+}
+
+#[test]
+fn chips_of_neighbouring_tags_do_not_touch_but_text_around_them_is_left_alone() {
+    let text = "слово #один #два #три. И #четыре, конец";
+    let doc = laid_out(text, true);
+    let p = doc.paragraph(0);
+    let layout = p.layout.as_deref().expect("абзац свёрстан");
+    let chips = markdown::tag_chips(layout, p.decor(), masonry::kurbo::Vec2::ZERO);
+    assert_eq!(chips.len(), 4);
+    let x = |at: usize| Cursor::from_byte_index(layout, at, Affinity::Downstream).geometry(layout, 0.0).x0;
+    for pair in chips.windows(2) {
+        assert!(pair[0].0.rect().x1 + 0.5 <= pair[1].0.rect().x0, "плашки тегов наезжают друг на друга: {:?} и {:?}", pair[0].0.rect(), pair[1].0.rect());
+    }
+    let plain = laid_out("слово #один #два #три. И #четыре, конец".replace('#', "").as_str(), true);
+    let plain_layout = plain.paragraph(0).layout.as_deref().expect("абзац свёрстан");
+    let before_tags = Cursor::from_byte_index(plain_layout, "слово ".len(), Affinity::Downstream).geometry(plain_layout, 0.0).x0;
+    assert!((x("слово ".len()) - before_tags).abs() < 0.5, "текст перед первым тегом сдвинут");
+}
+
+#[test]
+fn tags_get_palette_colors_or_the_accent_when_colors_are_off() {
+    let colored = laid_out("#один #два #один #Один", true);
+    let slots: Vec<Option<usize>> = colored.paragraph(0).decor().tags.iter().map(|(_, slot)| *slot).collect();
+    assert!(slots.iter().all(Option::is_some));
+    assert_eq!((slots[0], slots[0]), (slots[2], slots[3]), "один и тот же тег получил разные цвета");
+    let plain = laid_out("#один #два", false);
+    assert!(plain.paragraph(0).decor().tags.iter().all(|(_, slot)| slot.is_none()), "при выключенных цветах теги не акцентные");
 }

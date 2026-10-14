@@ -247,3 +247,47 @@ fn note_search_button_sits_left_of_the_menu_opens_the_find_bar_and_hides_in_focu
     h.settle();
     assert!(!h.root.get_widget(search).unwrap().ctx().is_stashed(), "кнопка поиска не вернулась после режима фокуса");
 }
+
+fn long_note(h: &Harness) -> std::path::PathBuf {
+    let path = h.vault.path().join("Длинная.md");
+    let body: String = (0..400)
+        .map(|i| match i % 4 {
+            0 => format!("Абзац {i}: {}
+
+", "длинный текст абзаца, который переносится на несколько строк, ".repeat(6)),
+            1 => format!("## Заголовок {i}
+
+"),
+            _ => format!("Абзац {i}
+
+"),
+        })
+        .collect();
+    std::fs::write(&path, body).unwrap();
+    path
+}
+
+#[test]
+fn a_restarted_app_reopens_a_long_note_at_the_place_it_was_left() {
+    use masonry::core::{PointerScrollEvent, ScrollDelta};
+    let mut h = Harness::new();
+    let long = long_note(&h);
+    h.app.open(&mut h.root, long);
+    let _ = h.root.redraw();
+    let state = PointerState { position: PhysicalPosition::new(600.0, 300.0), count: 1, scale_factor: 1.0, ..PointerState::default() };
+    h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, -9000.0)), state }));
+    h.settle();
+    h.deliver();
+    h.app.capture_view(&h.root);
+    let saved = h.app.view.expect("позиция запомнена");
+    let mut h = h.restarted(1.0);
+    h.app.restore(&mut h.root);
+    for _ in 0..3 {
+        h.app.restore_view(&mut h.root);
+        let _ = h.root.redraw();
+    }
+    h.app.capture_view(&h.root);
+    let reopened = h.app.view.expect("позиция после перезапуска");
+    assert_eq!(reopened.0, saved.0, "после перезапуска открылась другая часть заметки");
+    assert!((reopened.1 - saved.1).abs() < 1.0, "сдвиг внутри абзаца: было {}, стало {}", saved.1, reopened.1);
+}

@@ -18,7 +18,7 @@ pub struct Decor {
     pub hang: Option<usize>,
     pub codes: Vec<Range<usize>>,
     pub marks: Vec<Range<usize>>,
-    pub tags: Vec<Range<usize>>,
+    pub tags: Vec<(Range<usize>, Option<usize>)>,
     pub links: Vec<Link>,
     pub caret: Option<usize>,
 }

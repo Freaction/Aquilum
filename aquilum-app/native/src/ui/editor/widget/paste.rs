@@ -7,17 +7,18 @@ pub struct Smart {
     pub links: bool,
     pub dashes: bool,
     pub callouts: bool,
+    pub tags: bool,
 }
 
 impl Default for Smart {
     fn default() -> Self {
-        Self { links: true, dashes: true, callouts: true }
+        Self { links: true, dashes: true, callouts: true, tags: true }
     }
 }
 
 impl Smart {
     pub fn from_config(config: &aquilum_core::settings::models::AppConfig) -> Self {
-        Self { links: config.editor.auto_link_title, dashes: config.editor.smart_dashes, callouts: config.editor.list_callouts }
+        Self { links: config.editor.auto_link_title, dashes: config.editor.smart_dashes, callouts: config.editor.list_callouts, tags: config.editor.colored_tags }
     }
 }
 
@@ -38,14 +39,14 @@ fn is_bare_url(text: &str) -> bool {
 impl TextEditor {
     pub fn with_smart(mut self, smart: Smart) -> Self {
         self.smart = smart;
-        self.doc.set_callouts(smart.callouts);
+        self.doc.set_flavors(smart.callouts, smart.tags);
         self
     }
 
     pub fn set_smart(this: &mut WidgetMut<'_, Self>, smart: Smart) {
         if this.widget.smart != smart {
             this.widget.smart = smart;
-            this.widget.doc.set_callouts(smart.callouts);
+            this.widget.doc.set_flavors(smart.callouts, smart.tags);
             this.ctx.request_layout();
             this.ctx.request_render();
         }

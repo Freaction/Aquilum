@@ -5,6 +5,7 @@ pub const LIST_LEVEL: f64 = 24.0;
 pub const QUOTE_BAR: f64 = 3.0;
 pub(super) const CODE_PADDING: f64 = 12.0;
 pub(super) const INLINE_CODE_PADDING: f32 = 4.0;
+pub(super) const TAG_PADDING: f32 = 6.0;
 pub(super) const COLLAPSED: f32 = 0.001;
 pub const CHECKBOX: f32 = 20.0;
 pub(super) const BOX_CHARS: usize = 3;
@@ -18,4 +19,5 @@ pub struct Fonts {
     pub mono: FontFamily<'static>,
     pub ch: f32,
     pub callouts: bool,
+    pub tags: bool,
 }

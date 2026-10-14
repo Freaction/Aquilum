@@ -12,7 +12,7 @@ use masonry::widgets::Flex;
 
 use super::dialog::{CardSize, Modal, header};
 use super::scroll::ScrollArea;
-use super::text::label;
+use super::text::selectable;
 use super::tokens::size;
 use super::widgets::{IconButton, Leading, Rule, TextButton, Variant};
 use super::{icons, search, theme};
@@ -55,7 +55,7 @@ pub fn dialog(workspaces: &[(uuid::Uuid, String)], current: Option<&Path>, error
         .with_fixed(border())
         .with(NewWidget::new(ScrollArea::new(list)), 1.0);
     if let Some(error) = error {
-        let error = NewWidget::new(Flex::row().with(label(error, |t| t.text_danger, None, Leading::Px(size::SIZE_20 as f32)), 1.0)).with_props(
+        let error = NewWidget::new(Flex::row().with(selectable(error, |t| t.text_danger, None, Leading::Px(size::SIZE_20 as f32)), 1.0)).with_props(
             PropertySet::new().with(Padding { top: Length::ZERO, bottom: Length::px(size::DIALOG_PADDING), left: Length::px(size::DIALOG_PADDING), right: Length::px(size::DIALOG_PADDING) }),
         );
         card = card.with_fixed(error);

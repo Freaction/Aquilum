@@ -49,3 +49,15 @@ fn font_lists_start_with_the_bundled_families_and_go_on_with_installed_ones() {
     }
     assert_eq!(family(&EDITOR_FAMILIES, &Value::Index(10_000)), "iA Writer Mono");
 }
+
+#[test]
+fn templates_attachments_and_search_share_one_section() {
+    let config = AppConfig::default();
+    let ctx = Context::new(1.0);
+    let titles: Vec<String> = blocks(Section::Data, &config, &ctx).into_iter().map(|b| b.title).collect();
+    assert_eq!(titles, [t("settings.templates.section"), t("settings.files.section"), t("settings.search.section")]);
+    for old in ["templates", "files", "search", "data"] {
+        assert_eq!(Section::from_key(old), Some(Section::Data), "сохранённый раздел «{old}» открывает общий раздел");
+    }
+    assert_eq!(Section::ALL.len(), 10);
+}

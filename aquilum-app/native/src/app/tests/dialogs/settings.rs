@@ -16,7 +16,7 @@ fn settings_dialog_applies_changes() {
     assert!(outcome.rescale);
     assert_eq!(h.app.interface.scale(), 1.05);
 
-    h.click(115.0, 398.0);
+    h.open_section(Section::History);
     assert_eq!(h.section(), Some(Section::History));
     h.click(816.0, 173.0);
     assert!(h.menu_open());
@@ -24,7 +24,7 @@ fn settings_dialog_applies_changes() {
     assert!(!h.menu_open());
     assert_eq!(h.config().history.retention_days, 30);
 
-    h.click(115.0, 330.0);
+    h.open_section(Section::Analysis);
     assert_eq!(h.section(), Some(Section::Analysis));
     assert!(h.config().analysis.enable_bm25f);
     h.click(891.0, 173.0);
@@ -43,7 +43,7 @@ fn trash_section_restores_deleted_note() {
     aquilum_core::files::gate::trash(&h.app.workspace.core, &vault, &vault.join("a.md")).unwrap();
     assert!(!vault.join("a.md").exists());
     h.click(242.0, 578.0);
-    h.click(115.0, 432.0);
+    h.open_section(Section::Trash);
     assert_eq!(h.section(), Some(Section::Trash));
     let restore = h.binding("в корзине есть заметка", |b| matches!(b, Binding::Button(Action::Restore(_))));
     h.send(restore, crate::ui::widgets::Pressed);
@@ -106,7 +106,7 @@ fn mcp_code_scrolls_sideways() {
     config.mcp.token = "0123456789abcdef0123456789abcdef".into();
     h.app.workspace.core.settings.update_config(config).unwrap();
     h.click(242.0, 578.0);
-    h.click(115.0, 364.0);
+    h.open_section(Section::Mcp);
     assert_eq!(h.section(), Some(Section::Mcp));
     h.scroll((600.0, 400.0), 1.0, (0.0, -2000.0));
     h.settle();

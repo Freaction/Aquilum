@@ -90,10 +90,18 @@ fn build(ctx: &mut PaintCtx<'_>, text: &str, width: f64, style: Style) -> Layout
     make(&truncated(lo))
 }
 
-pub fn label(text: &str, paint: super::widgets::Paint, weight: Option<f32>, leading: super::widgets::Leading) -> masonry::core::NewWidget<super::widgets::Label> {
+fn plain(text: &str, paint: super::widgets::Paint, weight: Option<f32>, leading: super::widgets::Leading) -> super::widgets::Label {
     let label = super::widgets::Label::new(text, paint).leading(leading);
-    masonry::core::NewWidget::new(match weight {
+    match weight {
         Some(weight) => label.weight(weight),
         None => label,
-    })
+    }
+}
+
+pub fn label(text: &str, paint: super::widgets::Paint, weight: Option<f32>, leading: super::widgets::Leading) -> masonry::core::NewWidget<super::widgets::Label> {
+    masonry::core::NewWidget::new(plain(text, paint, weight, leading))
+}
+
+pub fn selectable(text: &str, paint: super::widgets::Paint, weight: Option<f32>, leading: super::widgets::Leading) -> masonry::core::NewWidget<super::widgets::Label> {
+    masonry::core::NewWidget::new(plain(text, paint, weight, leading).selectable())
 }

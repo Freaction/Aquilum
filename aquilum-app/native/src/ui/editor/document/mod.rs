@@ -113,11 +113,12 @@ impl Document {
         });
     }
 
-    pub fn set_callouts(&mut self, enabled: bool) {
+    pub fn set_flavors(&mut self, callouts: bool, tags: bool) {
         if let Some(fonts) = self.markdown.as_mut()
-            && fonts.callouts != enabled
+            && (fonts.callouts != callouts || fonts.tags != tags)
         {
-            fonts.callouts = enabled;
+            fonts.callouts = callouts;
+            fonts.tags = tags;
             self.invalidate_all();
         }
     }

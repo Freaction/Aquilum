@@ -12,7 +12,7 @@ use super::schema::{self, Control, Row, Tone};
 use crate::i18n::t;
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
-use crate::ui::text::label;
+use crate::ui::text::selectable;
 use crate::ui::tokens::size;
 use crate::ui::widgets::{IconButton, Leading, LinkButton, Paint, kbd};
 use crate::ui::{icons, style};
@@ -99,7 +99,7 @@ pub(super) fn control_widget(row: &Row, bindings: &mut HashMap<WidgetId, Binding
                 Tone::Secondary => |t| t.text_secondary,
                 Tone::Danger => |t| t.text_danger,
             };
-            label(text, paint, None, Leading::Times(1.21)).erased()
+            selectable(text, paint, None, Leading::Times(1.21)).erased()
         }
         Control::Segmented { options, selected } => {
             let widget = Segmented::new(options.clone(), *selected);

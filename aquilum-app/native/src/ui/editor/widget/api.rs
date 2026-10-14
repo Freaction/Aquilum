@@ -6,6 +6,11 @@ impl TextEditor {
         self.doc.text()
     }
 
+    #[cfg(test)]
+    pub fn caret_rect(&self) -> masonry::kurbo::Rect {
+        self.caret()
+    }
+
     pub fn caret_offset(&self) -> usize {
         self.selection().start
     }

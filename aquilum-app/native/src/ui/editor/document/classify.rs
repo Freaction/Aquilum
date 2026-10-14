@@ -38,7 +38,13 @@ impl Document {
         for j in from..self.paragraphs.len() {
             let line = &self.text[self.paragraphs[j].range()];
             let next = self.paragraphs.get(j + 1).map(|n| &self.text[n.range()]);
-            let block = if self.paragraphs[j].start < front { Block::Meta } else { state.step(line, next) };
+            let block = if self.paragraphs[j].start >= front {
+                state.step(line, next)
+            } else if crate::frontmatter::fence(line) {
+                Block::Rule
+            } else {
+                Block::Meta
+            };
             let id = self.states.id(state);
             let p = &mut self.paragraphs[j];
             if p.block != block {

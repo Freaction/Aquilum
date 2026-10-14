@@ -7,13 +7,13 @@ pub(super) fn search(config: &AppConfig) -> Vec<Block> {
         rows: vec![
             row(
                 t("settings.search.candidatePool"),
-                None,
+                Some(t("settings.search.candidatePoolHint")),
                 Control::Number(Number::new(s.candidate_pool_size as f64, 32.0, 2048.0, 32.0)),
                 |c, v| c.search.candidate_pool_size = number(v) as usize,
             ),
             row(
                 t("settings.search.maxQueryTerms"),
-                None,
+                Some(t("settings.search.maxQueryTermsHint")),
                 Control::Number(Number::new(s.max_query_terms as f64, 8.0, 128.0, 1.0)),
                 |c, v| c.search.max_query_terms = number(v) as usize,
             ),

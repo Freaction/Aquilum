@@ -49,9 +49,6 @@ pub const BOOK_OPEN: Icon = Icon::lucide(&[
     Shape::Path("M12 7v14"),
     Shape::Path("M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"),
 ]);
-pub const PAPERCLIP: Icon = Icon::lucide(&[Shape::Path(
-    "m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551",
-)]);
 pub const DATABASE_ZAP: Icon = Icon::lucide(&[
     Shape::Path("M3 5a9 3 0 1 0 18 0a9 3 0 1 0 -18 0"),
     Shape::Path("M3 5V19A9 3 0 0 0 15 21.84"),

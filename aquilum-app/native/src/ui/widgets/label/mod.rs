@@ -1,14 +1,17 @@
+mod select;
 mod shape;
+#[cfg(test)]
+mod tests;
 
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, BrushIndex, ChildrenIds, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx,
-    Widget, render_text,
+    AccessCtx, BrushIndex, ChildrenIds, CursorIcon, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef,
+    QueryCtx, RegisterCtx, TextEvent, Update, UpdateCtx, Widget, render_text,
 };
 use masonry::imaging::Painter;
-use masonry::kurbo::{Affine, Axis, Size};
+use masonry::kurbo::{Affine, Axis, Point, Size};
 use masonry::layout::{LenReq, Length};
-use masonry::parley::Layout;
+use masonry::parley::{Layout, Selection};
 use masonry::peniko::Color;
 
 use crate::ui::theme;
@@ -47,6 +50,8 @@ pub struct Label {
     font: Font,
     centered: bool,
     wrap: bool,
+    selectable: bool,
+    selection: Selection,
     cached: Option<(Option<u32>, Layout<BrushIndex>)>,
 }
 
@@ -62,6 +67,8 @@ impl Label {
             font: Font::Ui,
             centered: false,
             wrap: true,
+            selectable: false,
+            selection: Selection::default(),
             cached: None,
         }
     }
@@ -75,6 +82,7 @@ impl Label {
         if this.widget.text != text {
             text.clone_into(&mut this.widget.text);
             this.widget.cached = None;
+            this.widget.selection = Selection::default();
             this.ctx.request_layout();
             this.ctx.request_accessibility_update();
         }
@@ -120,10 +128,33 @@ impl Widget for Label {
     type Action = masonry::core::NoAction;
 
     fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
-        if matches!(event, Update::FontsChanged) {
-            self.cached = None;
-            ctx.request_layout();
+        match event {
+            Update::FontsChanged => {
+                self.cached = None;
+                ctx.request_layout();
+            }
+            Update::FocusChanged(false) if self.selectable => {
+                self.selection = Selection::default();
+                ctx.request_paint_only();
+            }
+            _ => {}
         }
+    }
+
+    fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
+        if self.selectable {
+            self.pointer(ctx, event);
+        }
+    }
+
+    fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
+        if self.selectable {
+            self.keyboard(ctx, event);
+        }
+    }
+
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        if self.selectable { CursorIcon::Text } else { CursorIcon::Default }
     }
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
@@ -161,7 +192,9 @@ impl Widget for Label {
         }
         let color = (self.paint)(&tm);
         let (fcx, lcx) = ctx.text_contexts();
+        let selection = self.selection;
         let layout = self.layout(fcx, lcx, Some(bounds.width() as f32));
+        select::paint_selection(painter, layout, selection, bounds.origin().to_vec2());
         render_text(painter, Affine::translate(bounds.origin().to_vec2()), layout, &[color.into()], true);
     }
 

@@ -3,18 +3,30 @@ use std::collections::HashSet;
 use masonry::core::{BrushIndex, StyleProperty};
 use masonry::parley::{FontStyle, FontWeight, RangedBuilder};
 
-use super::super::brushes::{ACCENT, LINK, LINK_MISSING, MUTED, SYNTAX};
+use super::super::brushes::{ACCENT, LINK, LINK_MISSING, MUTED, SYNTAX, tag_brush};
 use super::super::inline::{Kind, hashtags, inline};
-use super::super::metrics::{Fonts, INLINE_CODE_PADDING, SCRIPT};
+use super::super::metrics::{Fonts, INLINE_CODE_PADDING, SCRIPT, TAG_PADDING};
 use super::super::{Decor, Link};
 use super::builder::{hide, push, touches};
+use crate::ui::palette;
 
 pub(super) fn style_spans(builder: &mut RangedBuilder<'_, BrushIndex>, text: &str, content: usize, caret: Option<usize>, fonts: &Fonts, unresolved: &HashSet<String>, decor: &mut Decor) {
-    for tag in hashtags(&text[content..]) {
-        let tag = tag.start + content..tag.end + content;
+    let tags: Vec<_> = hashtags(&text[content..]).into_iter().map(|tag| tag.start + content..tag.end + content).collect();
+    for pair in tags.windows(2) {
+        let gap = pair[0].end..pair[1].start;
+        let between = &text[gap.clone()];
+        if between.chars().all(char::is_whitespace) {
+            let each = 2.0 * TAG_PADDING / between.chars().count() as f32;
+            for (at, c) in between.char_indices() {
+                push(builder, StyleProperty::LetterSpacing(each), gap.start + at..gap.start + at + c.len_utf8());
+            }
+        }
+    }
+    for tag in tags {
         if !touches(caret, &tag) {
-            push(builder, StyleProperty::Brush(ACCENT), tag.clone());
-            decor.tags.push(tag);
+            let slot = fonts.tags.then(|| palette::tag(text[tag.start + 1..tag.end].split('/').next().unwrap_or_default()));
+            push(builder, StyleProperty::Brush(slot.map_or(ACCENT, tag_brush)), tag.clone());
+            decor.tags.push((tag, slot));
         }
     }
     for span in inline(&text[content..]) {

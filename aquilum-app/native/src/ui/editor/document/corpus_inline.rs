@@ -49,7 +49,7 @@ fn obsidian_marks_footnotes_ids_and_tags() {
     assert_eq!(count("%% Это комментарий Obsidian, видимый только в редакторе %%", Comment), 1);
     let tags = "#тег #tag #вложенный/тег #tag-with-dash #tag_with_underscore #2026";
     let found: Vec<&str> = markdown::hashtags(tags).into_iter().map(|r| &tags[r]).collect();
-    assert_eq!(found, ["#тег", "#tag", "#вложенный/тег", "#tag-with-dash", "#tag_with_underscore"]);
+    assert_eq!(found, ["#тег", "#tag", "#вложенный/тег", "#tag-with-dash", "#tag_with_underscore", "#2026"]);
     assert!(markdown::hashtags("Не тег: # пробел после решётки, C# или http://example.com/#anchor.").is_empty());
 }
 

@@ -5,12 +5,13 @@ use masonry::parley::{Affinity, Cursor, Layout, Selection};
 use masonry::peniko::Color;
 
 use super::Decor;
-use super::metrics::INLINE_CODE_PADDING;
-use crate::ui::theme;
+use super::metrics::{INLINE_CODE_PADDING, TAG_PADDING};
+use crate::ui::{palette, theme};
 
-const TAG_PAD_X: f64 = 6.0;
+const TAG_PAD_X: f64 = TAG_PADDING as f64;
 const TAG_HEIGHT: f64 = 24.0;
 const TAG_ALPHA: f32 = 0.1;
+const TAG_COLOR_ALPHA: f32 = 0.14;
 const CODE_PAD_X: f64 = INLINE_CODE_PADDING as f64;
 const CODE_PAD_Y: f64 = 2.0;
 const CODE_RADIUS: f64 = 2.0;
@@ -32,14 +33,27 @@ fn fill_range(painter: &mut Painter<'_, impl PaintSink + ?Sized>, layout: &Layou
     }
 }
 
+pub fn tag_chips(layout: &Layout<BrushIndex>, decor: &Decor, origin: Vec2) -> Vec<(RoundedRect, Option<usize>)> {
+    let caret = |offset: usize| Cursor::from_byte_index(layout, offset, Affinity::Downstream).geometry(layout, 0.0);
+    decor
+        .tags
+        .iter()
+        .map(|(tag, slot)| {
+            let (start, end) = (caret(tag.start), caret(tag.end));
+            let middle = origin.y + (start.y0 + start.y1) / 2.0;
+            (RoundedRect::new(origin.x + start.x0 - TAG_PAD_X, middle - TAG_HEIGHT / 2.0, origin.x + end.x0 + TAG_PAD_X, middle + TAG_HEIGHT / 2.0, TAG_HEIGHT / 2.0), *slot)
+        })
+        .collect()
+}
+
 pub fn paint_inline(painter: &mut Painter<'_, impl PaintSink + ?Sized>, layout: &Layout<BrushIndex>, decor: &Decor, origin: Vec2) {
     let tm = theme::current();
-    let caret = |offset: usize| Cursor::from_byte_index(layout, offset, Affinity::Downstream).geometry(layout, 0.0);
-    for tag in &decor.tags {
-        let (start, end) = (caret(tag.start), caret(tag.end));
-        let middle = origin.y + (start.y0 + start.y1) / 2.0;
-        let shape = RoundedRect::new(origin.x + start.x0 - TAG_PAD_X, middle - TAG_HEIGHT / 2.0, origin.x + end.x0 + TAG_PAD_X, middle + TAG_HEIGHT / 2.0, TAG_HEIGHT / 2.0);
-        painter.fill(shape, tm.bg_accent.multiply_alpha(TAG_ALPHA)).draw();
+    for (shape, slot) in tag_chips(layout, decor, origin) {
+        let color = match slot.and_then(|slot| palette::color(palette::NAMES[slot], &tm)) {
+            Some(color) => color.multiply_alpha(TAG_COLOR_ALPHA),
+            None => tm.bg_accent.multiply_alpha(TAG_ALPHA),
+        };
+        painter.fill(shape, color).draw();
     }
     for mark in &decor.marks {
         fill_range(painter, layout, mark, origin, MARK_PAD_X, tm.list_callout_highlight.multiply_alpha(MARK_ALPHA));
