@@ -252,7 +252,6 @@
       "hyphenateHint": "Break long words by syllables"
     },
     "search": {
-      "section": "Similar notes (BM25F)",
       "candidatePool": "How many notes to compare",
       "candidatePoolHint": "How many notes to check when looking for similar ones. More is more accurate but slower.",
       "maxQueryTerms": "How many words of the note to use",

@@ -45,7 +45,11 @@ impl Section {
     }
 
     pub fn from_key(key: &str) -> Option<Section> {
-        let key = if matches!(key, "templates" | "files" | "search") { "data" } else { key };
+        let key = match key {
+            "templates" | "files" => "data",
+            "search" => "analysis",
+            key => key,
+        };
         Section::ALL.into_iter().find(|s| s.key() == key)
     }
 

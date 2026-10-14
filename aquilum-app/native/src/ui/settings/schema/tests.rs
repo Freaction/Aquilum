@@ -51,13 +51,21 @@ fn font_lists_start_with_the_bundled_families_and_go_on_with_installed_ones() {
 }
 
 #[test]
-fn templates_attachments_and_search_share_one_section() {
+fn templates_and_attachments_share_one_section_and_search_tuning_lives_with_bm25f() {
     let config = AppConfig::default();
     let ctx = Context::new(1.0);
     let titles: Vec<String> = blocks(Section::Data, &config, &ctx).into_iter().map(|b| b.title).collect();
-    assert_eq!(titles, [t("settings.templates.section"), t("settings.files.section"), t("settings.search.section")]);
-    for old in ["templates", "files", "search", "data"] {
+    assert_eq!(titles, [t("settings.templates.section"), t("settings.files.section")]);
+    for old in ["templates", "files", "data"] {
         assert_eq!(Section::from_key(old), Some(Section::Data), "сохранённый раздел «{old}» открывает общий раздел");
     }
+    assert_eq!(Section::from_key("search"), Some(Section::Analysis));
     assert_eq!(Section::ALL.len(), 10);
+
+    let rows = |config: &AppConfig| blocks(Section::Analysis, config, &ctx).into_iter().flat_map(|b| b.rows).map(|r| r.label).collect::<Vec<_>>();
+    let pool = t("settings.search.candidatePool");
+    assert!(rows(&config).contains(&pool), "настройки подбора похожих заметок стоят среди параметров BM25F");
+    let mut off = AppConfig::default();
+    off.analysis.enable_bm25f = false;
+    assert!(!rows(&off).contains(&pool), "без BM25F этих настроек нет");
 }

@@ -1,26 +1,5 @@
 use super::*;
 
-pub(super) fn search(config: &AppConfig) -> Vec<Block> {
-    let s = &config.search;
-    vec![Block {
-        title: t("settings.search.section"),
-        rows: vec![
-            row(
-                t("settings.search.candidatePool"),
-                Some(t("settings.search.candidatePoolHint")),
-                Control::Number(Number::new(s.candidate_pool_size as f64, 32.0, 2048.0, 32.0)),
-                |c, v| c.search.candidate_pool_size = number(v) as usize,
-            ),
-            row(
-                t("settings.search.maxQueryTerms"),
-                Some(t("settings.search.maxQueryTermsHint")),
-                Control::Number(Number::new(s.max_query_terms as f64, 8.0, 128.0, 1.0)),
-                |c, v| c.search.max_query_terms = number(v) as usize,
-            ),
-        ],
-    }]
-}
-
 pub(super) fn files(config: &AppConfig) -> Vec<Block> {
     vec![Block {
         title: t("settings.files.section"),
@@ -52,9 +31,22 @@ pub(super) fn analysis(config: &AppConfig) -> Vec<Block> {
     let param = |label: String, value: f32, min, max, step, set: fn(&mut AppConfig, &Value)| {
         row(label, None, Control::Number(Number::new(round2(f64::from(value)), min, max, step)), set)
     };
+    let s = &config.search;
     let params = Block {
         title: t("settings.analysis.bm25fParams"),
         rows: vec![
+            row(
+                t("settings.search.candidatePool"),
+                Some(t("settings.search.candidatePoolHint")),
+                Control::Number(Number::new(s.candidate_pool_size as f64, 32.0, 2048.0, 32.0)),
+                |c, v| c.search.candidate_pool_size = number(v) as usize,
+            ),
+            row(
+                t("settings.search.maxQueryTerms"),
+                Some(t("settings.search.maxQueryTermsHint")),
+                Control::Number(Number::new(s.max_query_terms as f64, 8.0, 128.0, 1.0)),
+                |c, v| c.search.max_query_terms = number(v) as usize,
+            ),
             param("k1".into(), p.k1, 0.1, 3.0, 0.1, |c, v| c.analysis.bm25f_params.k1 = number(v) as f32),
             param("k3".into(), p.k3, 1.0, 20.0, 0.5, |c, v| c.analysis.bm25f_params.k3 = number(v) as f32),
             param(t("settings.analysis.bTitle"), p.b_title, 0.0, 1.0, 0.05, |c, v| c.analysis.bm25f_params.b_title = number(v) as f32),
