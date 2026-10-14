@@ -18,7 +18,7 @@ impl Document {
     }
 
     pub fn set_text(&mut self, text: &str) {
-        self.anchor = None;
+        (self.anchor, self.editing, self.resized, self.uncropped, self.source) = (None, None, None, None, None);
         self.placed = false;
         self.states = States::default();
         if let Some(edits) = self.edits.as_mut() {
@@ -38,12 +38,9 @@ impl Document {
         let from = self.paragraphs[first].start;
         let to = self.paragraphs[last].end();
         self.text.replace_range(range.clone(), insert);
-        if let Some((at, _)) = self.anchor.as_mut() {
-            if *at >= range.end {
-                *at = *at + insert.len() - range.len();
-            } else if *at > range.start {
-                *at = range.start;
-            }
+        let shift = |at: usize| super::super::change::shift(at, &range, insert.len());
+        for at in [self.anchor.as_mut().map(|(at, _)| at), self.editing.as_mut().map(|(at, _)| at), self.resized.as_mut().map(|(at, _)| at), self.uncropped.as_mut(), self.source.as_mut()].into_iter().flatten() {
+            *at = shift(*at);
         }
         if let Some(edits) = self.edits.as_mut() {
             edits.push(Edit { range: range.clone(), insert: insert.to_owned() });

@@ -1,3 +1,4 @@
+mod change;
 mod document;
 mod embed;
 mod highlight;

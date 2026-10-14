@@ -46,15 +46,11 @@ impl TextEditor {
     }
 
     pub(super) fn apply_multicursor_typing(&mut self, text: &str) -> bool {
-        self.each_cursor(|editor, range| {
-            editor.replace(range.clone(), text, Kind::Typing);
-            range.start + text.len()
-        })
+        self.each_cursor(Kind::Typing, |_, range| Some((range, text.to_owned())))
     }
 
     pub(super) fn apply_multicursor_delete(&mut self, forward: bool) -> bool {
-        self.each_cursor(|editor, range| {
-            let text = editor.doc.text();
+        self.each_cursor(Kind::Deleting, |text, range| {
             let range = if !range.is_empty() {
                 range
             } else if forward {
@@ -62,37 +58,23 @@ impl TextEditor {
             } else {
                 text[..range.start].graphemes(true).next_back().map_or(range.start, |g| range.start - g.len())..range.start
             };
-            if range.is_empty() {
-                return range.start;
-            }
-            editor.replace(range.clone(), "", Kind::Deleting);
-            range.start
+            (!range.is_empty()).then_some((range, String::new()))
         })
     }
 
-    fn each_cursor(&mut self, mut edit: impl FnMut(&mut Self, Range<usize>) -> usize) -> bool {
+    fn each_cursor(&mut self, kind: Kind, edit: impl Fn(&str, Range<usize>) -> Option<(Range<usize>, String)>) -> bool {
         if self.extra_cursors.is_empty() {
             return false;
         }
-        let primary = (self.anchor.min(self.focus), self.anchor.max(self.focus));
-        let mut all: Vec<(usize, usize)> = std::mem::take(&mut self.extra_cursors).into_iter().map(|(a, f)| (a.min(f), a.max(f))).collect();
-        all.push(primary);
-        all.sort_unstable_by(|a, b| b.cmp(a));
-        all.dedup();
-        let mut placed: Vec<(usize, bool)> = Vec::with_capacity(all.len());
-        for (start, end) in all {
-            let before = self.doc.len();
-            let at = edit(self, start..end);
-            let delta = self.doc.len() as isize - before as isize;
-            for (offset, _) in &mut placed {
-                *offset = offset.saturating_add_signed(delta);
-            }
-            placed.push((at, (start, end) == primary));
+        let mut ranges: Vec<Range<usize>> = self.extra_cursors.iter().chain([&(self.anchor, self.focus)]).map(|&(a, f)| a.min(f)..a.max(f)).collect();
+        ranges.sort_unstable_by_key(|range| (range.start, range.end));
+        ranges.dedup_by(|next, previous| next.start < previous.end || next == previous);
+        let edits = ranges.into_iter().filter_map(|range| edit(self.doc.text(), range)).collect();
+        self.dispatch(edits, None, kind);
+        for (anchor, focus) in std::iter::once((&mut self.anchor, &mut self.focus)).chain(self.extra_cursors.iter_mut().map(|(a, f)| (a, f))) {
+            let end = (*anchor).max(*focus);
+            (*anchor, *focus) = (end, end);
         }
-        let main = placed.iter().position(|&(_, primary)| primary).unwrap_or(placed.len() - 1);
-        let (offset, _) = placed.swap_remove(main);
-        (self.anchor, self.focus) = (offset, offset);
-        self.extra_cursors = placed.into_iter().map(|(offset, _)| (offset, offset)).collect();
         true
     }
 }

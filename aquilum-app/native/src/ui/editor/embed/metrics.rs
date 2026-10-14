@@ -13,4 +13,3 @@ pub(super) const IMAGE_PAD_X: f64 = 4.0;
 pub(super) const COVER_W: f64 = 56.0;
 pub(super) const COVER_H: f64 = 72.0;
 pub(super) const COVER_RADIUS: f64 = 6.0;
-pub(super) const NATURAL_MAX: f64 = 360.0;

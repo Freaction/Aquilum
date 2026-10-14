@@ -1,21 +1,57 @@
 use super::*;
+use crate::ui::editor::change::{self, Change};
+use crate::ui::editor::history::Step;
 
 impl TextEditor {
     pub(super) fn replace(&mut self, range: Range<usize>, text: &str, kind: Kind) {
+        let end = range.start + text.len();
+        self.replace_and_select(range, text, kind, (end, end));
+    }
+
+    pub(super) fn replace_and_select(&mut self, range: Range<usize>, text: &str, kind: Kind, selection: (usize, usize)) {
+        self.dispatch(vec![(range, text.to_owned())], Some(selection), kind);
+    }
+
+    pub(super) fn dispatch(&mut self, mut edits: Vec<(Range<usize>, String)>, selection: Option<(usize, usize)>, kind: Kind) {
+        let Some(from) = edits.iter().map(|(range, _)| range.start).min() else { return };
+        let until = edits.iter().map(|(range, _)| range.end).max().unwrap_or(from);
         let before = (self.anchor, self.focus);
-        let removed = self.doc.text()[range.clone()].to_owned();
-        self.doc.replace(range.clone(), text);
-        self.anchor = range.start + text.len();
-        self.focus = self.anchor;
+        edits.sort_unstable_by_key(|(range, _)| std::cmp::Reverse(range.start));
+        let mut changes: Vec<Change> = edits.into_iter().map(|(range, text)| self.splice(range, text)).collect();
+        let mut selection = selection.unwrap_or_else(|| (change::map(before.0, &changes), change::map(before.1, &changes)));
+        if self.doc.markdown.is_some() {
+            for (range, number) in super::outline::renumbered(&self.doc, from..change::map(until, &changes)).into_iter().rev() {
+                let change = self.splice(range, number);
+                selection = (change.map(selection.0), change.map(selection.1));
+                changes.push(change);
+            }
+        }
+        (self.anchor, self.focus) = selection;
         self.affinity = Affinity::Downstream;
         self.column = None;
-        let edit = Edit { at: range.start, removed, inserted: text.to_owned(), before, after: (self.anchor, self.focus), kind, time: std::time::Instant::now() };
-        self.history.record(edit);
-        if self.doc.markdown.is_some() {
-            self.renumber();
-        }
+        self.history.record(Step { changes, before, after: selection, kind, time: std::time::Instant::now() });
         self.reveal_edited_image();
         self.refind();
+    }
+
+    fn splice(&mut self, range: Range<usize>, inserted: String) -> Change {
+        let removed = self.doc.text()[range.clone()].to_owned();
+        self.doc.replace(range.clone(), &inserted);
+        let change = Change { at: range.start, removed, inserted };
+        let map = |at: usize| change.map(at);
+        for (anchor, focus) in &mut self.extra_cursors {
+            (*anchor, *focus) = (map(*anchor), map(*focus));
+        }
+        if let Some(session) = &mut self.table {
+            session.start = map(session.start);
+        }
+        self.table_scrolls = self.table_scrolls.drain().map(|(start, x)| (map(start), x)).collect();
+        self.hovered_table = self.hovered_table.map(map);
+        self.hovered_link = self.hovered_link.map(|(start, hit)| (map(start), hit));
+        self.unit = self.unit.take().map(|(count, range)| (count, map(range.start)..map(range.end)));
+        self.external_reveal = self.external_reveal.take().map(|(range, at)| (map(range.start)..map(range.end), at));
+        self.media.remap(map);
+        change
     }
 
     fn reveal_edited_image(&mut self) {
@@ -23,25 +59,6 @@ impl TextEditor {
         if matches!(p.block, crate::ui::editor::markdown::Block::Image) {
             self.doc.source = Some(p.start);
         }
-    }
-
-    fn renumber(&mut self) {
-        if self.doc.paragraph(self.doc.at_offset(self.focus)).block.is_code() {
-            return;
-        }
-        let Some(last) = self.history.last_mut() else { return };
-        let Some((range, numbers)) = super::outline::renumber(self.doc.text(), last.at..last.at + last.inserted.len()) else { return };
-        let text = self.doc.text();
-        let (lo, hi) = (last.at.min(range.start), (last.at + last.inserted.len()).max(range.end));
-        let mut original = text[lo..hi].to_owned();
-        original.replace_range(last.at - lo..last.at - lo + last.inserted.len(), &last.removed);
-        let mut updated = text[lo..hi].to_owned();
-        updated.replace_range(range.start - lo..range.end - lo, &numbers);
-        let shift = |p: usize| if p >= range.end { p + numbers.len() - range.len() } else { p.min(range.start + numbers.len()) };
-        let selection = (shift(self.anchor), shift(self.focus));
-        (last.at, last.removed, last.inserted, last.after) = (lo, original, updated, selection);
-        self.doc.replace(range, &numbers);
-        (self.anchor, self.focus) = selection;
     }
 
     pub(super) fn insert(&mut self, text: &str, kind: Kind) {
@@ -70,15 +87,59 @@ impl TextEditor {
 
     pub(super) fn undo(&mut self, redo: bool) -> bool {
         self.leave_table();
-        let edit = if redo { self.history.redo() } else { self.history.undo() };
-        let Some(edit) = edit else { return false };
-        let (from, to, selection) = if redo { (&edit.removed, &edit.inserted, edit.after) } else { (&edit.inserted, &edit.removed, edit.before) };
-        self.doc.replace(edit.at..edit.at + from.len(), to);
-        (self.anchor, self.focus) = selection;
+        let step = if redo { self.history.redo() } else { self.history.undo() };
+        let Some(step) = step else { return false };
+        if redo {
+            for c in step.changes {
+                self.splice(c.at..c.at + c.removed.len(), c.inserted);
+            }
+        } else {
+            for c in step.changes.into_iter().rev() {
+                self.splice(c.at..c.at + c.inserted.len(), c.removed);
+            }
+        }
+        (self.anchor, self.focus) = if redo { step.after } else { step.before };
         self.affinity = Affinity::Downstream;
         self.column = None;
         self.reveal_edited_image();
         self.refind();
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_cursor_follows_an_edit_made_at_another_one() {
+        let mut editor = TextEditor::new("привет\nмир");
+        editor.add_cursor_at(editor.doc.len());
+        editor.replace(0..0, "\n", Kind::Other);
+        assert_eq!(editor.extra_cursors, [(editor.doc.len(), editor.doc.len())]);
+        editor.undo(false);
+        assert_eq!(editor.extra_cursors, [(editor.doc.len(), editor.doc.len())]);
+    }
+
+    #[test]
+    fn a_rewritten_block_keeps_the_caret_on_its_text() {
+        let mut editor = TextEditor::new("![](a.png|300)\nтекст");
+        let end = editor.doc.len();
+        (editor.anchor, editor.focus) = (end, end);
+        editor.dispatch(vec![(0..14, "![](a.png|1200)".into())], None, Kind::Block);
+        assert_eq!((editor.anchor, editor.focus), (end + 1, end + 1));
+        editor.undo(false);
+        assert_eq!(editor.doc.text(), "![](a.png|300)\nтекст");
+    }
+
+    #[test]
+    fn typing_at_several_cursors_is_one_undo_step() {
+        let mut editor = TextEditor::new("ab\ncd\nef");
+        editor.add_cursor_at(3);
+        editor.add_cursor_at(6);
+        editor.apply_multicursor_typing("X");
+        assert_eq!(editor.doc.text(), "Xab\nXcd\nXef");
+        editor.undo(false);
+        assert_eq!(editor.doc.text(), "ab\ncd\nef");
     }
 }

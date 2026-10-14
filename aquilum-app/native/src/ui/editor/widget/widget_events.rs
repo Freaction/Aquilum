@@ -5,13 +5,16 @@ use super::TextEditor;
 
 const BLINK_HALF: std::time::Duration = std::time::Duration::from_millis(500);
 const LINE_SCROLL: f64 = 40.0;
-const BLINK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 impl TextEditor {
     pub(super) fn restart_blink(&mut self, ctx: &mut EventCtx<'_>) {
+        self.reset_blink();
+        ctx.request_anim_frame();
+    }
+
+    pub(super) fn reset_blink(&mut self) {
         self.blink_start = std::time::Instant::now();
         self.caret_visible = true;
-        ctx.request_anim_frame();
     }
 
     pub(super) fn do_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
@@ -34,15 +37,7 @@ impl TextEditor {
         if !(ctx.is_window_focused() && ctx.is_focus_target()) {
             return;
         }
-        let elapsed = self.blink_start.elapsed();
-        if elapsed >= BLINK_TIMEOUT {
-            if !self.caret_visible {
-                self.caret_visible = true;
-                ctx.request_post_paint();
-            }
-            return;
-        }
-        let halves = elapsed.as_millis() / BLINK_HALF.as_millis();
+        let halves = self.blink_start.elapsed().as_millis() / BLINK_HALF.as_millis();
         let visible = halves % 2 == 0;
         if visible != self.caret_visible {
             self.caret_visible = visible;

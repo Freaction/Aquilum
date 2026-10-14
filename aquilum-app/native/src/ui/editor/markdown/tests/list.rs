@@ -7,7 +7,7 @@ fn levels(text: &str) -> Vec<Option<usize>> {
 #[test]
 fn nesting_follows_indent_columns_not_the_characters() {
     assert_eq!(levels("- a\n  - b\n    - c\n\t- d\n- e"), [Some(0), Some(1), Some(2), Some(2), Some(0)]);
-    assert_eq!(levels("- a\n\t- b\n    - c\n\t\t\t- d\n        - e\n    - f"), [Some(0), Some(1), Some(1), Some(2), Some(2), Some(1)]);
+    assert_eq!(levels("- a\n\t- b\n    - c\n\t\t\t- d\n        - e\n    - f"), [Some(0), Some(1), Some(1), Some(3), Some(2), Some(1)]);
     assert_eq!(levels("* a\n+ b\n- c\n1. d\n2) e"), [Some(0); 5]);
     assert_eq!(levels("\t\t\t- сирота\n- пункт"), [None, Some(0)]);
 }
@@ -24,10 +24,17 @@ fn list_content_stays_in_its_item() {
 }
 
 #[test]
-fn a_line_right_after_an_item_continues_it_but_not_after_a_blank_line() {
-    let b = blocks("- пункт\nпродолжение\n\nабзац");
-    assert!(matches!(b[1], Block::Continuation { level: 0, lead: 0, width: 2 }));
-    assert_eq!(b[3], Block::Text);
+fn a_line_without_a_marker_or_an_indent_closes_the_list() {
+    let b = blocks("- пункт\nабзац\n- новый список\n\tвложенный текст пункта");
+    assert_eq!(b[1], Block::Text);
+    assert!(matches!(b[2], Block::Item(i) if i.level() == 0));
+    assert!(matches!(b[3], Block::Continuation { level: 0, .. }));
+}
+
+#[test]
+fn every_tab_moves_an_item_one_level_deeper() {
+    assert_eq!(levels("1. a\n\t\t1. b\n\t\t\t\t- c\n\t1. d\n2. e"), [Some(0), Some(2), Some(4), Some(1), Some(0)]);
+    assert_eq!(levels("- a\n\t\t- b\n- c"), [Some(0), Some(2), Some(0)]);
 }
 
 #[test]

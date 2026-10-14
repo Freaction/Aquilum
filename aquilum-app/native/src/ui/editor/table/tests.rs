@@ -2,7 +2,7 @@ use masonry::core::BrushIndex;
 use masonry::parley::{Alignment, Layout};
 
 use super::markdown::parse;
-use super::model::{Align, Range2, Table};
+use super::model::{Align, DEFAULT_COL, Range2, Table};
 use super::view::{TableView, letters};
 
 pub(super) fn table(text: &str) -> Table {
@@ -44,6 +44,22 @@ fn edits_sanitize_and_structure_ops_keep_merges() {
     assert_eq!(t.merges, [Range2 { top: 1, left: 1, bottom: 1, right: 2 }]);
     assert!(t.unmerge(1, 1));
     assert_eq!(letters(27), "AB");
+}
+
+#[test]
+fn a_table_without_saved_widths_hugs_its_content() {
+    let view = blank_view(&table("| a | b |\n| --- | --- |\n| 1 | 2 |"));
+    assert_eq!(view.widths(), [DEFAULT_COL, DEFAULT_COL]);
+    assert!(view.layout_w < view.scroll_w);
+    assert_eq!(view.edge(), view.layout_w);
+}
+
+#[test]
+fn the_last_border_stays_visible_when_a_wide_table_scrolls_to_its_end() {
+    let view = blank_view(&table(&format!("|{}\n|{}\n|{}", " a |".repeat(10), " --- |".repeat(10), " 1 |".repeat(10))));
+    let end = view.max_scroll();
+    assert!(end > 0.0);
+    assert!(view.range_rect(Range2::span((0, 9), (0, 9)), end).x1 < view.scroll_w);
 }
 
 #[test]

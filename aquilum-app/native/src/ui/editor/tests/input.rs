@@ -1,6 +1,6 @@
 use masonry::core::keyboard::{Key, Modifiers, NamedKey};
 
-use super::support::{command_key, markdown_root, named, press, root, text, typing};
+use super::support::{command_key, markdown_root, named, press, root, selected, text, typing};
 use crate::test_dir::command;
 use crate::ui::editor::Smart;
 use crate::ui::editor::TextEditor;
@@ -57,6 +57,18 @@ fn undo_and_redo_group_typing_and_deleting() {
     typing(&mut root, "!");
     command_key(&mut root, "y");
     assert_eq!(text(&root), "привет м!");
+}
+
+#[test]
+fn redo_restores_the_selection_inside_wrapped_brackets() {
+    let mut root = root("abc");
+    command_key(&mut root, "a");
+    typing(&mut root, "(");
+    assert_eq!((text(&root).as_str(), selected(&root).as_str()), ("(abc)", "abc"));
+    command_key(&mut root, "z");
+    assert_eq!(text(&root), "abc");
+    command_key(&mut root, "y");
+    assert_eq!((text(&root).as_str(), selected(&root).as_str()), ("(abc)", "abc"));
 }
 
 #[test]

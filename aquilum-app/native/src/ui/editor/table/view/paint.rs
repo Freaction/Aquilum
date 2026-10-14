@@ -59,8 +59,8 @@ impl TableView {
             }
         });
         if overlay.hovered {
-            let row = Rect::new(x, y + bottom, x + self.layout_w.min(self.scroll_w), y + bottom + ADD);
-            let col = Rect::new(x + self.scroll_w, y + PAD_Y, x + self.scroll_w + ADD, y + bottom);
+            let row = Rect::new(x, y + bottom, x + self.edge(), y + bottom + ADD);
+            let col = Rect::new(x + self.edge(), y + PAD_Y, x + self.edge() + ADD, y + bottom);
             for band in [row, col] {
                 painter.fill(band, tm.editor_table_add_bg).draw();
                 painter.stroke(band.inset(-0.5), &stroke, tm.editor_table_add_border).draw();
@@ -74,7 +74,7 @@ impl TableView {
         }
         let (valid, invalid) = (tm.bg_accent, tm.text_muted.multiply_alpha(0.6));
         match overlay.line {
-            Line::Row(ly, ok) => painter.fill(RoundedRect::new(x, y + ly - 1.0, x + self.layout_w.min(self.scroll_w), y + ly + 1.0, 1.0), if ok { valid } else { invalid }).draw(),
+            Line::Row(ly, ok) => painter.fill(RoundedRect::new(x, y + ly - 1.0, x + self.edge(), y + ly + 1.0, 1.0), if ok { valid } else { invalid }).draw(),
             Line::Col(lx, ok) if lx >= self.corner && lx <= self.scroll_w => painter.fill(RoundedRect::new(x + lx - 1.0, y + PAD_Y, x + lx + 1.0, y + bottom, 1.0), if ok { valid } else { invalid }).draw(),
             Line::Col(..) | Line::None => {}
         }

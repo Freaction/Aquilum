@@ -14,8 +14,7 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
 
-/// What the core tells its host: the Tauri shell turns each event into a frontend event with the
-/// same name, a native UI would route it into its event loop.
+/// What the core tells its host.
 #[derive(Clone, Serialize)]
 #[serde(untagged)]
 pub enum CoreEvent {
@@ -88,8 +87,7 @@ pub struct Core {
 }
 
 impl Core {
-    /// Opens all stores under `app_data_dir`, which the host picks: the Tauri shell passes its own
-    /// app data directory, so the data stays where previous versions kept it.
+    /// Opens all stores under `app_data_dir`, which the host picks.
     pub fn open(app_data_dir: &Path, events: Arc<dyn EventSink>) -> Arc<Self> {
         let core = Arc::new_cyclic(|this: &Weak<Core>| {
             let changed = Arc::clone(&events);

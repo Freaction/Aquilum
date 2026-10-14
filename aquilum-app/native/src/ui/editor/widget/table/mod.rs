@@ -81,14 +81,9 @@ impl TextEditor {
         let Some(start) = self.table.as_ref().map(|s| s.start) else { return };
         let Some((range, _)) = self.doc.table_at(start) else { return };
         let text = model.serialize();
-        if self.doc.text()[range.clone()] == text {
-            return;
+        if self.doc.text()[range.clone()] != text {
+            self.dispatch(vec![(range, text)], None, Kind::Block);
         }
-        let keep = (self.anchor, self.focus);
-        self.replace(range, &text, Kind::Table);
-        (self.anchor, self.focus) = keep;
-        self.anchor = self.anchor.min(self.doc.len());
-        self.focus = self.focus.min(self.doc.len());
     }
 
     fn remove_table(&mut self) {

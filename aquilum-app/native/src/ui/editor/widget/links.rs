@@ -67,9 +67,7 @@ impl TextEditor {
 
     pub(super) fn toggle_task(&mut self, ctx: &mut EventCtx<'_>, point: Point) -> bool {
         let Some((mark, done)) = self.task_at(point) else { return false };
-        let keep = (self.anchor, self.focus);
-        self.replace(mark, if done { " " } else { "x" }, Kind::Other);
-        (self.anchor, self.focus) = keep;
+        self.dispatch(vec![(mark, if done { " " } else { "x" }.to_owned())], None, Kind::Other);
         ctx.set_handled();
         self.changed(ctx);
         true

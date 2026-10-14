@@ -1,5 +1,7 @@
 use std::time::{Duration, Instant};
 
+use super::change::Change;
+
 const GROUP: Duration = Duration::from_secs(1);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -7,14 +9,12 @@ pub enum Kind {
     Typing,
     Deleting,
     Other,
-    Table,
+    Block,
 }
 
 #[derive(Clone, Debug)]
-pub struct Edit {
-    pub at: usize,
-    pub removed: String,
-    pub inserted: String,
+pub struct Step {
+    pub changes: Vec<Change>,
     pub before: (usize, usize),
     pub after: (usize, usize),
     pub kind: Kind,
@@ -23,58 +23,58 @@ pub struct Edit {
 
 #[derive(Default)]
 pub struct History {
-    undo: Vec<Edit>,
-    redo: Vec<Edit>,
+    undo: Vec<Step>,
+    redo: Vec<Step>,
+}
+
+fn merge(last: &mut Change, next: &Change, kind: Kind) -> bool {
+    let merged = match kind {
+        Kind::Typing => next.removed.is_empty() && !next.inserted.contains('\n') && last.at + last.inserted.len() == next.at,
+        Kind::Deleting => next.at + next.removed.len() == last.at || next.at == last.at,
+        Kind::Block => next.at == last.at && last.inserted == next.removed,
+        Kind::Other => false,
+    };
+    if !merged {
+        return false;
+    }
+    match kind {
+        Kind::Typing => last.inserted.push_str(&next.inserted),
+        Kind::Deleting if next.at < last.at => {
+            last.removed.insert_str(0, &next.removed);
+            last.at = next.at;
+        }
+        Kind::Deleting => last.removed.push_str(&next.removed),
+        _ => last.inserted.clone_from(&next.inserted),
+    }
+    true
 }
 
 impl History {
-    pub fn record(&mut self, edit: Edit) {
+    pub fn record(&mut self, step: Step) {
         self.redo.clear();
         if let Some(last) = self.undo.last_mut()
-            && last.kind == edit.kind
-            && edit.time.duration_since(last.time) < GROUP
+            && last.kind == step.kind
+            && step.time.duration_since(last.time) < GROUP
+            && let ([previous], [next]) = (last.changes.as_mut_slice(), step.changes.as_slice())
+            && merge(previous, next, step.kind)
         {
-            let typed = edit.kind == Kind::Typing && edit.removed.is_empty() && !edit.inserted.contains('\n') && last.at + last.inserted.len() == edit.at;
-            let backward = edit.kind == Kind::Deleting && edit.at + edit.removed.len() == last.at;
-            let forward = edit.kind == Kind::Deleting && edit.at == last.at;
-            let table = edit.kind == Kind::Table && edit.at == last.at && last.inserted == edit.removed;
-            if table {
-                last.inserted = edit.inserted;
-                last.after = edit.after;
-                last.time = edit.time;
-                return;
-            }
-            if typed {
-                last.inserted.push_str(&edit.inserted);
-            } else if backward {
-                last.removed.insert_str(0, &edit.removed);
-                last.at = edit.at;
-            } else if forward {
-                last.removed.push_str(&edit.removed);
-            }
-            if typed || backward || forward {
-                last.after = edit.after;
-                last.time = edit.time;
-                return;
-            }
+            last.after = step.after;
+            last.time = step.time;
+            return;
         }
-        self.undo.push(edit);
+        self.undo.push(step);
     }
 
-    pub fn last_mut(&mut self) -> Option<&mut Edit> {
-        self.undo.last_mut()
+    pub fn undo(&mut self) -> Option<Step> {
+        let step = self.undo.pop()?;
+        self.redo.push(step.clone());
+        Some(step)
     }
 
-    pub fn undo(&mut self) -> Option<Edit> {
-        let edit = self.undo.pop()?;
-        self.redo.push(edit.clone());
-        Some(edit)
-    }
-
-    pub fn redo(&mut self) -> Option<Edit> {
-        let edit = self.redo.pop()?;
-        self.undo.push(edit.clone());
-        Some(edit)
+    pub fn redo(&mut self) -> Option<Step> {
+        let step = self.redo.pop()?;
+        self.undo.push(step.clone());
+        Some(step)
     }
 
     pub fn clear(&mut self) {

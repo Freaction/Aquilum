@@ -7,7 +7,7 @@ fn classifies_lines() {
     assert_eq!(b[0], Block::Heading { level: 1, marker: 2 });
     assert!(matches!(b[1], Block::Item(i) if i.level() == 0 && !i.ordered));
     assert!(matches!(b[2], Block::Item(i) if i.level() == 1 && i.indent() == 1));
-    assert!(matches!(b[3], Block::Item(i) if i.level() == 2 && i.indent() == 3));
+    assert!(matches!(b[3], Block::Item(i) if i.level() == 3 && i.indent() == 3));
     assert!(matches!(b[4], Block::Item(i) if i.ordered && i.marker() == (0..3)));
     assert_eq!(b[5], Block::Quote { marker: 2, depth: 1, callout: None });
     assert_eq!(b[6], Block::Rule);

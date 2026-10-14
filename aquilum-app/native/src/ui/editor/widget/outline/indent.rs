@@ -15,46 +15,23 @@ impl TextEditor {
         let range = self.selection();
         let last = if range.end > range.start && text[..range.end].ends_with('\n') { range.end - 1 } else { range.end };
         let (start, end) = (line::bounds(text, range.start).start, line::bounds(text, last).end);
-        let lines: Vec<&str> = text[start..end].split('\n').collect();
-        let several = lines.len() > 1;
-        let mut out = String::with_capacity(end - start + lines.len());
-        let mut shifts = Vec::new();
+        let several = text[start..end].contains('\n');
+        let deepest = |at: usize| matches!(&self.doc.paragraph(self.doc.at_offset(at)).block, Block::Item(item) if item.deepest());
+        let mut edits = Vec::new();
         let mut at = start;
-        for (n, line) in lines.iter().enumerate() {
-            if n > 0 {
-                out.push('\n');
-            }
-            let delta = match more {
-                true if several && line.trim().is_empty() => 0,
-                true => {
-                    out.push('\t');
-                    1
-                }
-                false => -(outdent_width(line) as isize),
-            };
-            out.push_str(&line[delta.min(0).unsigned_abs()..]);
-            if delta != 0 {
-                shifts.push((at, delta));
+        for line in text[start..end].split('\n') {
+            if !more {
+                edits.push((at..at + outdent_width(line), String::new()));
+            } else if !(several && line.trim().is_empty() || deepest(at)) {
+                edits.push((at..at, "\t".to_owned()));
             }
             at += line.len() + 1;
         }
-        if shifts.is_empty() {
+        edits.retain(|(range, text)| !range.is_empty() || !text.is_empty());
+        if edits.is_empty() {
             return false;
         }
-        let map = |offset: usize| {
-            let mut moved = offset as isize;
-            for &(line, delta) in &shifts {
-                if offset < line {
-                    break;
-                }
-                moved += if delta > 0 { delta } else { -((offset - line).min(delta.unsigned_abs()) as isize) };
-            }
-            moved.max(0) as usize
-        };
-        let (anchor, focus) = (map(self.anchor), map(self.focus));
-        self.replace(start..end, &out, Kind::Other);
-        let len = self.doc.len();
-        (self.anchor, self.focus) = (anchor.min(len), focus.min(len));
+        self.dispatch(edits, None, Kind::Other);
         true
     }
 }

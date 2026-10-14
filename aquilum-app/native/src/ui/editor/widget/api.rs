@@ -55,6 +55,9 @@ impl TextEditor {
         widget.refind();
         widget.table_scrolls.clear();
         widget.compose = None;
+        widget.extra_cursors.clear();
+        widget.media = Default::default();
+        (widget.table, widget.hovered_table, widget.hovered_link, widget.unit) = (None, None, None, None);
         let end = widget.doc.len();
         widget.anchor = text.floor_char_boundary(widget.anchor.min(end));
         widget.focus = text.floor_char_boundary(widget.focus.min(end));

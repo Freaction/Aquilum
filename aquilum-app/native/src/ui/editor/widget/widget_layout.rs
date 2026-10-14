@@ -17,7 +17,9 @@ impl TextEditor {
             }
             Update::FocusChanged(focused) => {
                 self.focused = *focused;
-                if !*focused {
+                if *focused {
+                    self.reset_blink();
+                } else {
                     self.hide_suggest();
                 }
                 ctx.request_layout();

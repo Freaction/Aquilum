@@ -102,6 +102,24 @@ fn trashing_a_note_announces_the_removal() {
 }
 
 #[test]
+fn a_rename_announces_the_move_before_the_old_path_disappears_from_the_listing() {
+    let (directory, core, events) = open_core();
+    let workspace = directory.path().join("База");
+    fs::create_dir_all(&workspace).unwrap();
+    let note = workspace.join("Без названия.md");
+    fs::write(&note, "текст\n").unwrap();
+    core.search.prepare(&workspace.to_string_lossy()).unwrap();
+    events.clear();
+
+    gate::rename(&core, &note, &workspace.join("Новая.md")).unwrap();
+
+    let names = events.names();
+    let moved = names.iter().position(|name| *name == "notes-relocated");
+    let listed = names.iter().position(|name| *name == "workspace-changed");
+    assert!(moved.is_some() && listed.is_some() && moved < listed, "{names:?}");
+}
+
+#[test]
 fn watch_batches_reach_the_host_as_the_event_it_can_act_on() {
     use crate::files::watcher::{WatchBatch, WatchScope};
     use std::path::PathBuf;

@@ -87,11 +87,7 @@ impl TextEditor {
 
     pub fn resolve_link_title(this: &mut WidgetMut<'_, Self>, placeholder: &str, title: &str) {
         let Some(at) = this.widget.doc.text().find(placeholder) else { return };
-        let (anchor, focus) = (this.widget.anchor, this.widget.focus);
-        let title = escape::label(title);
-        this.widget.replace(at..at + placeholder.len(), &title, Kind::Other);
-        let shift = |p: usize| if p > at { p + title.len() - placeholder.len() } else { p };
-        (this.widget.anchor, this.widget.focus) = (shift(anchor), shift(focus));
+        this.widget.dispatch(vec![(at..at + placeholder.len(), escape::label(title))], None, Kind::Other);
         this.ctx.submit_action::<TextAction>(this.widget.doc.changed());
         this.ctx.request_layout();
         this.ctx.request_render();

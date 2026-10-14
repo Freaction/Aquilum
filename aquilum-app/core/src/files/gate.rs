@@ -124,8 +124,8 @@ fn rename_now(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, F
     let mut changed = vec![from.to_path_buf(), to.to_path_buf()];
     changed.extend(renamed.result.updated_paths.iter().map(PathBuf::from));
     let rewritten: Vec<PathBuf> = renamed.result.updated_paths.iter().map(PathBuf::from).collect();
-    paths_changed(core, changed);
     announce(core, relocation);
+    paths_changed(core, changed);
     core.documents.reconcile_paths(core, &rewritten);
     Ok(renamed.result)
 }
@@ -139,8 +139,8 @@ fn move_across_now(core: &Core, from: &Path, to: &Path) -> Result<(), FileComman
     rename_file_impl(from, to)?;
     let relocation = relocated(&notes, from, to);
     follow_moves(core, &relocation);
-    paths_changed(core, vec![from.to_path_buf(), to.to_path_buf()]);
     announce(core, relocation);
+    paths_changed(core, vec![from.to_path_buf(), to.to_path_buf()]);
     Ok(())
 }
 
@@ -159,8 +159,8 @@ fn trash_now(core: &Core, workspace: &Path, path: &Path) -> Result<PathBuf, File
     for (note, trashed_at) in &notes {
         history.trashed(&|| core.known_roots(), note, trashed_at);
     }
-    paths_changed(core, vec![path.to_path_buf(), moved.root.clone()]);
     announce(core, removed(notes.iter().map(|(note, _)| note)));
+    paths_changed(core, vec![path.to_path_buf(), moved.root.clone()]);
     Ok(moved.root)
 }
 

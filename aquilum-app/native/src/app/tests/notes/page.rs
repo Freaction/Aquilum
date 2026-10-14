@@ -44,6 +44,31 @@ fn note_page_hides_frontmatter_renames_and_navigates() {
 }
 
 #[test]
+fn a_new_note_renamed_from_its_title_stays_open_with_the_caret_in_the_body() {
+    use crate::ui::editor::TextAction;
+    let mut h = Harness::new();
+    h.app.open(&mut h.root, h.vault.path().join("a.md"));
+    assert!(h.app.new_note(&mut h.root));
+    let tabs = h.app.tabs.tabs().len();
+    let ids = h.app.note_ids.as_ref().unwrap();
+    let (title, body) = (ids.title.id(), ids.body.id());
+    h.act(title, TextAction::Entered("Новая".into()));
+    let renamed = h.vault.path().join("Новая.md");
+    wait_until(100, 20, || {
+        h.app.on_core_events(&mut h.root);
+        h.app.note.as_ref().is_some_and(|n| n.is(&renamed))
+    });
+    for _ in 0..10 {
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        h.app.on_core_events(&mut h.root);
+    }
+    assert_eq!(h.app.tabs.tabs().len(), tabs, "вкладка закрылась");
+    assert_eq!(h.app.tabs.active().path.as_deref(), Some(renamed.as_path()));
+    assert!(h.app.note.as_ref().is_some_and(|n| n.is(&renamed)));
+    assert_eq!(h.root.focused_widget(), Some(body), "каретка не в тексте заметки");
+}
+
+#[test]
 fn home_button_appears_only_for_resolved_home_page() {
     let mut h = Harness::new();
     assert!(h.app.chrome.as_ref().unwrap().home_button.is_none());

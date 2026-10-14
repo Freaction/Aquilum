@@ -6,7 +6,8 @@ use masonry::parley::Layout;
 
 use super::super::markdown::{DANGER, SECONDARY, TEXT};
 use super::super::resolve::{Fetch, Grid, Part, Shape};
-use super::metrics::{BAR_HEIGHT, BAR_MIN, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, NATURAL_MAX, PAD, PENDING};
+use super::super::table::fit_columns;
+use super::metrics::{BAR_HEIGHT, BAR_MIN, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, PAD, PENDING};
 use super::{Action, Drawing, Font, Item, Spec, Tone, card, link_hits};
 
 fn cell_text(parts: &[Part]) -> (String, Vec<(Range<usize>, String)>) {
@@ -49,38 +50,22 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
             return Drawing::new(height, items);
         }
     };
+    let widths = (grid.shape == Shape::Table).then(|| column_widths(grid, inner, make));
+    let mut span = widths.as_ref().map_or(inner, |widths| widths.iter().sum());
     let mut y = PAD;
     let mut body = Vec::new();
     let mut hits = Vec::new();
     if let Some(title) = &grid.title {
         let layout = make(&Spec { bold: true, wrap: Some(inner), ..Spec::plain(title, Font::Editor, SECONDARY) });
+        span = span.max(f64::from(layout.width()));
         let h = f64::from(layout.height()) + CELL_Y * 2.0;
         body.push(Item::Text(Point::new(PAD, y + CELL_Y), layout, title.clone()));
         y += h;
-        body.push(Item::Fill(Rect::new(PAD, y - 1.0, PAD + inner, y).to_rounded_rect(0.0), Tone::Divider));
+        body.push(Item::Fill(Rect::new(PAD, y - 1.0, PAD + span, y).to_rounded_rect(0.0), Tone::Divider));
     }
-    match grid.shape {
-        Shape::Table => {
-            let m = grid.columns.len().max(grid.rows.iter().map(Vec::len).max().unwrap_or(0)).max(1);
-            let mut natural = vec![0.0_f64; m];
-            for (c, name) in grid.columns.iter().enumerate() {
-                let layout = make(&Spec { bold: true, ..Spec::plain(name, Font::Editor, SECONDARY) });
-                natural[c] = natural[c].max(f64::from(layout.width()));
-            }
-            for row in &grid.rows {
-                for (c, parts) in row.iter().enumerate() {
-                    let w = if parts.iter().any(|p| matches!(p, Part::Progress(_))) {
-                        BAR_MIN
-                    } else {
-                        let (text, _) = cell_text(parts);
-                        f64::from(make(&Spec::plain(&text, Font::Editor, TEXT)).width()).min(NATURAL_MAX)
-                    };
-                    natural[c] = natural[c].max(w);
-                }
-            }
-            let natural: Vec<f64> = natural.into_iter().map(|w| w + CELL_X * 2.0).collect();
-            let total: f64 = natural.iter().sum();
-            let widths: Vec<f64> = natural.iter().map(|w| w * inner / total).collect();
+    match widths {
+        Some(widths) => {
+            let m = widths.len();
             let mut xs = vec![PAD];
             for w in &widths {
                 xs.push(xs.last().copied().unwrap_or(PAD) + w);
@@ -134,11 +119,11 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
                 }
                 y += height;
                 if r + 1 < count {
-                    body.push(Item::Fill(Rect::new(PAD, y - 1.0, PAD + inner, y).to_rounded_rect(0.0), Tone::Divider));
+                    body.push(Item::Fill(Rect::new(PAD, y - 1.0, PAD + span, y).to_rounded_rect(0.0), Tone::Divider));
                 }
             }
         }
-        Shape::List | Shape::Tasks => {
+        None => {
             for row in &grid.rows {
                 let parts: Vec<Part> = row.iter().flatten().cloned().collect();
                 let check = task(&parts);
@@ -163,8 +148,24 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
         }
     }
     let height = y + PAD;
-    items.extend(card(available, height));
+    items.extend(card(span + PAD * 2.0, height));
     items.extend(body);
     Drawing { height, items, hits }
+}
+
+fn column_widths(grid: &Grid, inner: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Vec<f64> {
+    let m = grid.columns.len().max(grid.rows.iter().map(Vec::len).max().unwrap_or(0)).max(1);
+    let mut natural = vec![0.0_f64; m];
+    for (c, name) in grid.columns.iter().enumerate() {
+        natural[c] = natural[c].max(f64::from(make(&Spec { bold: true, ..Spec::plain(name, Font::Editor, SECONDARY) }).width()));
+    }
+    for row in &grid.rows {
+        for (c, parts) in row.iter().enumerate() {
+            let w = if parts.iter().any(|p| matches!(p, Part::Progress(_))) { BAR_MIN } else { f64::from(make(&Spec::plain(&cell_text(parts).0, Font::Editor, TEXT)).width()) };
+            natural[c] = natural[c].max(w);
+        }
+    }
+    let natural: Vec<f64> = natural.into_iter().map(|w| w + CELL_X * 2.0).collect();
+    fit_columns(&natural, inner)
 }
 

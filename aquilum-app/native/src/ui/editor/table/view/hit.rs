@@ -13,10 +13,10 @@ impl TableView {
         if p.y < PAD_Y - RESIZE_ZONE || p.y > table_bottom + ADD + RESIZE_ZONE {
             return Hit::Outside;
         }
-        if p.x >= self.scroll_w && p.x <= self.scroll_w + ADD && p.y >= PAD_Y && p.y <= table_bottom {
+        if p.x >= self.edge() && p.x <= self.edge() + ADD && p.y >= PAD_Y && p.y <= table_bottom {
             return Hit::AddCol;
         }
-        if p.x > self.scroll_w {
+        if p.x > self.edge() {
             return Hit::Empty;
         }
         let on_row_strip = p.x < self.corner;

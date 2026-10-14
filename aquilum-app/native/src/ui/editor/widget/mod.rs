@@ -10,7 +10,7 @@ pub(super) use masonry::core::BrushIndex;
 pub(super) use super::markdown;
 pub(super) use super::document::{Fold, Paragraph};
 pub(super) use super::markdown::{Block, Callout};
-pub(super) use super::history::{Edit, Kind};
+pub(super) use super::history::Kind;
 pub(super) use crate::ui::tokens::size;
 use masonry::core::{
     AccessCtx, ChildrenIds, ComposeCtx, CursorIcon, EventCtx, LayoutCtx, MeasureCtx, PaintCtx,

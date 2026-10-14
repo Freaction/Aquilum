@@ -27,8 +27,6 @@ impl TextEditor {
                 self.media.selected = None;
                 self.media.hover = None;
                 self.replace(range, "", Kind::Other);
-                self.anchor = start.min(self.doc.len());
-                self.focus = self.anchor;
                 self.changed(ctx);
             }
             _ => {

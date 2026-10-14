@@ -152,11 +152,9 @@ impl TextEditor {
             Source::Key => format!("{title}: "),
             Source::Value => title.clone(),
         };
-        self.replace(s.from..s.to, &insert, Kind::Other);
-        if matches!(s.source, Source::Link { close: false, .. }) && self.doc.text()[self.focus..].starts_with(CLOSE) {
-            self.focus += CLOSE.len();
-            self.anchor = self.focus;
-        }
+        let skip = matches!(s.source, Source::Link { close: false, .. }) && self.doc.text()[s.to..].starts_with(CLOSE);
+        let caret = s.from + insert.len() + if skip { CLOSE.len() } else { 0 };
+        self.replace_and_select(s.from..s.to, &insert, Kind::Other, (caret, caret));
         self.close_suggest();
         true
     }

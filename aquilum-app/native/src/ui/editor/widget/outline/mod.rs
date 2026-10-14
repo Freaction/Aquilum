@@ -5,7 +5,4 @@ mod item;
 mod newline;
 mod numbering;
 
-pub(super) use numbering::renumber;
-
-#[cfg(test)]
-mod tests;
+pub(super) use numbering::renumbered;

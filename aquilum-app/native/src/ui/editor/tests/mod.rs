@@ -6,6 +6,7 @@ mod input;
 mod keys;
 mod lists;
 mod nesting;
+mod numbering;
 mod quotes;
 mod scroll;
 mod selection;

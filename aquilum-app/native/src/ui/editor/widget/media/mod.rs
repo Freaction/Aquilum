@@ -26,8 +26,19 @@ pub(super) struct MediaState {
     bar: Option<(usize, crate::ui::widgets::Intro)>,
 }
 
-impl TextEditor {
+impl MediaState {
+    pub(super) fn remap(&mut self, map: impl Fn(usize) -> usize) {
+        self.hover = self.hover.map(|(start, hit)| (map(start), hit));
+        self.selected = self.selected.map(&map);
+        self.crop = self.crop.map(|(start, crop)| (map(start), crop));
+        self.drag = self.drag.map(|(start, drag)| (map(start), drag));
+        if let Some((start, _)) = &mut self.bar {
+            *start = map(*start);
+        }
+    }
+}
 
+impl TextEditor {
     fn media_view(&self, start: usize) -> Option<&MediaView> {
         let p = self.doc.paragraph(self.doc.at_offset(start));
         match (p.start == start, p.embed.as_deref().map(|e| &e.view)) {
@@ -74,12 +85,9 @@ impl TextEditor {
     fn rewrite(&mut self, start: usize, line: &EmbedLine) {
         let range = self.doc.paragraph(self.doc.at_offset(start)).range();
         let text = media::format(line);
-        if self.doc.text()[range.clone()] == text {
-            return;
+        if self.doc.text()[range.clone()] != text {
+            self.dispatch(vec![(range, text)], None, Kind::Block);
         }
-        let keep = (self.anchor, self.focus);
-        self.replace(range, &text, Kind::Table);
-        (self.anchor, self.focus) = (keep.0.min(self.doc.len()), keep.1.min(self.doc.len()));
     }
 
     fn end_crop(&mut self, apply: bool) {

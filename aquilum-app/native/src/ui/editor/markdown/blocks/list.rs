@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use aquilum_core::markdown::fence::INDENT_LIMIT;
+use aquilum_core::markdown::indent::TAB;
 use aquilum_core::markdown::list as grammar;
 
 use super::super::brushes::LIST_CALLOUTS;
@@ -45,6 +46,10 @@ impl Item {
         usize::from(self.level)
     }
 
+    pub fn deepest(&self) -> bool {
+        self.level() + 1 >= DEPTH
+    }
+
     pub fn indent(&self) -> usize {
         self.indent as usize
     }
@@ -83,10 +88,6 @@ impl Levels {
         self.len == 0
     }
 
-    pub fn last(&self) -> Option<usize> {
-        self.len.checked_sub(1).map(usize::from)
-    }
-
     pub fn accepts(&self, columns: usize) -> bool {
         !self.is_empty() || columns <= INDENT_LIMIT
     }
@@ -97,7 +98,21 @@ impl Levels {
             self.len -= 1;
         }
         let top = usize::from(self.len);
-        let level = if top > 0 && self.indent[top - 1] == indent { top - 1 } else { top.min(DEPTH - 1) };
+        if top > 0 && self.indent[top - 1] == indent {
+            return self.put(top - 1, indent, content);
+        }
+        let mut level = top;
+        if let Some(parent) = top.checked_sub(1).map(|i| usize::from(self.indent[i])) {
+            for stop in 1..=(usize::from(indent) - parent - 1) / TAB {
+                let skipped = column(parent + stop * TAB);
+                level = self.put(level, skipped, skipped) + 1;
+            }
+        }
+        self.put(level, indent, content)
+    }
+
+    fn put(&mut self, level: usize, indent: u16, content: u16) -> usize {
+        let level = level.min(DEPTH - 1);
         self.indent[level] = indent;
         self.content[level] = content;
         self.len = level as u8 + 1;
@@ -135,7 +150,7 @@ mod tests {
         levels.enter(0, 2);
         levels.enter(4, 6);
         assert_eq!(levels.enter(2, 4), 1);
-        assert_eq!(levels.last(), Some(1));
+        assert_eq!(levels.owner(6), Some(1));
     }
 
     #[test]
@@ -151,6 +166,17 @@ mod tests {
     }
 
     #[test]
+    fn every_further_tab_stop_is_one_more_level() {
+        let mut levels = Levels::default();
+        levels.enter(0, 3);
+        assert_eq!(levels.enter(8, 11), 2);
+        assert_eq!(levels.enter(4, 7), 1);
+        assert_eq!(levels.enter(12, 15), 3);
+        assert_eq!(levels.enter(8, 11), 2);
+        assert_eq!(levels.enter(2, 4), 1);
+    }
+
+    #[test]
     fn the_first_item_cannot_start_deeper_than_three_columns() {
         let mut levels = Levels::default();
         assert!(levels.accepts(3));
@@ -163,8 +189,7 @@ mod tests {
     fn the_depth_is_capped_by_replacing_the_deepest_level() {
         let mut levels = Levels::default();
         for step in 0..DEPTH + 3 {
-            levels.enter(step * 2, step * 2 + 2);
+            assert_eq!(levels.enter(step * 2, step * 2 + 2), step.min(DEPTH - 1));
         }
-        assert_eq!(levels.last(), Some(DEPTH - 1));
     }
 }

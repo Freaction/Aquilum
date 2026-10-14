@@ -35,13 +35,8 @@ impl TextEditor {
         let range = self.selection();
         if !range.is_empty() {
             if let Some(close) = pair_close(c) {
-                let selected = self.doc.text()[range.clone()].to_owned();
-                let wrapped = format!("{c}{selected}{close}");
-                let len = selected.len();
-                self.replace(range.clone(), &wrapped, Kind::Typing);
                 let start = range.start + c.len_utf8();
-                let end = start + len;
-                (self.anchor, self.focus) = (start, end);
+                self.dispatch(vec![(range.start..range.start, c.to_string()), (range.end..range.end, close.to_string())], Some((start, start + range.len())), Kind::Typing);
                 return true;
             }
             return false;
@@ -61,10 +56,8 @@ impl TextEditor {
             if (c == '\'' || c == '"' || c == '`') && prev_char.is_some_and(char::is_alphanumeric) {
                 return false;
             }
-            let pair = format!("{c}{close}");
-            self.replace(self.focus..self.focus, &pair, Kind::Typing);
-            let inside = self.focus - close.len_utf8();
-            (self.anchor, self.focus) = (inside, inside);
+            let inside = self.focus + c.len_utf8();
+            self.replace_and_select(self.focus..self.focus, &format!("{c}{close}"), Kind::Typing, (inside, inside));
             return true;
         }
 

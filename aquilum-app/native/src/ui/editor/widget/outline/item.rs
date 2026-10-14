@@ -3,49 +3,37 @@ use aquilum_core::markdown::list as grammar;
 
 pub(super) struct Item<'a> {
     pub(super) indent: &'a str,
-    pub(super) columns: usize,
-    bullet: char,
-    pub(super) number: Option<u64>,
-    task: bool,
-    pub(super) marker: Range<usize>,
-    pub(super) content: usize,
+    found: grammar::Item,
 }
 
 impl Item<'_> {
     pub(super) fn parse(line: &str) -> Option<Item<'_>> {
         let found = grammar::item(line)?;
-        Some(Item {
-            indent: &line[..found.indent.bytes],
-            columns: found.indent.columns,
-            bullet: found.bullet,
-            number: found.number,
-            task: found.task.is_some(),
-            marker: found.marker,
-            content: found.content,
-        })
+        Some(Item { indent: &line[..found.indent.bytes], found })
+    }
+
+    pub(super) fn content(&self) -> usize {
+        self.found.content
     }
 
     pub(super) fn content_column(&self) -> usize {
-        self.columns + self.marker.len()
+        self.found.content_column()
     }
 
-    fn prefix(&self, number: Option<u64>) -> String {
-        let task = if self.task { "[ ] " } else { "" };
-        match number {
-            Some(n) => format!("{n}{} {task}", self.bullet),
-            None => format!("{} {task}", self.bullet),
-        }
-    }
-
-    pub(super) fn marker(&self) -> String {
-        self.prefix(self.number)
+    pub(super) fn number(&self) -> Option<(Range<usize>, u64)> {
+        let marker = &self.found.marker;
+        self.found.number.map(|n| (marker.start..marker.end - 2, n))
     }
 
     pub(super) fn next(&self) -> String {
-        self.prefix(self.number.map(|n| n + 1))
+        let task = if self.found.task.is_some() { "[ ] " } else { "" };
+        match self.found.number {
+            Some(n) => format!("{}{} {task}", n + 1, self.found.bullet),
+            None => format!("{} {task}", self.found.bullet),
+        }
     }
 
     pub(super) fn hanging(&self) -> String {
-        format!("{}{}", self.indent, " ".repeat(self.marker.len()))
+        format!("{}{}", self.indent, " ".repeat(self.found.marker.len()))
     }
 }

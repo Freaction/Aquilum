@@ -1,6 +1,7 @@
 use masonry::core::keyboard::{Key, Modifiers, NamedKey};
 
 use super::support::{click, command_key, markdown_root, named, press, text, typing};
+use crate::test_dir::command;
 
 #[test]
 fn list_lines_inside_code_blocks_stay_plain_text() {
@@ -37,12 +38,24 @@ fn tab_indents_and_shift_tab_outdents_lines() {
 }
 
 #[test]
+fn tab_stops_at_the_deepest_level_so_shift_tab_works_at_once() {
+    let source = (0..8).map(|n| format!("{}- {n}", "\t".repeat(n))).collect::<Vec<_>>().join("\n");
+    let mut root = markdown_root(&source);
+    press(&mut root, Key::Named(NamedKey::End), command());
+    named(&mut root, NamedKey::Tab);
+    named(&mut root, NamedKey::Tab);
+    assert_eq!(text(&root), source);
+    press(&mut root, Key::Named(NamedKey::Tab), Modifiers::SHIFT);
+    assert!(text(&root).ends_with("\n\t\t\t\t\t\t- 7"), "{:?}", text(&root));
+}
+
+#[test]
 fn enter_continues_lists_and_quotes() {
     let cases = [
         ("- один", "- один\n- "),
         ("\t- один", "\t- один\n\t- "),
         ("1. один", "1. один\n2. "),
-        ("3) один", "1) один\n2) "),
+        ("3) один", "3) один\n4) "),
         ("- [ ] дело", "- [ ] дело\n- [ ] "),
         ("> цитата", "> цитата\n> "),
         ("текст", "текст\n"),

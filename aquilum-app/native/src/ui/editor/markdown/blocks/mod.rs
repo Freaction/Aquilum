@@ -70,7 +70,6 @@ pub struct State {
     quoting: bool,
     paragraph: bool,
     indenting: bool,
-    listing: bool,
     math: bool,
     commenting: bool,
     setext: bool,
@@ -133,7 +132,7 @@ impl State {
             return None;
         }
         let indent = Indent::of(line);
-        let level = self.levels.owner(indent.columns).or_else(|| self.listing.then(|| self.levels.last()).flatten())?;
+        let level = self.levels.owner(indent.columns)?;
         Some(Block::Continuation { level, lead: indent.bytes, width: self.levels.width(level) })
     }
 
@@ -176,7 +175,6 @@ impl State {
         self.quoting = block.is_quote();
         self.paragraph = matches!(block, Block::Text) && !blank;
         self.indenting = matches!(block, Block::Code { fence: false, lang: None, .. }) && self.open.is_none();
-        self.listing = in_list;
         self.setext = matches!(block, Block::Heading { marker: 0, .. });
         self.defining = matches!(block, Block::Definition { .. });
         if !(in_list || matches!(block, Block::Text) && blank || self.open.is_some() || matches!(block, Block::Code { fence: true, .. })) {

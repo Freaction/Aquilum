@@ -3,8 +3,11 @@ use masonry::kurbo::{Point, Rect};
 use masonry::parley::{Alignment, Layout};
 
 use super::{ADD, GAP, Line, PAD_Y, STRIP, STRIP_PAD, TOP, Cell, TableView, letters};
+
+const UNBOUNDED: f64 = 1.0e6;
 use crate::ui::editor::markdown::Decor;
-use crate::ui::editor::table::model::{Align, Range2, Table};
+use crate::ui::editor::table::fit_columns;
+use crate::ui::editor::table::model::{Align, DEFAULT_COL, Range2, Table};
 use crate::ui::scroll::bar::Span;
 use crate::ui::tokens::size;
 
@@ -15,14 +18,14 @@ impl Table {
         let columns: Vec<Layout<BrushIndex>> = (0..m).map(|c| make(&letters(c), None, Alignment::Start, false).0).collect();
         let corner = numbers.iter().map(|l| f64::from(l.width()) + STRIP_PAD * 2.0).fold(STRIP, f64::max);
         let scroll_w = (available - ADD).max(STRIP * 2.0);
-        let widths: Vec<f64> = if self.explicit { self.widths.clone() } else { vec![((scroll_w - corner - GAP) / m as f64).max(1.0); m] };
+        let pad = size::EDITOR_TABLE_CELL_PADDING;
+        let widths = if self.explicit { self.widths.clone() } else { fit_columns(&self.natural(pad, &mut make), scroll_w - corner - GAP - size::BORDER_1) };
         let mut xs = vec![0.0];
         for w in &widths {
             xs.push(xs.last().copied().unwrap_or(0.0) + w);
         }
-        let layout_w = (xs[m] + corner + GAP).max(scroll_w);
+        let layout_w = xs[m] + corner + GAP + size::BORDER_1;
         let mut heights = self.heights.clone();
-        let pad = size::EDITOR_TABLE_CELL_PADDING;
         let mut placed = Vec::new();
         for r in 0..n {
             for c in 0..m {
@@ -58,9 +61,27 @@ impl Table {
         let bar = if layout_w > scroll_w { size::SCROLLBAR_WIDTH } else { 0.0 };
         TableView { model: self.clone(), height: TOP + ys[n] + ADD + bar + PAD_Y, corner, scroll_w, layout_w, xs, ys, cells, columns, numbers }
     }
+
+    fn natural(&self, pad: f64, make: &mut impl FnMut(&str, Option<f64>, Alignment, bool) -> (Layout<BrushIndex>, Decor)) -> Vec<f64> {
+        let mut natural = vec![DEFAULT_COL; self.cols()];
+        for r in 0..self.rows() {
+            for c in 0..self.cols() {
+                let region = self.region(r, c);
+                if (region.top, region.left, region.right) == (r, c, c) {
+                    let (layout, _) = make(&self.cells[r][c], Some(UNBOUNDED), Alignment::Start, true);
+                    natural[c] = natural[c].max(f64::from(layout.width()) + pad * 2.0);
+                }
+            }
+        }
+        natural
+    }
 }
 
 impl TableView {
+    pub fn edge(&self) -> f64 {
+        self.layout_w.min(self.scroll_w)
+    }
+
     pub fn max_scroll(&self) -> f64 {
         (self.layout_w - self.scroll_w).max(0.0)
     }

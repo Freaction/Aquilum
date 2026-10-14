@@ -1,64 +1,43 @@
 use super::item::Item;
 use super::*;
-use aquilum_core::markdown::indent::{Indent, TAB};
-use aquilum_core::markdown::line;
-
-fn reduce(indent: &str) -> Option<&str> {
-    if let Some(rest) = indent.strip_suffix('\t') {
-        return Some(rest);
-    }
-    let spaces = indent.len() - indent.trim_end_matches(' ').len();
-    (spaces > 0).then(|| &indent[..indent.len() - spaces.min(TAB)])
-}
-
-fn open_item<'a>(before: &'a str, line: &str) -> Option<Item<'a>> {
-    let columns = Indent::of(line).columns;
-    if columns == 0 {
-        return None;
-    }
-    for text in before.rsplit('\n') {
-        if text.trim().is_empty() {
-            return None;
-        }
-        if let Some(item) = Item::parse(text) {
-            return (item.content_column() == columns).then_some(item);
-        }
-        if Indent::of(text).columns != columns {
-            return None;
-        }
-    }
-    None
-}
+use aquilum_core::markdown::indent::Indent;
 
 impl TextEditor {
+    fn continued(&self, i: usize) -> Option<Item<'_>> {
+        let Block::Continuation { level, .. } = self.doc.paragraph(i).block else { return None };
+        let owner = (0..i).rev().map(|j| self.doc.paragraph(j)).find(|p| matches!(&p.block, Block::Item(item) if item.level() == level))?;
+        let item = Item::parse(&self.doc.text()[owner.range()])?;
+        let line = &self.doc.text()[self.doc.paragraph(i).range()];
+        (Indent::of(line).columns == item.content_column()).then_some(item)
+    }
+
     pub(in super::super) fn newline(&mut self, hard: bool) -> bool {
         let range = self.selection();
         if !range.is_empty() {
             return false;
         }
-        let text = self.doc.text();
         let at = range.start;
-        if self.doc.paragraph(self.doc.at_offset(at)).block.is_code() {
+        let i = self.doc.at_offset(at);
+        let p = self.doc.paragraph(i);
+        if p.block.is_code() {
             return false;
         }
-        let Range { start, end } = line::bounds(text, at);
-        let line = &text[start..end];
-        let before = &text[..start.saturating_sub(1)];
+        let Range { start, end } = p.range();
+        let line = &self.doc.text()[start..end];
         let item = Item::parse(line);
-        if item.as_ref().is_some_and(|item| at < start + item.content) {
+        if item.as_ref().is_some_and(|item| at < start + item.content()) {
             return false;
         }
         let (range, insert) = if hard {
-            let Some(open) = item.or_else(|| open_item(before, line)) else { return false };
+            let Some(open) = item.or_else(|| self.continued(i)) else { return false };
             (at..at, format!("\n{}", open.hanging()))
         } else if let Some(item) = item {
-            if line[item.content..].trim().is_empty() {
-                let prefix = reduce(item.indent).map(|indent| format!("{indent}{}", item.marker())).unwrap_or_default();
-                (start..end, prefix)
-            } else {
-                (at..at, format!("\n{}{}", item.indent, item.next()))
+            match (line[item.content()..].trim().is_empty(), item.indent.is_empty()) {
+                (true, false) => return self.indent(false),
+                (true, true) => (start..end, String::new()),
+                (false, _) => (at..at, format!("\n{}{}", item.indent, item.next())),
             }
-        } else if let Some(open) = open_item(before, line) {
+        } else if let Some(open) = self.continued(i) {
             (at..at, format!("\n{}{}", open.indent, open.next()))
         } else if line.trim_start().starts_with('>') {
             let quote = &line[..line.len() - line.trim_start_matches([' ', '\t', '>']).len()];
