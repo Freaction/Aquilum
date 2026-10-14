@@ -62,7 +62,11 @@ pub fn strip_markdown_extension(value: &str) -> &str {
 }
 
 pub fn canonical_path(path: &Path) -> PathBuf {
-    normalize_extended_prefix(fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf()))
+    let resolved = fs::canonicalize(path).or_else(|error| match (path.parent(), path.file_name()) {
+        (Some(parent), Some(name)) => fs::canonicalize(parent).map(|parent| parent.join(name)),
+        _ => Err(error),
+    });
+    normalize_extended_prefix(resolved.unwrap_or_else(|_| path.to_path_buf()))
 }
 
 fn normalize_extended_prefix(path: PathBuf) -> PathBuf {
@@ -164,6 +168,13 @@ mod tests {
         let version = "1790000000000_aaaaaaaa_agent.md";
         assert!(is_hidden(root, &Path::new("C:/vault/.aquilum/history/Идея.md").join(version)));
         assert!(is_hidden(root, &Path::new("C:/vault/.trash/.aquilum/history/Идея.md").join(version)));
+    }
+
+    #[test]
+    fn a_path_that_does_not_exist_yet_resolves_through_its_folder() {
+        let directory = tempfile::tempdir().unwrap();
+        let folder = super::canonical_path(directory.path());
+        assert_eq!(super::canonical_path(&directory.path().join("Новая.md")), folder.join("Новая.md"));
     }
 
     #[test]
