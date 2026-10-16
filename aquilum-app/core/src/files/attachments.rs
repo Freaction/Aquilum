@@ -4,6 +4,7 @@ use notify::{Event, EventKind};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
+use unicode_normalization::UnicodeNormalization;
 use walkdir::WalkDir;
 
 pub const MEDIA_EXTENSIONS: &[&str] = &[
@@ -37,11 +38,19 @@ fn scan(root: &Path) -> HashMap<String, String> {
             continue;
         };
         let relative = slash_path(relative);
-        let name = entry.file_name().to_string_lossy().to_lowercase();
-        index.entry(relative.to_lowercase()).or_insert_with(|| relative.clone());
+        let name = key(&entry.file_name().to_string_lossy());
+        index.entry(key(&relative)).or_insert_with(|| relative.clone());
         index.entry(name).or_insert(relative);
     }
     index
+}
+
+fn key(path: &str) -> String {
+    path.trim()
+        .replace(['\u{a0}', '\u{202f}'], " ")
+        .nfc()
+        .collect::<String>()
+        .to_lowercase()
 }
 
 fn index() -> MutexGuard<'static, Option<(PathBuf, HashMap<String, String>)>> {
@@ -90,7 +99,7 @@ pub fn resolve_attachments_impl(root: &Path, names: Vec<String>) -> Vec<Option<S
     };
     names
         .iter()
-        .map(|name| found.get(&name.trim().to_lowercase()).cloned())
+        .map(|name| found.get(&key(name)).cloned())
         .collect()
 }
 
@@ -138,5 +147,31 @@ mod tests {
             resolve_attachments_impl(root, vec!["new.png".to_owned()]),
             vec![Some("new.png".to_owned())]
         );
+    }
+
+    const LINK: &str = "вложенные файлы/7cf4fd6066217977f20d9bb20c5d494b_MD5.jpg";
+
+    fn vault_with(folder: &str) -> tempfile::TempDir {
+        let directory = tempfile::tempdir().unwrap();
+        let folder = directory.path().join(folder);
+        fs::create_dir(&folder).unwrap();
+        fs::write(folder.join("7cf4fd6066217977f20d9bb20c5d494b_MD5.jpg"), b"x").unwrap();
+        directory
+    }
+
+    #[test]
+    fn a_path_with_a_space_in_the_folder_is_found() {
+        let vault = vault_with("вложенные файлы");
+        assert_eq!(resolve_attachments_impl(vault.path(), vec![LINK.to_owned()]), vec![Some(LINK.to_owned())]);
+    }
+
+    #[test]
+    fn a_path_is_found_whatever_the_unicode_form_and_the_kind_of_space() {
+        use super::UnicodeNormalization;
+        let decomposed: String = "вложенные файлы".nfd().collect();
+        let vault = vault_with(&decomposed);
+        let found = resolve_attachments_impl(vault.path(), vec![LINK.to_owned(), LINK.replace(' ', "\u{a0}")]);
+        assert!(found.iter().all(Option::is_some), "{found:?}");
+        assert!(vault.path().join(found[0].as_deref().unwrap()).is_file());
     }
 }
