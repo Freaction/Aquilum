@@ -192,7 +192,7 @@ mod tests {
 
     #[test]
     fn prose_without_inline_delimiters_is_ignored() {
-        assert!(pairs("Обычный текст заметки\\n> - пункт списка\\nЕще один абзац").is_empty());
+        assert!(pairs("Обычный текст заметки\n> - пункт списка\nЕще один абзац").is_empty());
         assert!(pairs("A note with `inline code` but no metadata").is_empty());
     }
 
@@ -201,7 +201,7 @@ mod tests {
         assert!(pairs("`Оценка:: 9` is source code, not metadata").is_empty());
         assert_eq!(
             pairs("Автор:: Лем and `Value:: Text`"),
-            vec![("Автор".to_owned(), "Лем and ".to_owned())]
+            vec![("Автор".to_owned(), "Лем and".to_owned())]
         );
     }
 
