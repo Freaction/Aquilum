@@ -87,7 +87,7 @@ fn font_size_field_keeps_focus_and_blank_means_default() {
     let _ = h.root.redraw();
     assert_eq!(h.config().editor.font.font_size_base, 16, "пустое поле — размер по умолчанию");
     assert_eq!(h.root.focused_widget(), Some(field(&h)), "фокус слетел");
-    let text = |h: &Harness| h.root.get_widget(field(h)).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).unwrap().inner().text().to_owned();
+    let text = |h: &Harness| h.root.get_widget(field(h)).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).unwrap().inner().text();
     assert_eq!(text(&h), "");
     h.type_text("20");
     let _ = h.root.redraw();

@@ -62,7 +62,7 @@ impl App {
         let Opening { file, page, title, initial, peek } = opening;
         let file = file.as_path();
         let Some(workspace) = self.tree.root().map(Path::to_path_buf) else { return };
-        let fields = page.as_ref().and_then(|p| self.note_text(p));
+        let fields = page.as_ref().and_then(|p| self.note_rope(p)).map(|text| frontmatter::head(&text));
         let fields = fields.as_deref().and_then(frontmatter::parse);
         let key = fields
             .as_ref()

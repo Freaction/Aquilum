@@ -109,5 +109,5 @@ pub fn attributes(node: roxmltree::Node<'_, '_>) -> Vec<(Box<str>, Box<str>)> {
 }
 
 pub fn utf16_len(text: &str) -> u32 {
-    text.encode_utf16().count() as u32
+    aquilum_core::text::utf16::utf16_len(text) as u32
 }

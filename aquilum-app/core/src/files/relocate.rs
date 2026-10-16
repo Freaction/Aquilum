@@ -1,4 +1,4 @@
-use super::document::rename_file_impl;
+use super::entries::rename_file_impl;
 use super::error::FileCommandError;
 use crate::search::paths::same_path;
 use std::fs;
@@ -150,10 +150,7 @@ fn record_moved(
         if !entry.file_type().is_file() {
             continue;
         }
-        let from = match entry.path().strip_prefix(moved) {
-            Ok(rest) if !rest.as_os_str().is_empty() => source.join(rest),
-            _ => source.to_path_buf(),
-        };
+        let Some(from) = super::rebase(entry.path(), moved, source) else { continue };
         files.push((from, entry.path().to_path_buf()));
         let Some(deleted_at) = stamp else {
             continue;

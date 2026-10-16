@@ -1,45 +1,49 @@
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 use std::time::Instant;
 
 use masonry::imaging::Painter;
+use masonry::peniko::Color;
+
+use aquilum_core::text::matcher::Matcher;
 
 use super::TextEditor;
-use crate::ui::editor::document::Paragraph;
+use super::matching::{HOVER, SELECTION};
 use crate::ui::theme;
 
 impl TextEditor {
-    pub(super) fn paint_selection_matches(&self, painter: &mut Painter<'_>, shown: &[Paragraph], range: &Range<usize>) {
-        if range.len() < 2 || range.len() > 64 {
+    pub(super) fn shown_bytes(&self, shown: &RangeInclusive<usize>) -> Range<usize> {
+        self.doc.paragraph(*shown.start()).start..self.doc.paragraph(*shown.end()).end().min(self.doc.end())
+    }
+
+    fn paint_visible_matches(&self, painter: &mut Painter<'_>, shown: RangeInclusive<usize>, matcher: &Matcher, skip: Option<&Range<usize>>, color: Color) {
+        let visible = self.shown_bytes(&shown);
+        matcher.each(self.doc.slice(visible.clone()), |found| {
+            let occurrence = visible.start + found.start..visible.start + found.end;
+            if skip != Some(&occurrence) {
+                self.paint_range(painter, shown.clone(), occurrence, color);
+            }
+            true
+        });
+    }
+
+    pub(super) fn paint_selection_matches(&self, painter: &mut Painter<'_>, shown: RangeInclusive<usize>, range: &Range<usize>) {
+        if !self.smart.matches || range.len() < 2 || range.len() > 64 {
             return;
         }
-        let doc_text = self.doc.text();
-        let selected = &doc_text[range.clone()];
+        let selected = &self.doc.copy(range.clone());
         if selected.contains('\n') || selected.trim().is_empty() {
             return;
         }
-        let tm = theme::current();
-        let match_color = tm.search_match_bg.multiply_alpha(0.35);
-        for (idx, _) in doc_text.match_indices(selected) {
-            let occ = idx..idx + selected.len();
-            if occ != *range {
-                self.paint_range(painter, shown, occ, match_color);
-            }
-        }
+        let color = theme::current().search_match_bg.multiply_alpha(0.35);
+        self.paint_visible_matches(painter, shown, &Matcher::new(selected, SELECTION), Some(range), color);
     }
 
-    pub(super) fn paint_hover_terms(&self, painter: &mut Painter<'_>, shown: &[Paragraph]) {
+    pub(super) fn paint_hover_terms(&self, painter: &mut Painter<'_>, shown: RangeInclusive<usize>) {
         let color = theme::current().search_match_bg.multiply_alpha(0.5);
-        for mark in &self.hover_marks {
-            self.paint_range(painter, shown, mark.clone(), color);
-        }
+        self.paint_visible_matches(painter, shown, &Matcher::any(&self.hover_terms, HOVER), None, color);
     }
 
-    pub(super) fn find_hover_marks(&mut self) {
-        let text = self.doc.text();
-        self.hover_marks = self.hover_terms.iter().flat_map(|term| super::find::find_all(text, term)).collect();
-    }
-
-    pub(super) fn paint_external_reveal(&self, painter: &mut Painter<'_>, shown: &[Paragraph]) {
+    pub(super) fn paint_external_reveal(&self, painter: &mut Painter<'_>, shown: RangeInclusive<usize>) {
         let Some((range, start)) = &self.external_reveal else { return };
         let elapsed = start.elapsed().as_secs_f32();
         if elapsed < 0.9 {
@@ -53,7 +57,6 @@ impl TextEditor {
     pub fn set_hover_terms(this: &mut masonry::core::WidgetMut<'_, Self>, terms: Vec<String>) {
         if this.widget.hover_terms != terms {
             this.widget.hover_terms = terms;
-            this.widget.find_hover_marks();
             this.ctx.request_paint_only();
         }
     }

@@ -1,5 +1,6 @@
-use aquilum_core::search::matching::find_prefix_matches;
+use aquilum_core::search::hits::query_matcher;
 use aquilum_core::search::models::SearchIndexState;
+use aquilum_core::text::matcher::Matcher;
 use masonry::app::RenderRoot;
 use masonry::core::{NewWidget, Widget};
 
@@ -11,19 +12,17 @@ use crate::ui::scroll::ScrollArea;
 use crate::ui::search::{self, CardData, Placeholder, ResultCard};
 use crate::ui::widgets::Slot;
 
-fn marks(text: &str, terms: &[String]) -> Vec<(usize, usize)> {
-    let mut ranges: Vec<(usize, usize)> = find_prefix_matches(text, terms).into_iter().map(|(s, e, _)| (s, e)).collect();
-    ranges.sort_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)));
-    let mut kept: Vec<(usize, usize)> = Vec::new();
-    for range in ranges {
-        if kept.last().is_none_or(|last| range.0 >= last.1) {
-            kept.push(range);
-        }
-    }
-    kept
+fn marks(matcher: &Matcher, text: &str) -> Vec<(usize, usize)> {
+    matcher.find_all(text).into_iter().map(|found| (found.start, found.end)).collect()
 }
 
 impl App {
+    pub(super) fn show_placeholder(&mut self, root: &mut RenderRoot) {
+        let Some(Popup::Search(state)) = &self.popup else { return };
+        let empty_query = state.query.is_empty();
+        state.placeholder.edit(root, |mut p| Placeholder::set_empty(&mut p, empty_query));
+    }
+
     pub(super) fn render_search(&mut self, root: &mut RenderRoot) {
         let has_workspace = self.tree.root().is_some();
         let Some(Popup::Search(state)) = &mut self.popup else { return };
@@ -43,15 +42,16 @@ impl App {
         } else if state.results.is_empty() {
             empty(icons::SEARCH_X, "search.noResults", t_with("search.createHint", &[("shortcut", "Shift + ↵")]))
         } else {
+            let matcher = query_matcher(&state.terms);
             let widgets: Vec<_> = state
                 .results
                 .iter()
                 .enumerate()
                 .map(|(index, result)| {
                     let data = CardData {
-                        title_marks: marks(&result.title, &state.terms),
-                        extension_marks: marks(&result.extension, &state.terms),
-                        snippet_marks: marks(&result.snippet, &state.terms),
+                        title_marks: marks(&matcher, &result.title),
+                        extension_marks: marks(&matcher, &result.extension),
+                        snippet_marks: marks(&matcher, &result.snippet),
                         title: result.title.clone(),
                         extension: result.extension.clone(),
                         snippet: result.snippet.clone(),
@@ -70,8 +70,7 @@ impl App {
             state.list = None;
         }
         state.cards = cards;
-        let empty_query = state.query.is_empty();
         state.body.edit(root, |mut slot| Slot::set_child(&mut slot, widget));
-        state.placeholder.edit(root, |mut p| Placeholder::set_empty(&mut p, empty_query));
+        self.show_placeholder(root);
     }
 }

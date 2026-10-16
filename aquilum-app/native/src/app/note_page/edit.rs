@@ -9,18 +9,18 @@ use crate::ui::widgets::Slot;
 
 impl App {
     pub(super) fn body_edited(&mut self, root: &mut RenderRoot, edits: &[crate::ui::editor::Edit]) {
-        let had = frontmatter::end(&self.editor_text).is_some();
+        let had = frontmatter::end_of(&self.text).is_some();
         for edit in edits {
-            self.editor_text.replace_range(self.hidden + edit.range.start..self.hidden + edit.range.end, &edit.insert);
+            self.text.replace(self.hidden + edit.range.start..self.hidden + edit.range.end, &edit.insert);
         }
         self.queue_save();
         self.refresh_hero(root);
         self.metadata_changed(root, had);
     }
 
-    pub(in crate::app) fn commit_editor_text(&mut self, root: &mut RenderRoot, text: String) {
-        let had = frontmatter::end(&self.editor_text).is_some();
-        self.editor_text = text;
+    pub(in crate::app) fn commit_text(&mut self, root: &mut RenderRoot, text: crop::Rope) {
+        let had = frontmatter::end_of(&self.text).is_some();
+        self.text = text;
         self.queue_save();
         self.metadata_changed(root, had);
         self.sync_body(root);
@@ -35,7 +35,7 @@ impl App {
     }
 
     fn metadata_changed(&mut self, root: &mut RenderRoot, had: bool) {
-        let has = frontmatter::end(&self.editor_text).is_some();
+        let has = frontmatter::end_of(&self.text).is_some();
         if has == had {
             return;
         }
@@ -61,7 +61,7 @@ impl App {
             Some((to, _)) if self.renaming_to.as_ref() == Some(&to) => {}
             Some((to, _)) => {
                 self.renaming_to = Some(to.clone());
-                file_ops::rename(&self.workspace.core, from, to);
+                self.rename_file(root, from, to);
             }
             None => self.refresh_note_names(root),
         }

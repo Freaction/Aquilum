@@ -39,6 +39,7 @@ pub fn run(args: Args) -> Result<(), String> {
         renderer,
         modifiers: Modifiers::empty(),
         pointer: PointerState::default(),
+        moved: false,
         ime_enabled: false,
         ime_area: None,
         clipboard: arboard::Clipboard::new().ok(),

@@ -1,5 +1,5 @@
 use masonry::accesskit::{Node, Role};
-use masonry::core::keyboard::{Code, Key, KeyState, NamedKey};
+use masonry::core::keyboard::KeyState;
 use masonry::core::{
     AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PointerScrollEvent, PropertiesMut, PropertiesRef,
     RegisterCtx, ScrollDelta, TextEvent, Update, UpdateCtx, Widget, WidgetId, WidgetMut, WidgetPod, render_text,
@@ -13,6 +13,7 @@ use super::menu::box_shadow;
 use super::text::{Line, Style};
 use super::theme;
 use super::tokens::{number, size};
+use super::keymap::{self, Command, Scope};
 use super::widgets::{ButtonSize, IconButton, TextButton, Variant};
 use crate::i18n::t;
 use crate::reader::page::{Item, Settings};

@@ -22,7 +22,12 @@ impl App {
     }
 
     pub(super) fn write_fields(&mut self, root: &mut RenderRoot, path: &Path, source: Source, fields: &[(&str, String)]) {
-        if !self.edit_note_text(root, path, source, |text| frontmatter::set_fields(text, fields)) {
+        let change = |text: &crop::Rope| {
+            let end = frontmatter::hidden_of(text);
+            let head = text.byte_slice(..end).to_string();
+            frontmatter::set_fields(&head, fields).filter(|next| *next != head).map(|next| (0..end, next))
+        };
+        if !self.change_note(root, path, source, change) {
             return;
         }
         if self.note.as_ref().is_some_and(|n| n.is(path)) {
@@ -42,7 +47,7 @@ impl App {
         if pressed && Some(id) == replace {
             self.pick_image(true);
         } else if pressed && Some(id) == random {
-            let current = frontmatter::parse(&self.editor_text).and_then(|f| f.text(PAGE_COVER).map(str::to_owned));
+            let current = frontmatter::parse(&self.head()).and_then(|f| f.text(PAGE_COVER).map(str::to_owned));
             let next = cover::random_pattern(current.as_deref());
             self.set_fields(root, &[(COVER, "true".into()), (PAGE_COVER, next), (PAGE_COVER_POSITION, String::new())]);
         } else if pressed && Some(id) == remove {

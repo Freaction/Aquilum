@@ -26,9 +26,9 @@ fn run_case(document_count: usize) {
     let started = Instant::now();
     let search_results = bench
         .search_index
-        .search("architecture topic", 50)
+        .search(&crate::search::query::Request::new("architecture topic"))
         .unwrap()
-        .1;
+        .results;
     let search_us = started.elapsed().as_micros();
 
     let search_settings = crate::settings::models::SearchIndexSettings::default();

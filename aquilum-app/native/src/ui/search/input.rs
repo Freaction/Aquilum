@@ -9,7 +9,7 @@ use masonry::properties::types::CrossAxisAlignment;
 use masonry::properties::{Gap, Padding};
 use masonry::widgets::Flex;
 
-use super::card::marked_layout;
+use super::marked::marked_layout;
 use crate::i18n::t;
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;

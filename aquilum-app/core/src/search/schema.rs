@@ -11,7 +11,7 @@ pub fn build() -> Schema {
     builder.add_text_field("id", STRING | STORED);
     builder.add_text_field("path", text_options(false));
     builder.add_text_field("title", text_options(true));
-    builder.add_text_field("body", text_options(true));
+    builder.add_text_field("body", text_options(false));
     builder.build()
 }
 

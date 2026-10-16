@@ -1,40 +1,86 @@
+use super::analyzer::indexing_tokenizer;
 use super::error::SearchError;
+use super::hits;
 use super::index::SearchIndex;
-use super::matching::{analyzed_query_terms, result_from_document};
 use super::models::SearchResult;
+use crate::text::cancel::Cancel;
+use std::path::Path;
 use tantivy::collector::TopDocs;
-use tantivy::query::{BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, Query, TermQuery};
+use tantivy::query::{BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, Query, TermQuery, TermSetQuery};
 use tantivy::schema::{Field, IndexRecordOption};
-use tantivy::{TantivyDocument, Term};
+use tantivy::tokenizer::TokenStream;
+use tantivy::{Searcher, Term};
 
-const MAX_RESULTS: usize = 100;
-const MIN_PREFIX_CHARS: usize = 2;
 const MIN_FUZZY_CHARS: usize = 5;
+const DEFAULT_LIMIT: usize = 50;
+const MAX_LIMIT: usize = 100;
 
-pub fn search(
-    search_index: &SearchIndex,
-    input: &str,
-    limit: usize,
-) -> Result<(Vec<String>, Vec<SearchResult>), SearchError> {
-    let terms = analyzed_query_terms(input);
-    if terms.is_empty() || limit == 0 {
-        return Ok((terms, Vec::new()));
+pub struct Request<'a> {
+    pub text: &'a str,
+    pub folder: Option<&'a Path>,
+    pub limit: Option<usize>,
+    pub cancel: Cancel,
+}
+
+impl<'a> Request<'a> {
+    pub fn new(text: &'a str) -> Self {
+        Self { text, folder: None, limit: None, cancel: Cancel::never() }
     }
+}
 
-    let query = combined_query(search_index, &terms);
-    let searcher = search_index.reader.searcher();
-    let top_docs = searcher.search(
-        &query,
-        &TopDocs::with_limit(limit.min(MAX_RESULTS)).order_by_score(),
-    )?;
-    let mut results = Vec::with_capacity(top_docs.len());
-    for (_, address) in top_docs {
-        let document = searcher.doc::<TantivyDocument>(address)?;
-        if let Some(result) = result_from_document(&document, search_index.fields, &terms) {
-            results.push(result);
+pub struct Found {
+    pub terms: Vec<String>,
+    pub results: Vec<SearchResult>,
+    pub has_more: bool,
+}
+
+pub fn analyzed_query_terms(input: &str) -> Vec<String> {
+    let mut terms = Vec::new();
+    indexing_tokenizer().token_stream(input).process(&mut |token| {
+        if !token.text.is_empty() {
+            terms.push(token.text.clone());
+        }
+    });
+    terms.sort();
+    terms.dedup();
+    terms
+}
+
+pub fn search(index: &SearchIndex, request: &Request) -> Result<Found, SearchError> {
+    let terms = analyzed_query_terms(request.text);
+    if terms.is_empty() {
+        return Ok(Found { terms, results: Vec::new(), has_more: false });
+    }
+    let limit = request.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
+    let searcher = index.reader.searcher();
+    let mut clauses: Vec<(Occur, Box<dyn Query>)> = vec![(Occur::Must, Box::new(combined_query(index, &terms)))];
+    if let Some(folder) = request.folder {
+        clauses.push((Occur::Must, Box::new(folder_query(&searcher, index.fields.id, folder)?)));
+    }
+    let top = searcher.search(&BooleanQuery::new(clauses), &TopDocs::with_limit(limit + 1).order_by_score())?;
+    if request.cancel.is_cancelled() {
+        return Err(SearchError::Cancelled);
+    }
+    let has_more = top.len() > limit;
+    let addresses = top.into_iter().take(limit).map(|(_, address)| address).collect::<Vec<_>>();
+    let results = hits::results(&searcher, index.fields, &terms, &addresses, &request.cancel)?;
+    Ok(Found { terms, results, has_more })
+}
+
+fn folder_query(searcher: &Searcher, id: Field, folder: &Path) -> Result<TermSetQuery, SearchError> {
+    let mut inside = Vec::new();
+    for segment in searcher.segment_readers() {
+        let inverted = segment.inverted_index(id)?;
+        let mut paths = inverted.terms().stream()?;
+        while paths.advance() {
+            if let Ok(path) = std::str::from_utf8(paths.key()) {
+                if Path::new(path).starts_with(folder) {
+                    inside.push(Term::from_field_text(id, path));
+                }
+            }
         }
     }
-    Ok((terms, results))
+    Ok(TermSetQuery::new(inside))
 }
 
 fn searchable_fields(index: &SearchIndex) -> [Field; 3] {
@@ -73,11 +119,7 @@ fn combined_query(index: &SearchIndex, terms: &[String]) -> BooleanQuery {
 }
 
 fn field_matcher(term: &Term, text: &str) -> Box<dyn Query> {
-    let length = text.chars().count();
-    if length < MIN_PREFIX_CHARS {
-        return Box::new(TermQuery::new(term.clone(), IndexRecordOption::WithFreqs));
-    }
-    let distance = u8::from(length >= MIN_FUZZY_CHARS);
+    let distance = u8::from(text.chars().count() >= MIN_FUZZY_CHARS);
     Box::new(FuzzyTermQuery::new_prefix(term.clone(), distance, true))
 }
 

@@ -4,32 +4,43 @@ use std::sync::OnceLock;
 pub const SHY: char = '\u{ad}';
 const MIN_WORD: usize = 5;
 
+#[derive(Default)]
+struct Node {
+    next: Vec<(char, u32)>,
+    weights: Option<Box<[u8]>>,
+}
+
 struct Language {
-    patterns: HashMap<Box<[char]>, Box<[u8]>>,
+    nodes: Vec<Node>,
     exceptions: HashMap<String, Vec<usize>>,
-    longest: usize,
     left: usize,
     right: usize,
 }
 
 impl Language {
     fn new(patterns: &str, exceptions: &str, left: usize, right: usize) -> Language {
-        let mut table = HashMap::new();
-        let mut longest = 0;
+        let mut nodes = vec![Node::default()];
         for pattern in patterns.split_whitespace() {
-            let mut letters = Vec::new();
+            let mut at = 0;
             let mut weights = vec![0u8];
             for ch in pattern.chars() {
                 match ch.to_digit(10) {
                     Some(d) => *weights.last_mut().expect("вес") = d as u8,
                     None => {
-                        letters.push(ch);
+                        at = match nodes[at].next.binary_search_by_key(&ch, |&(c, _)| c) {
+                            Ok(i) => nodes[at].next[i].1 as usize,
+                            Err(i) => {
+                                let id = nodes.len();
+                                nodes[at].next.insert(i, (ch, id as u32));
+                                nodes.push(Node::default());
+                                id
+                            }
+                        };
                         weights.push(0);
                     }
                 }
             }
-            longest = longest.max(letters.len());
-            table.insert(letters.into_boxed_slice(), weights.into_boxed_slice());
+            nodes[at].weights = Some(weights.into_boxed_slice());
         }
         let exceptions = exceptions
             .split_whitespace()
@@ -46,7 +57,7 @@ impl Language {
                 (word.replace('-', ""), points)
             })
             .collect();
-        Language { patterns: table, exceptions, longest, left, right }
+        Language { nodes, exceptions, left, right }
     }
 
     fn points(&self, word: &[char]) -> Vec<usize> {
@@ -63,12 +74,13 @@ impl Language {
         }
         let mut weights = vec![0u8; letters.len() + 1];
         for start in 0..letters.len() {
-            for end in start + 1..=(start + self.longest).min(letters.len()) {
-                if let Some(pattern) = self.patterns.get(&letters[start..end]) {
-                    for (i, &w) in pattern.iter().enumerate() {
-                        let at = &mut weights[start + i];
-                        *at = (*at).max(w);
-                    }
+            let mut at = 0;
+            for &ch in &letters[start..] {
+                let Ok(i) = self.nodes[at].next.binary_search_by_key(&ch, |&(c, _)| c) else { break };
+                at = self.nodes[at].next[i].1 as usize;
+                for (i, &w) in self.nodes[at].weights.iter().flatten().enumerate() {
+                    let slot = &mut weights[start + i];
+                    *slot = (*slot).max(w);
                 }
             }
         }

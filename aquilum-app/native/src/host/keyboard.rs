@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::keymap::{self, Command, Scope};
 
 fn latin(code: Code) -> Option<char> {
     const LETTERS: [Code; 26] = [
@@ -23,63 +24,44 @@ impl Host {
         }
     }
 
-    fn shortcut(&mut self, key: &Key, code: Code, action_modifier: bool) -> bool {
+    fn shortcut(&mut self, key: &Key, repeat: bool) -> bool {
         let Some(root) = &mut self.root else { return false };
         let modifiers = self.modifiers;
-        if action_modifier && code == Code::KeyO {
-            self.app.open_search(root);
-            return true;
-        }
-        #[cfg(not(feature = "installed"))]
-        if action_modifier && modifiers.shift() && code == Code::KeyP {
-            self.metrics.toggle_live();
-            self.show_title();
-            return true;
-        }
-        if action_modifier && modifiers.shift() && code == Code::KeyF {
-            self.app.toggle_focus_mode(root);
-            return true;
-        }
-        if action_modifier && modifiers.shift() && code == Code::KeyL {
-            self.app.toggle_wide_mode(root);
-            return true;
-        }
-        if action_modifier && !modifiers.shift() && code == Code::KeyN {
-            if self.app.new_note(root) {
-                self.show_title();
-            }
-            return true;
-        }
-        if action_modifier && !modifiers.shift() && code == Code::KeyF {
-            self.app.open_find(root);
-            return true;
-        }
-        if action_modifier && !modifiers.shift() && code == Code::KeyU {
-            self.app.open_templates(root);
+        if let Some(command) = keymap::command(&[Scope::Global], key, modifiers)
+            && (!repeat || command.repeats())
+            && let Some(outcome) = self.app.command(root, command)
+        {
+            self.apply(outcome);
             return true;
         }
         if self.app.find_key(root, key, modifiers) {
             return true;
         }
-        if let Some(outcome) = self.app.search_key(root, key, modifiers) {
-            if outcome.title {
-                self.show_title();
+        let outcome = self.app.search_key(root, key, modifiers).or_else(|| self.app.templates_key(root, key, modifiers)).or_else(|| self.app.settings_key(root, key));
+        let Some(outcome) = outcome else { return false };
+        self.apply(outcome);
+        true
+    }
+
+    pub(super) fn apply(&mut self, outcome: crate::app::Outcome) {
+        if outcome.title {
+            self.show_title();
+        }
+        if outcome.rescale {
+            self.rescale();
+            if let Some(root) = &mut self.root {
+                self.app.scale_changed(root);
             }
+        }
+    }
+
+    fn paste(&mut self) -> bool {
+        let (Some(clipboard), Some(root)) = (self.clipboard.as_mut(), &mut self.root) else { return false };
+        if let Ok(text) = clipboard.get_text() {
+            root.handle_text_event(TextEvent::ClipboardPaste(text));
             return true;
         }
-        if let Some(outcome) = self.app.templates_key(root, key, modifiers) {
-            if outcome.title {
-                self.show_title();
-            }
-            return true;
-        }
-        if let Some(outcome) = self.app.settings_key(root, key) {
-            if outcome.rescale {
-                self.rescale();
-            }
-            return true;
-        }
-        false
+        clipboard.get_image().ok().and_then(png).is_some_and(|png| self.app.paste_image(root, &png))
     }
 
     pub(super) fn keyboard(&mut self, event: winit::event::KeyEvent) {
@@ -97,9 +79,8 @@ impl Host {
             ElementState::Pressed => KeyState::Down,
             ElementState::Released => KeyState::Up,
         };
-        let action_modifier = if cfg!(target_os = "macos") { self.modifiers.meta() } else { self.modifiers.ctrl() };
         let key = match latin(code) {
-            Some(letter) if action_modifier && !self.modifiers.alt() => Key::Character(letter.to_string()),
+            Some(letter) if keymap::action(self.modifiers) && !self.modifiers.alt() => Key::Character(letter.to_string()),
             _ => key,
         };
         #[cfg(not(feature = "installed"))]
@@ -108,33 +89,16 @@ impl Host {
             self.request_redraw();
             return;
         }
-        if state == KeyState::Down && self.shortcut(&key, code, action_modifier) {
+        #[cfg(not(feature = "installed"))]
+        if state == KeyState::Down && keymap::action(self.modifiers) && self.modifiers.shift() && code == Code::KeyP {
+            self.metrics.toggle_live();
+            self.show_title();
             return;
         }
-        if state == KeyState::Down
-            && action_modifier
-            && let Key::Character(c) = &key
-            && self.app.zoom_key(c)
-        {
-            self.rescale();
-            if let Some(root) = &mut self.root {
-                self.app.scale_changed(root);
-            }
+        if state == KeyState::Down && self.shortcut(&key, event.repeat) {
             return;
         }
-        let is_paste = state == KeyState::Down
-            && action_modifier
-            && matches!(&key, Key::Character(c) if c.eq_ignore_ascii_case("v"));
-        if is_paste {
-            let Some(clipboard) = self.clipboard.as_mut() else { return };
-            if let Ok(text) = clipboard.get_text() {
-                self.text_event(TextEvent::ClipboardPaste(text));
-            } else if let Ok(image) = clipboard.get_image()
-                && let Some(png) = png(image)
-                && let Some(root) = &mut self.root
-            {
-                self.app.paste_image(root, &png);
-            }
+        if state == KeyState::Down && keymap::command(&[Scope::Text], &key, self.modifiers) == Some(Command::Paste) && self.paste() {
             return;
         }
         let location: Location = event.location;

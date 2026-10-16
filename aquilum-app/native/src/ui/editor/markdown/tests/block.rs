@@ -1,5 +1,6 @@
 use super::super::blocks::{Callout, heading};
 use super::{Block, blocks};
+use crate::ui::editor::highlight::Lang;
 
 #[test]
 fn classifies_lines() {
@@ -105,7 +106,7 @@ fn html_comments_are_muted_blocks_even_across_lines() {
 #[test]
 fn display_math_is_kept_as_source_between_dollar_lines() {
     let b = blocks("$$\n\\int_0^1 x\\,dx\n$$\nтекст");
-    assert!(matches!(b[0], Block::Code { first: true, fence: true, lang: None, .. }));
+    assert!(matches!(b[0], Block::Code { first: true, fence: true, lang: Some(Lang::Math), .. }));
     assert!(matches!(b[1], Block::Code { first: false, last: false, fence: false, .. }));
     assert!(matches!(b[2], Block::Code { last: true, fence: true, .. }));
     assert_eq!(b[3], Block::Text);

@@ -70,7 +70,7 @@ impl App {
         chrome.panel_parts.body.edit(root, |mut slot| Slot::set_child(&mut slot, body));
         if let Some(field) = bindings.rename {
             field.edit(root, |mut field| {
-                let len = field.widget.text().to_string().len();
+                let len = field.widget.len();
                 TextEditor::select_byte_range(&mut field, 0, len);
             });
             root.focus_on(Some(field.id()));

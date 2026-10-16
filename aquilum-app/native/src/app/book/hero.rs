@@ -27,7 +27,7 @@ fn format_position(y: f64) -> String {
 
 impl App {
     pub(in crate::app) fn hero_view(&self) -> Option<HeroView> {
-        let fields = frontmatter::parse(&self.editor_text)?;
+        let fields = frontmatter::parse(&self.head())?;
         let (has_cover, is_book) = (fields.has_page_cover(), fields.is_book());
         if !has_cover && !is_book {
             return None;
@@ -55,7 +55,7 @@ impl App {
     }
 
     pub(in crate::app) fn hero_key(&self) -> Option<Vec<String>> {
-        let fields = frontmatter::parse(&self.editor_text)?;
+        let fields = frontmatter::parse(&self.head())?;
         if !fields.has_page_cover() && !fields.is_book() {
             return None;
         }
@@ -104,7 +104,7 @@ impl App {
             });
             return;
         }
-        let stored = frontmatter::parse(&self.editor_text).and_then(|f| f.text(PAGE_COVER_POSITION).map(str::to_owned));
+        let stored = frontmatter::parse(&self.head()).and_then(|f| f.text(PAGE_COVER_POSITION).map(str::to_owned));
         let formatted = format_position(position);
         if format_position(parse_position(stored.as_deref())) == formatted {
             cover.edit(root, |mut cover| PageCover::set_repositioning(&mut cover, false, None));

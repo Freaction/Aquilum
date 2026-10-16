@@ -1,0 +1,76 @@
+use masonry::core::keyboard::NamedKey as K;
+
+use super::chord::{Chord, Os, letter, named};
+use super::{Command, Command::*, Scope};
+
+pub struct Binding {
+    pub command: Command,
+    pub scope: Scope,
+    pub label: &'static str,
+    pub chords: &'static [Chord],
+    pub hidden: &'static [Chord],
+}
+
+const fn bind(scope: Scope, command: Command, label: &'static str, chords: &'static [Chord]) -> Binding {
+    Binding { command, scope, label, chords, hidden: &[] }
+}
+
+pub const BINDINGS: &[Binding] = &[
+    bind(Scope::Global, NewNote, "newNote", &[letter('n').action()]),
+    bind(Scope::Global, NewTab, "newTab", &[letter('t').action()]),
+    bind(Scope::Global, CloseTab, "closeTab", &[letter('w').action()]),
+    bind(Scope::Global, NextTab, "nextTab", &[named(K::Tab).ctrl(), named(K::PageDown).ctrl()]),
+    bind(Scope::Global, PreviousTab, "previousTab", &[named(K::Tab).ctrl().shift(), named(K::PageUp).ctrl()]),
+    bind(Scope::Global, Back, "back", &[named(K::ArrowLeft).alt().only(Os::Other), letter('[').action().only(Os::Mac)]),
+    bind(Scope::Global, Forward, "forward", &[named(K::ArrowRight).alt().only(Os::Other), letter(']').action().only(Os::Mac)]),
+    bind(Scope::Global, QuickOpen, "globalSearch", &[letter('o').action()]),
+    bind(Scope::Global, Templates, "newFromTemplate", &[letter('u').action()]),
+    bind(Scope::Global, FindInNote, "pageSearch", &[letter('f').action()]),
+    bind(Scope::Global, FocusMode, "focusMode", &[letter('f').action().shift()]),
+    bind(Scope::Global, WideMode, "wideMode", &[letter('l').action().shift()]),
+    Binding { command: ZoomIn, scope: Scope::Global, label: "zoomIn", chords: &[letter('+').action().any_shift()], hidden: &[letter('=').action().any_shift()] },
+    bind(Scope::Global, ZoomOut, "zoomOut", &[letter('-').action().any_shift()]),
+    bind(Scope::Global, ZoomReset, "zoomReset", &[letter('0').action()]),
+    bind(Scope::Text, Copy, "copy", &[letter('c').action(), named(K::Insert).ctrl().only(Os::Other)]),
+    bind(Scope::Text, Cut, "cut", &[letter('x').action(), named(K::Delete).shift().only(Os::Other)]),
+    bind(Scope::Text, Paste, "paste", &[letter('v').action().any_shift(), named(K::Insert).shift().only(Os::Other)]),
+    bind(Scope::Text, Undo, "undo", &[letter('z').action()]),
+    bind(Scope::Text, Redo, "redo", &[letter('y').action().any_shift(), letter('z').action().shift()]),
+    bind(Scope::Text, SelectAll, "selectAll", &[letter('a').action()]),
+    bind(Scope::Editor, Bold, "bold", &[letter('b').action()]),
+    bind(Scope::Editor, Italic, "italic", &[letter('i').action()]),
+    bind(Scope::Editor, Strike, "strikethrough", &[letter('s').action().shift()]),
+    bind(Scope::Editor, Code, "inlineCode", &[letter('e').action()]),
+    bind(Scope::Editor, Indent, "indent", &[named(K::Tab)]),
+    bind(Scope::Editor, Outdent, "outdent", &[named(K::Tab).shift()]),
+    bind(Scope::Editor, LineBreak, "lineBreak", &[named(K::Enter).shift()]),
+    bind(Scope::Navigation, WordLeft, "wordLeft", &[named(K::ArrowLeft).action().any_shift()]),
+    bind(Scope::Navigation, WordRight, "wordRight", &[named(K::ArrowRight).action().any_shift()]),
+    bind(Scope::Navigation, DocumentStart, "documentStart", &[named(K::Home).action().any_shift()]),
+    bind(Scope::Navigation, DocumentEnd, "documentEnd", &[named(K::End).action().any_shift()]),
+    bind(Scope::Navigation, PageUp, "pageUp", &[named(K::PageUp).any_shift()]),
+    bind(Scope::Navigation, PageDown, "pageDown", &[named(K::PageDown).any_shift()]),
+    bind(Scope::Navigation, ScrollLineUp, "scrollLineUp", &[named(K::ArrowUp).ctrl().only(Os::Other)]),
+    bind(Scope::Navigation, ScrollLineDown, "scrollLineDown", &[named(K::ArrowDown).ctrl().only(Os::Other)]),
+    bind(Scope::Navigation, DeleteWord, "deleteWord", &[named(K::Backspace).action()]),
+    bind(Scope::Navigation, DeleteWordForward, "deleteWordForward", &[named(K::Delete).action()]),
+    bind(Scope::Table, NextCell, "nextCell", &[named(K::Tab)]),
+    bind(Scope::Table, PreviousCell, "previousCell", &[named(K::Tab).shift()]),
+    bind(Scope::Table, CellBelow, "cellBelow", &[named(K::Enter)]),
+    bind(Scope::Table, Close, "leaveTable", &[named(K::Escape)]),
+    bind(Scope::Image, ImageSource, "imageSource", &[named(K::Enter)]),
+    bind(Scope::Image, ImageDelete, "imageDelete", &[named(K::Delete), named(K::Backspace)]),
+    bind(Scope::Image, Close, "imageDeselect", &[named(K::Escape)]),
+    bind(Scope::List, ListNext, "searchNext", &[named(K::ArrowDown)]),
+    bind(Scope::List, ListPrevious, "searchPrevious", &[named(K::ArrowUp)]),
+    bind(Scope::List, ListOpen, "searchOpen", &[named(K::Enter)]),
+    bind(Scope::List, ListOpenInNewTab, "searchOpenNewPane", &[named(K::Enter).action()]),
+    bind(Scope::List, ListCreate, "searchCreate", &[named(K::Enter).shift()]),
+    bind(Scope::List, Close, "closeWindow", &[named(K::Escape)]),
+    bind(Scope::Find, FindNext, "searchNext", &[named(K::Enter)]),
+    bind(Scope::Find, FindPrevious, "searchPrevious", &[named(K::Enter).shift()]),
+    bind(Scope::Find, Close, "closeSearch", &[named(K::Escape)]),
+    bind(Scope::Reader, NextPage, "nextPage", &[named(K::ArrowRight), named(K::PageDown), letter(' ')]),
+    bind(Scope::Reader, PreviousPage, "previousPage", &[named(K::ArrowLeft), named(K::PageUp)]),
+    bind(Scope::Reader, Close, "closeReader", &[named(K::Escape)]),
+];

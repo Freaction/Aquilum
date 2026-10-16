@@ -1,10 +1,5 @@
 use super::*;
 
-fn caret(h: &Harness) -> usize {
-    let body = h.app.note_ids.as_ref().unwrap().body;
-    body.get(&h.root).unwrap().inner().caret_offset()
-}
-
 fn follow(h: &mut Harness, raw: &str, new_tab: bool) -> bool {
     let opened = h.app.open_target(&mut h.root, crate::links::Target::Wiki(raw.into()), new_tab);
     h.deliver();

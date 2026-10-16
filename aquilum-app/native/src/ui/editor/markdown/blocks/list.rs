@@ -8,7 +8,7 @@ use super::super::brushes::LIST_CALLOUTS;
 
 const DEPTH: usize = 8;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Item {
     indent: u32,
     content: u32,

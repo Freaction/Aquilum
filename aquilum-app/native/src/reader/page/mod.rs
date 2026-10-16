@@ -2,14 +2,13 @@ mod geometry;
 mod layout;
 mod paginate;
 mod text;
+#[cfg(test)]
+mod tests;
 
-use masonry::core::BrushIndex;
 use masonry::kurbo::Size;
-use masonry::parley::Layout;
-use masonry::peniko::ImageBrush;
 
 pub use geometry::{Geometry, advance, geometry};
-pub use layout::layout_blocks;
+pub use layout::{dash_width, layout_blocks, text_layout};
 pub use paginate::paginate;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -25,9 +24,17 @@ pub struct Settings {
     pub scrolled: bool,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Line {
+    pub top: f64,
+    pub bottom: f64,
+    pub start: usize,
+    pub end: usize,
+}
+
 pub enum Item {
-    Text { layout: Layout<BrushIndex>, x: f64, before: f64, after: f64, breaks: Vec<(usize, char)> },
-    Image { image: Option<ImageBrush>, size: Size, before: f64, after: f64 },
+    Text { lines: Vec<Line>, x: f64, before: f64, after: f64, breaks: Vec<(usize, char)> },
+    Image { size: Size, before: f64, after: f64 },
     Rule,
 }
 

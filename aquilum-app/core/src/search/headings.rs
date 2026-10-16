@@ -9,34 +9,33 @@ pub struct Heading {
     pub content: Range<usize>,
 }
 
-pub fn headings(source: &str) -> Vec<Heading> {
-    let mut found = Vec::<Heading>::new();
-    let mut level = None;
-    let mut start = 0;
-    let mut title = String::new();
-
-    for (event, range) in Parser::new_ext(source, Options::all()).into_offset_iter() {
-        match event {
-            Event::Start(Tag::Heading { level: found_level, .. }) => {
-                level = Some(found_level as u8);
-                start = range.start;
-                title.clear();
-            }
-            Event::Text(text) | Event::Code(text) if level.is_some() => title.push_str(&text),
-            Event::End(TagEnd::Heading(_)) => {
-                if let Some(level) = level.take() {
-                    found.push(Heading {
-                        level,
-                        title: title.trim().to_owned(),
-                        start,
-                        content: range.end..source.len(),
-                    });
+fn scan(source: &str) -> impl Iterator<Item = Heading> + '_ {
+    let mut events = Parser::new_ext(source, Options::all()).into_offset_iter();
+    std::iter::from_fn(move || {
+        let mut open: Option<(u8, usize, String)> = None;
+        for (event, range) in events.by_ref() {
+            match event {
+                Event::Start(Tag::Heading { level, .. }) => open = Some((level as u8, range.start, String::new())),
+                Event::Text(text) | Event::Code(text) => {
+                    if let Some((_, _, title)) = open.as_mut() {
+                        title.push_str(&text);
+                    }
                 }
+                Event::End(TagEnd::Heading(_)) => {
+                    if let Some((level, start, title)) = open.take() {
+                        let title = title.trim().to_owned();
+                        return Some(Heading { level, title, start, content: range.end..source.len() });
+                    }
+                }
+                _ => {}
             }
-            _ => {}
         }
-    }
+        None
+    })
+}
 
+pub fn headings(source: &str) -> Vec<Heading> {
+    let mut found = scan(source).collect::<Vec<_>>();
     for index in 0..found.len() {
         let level = found[index].level;
         found[index].content.end = found[index + 1..]
@@ -47,8 +46,13 @@ pub fn headings(source: &str) -> Vec<Heading> {
     found
 }
 
-pub fn enclosing(headings: &[Heading], offset: usize) -> Option<&Heading> {
-    headings.iter().rev().find(|heading| heading.start <= offset)
+pub fn heading_at(text: &str, offset: usize) -> Option<String> {
+    let line_end = |from: usize| text[from..].find('\n').map_or(text.len(), |at| from + at + 1);
+    let parsed = &text[..line_end(line_end(offset.min(text.len())))];
+    scan(parsed)
+        .take_while(|heading| heading.start <= offset)
+        .last()
+        .map(|heading| heading.title)
 }
 
 pub fn matching<'a>(headings: &'a [Heading], wanted: &str) -> Vec<&'a Heading> {
@@ -61,7 +65,7 @@ pub fn matching<'a>(headings: &'a [Heading], wanted: &str) -> Vec<&'a Heading> {
 
 #[cfg(test)]
 mod tests {
-    use super::{enclosing, headings, matching, Heading};
+    use super::{heading_at, headings, matching, Heading};
 
     const NOTE: &str = "# Один\n\nтекст\n\n## Два\n\nещё\n\n### Три\n\nглубже\n\n## Два\n\nдубль\n";
 
@@ -109,10 +113,12 @@ mod tests {
 
     #[test]
     fn finds_the_heading_that_encloses_an_offset() {
-        let list = headings(NOTE);
-        let offset = NOTE.find("глубже").unwrap();
-        assert_eq!(enclosing(&list, offset).unwrap().title, "Три");
-        assert_eq!(enclosing(&list, 0).unwrap().title, "Один");
+        assert_eq!(heading_at(NOTE, NOTE.find("глубже").unwrap()).as_deref(), Some("Три"));
+        assert_eq!(heading_at(NOTE, NOTE.find("дубль").unwrap()).as_deref(), Some("Два"));
+        assert_eq!(heading_at(NOTE, 0).as_deref(), Some("Один"));
+        assert_eq!(heading_at("текст\n# Позже\n", 0), None);
+        let setext = "Заголовок\n=========\n\nтекст\n";
+        assert_eq!(heading_at(setext, 2).as_deref(), Some("Заголовок"));
     }
 
     #[test]

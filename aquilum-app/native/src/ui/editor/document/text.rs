@@ -53,7 +53,7 @@ pub fn spec_layout(fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, s
     let mut layout = builder.build(spec.text);
     let wrap = spec.wrap.map(|w| w as f32);
     layout.break_all_lines(wrap);
-    layout.align(wrap, spec.align, AlignmentOptions::default());
+    layout.align(spec.align, AlignmentOptions::default());
     layout
 }
 
@@ -89,6 +89,6 @@ pub fn build(
         layout.set_text_indent(x as f32, IndentOptions { each_line: false, hanging: true });
     }
     layout.break_all_lines(wrap);
-    layout.align(wrap, align, AlignmentOptions::default());
+    layout.align(align, AlignmentOptions::default());
     (layout, decor)
 }

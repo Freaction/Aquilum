@@ -6,6 +6,8 @@ use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, WidgetId};
 use masonry::kurbo::{Point, Size};
 
+use aquilum_core::search::analysis::window::{WINDOW_BYTES, window};
+
 use super::{App, Outcome};
 use crate::links::{self, Listing, Method, Mode, Request};
 use crate::ui::backlinks;
@@ -64,14 +66,12 @@ impl App {
         }
         let document = self.tabs.active().path.clone();
         if let (true, Some(workspace), Some(document)) = (self.panel_visible(), self.tree.root(), document) {
-            let request = Request {
-                generation: self.panel_generation,
-                workspace: workspace.to_path_buf(),
-                document,
-                mode: self.panel_mode(),
-                method: self.panel_method(),
-                text: self.editor_text.clone(),
+            let (mode, method) = (self.panel_mode(), self.panel_method());
+            let text = match (mode, method) {
+                (Mode::Analysis, Method::Wikixiv) => window(&crate::rope::prefix(&self.text, WINDOW_BYTES + 1)).to_owned(),
+                _ => String::new(),
             };
+            let request = Request { generation: self.panel_generation, workspace: workspace.to_path_buf(), document, mode, method, text };
             links::spawn(Arc::clone(&self.workspace.core), request, self.panel_tx.clone(), Arc::clone(&self.workspace.wake));
         }
         if !refresh {

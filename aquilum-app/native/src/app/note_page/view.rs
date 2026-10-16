@@ -21,8 +21,7 @@ impl App {
         let Some(ids) = &self.note_ids else { return };
         let Some(body) = root.get_widget(ids.body.id()).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()) else { return };
         let Some((offset, px)) = body.inner().anchor_at(viewport - editor) else { return };
-        let anchor = self.editor_text[..(self.hidden + offset).min(self.editor_text.len())].encode_utf16().count() as i64;
-        self.view = Some((anchor, px));
+        self.view = Some((self.hidden + offset, px));
         self.view_due = Some(Instant::now() + VIEW_SAVE_DELAY);
     }
 
@@ -30,7 +29,7 @@ impl App {
         let Some((anchor, px)) = self.restore else { return false };
         let Some((viewport, editor, offset)) = self.scroll_geometry(root) else { return false };
         let Some(ids) = &self.note_ids else { return false };
-        let byte = aquilum_core::documents::merge::utf16_byte(&self.editor_text, usize::try_from(anchor).unwrap_or(0)).saturating_sub(self.hidden);
+        let byte = anchor.saturating_sub(self.hidden);
         let Some(top) = root.get_widget(ids.body.id()).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).and_then(|b| b.inner().top_of(byte)) else {
             return false;
         };
@@ -43,9 +42,11 @@ impl App {
 
     pub(in crate::app) fn flush_view(&mut self) {
         self.view_due = None;
-        let (Some(session), Some(note), Some((anchor, px))) = (self.session.as_mut(), self.note.as_ref(), self.view) else { return };
+        let units = self.view.map(|(anchor, px)| (self.units_of(anchor), px));
+        let (Some(session), Some(note), Some((units, px))) = (self.session.as_mut(), self.note.as_ref(), units) else { return };
         if let Some(document) = session.document(&self.workspace.core, &note.path) {
-            session.save_view(&self.workspace.core, document, anchor, px);
+            let _zone = aq_trace::zone("место в заметке: запись");
+            session.save_view(&self.workspace.core, document, units as i64, px);
         }
     }
 

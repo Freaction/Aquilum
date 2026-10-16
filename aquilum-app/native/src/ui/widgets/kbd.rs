@@ -20,7 +20,6 @@ fn icon(token: &str) -> Option<Icon> {
         "↓" => icons::ARROW_DOWN,
         "←" => icons::ARROW_LEFT,
         "→" => icons::ARROW_RIGHT,
-        "↕" => icons::ARROW_UP_DOWN,
         _ => return None,
     })
 }
@@ -40,7 +39,7 @@ pub fn kbd(keys: &str, gap: f64) -> NewWidget<Flex> {
 mod tests {
     #[test]
     fn arrows_and_enter_are_icons() {
-        assert!(["↵", "↑", "↓", "←", "→", "↕"].iter().all(|t| super::icon(t).is_some()));
+        assert!(["↵", "↑", "↓", "←", "→"].iter().all(|t| super::icon(t).is_some()));
         assert!(["Ctrl", "Shift", "+", "Tab", "B"].iter().all(|t| super::icon(t).is_none()));
     }
 }

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 fn summary(b: &Bench) -> String {
     let (pages, bytes, glyphs) = b.renderer.glyph_atlas_summary().unwrap_or_default();
-    format!("страниц {pages}, {:.1} МБ, записей глифов {glyphs}", bytes as f64 / 1_048_576.0)
+    format!("страниц {pages}, {:.1} МБ, записей глифов {glyphs}", crate::stats::mb(bytes))
 }
 
 #[test]
@@ -39,11 +39,9 @@ fn editor_scroll_frames() {
     for _ in 0..6 {
         flick(&mut b, -45.0, &mut times);
     }
-    let mut sorted = times.clone();
-    sorted.sort_by(f64::total_cmp);
-    let pick = |q: f64| sorted[((sorted.len() - 1) as f64 * q) as usize];
+    let [p50, p95, p99, max] = percentiles(&times, [0.5, 0.95, 0.99, 1.0]);
     let over = |ms: f64| times.iter().filter(|&&t| t > ms).count();
-    eprintln!("кадров {}, p50 {:.2} мс, p95 {:.2}, p99 {:.2}, максимум {:.2}; дольше 4 мс: {}, дольше 8,3 мс: {}", times.len(), pick(0.5), pick(0.95), pick(0.99), sorted[sorted.len() - 1], over(4.0), over(8.3));
+    eprintln!("кадров {}, p50 {p50:.2} мс, p95 {p95:.2}, p99 {p99:.2}, максимум {max:.2}; дольше 4 мс: {}, дольше 8,3 мс: {}", times.len(), over(4.0), over(8.3));
     let worst: Vec<String> = times.iter().enumerate().filter(|&(_, &t)| t > 4.0).take(12).map(|(i, t)| format!("{i}:{t:.1}")).collect();
     eprintln!("медленные кадры (номер:мс): {}", worst.join(" "));
     eprintln!("{}", summary(&b));

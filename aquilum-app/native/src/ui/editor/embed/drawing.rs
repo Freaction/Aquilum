@@ -1,10 +1,11 @@
 use std::ops::Range;
 
 use masonry::core::{BrushIndex, render_text};
+use masonry::imaging::record::Glyph;
 use masonry::imaging::{Composite, GroupRef, PaintSink, Painter};
 use masonry::kurbo::{Affine, BezPath, Cap, Circle, Join, Point, Rect, RoundedRect, Stroke};
 use masonry::parley::Layout;
-use masonry::peniko::{BlendMode, Brush, Color, ImageBrush};
+use masonry::peniko::{BlendMode, Brush, BrushRef, Color, Fill, FontData, ImageBrush, Style};
 
 use super::super::markdown;
 use super::metrics::{COVER_RADIUS, RADIUS};
@@ -33,6 +34,8 @@ pub(super) enum Item {
     Bullet(Point),
     Button(RoundedRect, bool),
     Dim(Box<Item>),
+    Path(BezPath, Option<Color>, Option<Stroke>),
+    Glyphs(FontData, f32, Vec<Glyph>, Option<Color>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -127,7 +130,7 @@ fn dimmed<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, paint: impl FnOnc
     painter.with_group(GroupRef::new().with_composite(Composite::new(BlendMode::default(), 0.5)), paint);
 }
 
-fn paint_item<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, item: &Item, at: Affine, palette: &[Brush], hover: Option<Rect>) {
+pub(super) fn paint_item<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, item: &Item, at: Affine, palette: &[Brush], hover: Option<Rect>) {
     match item {
         Item::Text(p, layout, _) => render_text(painter, at * Affine::translate(p.to_vec2()), layout, palette, true),
         Item::Fill(shape, tone) => painter.fill(at.transform_rect_bbox(shape.rect()).to_rounded_rect(shape.radii()), color(*tone)).draw(),
@@ -171,5 +174,14 @@ fn paint_item<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, item: &Item, 
         }
         Item::Bullet(p) => painter.fill(Circle::new(at * *p, 2.5), theme::current().editor_list_marker_color).draw(),
         Item::Dim(inner) => dimmed(painter, |painter| paint_item(painter, inner, at, palette, hover)),
+        Item::Path(path, color, stroke) => match stroke {
+            Some(stroke) => painter.stroke(path, stroke, ink(color, palette)).transform(at).draw(),
+            None => painter.fill(path, ink(color, palette)).transform(at).draw(),
+        },
+        Item::Glyphs(font, size, glyphs, color) => painter.glyphs(font, ink(color, palette)).transform(at).font_size(*size).hint(true).draw(&Style::Fill(Fill::NonZero), glyphs),
     }
+}
+
+fn ink<'a>(color: &'a Option<Color>, palette: &'a [Brush]) -> BrushRef<'a> {
+    color.as_ref().map_or(BrushRef::from(&palette[markdown::TEXT.0]), BrushRef::from)
 }

@@ -29,7 +29,7 @@ pub(in crate::app) fn synthetic_pages(existing: Option<&str>, bytes: u64) -> Str
 
 impl App {
     pub(super) fn book_pressed(&mut self, root: &mut RenderRoot) {
-        let fields = frontmatter::parse(&self.editor_text);
+        let fields = frontmatter::parse(&self.head());
         let file = fields.as_ref().and_then(|f| f.text(BOOK_FILE).map(str::to_owned));
         if let Some(file) = file {
             if let Some(path) = vault_files::resolve(self.tree.root(), &file)
@@ -64,7 +64,7 @@ impl App {
         match vault_files::import(&self.workspace.core, &workspace, Source::Path(file), "book", "epub") {
             Ok(relative) => {
                 let bytes = std::fs::metadata(file).map_or(0, |m| m.len());
-                let existing = frontmatter::parse(&self.editor_text).and_then(|f| f.text(PAGES).map(str::to_owned));
+                let existing = frontmatter::parse(&self.head()).and_then(|f| f.text(PAGES).map(str::to_owned));
                 self.set_fields(root, &[(BOOK_FILE, relative), (PAGES, synthetic_pages(existing.as_deref(), bytes))]);
             }
             Err(error) => report!("книга не загружена: {error:?}"),

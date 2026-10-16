@@ -1,8 +1,6 @@
 use std::ops::Range;
 
 use super::super::{Edit, TextAction};
-use super::classify::States;
-use super::paragraph::split;
 use super::Document;
 
 impl Document {
@@ -13,62 +11,77 @@ impl Document {
     pub fn changed(&mut self) -> TextAction {
         match self.edits.as_mut() {
             Some(edits) => TextAction::Edited(std::mem::take(edits)),
-            None => TextAction::Changed(self.text.clone()),
+            None => TextAction::Changed(self.whole()),
         }
     }
 
-    pub fn set_text(&mut self, text: &str) {
+    pub fn set_rope(&mut self, text: crop::Rope) {
         (self.anchor, self.editing, self.resized, self.uncropped, self.source) = (None, None, None, None, None);
-        self.placed = false;
-        self.states = States::default();
         if let Some(edits) = self.edits.as_mut() {
             edits.clear();
         }
-        self.text = text.to_owned();
-        self.paragraphs = split(text, 0);
-        self.laid = 0..0;
-        self.held.clear();
-        self.mark(0..self.paragraphs.len());
-        self.classify();
+        let base = self.base;
+        self.full = text;
+        self.rescan();
+        self.load(base, None);
+    }
+
+    pub fn report(&mut self, range: Range<usize>, insert: &str) {
+        if let Some(edits) = self.edits.as_mut() {
+            edits.push(Edit { range, insert: insert.to_owned() });
+        }
     }
 
     pub fn replace(&mut self, range: Range<usize>, insert: &str) {
-        let first = self.at_offset(range.start);
-        let last = self.at_offset(range.end);
-        let from = self.paragraphs[first].start;
-        let to = self.paragraphs[last].end();
-        self.text.replace_range(range.clone(), insert);
         let shift = |at: usize| super::super::change::shift(at, &range, insert.len());
         for at in [self.anchor.as_mut().map(|(at, _)| at), self.editing.as_mut().map(|(at, _)| at), self.resized.as_mut().map(|(at, _)| at), self.uncropped.as_mut(), self.source.as_mut()].into_iter().flatten() {
             *at = shift(*at);
         }
-        if let Some(edits) = self.edits.as_mut() {
-            edits.push(Edit { range: range.clone(), insert: insert.to_owned() });
+        let (base, end) = self.loaded_range();
+        if range.start >= base && range.end <= end {
+            self.splice(range, insert);
+            return;
         }
         let delta = insert.len() as isize - range.len() as isize;
-        let new_end = (to as isize + delta) as usize;
-        let fresh = split(&self.text[from..new_end], from);
-        for p in &mut self.paragraphs[last + 1..] {
-            p.start = (p.start as isize + delta) as usize;
+        let before = self.guess(range.clone());
+        self.full.replace(range.clone(), insert);
+        let after = self.guess(range.start..range.start + insert.len());
+        if range.end < base {
+            self.base = base.wrapping_add_signed(delta);
+            self.above = (self.above + after - before).max(0.0);
+        } else if range.start > end {
+            self.below = (self.below + after - before).max(0.0);
+        } else {
+            self.load(range.start, None);
         }
-        let top = self.paragraphs[first].top;
-        let mut fresh = fresh;
-        for p in &mut fresh {
-            p.top = top;
-        }
-        let count = fresh.len();
-        self.paragraphs.splice(first..=last, fresh);
+        self.rescan_from(range.start);
+    }
+
+    fn splice(&mut self, range: Range<usize>, insert: &str) {
+        let window = self.loaded_range();
+        let exit = self.blocks.state(self.lines.count() - 1);
+        let first = self.at_offset(range.start);
+        let last = self.at_offset(range.end);
+        let from = self.lines.start(first);
+        let to = self.lines.end(last);
+        self.text.replace_range(range.start - self.base..range.end - self.base, insert);
+        self.full.replace(range.clone(), insert);
+        let delta = insert.len() as isize - range.len() as isize;
+        let new_end = to.wrapping_add_signed(delta);
+        let count = self.lines.splice(first..=last, &self.text[from..new_end], delta);
+        self.heights.splice(first..=last, count);
+        self.blocks.splice(first..=last, count);
+        self.laid.splice(first..=last, count);
+        self.embeds.splice(first..=last, count);
         let remap = |i: usize, end: bool| match i {
             i if i < first || end && i == first => i,
             i if i > last + usize::from(end) => i - (last + 1) + first + count,
             _ => first + if end { count } else { 0 },
         };
         self.dirty = self.dirty.take().map(|d| remap(d.start, false)..remap(d.end, true));
-        self.laid = remap(self.laid.start, false)..remap(self.laid.end, true);
-        for i in &mut self.held {
-            *i = remap(*i, false);
-        }
         self.mark(first..first + count);
         self.classify_from(first.saturating_sub(1), first + count);
+        let exit_changed = exit != self.blocks.state(self.lines.count() - 1) && self.end() < self.len();
+        self.checkpoints_edited(window, delta, exit_changed);
     }
 }

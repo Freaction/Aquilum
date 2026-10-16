@@ -21,6 +21,7 @@ enum Fetched {
     Grid(Fetch<Grid>),
     Media(media::EmbedLine, Fetch<Media>),
     Books(Vec<embed::BookRow>),
+    Math(String),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,25 +42,27 @@ fn book_header(header: &str) -> (bool, String, String) {
 
 impl Document {
     pub(super) fn run_end(&self, i: usize) -> Option<(usize, Reveal)> {
-        let ps = &self.paragraphs;
-        let until = |pred: &dyn Fn(&Block) -> bool| (i..ps.len()).find(|j| pred(&ps[*j].block));
+        let count = self.lines.count();
+        let block = |j: usize| self.blocks.get(j);
+        let until = |pred: &dyn Fn(&Block) -> bool| (i..count).find(|j| pred(block(*j)));
         let resolved = self.resolver.is_some();
-        match &ps[i].block {
+        match block(i) {
             Block::Table { first: true, .. } => until(&|b| matches!(b, Block::Table { last: true, .. })).map(|e| (e, Reveal::Never)),
+            Block::Code { first: true, lang: Some(Lang::Math), .. } => until(&|b| matches!(b, Block::Code { last: true, .. })).map(|e| (e, Reveal::Source)),
             Block::Code { first: true, lang: Some(Lang::Dataview), .. } if resolved => until(&|b| matches!(b, Block::Code { last: true, .. })).map(|e| (e, Reveal::Source)),
             Block::Image if resolved => Some((i, Reveal::Above)),
             Block::Quote { callout: Some((_, Callout::Book)), .. } if resolved => {
-                let book = |j: usize| matches!(ps[j].block, Block::Quote { callout: Some((_, Callout::Book)), .. });
-                let blank = |j: usize| self.text[ps[j].range()].trim_matches(|c: char| c.is_whitespace() || c == '>').is_empty();
+                let book = |j: usize| matches!(block(j), Block::Quote { callout: Some((_, Callout::Book)), .. });
+                let blank = |j: usize| self.text[self.lines.range(j)].trim_matches(|c: char| c.is_whitespace() || c == '>').is_empty();
                 let mut end = i;
                 let mut next = i + 1;
-                while next < ps.len() {
-                    if matches!(ps[next].block, Block::Quote { callout: None, .. }) && !blank(next) || book(next) {
+                while next < count {
+                    if matches!(block(next), Block::Quote { callout: None, .. }) && !blank(next) || book(next) {
                         end = next;
                         next += 1;
                         continue;
                     }
-                    let after = (next..ps.len()).find(|j| !blank(*j));
+                    let after = (next..count).find(|j| !blank(*j));
                     match after.filter(|j| book(*j)) {
                         Some(j) => next = j,
                         None => break,
@@ -73,10 +76,9 @@ impl Document {
 
     pub fn table_at(&self, start: usize) -> Option<(Range<usize>, &TableView)> {
         let i = self.at_offset(start);
-        let p = &self.paragraphs[i];
         let (end, _) = self.run_end(i)?;
-        match p.embed.as_deref() {
-            Some(Embed { view: View::Table(view), .. }) if p.start == start => Some((start..self.paragraphs[end].end(), view)),
+        match self.embeds.get(i) {
+            Some(Embed { view: View::Table(view), .. }) if self.start(i) == start => Some((start..self.base + self.lines.end(end), view)),
             _ => None,
         }
     }
@@ -84,16 +86,23 @@ impl Document {
     pub(super) fn embed(&mut self, first: usize, last: usize, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, width: Option<f32>) -> Option<f64> {
         let fonts = self.markdown.as_ref()?;
         let available = f64::from(width?);
-        let start = self.paragraphs[first].start;
-        let source = &self.text[start..self.paragraphs[last].end()];
+        let start = self.start(first);
+        let source = &self.text[self.lines.start(first)..self.lines.end(last)];
         let editing = self.editing.filter(|(at, _)| *at == start).map(|(_, cell)| cell);
         let lines: Vec<&str> = source.split('\n').collect();
-        let (fetched, stamp) = match (&self.paragraphs[first].block, self.resolver.as_ref()) {
+        let (fetched, stamp) = match (self.blocks.get(first), self.resolver.as_ref()) {
             (Block::Table { .. }, _) => (Fetched::Table, 0),
-            (Block::Code { .. }, Some(resolver)) => {
-                let closed = lines.len() > 1 && matches!(self.paragraphs[last].block, Block::Code { fence: true, .. });
-                let (grid, stamp) = resolver.dataview(&lines[1..lines.len() - usize::from(closed)].join("\n"));
-                (Fetched::Grid(grid), stamp)
+            (Block::Code { lang, .. }, resolver) => {
+                let closed = lines.len() > 1 && matches!(self.blocks.get(last), Block::Code { fence: true, .. });
+                let body = lines[1..lines.len() - usize::from(closed)].join("\n");
+                match (lang, resolver) {
+                    (Some(Lang::Math), _) => (Fetched::Math(body), 0),
+                    (_, Some(resolver)) => {
+                        let (grid, stamp) = resolver.dataview(&body);
+                        (Fetched::Grid(grid), stamp)
+                    }
+                    _ => return None,
+                }
             }
             (Block::Image, Some(resolver)) => {
                 let mut line = media::parse(source);
@@ -102,17 +111,16 @@ impl Document {
                 }
                 let (fetched, stamp) = resolver.media(&line.src, line.wiki);
                 if matches!(fetched, Fetch::Missing(_)) {
-                    self.paragraphs[first].embed = None;
+                    self.embeds.remove(first);
                     return None;
                 }
                 (Fetched::Media(line, fetched), stamp)
             }
             (Block::Quote { callout: Some(_), .. }, Some(resolver)) => {
                 let mut stamps = std::hash::DefaultHasher::new();
-                let rows = self.paragraphs[first..=last]
-                    .iter()
-                    .filter_map(|p| match &p.block {
-                        Block::Quote { callout: Some((range, Callout::Book)), .. } => Some(&self.text[p.range()][range.end..]),
+                let rows = (first..=last)
+                    .filter_map(|k| match self.blocks.get(k) {
+                        Block::Quote { callout: Some((range, Callout::Book)), .. } => Some(&self.text[self.lines.range(k)][range.end..]),
                         _ => None,
                     })
                     .map(|header| {
@@ -138,7 +146,7 @@ impl Document {
         stamp.hash(&mut hasher);
         self.unresolved.1.hash(&mut hasher);
         let key = hasher.finish();
-        if let Some(embed) = self.paragraphs[first].embed.as_ref().filter(|e| e.key == key) {
+        if let Some(embed) = self.embeds.get(first).filter(|e| e.key == key) {
             return Some(embed.view.height());
         }
         let unresolved = &self.unresolved.0;
@@ -151,9 +159,16 @@ impl Document {
             Fetched::Grid(grid) => View::Drawing(embed::dataview(&grid, available, &mut |spec| text::spec_layout(fcx, lcx, styles, fonts, spec))),
             Fetched::Media(line, fetched) => View::Media(MediaView::new(&fetched, line, available, self.uncropped == Some(start))),
             Fetched::Books(rows) => View::Drawing(embed::books(&rows, available, &mut |spec| text::spec_layout(fcx, lcx, styles, fonts, spec))),
+            Fetched::Math(body) => match embed::math(&body, f64::from(fonts.size), available) {
+                Some(drawing) => View::Drawing(drawing),
+                None => {
+                    self.embeds.remove(first);
+                    return None;
+                }
+            },
         };
         let height = view.height();
-        self.paragraphs[first].embed = Some(Box::new(Embed { key, view }));
+        self.embeds.insert(first, Embed { key, view });
         Some(height)
     }
 }

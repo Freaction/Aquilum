@@ -177,7 +177,7 @@ impl App {
             Some((session, tabs)) => (Some(session), tabs),
             None => (None, Tabs::default()),
         };
-        self.editor_text.clear();
+        self.text = crop::Rope::new();
         self.vault_error = None;
         self.renaming_tab = None;
         self.rename_field = None;

@@ -3,7 +3,7 @@ use super::*;
 
 fn listed(doc: &Document, i: usize) -> bool {
     let p = doc.paragraph(i);
-    matches!(p.block, Block::Item(_) | Block::Continuation { .. } | Block::Code { .. }) || doc.text()[p.range()].trim().is_empty()
+    matches!(p.block, Block::Item(_) | Block::Continuation { .. } | Block::Code { .. }) || doc.slice(p.range()).trim().is_empty()
 }
 
 pub(in super::super) fn renumbered(doc: &Document, edited: Range<usize>) -> Vec<(Range<usize>, String)> {
@@ -13,14 +13,14 @@ pub(in super::super) fn renumbered(doc: &Document, edited: Range<usize>) -> Vec<
     }
     let mut counters: Vec<Option<u64>> = Vec::new();
     let mut out = Vec::new();
-    while i < doc.paragraphs().len() && (i <= last || listed(doc, i)) {
+    while i < doc.line_count() && (i <= last || listed(doc, i)) {
         let p = doc.paragraph(i);
         match &p.block {
             Block::Item(item) => {
                 let level = item.level();
                 let previous = counters.get(level).copied().flatten();
                 counters.resize(level, None);
-                let number = item.ordered.then(|| Item::parse(&doc.text()[p.range()]).and_then(|found| found.number())).flatten();
+                let number = item.ordered.then(|| Item::parse(doc.slice(p.range())).and_then(|found| found.number())).flatten();
                 counters.push(number.map(|(digits, number)| {
                     let expected = previous.map_or(if level == 0 { number } else { 1 }, |previous| previous + 1);
                     if number != expected {

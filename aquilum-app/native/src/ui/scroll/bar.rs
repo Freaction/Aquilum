@@ -7,7 +7,6 @@ use crate::ui::tokens::size;
 
 const THUMB_INSET: f64 = 3.0;
 const THUMB_MIN: f64 = 24.0;
-const PAGE: f64 = 0.875;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Span {
@@ -76,7 +75,7 @@ impl Scrollbar {
             self.drag = Some((self.along(at), span.offset));
             return Some(span.offset);
         }
-        let page = span.viewport * PAGE;
+        let page = span.viewport * super::PAGE;
         let before = self.along(at) < self.along(thumb.origin());
         Some((span.offset + if before { -page } else { page }).clamp(0.0, span.max()))
     }

@@ -1,55 +1,16 @@
 use super::line_diff::COARSE_MERGE_THRESHOLD;
 use super::merge::MergeResult;
-use super::{merge_external_change, TextEdit};
+use super::{apply_edits, merge_external_change, TextEdit};
 
-fn apply_edits(text: &str, edits: &[TextEdit]) -> String {
-    let mut units: Vec<u16> = text.encode_utf16().collect();
-    let mut ordered = edits.to_vec();
-    ordered.sort_by(|left, right| right.from.cmp(&left.from));
-    for edit in ordered {
-        let insert: Vec<u16> = edit.insert.encode_utf16().collect();
-        units.splice(edit.from..edit.to, insert);
-    }
-    String::from_utf16(&units).expect("edits keep surrogate pairs whole")
+pub(super) struct Merged {
+    pub(super) result: MergeResult,
+    pub(super) text: String,
 }
 
-struct Merged {
-    result: MergeResult,
-    text: String,
-}
-
-fn merge(base: &str, disk: &str, current: &str) -> Merged {
+pub(super) fn merge(base: &str, disk: &str, current: &str) -> Merged {
     let result = merge_external_change(base, disk, current);
     let text = apply_edits(current, &result.edits);
     Merged { result, text }
-}
-
-struct Lcg(u64);
-
-impl Lcg {
-    fn next(&mut self, bound: u64) -> usize {
-        self.0 = (self.0 * 1_103_515_245 + 12_345) % 2_147_483_648;
-        (self.0 % bound) as usize
-    }
-}
-
-fn random_lines(random: &mut Lcg, max: u64, empty_one_in: u64) -> Vec<String> {
-    (0..random.next(max))
-        .map(|index| if random.next(empty_one_in) == 0 { String::new() } else { format!("строка {index}") })
-        .collect()
-}
-
-fn mutate(random: &mut Lcg, base: &[String], max_changes: u64) -> Vec<String> {
-    let mut disk = base.to_vec();
-    for change in (1..=random.next(max_changes)).rev() {
-        let at = random.next(disk.len() as u64 + 1);
-        if random.next(2) == 0 || at >= disk.len() {
-            disk.insert(at, format!("вставка {change}"));
-        } else {
-            disk[at] = format!("замена {change}");
-        }
-    }
-    disk
 }
 
 #[test]
@@ -140,43 +101,9 @@ fn counts_positions_in_utf16_units_like_yjs() {
 }
 
 #[test]
-fn never_reorders_the_file_when_an_empty_document_takes_it() {
-    let mut random = Lcg(20_260_818);
-    for _ in 0..400 {
-        let disk = random_lines(&mut random, 14, 3).join("\n");
-        assert_eq!(merge("", &disk, "").text, disk);
-    }
-}
-
-#[test]
-fn lands_exactly_on_the_file_whenever_the_document_has_no_local_change() {
-    let mut random = Lcg(20_260_817);
-    for _ in 0..400 {
-        let base = random_lines(&mut random, 12, 4);
-        let disk = mutate(&mut random, &base, 4);
-        let base_text = base.join("\n");
-        let disk_text = disk.join("\n");
-        assert_eq!(merge(&base_text, &disk_text, &base_text).text, disk_text);
-    }
-}
-
-#[test]
-fn reports_edits_that_never_share_a_position() {
-    let mut random = Lcg(20_260_819);
-    for _ in 0..400 {
-        let base = random_lines(&mut random, 14, 3);
-        let disk = mutate(&mut random, &base, 5);
-        let current = if random.next(3) == 0 { String::new() } else { base.join("\n") };
-        let result = merge_external_change(&base.join("\n"), &disk.join("\n"), &current);
-        let mut reach: Option<usize> = None;
-        for edit in &result.edits {
-            if let Some(reach) = reach {
-                assert!(edit.from > reach);
-            }
-            assert!(edit.to >= edit.from);
-            reach = Some(edit.to);
-        }
-    }
+fn applies_edits_at_utf16_positions_in_any_order() {
+    let edits = [TextEdit { from: 7, to: 8, insert: "Б".into() }, TextEdit { from: 0, to: 2, insert: "А".into() }];
+    assert_eq!(apply_edits("😀 эмодзи", &edits), "А эмодБи");
 }
 
 fn divergent_disk() -> String {

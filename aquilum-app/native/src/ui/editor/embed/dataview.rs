@@ -138,7 +138,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
                         body.push(Item::Check(rect, done));
                         hits.push((rect, action, None));
                     }
-                    None => body.push(Item::Bullet(Point::new(PAD + BULLET_INDENT, y + CELL_Y + f64::from(layout.lines().next().map_or(0.0, |l| (l.metrics().min_coord + l.metrics().max_coord) / 2.0))))),
+                    None => body.push(Item::Bullet(Point::new(PAD + BULLET_INDENT, y + CELL_Y + f64::from(layout.lines().next().map_or(0.0, |l| (l.metrics().block_min_coord + l.metrics().block_max_coord) / 2.0))))),
                 }
                 let at = Point::new(PAD + indent, y + CELL_Y);
                 hits.extend(link_hits(&layout, at, &links));
@@ -169,3 +169,16 @@ fn column_widths(grid: &Grid, inner: f64, make: &mut dyn FnMut(&Spec) -> Layout<
     fit_columns(&natural, inner)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_dataview_table_card_spans_the_whole_column() {
+        let cell = |text: &str| vec![Part::Text(text.into())];
+        let grid = Grid { shape: Shape::Table, title: None, columns: vec!["a".into(), "b".into()], rows: vec![vec![cell("1"), cell("2")]] };
+        let drawing = dataview(&Fetch::Ready(grid), 800.0, &mut |_| Layout::default());
+        let card = drawing.items.iter().find_map(|item| if let Item::Fill(shape, _) = item { Some(shape.rect().width()) } else { None });
+        assert_eq!(card, Some(800.0));
+    }
+}

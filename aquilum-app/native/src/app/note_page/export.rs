@@ -21,22 +21,22 @@ impl App {
         let Some(note) = &self.note else { return };
         let title = note.path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
         let Some(dest) = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).set_file_name(format!("{title}.pdf")).save_file() else { return };
-        let body = self.editor_text[self.hidden.min(self.editor_text.len())..].to_owned();
+        let body = self.body();
         let smart = Smart::from_config(&self.workspace.core.settings.get_config());
         let embeds = self.tree.root().map(|root| Embeds::new(Arc::clone(&self.workspace.core), root.to_path_buf(), note.path.clone(), self.workspace.data_dir.join("remote"), Arc::new(|| {})));
         std::thread::spawn(move || {
-            if let Err(error) = render(&title, &body, smart, embeds).and_then(|pdf| std::fs::write(&dest, pdf).map_err(|e| e.to_string())) {
+            if let Err(error) = render(&title, body, smart, embeds).and_then(|pdf| std::fs::write(&dest, pdf).map_err(|e| e.to_string())) {
                 report!("{} не экспортирован в PDF: {error}", dest.display());
             }
         });
     }
 }
 
-pub(in crate::app) fn render(title: &str, body: &str, smart: Smart, embeds: Option<Embeds>) -> Result<Vec<u8>, String> {
+pub(in crate::app) fn render(title: &str, body: crop::Rope, smart: Smart, embeds: Option<Embeds>) -> Result<Vec<u8>, String> {
     let width = crate::pdf::content_width().floor();
     let resolver = embeds.clone().map(|e| Arc::new(e) as Arc<dyn Resolver>);
     let heading = NewWidget::new(TextEditor::single_line(title).styled(style::editor_title)).with_class(style::EDITOR_TEXT);
-    let text = NewWidget::new(TextEditor::new(body).styled(style::editor_text).markdown().with_resolver(resolver).with_smart(smart)).with_class(style::EDITOR_TEXT);
+    let text = NewWidget::new(TextEditor::entire(body).styled(style::editor_text).markdown().with_resolver(resolver).with_smart(smart)).with_class(style::EDITOR_TEXT);
     let id = text.id();
     let column = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(heading).with_fixed_spacer(masonry::layout::Length::px(size::SPACE_16)).with_fixed(text);
     let options = RenderRootOptions {

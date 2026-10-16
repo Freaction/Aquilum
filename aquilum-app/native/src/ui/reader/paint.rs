@@ -48,7 +48,8 @@ impl ReaderView {
                     }
                     let origin = Vec2::new(rect.x0, band.y0 - piece.from);
                     match &items[piece.item] {
-                        Item::Text { layout, x, .. } => {
+                        Item::Text { x, .. } => {
+                            let Some(layout) = self.session.layout(piece.item) else { continue };
                             let at = Affine::translate(origin + Vec2::new(*x, 0.0));
                             let whole = piece.from <= 0.5 && piece.to >= f64::from(layout.height()) - 0.5;
                             if whole {
@@ -57,12 +58,12 @@ impl ReaderView {
                                 painter.with_fill_clip(band, |painter| render_text(painter, at, layout, &palette, true));
                             }
                         }
-                        Item::Image { image: Some(image), size: shown, .. } => {
+                        Item::Image { size: shown, .. } => {
+                            let Some(image) = self.session.image(piece.item) else { continue };
                             let k = shown.width / f64::from(image.image.width);
                             let x = rect.x0 + ((rect.width() - shown.width) / 2.0).max(0.0);
                             painter.with_fill_clip(band, |painter| painter.draw_image(image, Affine::translate((x, band.y0 - piece.from)) * Affine::scale(k)));
                         }
-                        Item::Image { .. } => {}
                         Item::Rule => {
                             let y = band.y0 + 0.5;
                             painter.stroke(&Segment::new((rect.x0, y), (rect.x1, y)), &Stroke::new(size::BORDER_1), tm.border_subtle).draw();

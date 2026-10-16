@@ -1,6 +1,9 @@
 mod input;
 mod query;
 mod render;
+mod worker;
+
+use std::sync::Arc;
 
 use crate::ui::editor::TextEditor;
 
@@ -19,7 +22,7 @@ use crate::ui::scroll::ScrollArea;
 use crate::ui::search::{self, CardKind, Placeholder, ResultCard};
 use crate::ui::widgets::Slot;
 
-pub(super) use query::Found;
+pub(super) use worker::Found;
 
 pub(super) struct SearchState {
     layer: WidgetId,
@@ -29,7 +32,7 @@ pub(super) struct SearchState {
     body: Handle<Slot>,
     list: Option<Handle<ScrollArea<Flex>>>,
     query: String,
-    generation: u64,
+    worker: worker::Worker,
     results: Vec<SearchResult>,
     terms: Vec<String>,
     status: Option<SearchIndexStatus>,
@@ -50,6 +53,17 @@ impl SearchState {
 
     pub fn selected_path(&self) -> std::path::PathBuf {
         std::path::PathBuf::from(&self.results[self.selected].path)
+    }
+
+    pub fn generation(&self) -> u64 {
+        self.worker.current()
+    }
+}
+
+#[cfg(test)]
+impl Found {
+    pub fn generation(&self) -> u64 {
+        self.generation
     }
 }
 
@@ -91,7 +105,7 @@ impl App {
             body: body_handle,
             list: None,
             query: String::new(),
-            generation: 0,
+            worker: worker::Worker::spawn(Arc::clone(&self.workspace.core), self.search_tx.clone(), Arc::clone(&self.workspace.wake)),
             results: Vec::new(),
             terms: Vec::new(),
             status,

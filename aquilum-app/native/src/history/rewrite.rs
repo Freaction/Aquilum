@@ -46,19 +46,6 @@ pub fn revert(core: &Core, note: &Path, version: &Version) -> Result<bool, FileC
     let Some(Texts { text, previous: Some(previous) }) = texts(core, note, &version.id) else { return Ok(false) };
     rewrite(core, note, Source::Revert(version.at_ms), |current| {
         let merged = merge_external_change(&text, &previous, current);
-        apply_utf16_edits(current, &merged.edits)
+        aquilum_core::documents::merge::apply_edits(current, &merged.edits)
     })
-}
-
-pub(super) fn apply_utf16_edits(text: &str, edits: &[aquilum_core::documents::merge::TextEdit]) -> String {
-    use aquilum_core::documents::merge::utf16_byte;
-    let mut result = text.to_owned();
-    let mut sorted: Vec<_> = edits.iter().collect();
-    sorted.sort_by(|a, b| b.from.cmp(&a.from));
-    for edit in sorted {
-        let from = utf16_byte(&result, edit.from);
-        let to = utf16_byte(&result, edit.to);
-        result.replace_range(from..to, &edit.insert);
-    }
-    result
 }

@@ -3,6 +3,7 @@ use super::extract::{body_term_lang, extract_queries, has_enough_text, is_cyrill
 use super::http::HttpClient;
 use super::models::{SearchRequest, WikixivHit, WikixivSearchResult};
 use super::wikipedia;
+use crate::search::analysis::window::window;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -44,7 +45,8 @@ impl WikixivService {
             .generation
             .store(request.generation, Ordering::SeqCst);
 
-        let extracted = extract_queries(&request.text, request.document_path.as_deref());
+        let text = window(&request.text);
+        let extracted = extract_queries(text, request.document_path.as_deref());
         if extracted.title.is_none()
             && extracted.embedded_titles.is_empty()
             && !has_enough_text(extracted.word_count)
@@ -58,7 +60,7 @@ impl WikixivService {
             return Ok(empty(request.generation, false, false));
         }
 
-        let cache_key = content_hash(request.document_path.as_deref(), &request.text);
+        let cache_key = content_hash(request.document_path.as_deref(), text);
         if let Ok(mut cache) = self.inner.cache.lock() {
             if let Some(hits) = cache.get(&cache_key) {
                 if self.is_current(request.generation) {

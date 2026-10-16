@@ -1,0 +1,17 @@
+[package]
+name = "subsetter"
+version = "0.2.6"
+edition = "2021"
+description = "Форк subsetter 0.2.6 под Aquilum: skrifa 0.44, как у parley"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/typst/subsetter"
+
+[features]
+default = ["variable-fonts"]
+variable-fonts = ["dep:skrifa", "dep:write-fonts", "dep:kurbo"]
+
+[dependencies]
+rustc-hash = "2.1"
+skrifa = { version = "0.44.0", optional = true }
+kurbo = { version = "0.13.0", optional = true }
+write-fonts = { version = "0.50.0", optional = true }

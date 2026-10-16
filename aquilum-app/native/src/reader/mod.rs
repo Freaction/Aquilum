@@ -11,7 +11,7 @@ pub mod session;
 mod text;
 mod zip;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use std::cell::OnceCell;
 use std::collections::HashMap;

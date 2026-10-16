@@ -60,7 +60,7 @@ pub fn render_text(
             // https://drafts.csswg.org/css-text-decor/#painting-order
             if let Some(underline) = &style.underline {
                 let underline_brush = &brushes[underline.brush.0];
-                let run_metrics = glyph_run.run().metrics();
+                let run_metrics = glyph_run.run().font_metrics();
                 let offset = match underline.offset {
                     Some(offset) => offset,
                     None => run_metrics.underline_offset,
@@ -115,12 +115,12 @@ pub fn render_text(
                 .transform(transform)
                 .glyph_transform(glyph_xform)
                 .font_size(font_size)
-                .normalized_coords(coords)
+                .normalized_coords(bytemuck::cast_slice(coords))
                 .draw(&peniko::Style::Fill(Fill::NonZero), &glyphs);
 
             if let Some(strikethrough) = &style.strikethrough {
                 let strikethrough_brush = &brushes[strikethrough.brush.0];
-                let run_metrics = glyph_run.run().metrics();
+                let run_metrics = glyph_run.run().font_metrics();
                 let offset = match strikethrough.offset {
                     Some(offset) => offset,
                     None => run_metrics.strikethrough_offset,

@@ -7,14 +7,14 @@ use masonry::parley::{Affinity, Alignment, Cursor, FontContext, LayoutContext};
 use super::super::markdown::{self, Block, Fonts};
 use super::{Document, Fold, text};
 
-fn markdown(text: &str) -> Document {
+pub(super) fn markdown(text: &str) -> Document {
     let mut doc = Document::new(text);
     doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags: true }));
     doc
 }
 
 fn blocks(doc: &Document) -> Vec<Block> {
-    doc.paragraphs().iter().map(|p| p.block.clone()).collect()
+    doc.paragraphs().map(|p| p.block.clone()).collect()
 }
 
 struct Files;
@@ -43,9 +43,9 @@ fn missing_media_stays_visible_as_text() {
     let mut fcx = FontContext::default();
     let mut lcx = LayoutContext::new();
     doc.layout(&mut fcx, &mut lcx, &StyleSet::new(16.0), Some(600.0), None, None);
-    let embedded: Vec<bool> = doc.paragraphs().iter().map(|p| p.embed.is_some()).collect();
+    let embedded: Vec<bool> = doc.paragraphs().map(|p| p.embed.is_some()).collect();
     assert_eq!(embedded, [true, false, false], "ненайденная картинка спряталась вместо того, чтобы показать строку");
-    let shown: Vec<(f64, Fold)> = doc.paragraphs().iter().map(|p| (p.height, p.fold)).collect();
+    let shown: Vec<(f64, Fold)> = doc.paragraphs().enumerate().map(|(i, p)| (doc.bottom(i) - doc.top(i), p.fold)).collect();
     assert!(shown[1..].iter().all(|(h, f)| *h > 0.0 && *f == Fold::None), "{shown:?}");
 }
 
@@ -163,7 +163,7 @@ fn partial_classification_matches_a_full_pass() {
         let at = text.find(from).unwrap_or_else(|| panic!("нет «{from}» в тексте"));
         doc.replace(at..at + from.len(), to);
         text.replace_range(at..at + from.len(), to);
-        assert_eq!(doc.text(), text);
+        assert_eq!(doc.whole(), text);
         assert_eq!(blocks(&doc), markdown::classify(text.split('\n')), "после правки «{from}» → «{to}»");
     }
 }
@@ -180,7 +180,7 @@ fn frontmatter_lines_are_metadata_and_follow_the_block_boundary() {
     assert!(blocks(&doc).iter().all(|b| *b != Block::Meta), "без открывающей черты блока метаданных нет");
     doc.replace(0..1, "");
     assert!(framed(&blocks(&doc)));
-    let closing = doc.text().rfind("\n---").unwrap();
+    let closing = doc.whole().rfind("\n---").unwrap();
     doc.replace(closing + 1..closing + 4, "--");
     assert!(blocks(&doc).iter().all(|b| *b != Block::Meta), "без закрывающей черты блока метаданных нет");
 }
@@ -209,7 +209,7 @@ fn chips_of_neighbouring_tags_do_not_touch_but_text_around_them_is_left_alone() 
     let text = "слово #один #два #три. И #четыре, конец";
     let doc = laid_out(text, true);
     let p = doc.paragraph(0);
-    let layout = p.layout.as_deref().expect("абзац свёрстан");
+    let layout = p.laid().expect("абзац свёрстан");
     let chips = markdown::tag_chips(layout, p.decor(), masonry::kurbo::Vec2::ZERO);
     assert_eq!(chips.len(), 4);
     let x = |at: usize| Cursor::from_byte_index(layout, at, Affinity::Downstream).geometry(layout, 0.0).x0;
@@ -217,7 +217,7 @@ fn chips_of_neighbouring_tags_do_not_touch_but_text_around_them_is_left_alone() 
         assert!(pair[0].0.rect().x1 + 0.5 <= pair[1].0.rect().x0, "плашки тегов наезжают друг на друга: {:?} и {:?}", pair[0].0.rect(), pair[1].0.rect());
     }
     let plain = laid_out("слово #один #два #три. И #четыре, конец".replace('#', "").as_str(), true);
-    let plain_layout = plain.paragraph(0).layout.as_deref().expect("абзац свёрстан");
+    let plain_layout = plain.paragraph(0).laid().expect("абзац свёрстан");
     let before_tags = Cursor::from_byte_index(plain_layout, "слово ".len(), Affinity::Downstream).geometry(plain_layout, 0.0).x0;
     assert!((x("слово ".len()) - before_tags).abs() < 0.5, "текст перед первым тегом сдвинут");
 }

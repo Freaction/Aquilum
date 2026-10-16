@@ -126,7 +126,7 @@ impl App {
         match self.tree.on_action(root, id, action) {
             Some(TreeAction::Open { path, new_tab }) => return self.open_in(root, path, new_tab),
             Some(TreeAction::Rename { from, to }) => {
-                file_ops::rename(&self.workspace.core, from, to);
+                self.rename_file(root, from, to);
                 return false;
             }
             Some(TreeAction::CreateNote) => return self.create_note_titled(root, None),

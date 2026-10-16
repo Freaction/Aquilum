@@ -66,7 +66,7 @@ fn run_case(mut bench: BenchIndex, label: &str, threads_before: usize) {
         bm25f::analyze(&bench.search_index, &documents[0], 20, &bm25f_params, &search_settings).unwrap();
     });
     let search20 = best(|| {
-        bench.search_index.search("кадр замер frame", 21).unwrap();
+        bench.search_index.search(&crate::search::query::Request { limit: Some(21), ..crate::search::query::Request::new("кадр замер frame") }).unwrap();
     });
 
     let line = format!(

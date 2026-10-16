@@ -14,6 +14,18 @@ pub(super) fn wait_until(tries: usize, millis: u64, mut done: impl FnMut() -> bo
     false
 }
 
+pub(super) fn scroll_offset(h: &Harness, id: WidgetId) -> f64 {
+    h.root.get_widget(id).and_then(|w| w.downcast::<crate::ui::scroll::ScrollArea<masonry::widgets::Flex>>()).map(|w| w.inner().offset()).unwrap()
+}
+
+pub(super) fn note_offset(h: &Harness) -> f64 {
+    scroll_offset(h, h.app.note_ids.as_ref().unwrap().scroll.id())
+}
+
+pub(super) fn caret(h: &Harness) -> usize {
+    h.app.note_ids.as_ref().unwrap().body.get(&h.root).unwrap().inner().caret_offset()
+}
+
 pub(super) fn bench_scale(default: f64) -> f64 {
     std::env::var("AQUILUM_BENCH_SCALE").ok().and_then(|s| s.parse().ok()).unwrap_or(default)
 }
@@ -108,6 +120,22 @@ impl Harness {
         self.deliver()
     }
 
+    pub(super) fn replace_body(&mut self, text: &str) {
+        let body = self.app.note_ids.as_ref().unwrap().body.id();
+        let range = 0..self.app.text.byte_len() - self.app.hidden;
+        self.act(body, crate::ui::editor::TextAction::Edited(vec![crate::ui::editor::Edit { range, insert: text.to_owned() }]));
+    }
+
+    pub(super) fn save_now(&mut self) {
+        for _ in 0..1000 {
+            self.app.tick(&mut self.root, std::time::Instant::now() + std::time::Duration::from_secs(3600));
+            if self.app.note.as_ref().is_none_or(|note| note.deadline().is_none()) {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
     pub(super) fn type_text(&mut self, text: &str) {
         for ch in text.chars() {
             self.key(Key::Character(ch.to_string().into()), Modifiers::empty());
@@ -123,7 +151,7 @@ impl Harness {
 
     pub(super) fn body_text(&self) -> String {
         let body = self.app.note_ids.as_ref().unwrap().body;
-        body.get(&self.root).unwrap().inner().text().to_string()
+        body.get(&self.root).unwrap().inner().text()
     }
 
     pub(super) fn tab_paths(&self) -> Vec<Option<String>> {

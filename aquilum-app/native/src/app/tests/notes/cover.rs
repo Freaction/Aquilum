@@ -9,18 +9,19 @@ fn cover_actions_rewrite_frontmatter() {
     let hero = |h: &Harness| h.app.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()).map(|(_, ids)| (ids.random, ids.remove, ids.thumbnail.map(|t| t.id())));
     let (random, _, _) = hero(&h).expect("обложка и книга");
     h.act(random.unwrap(), Pressed);
-    let fields = crate::frontmatter::parse(&h.app.editor_text).unwrap();
+    let fields = crate::frontmatter::parse(&h.app.text.to_string()).unwrap();
     let cover = fields.text(crate::frontmatter::PAGE_COVER).unwrap().to_owned();
     let id = cover.strip_prefix("pattern:").expect("узор записан с префиксом, как в Таури");
     assert!(crate::cover::PATTERN_IDS.contains(&id) && id != "polka");
-    assert_eq!(std::fs::read_to_string(&note).unwrap(), h.app.editor_text);
+    h.save_now();
+    assert_eq!(std::fs::read_to_string(&note).unwrap(), h.app.text.to_string());
 
     let (_, remove, _) = hero(&h).unwrap();
     h.act(remove.unwrap(), Pressed);
-    assert!(!h.app.editor_text.contains("cover: true") && !h.app.editor_text.contains("Page_cover"));
+    assert!(!h.app.text.to_string().contains("cover: true") && !h.app.text.to_string().contains("Page_cover"));
     let (_, _, thumbnail) = hero(&h).unwrap();
     h.act(thumbnail.unwrap(), crate::ui::book::ThumbAction::Remove);
-    assert_eq!(h.app.editor_text, "---\ntype: book\n---\nтекст");
+    assert_eq!(h.app.text.to_string(), "---\ntype: book\n---\nтекст");
     assert!(hero(&h).is_some_and(|(random, _, _)| random.is_none()));
 }
 
@@ -85,7 +86,6 @@ fn book_page_renders_with_multithreaded_rasterizer() {
 
 #[test]
 fn editing_cover_fields_in_metadata_keeps_rendering() {
-    use crate::ui::editor::TextAction;
     let mut h = Harness::new();
     let text = "---\ncover: true\ntype: book\nPage_cover: pattern:polka\nBook_cover: Files/x.png\n---\nтекст";
     let note = h.write_note("Книга.md", text);
@@ -99,8 +99,7 @@ fn editing_cover_fields_in_metadata_keeps_rendering() {
         for _ in 0..field.chars().count() {
             let ch = current[start..].chars().next().unwrap();
             current.replace_range(start..start + ch.len_utf8(), "");
-            let body = h.app.note_ids.as_ref().unwrap().body.id();
-            h.act(body, TextAction::Changed(current.clone()));
+            h.replace_body(&current);
             h.app.tick(&mut h.root, std::time::Instant::now() + std::time::Duration::from_secs(3600));
             for _ in 0..3 {
                 std::thread::sleep(std::time::Duration::from_millis(15));
@@ -110,7 +109,7 @@ fn editing_cover_fields_in_metadata_keeps_rendering() {
             }
         }
     }
-    assert_eq!(h.app.editor_text, "---\n---\nтекст");
+    assert_eq!(h.app.text.to_string(), "---\n---\nтекст");
 }
 
 #[test]
@@ -214,17 +213,15 @@ fn every_pattern_is_painted_from_its_tile_like_from_the_whole_bake() {
 
 #[test]
 fn cover_disappears_when_its_fields_are_removed() {
-    use crate::ui::editor::TextAction;
     let mut h = Harness::new();
     let note = h.write_note("Книга.md", "---\ncover: true\nPage_cover: pattern:polka\n---\nтекст");
     h.app.open(&mut h.root, note);
     let toggle = h.app.note_ids.as_ref().unwrap().metadata.id();
     h.act(toggle, crate::ui::note::MetadataToggled);
     assert!(h.app.note_ids.as_ref().unwrap().hero.is_some());
-    let body = h.app.note_ids.as_ref().unwrap().body.id();
-    h.act(body, TextAction::Changed("---\nPage_cover: pattern:polka\n---\nтекст".into()));
+    h.replace_body("---\nPage_cover: pattern:polka\n---\nтекст");
     assert!(h.app.note_ids.as_ref().unwrap().hero.is_none());
-    h.act(body, TextAction::Changed("---\ncover: true\n---\nтекст".into()));
+    h.replace_body("---\ncover: true\n---\nтекст");
     assert!(h.app.note_ids.as_ref().unwrap().hero.is_some());
     let _ = h.root.redraw();
 }

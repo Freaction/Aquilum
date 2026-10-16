@@ -57,6 +57,10 @@ impl Host {
                 self.request_redraw();
             }
         }
+        let vblank = self.vsync.take();
+        if vblank.is_some() {
+            self.flush_move();
+        }
         if let Some(root) = &mut self.root {
             self.app.tick(root, now);
             for id in ui::timer::due(now) {
@@ -80,7 +84,7 @@ impl Host {
             self.live_at = None;
             self.vsync.request();
         }
-        if let Some(vblank) = self.vsync.take() {
+        if let Some(vblank) = vblank {
             let previous = self.last_vblank.replace(vblank);
             self.touchpad_scroll(event_loop, vblank);
             if std::mem::take(&mut self.anim_pending) {

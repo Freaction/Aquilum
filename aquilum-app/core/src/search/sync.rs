@@ -318,6 +318,6 @@ mod tests {
         fs::write(&note, "второе слово").unwrap();
         synchronizer.apply_paths(HashSet::from([note])).unwrap();
         assert!(synchronizer.holds_writer());
-        assert!(!index.search("второе", 5).unwrap().1.is_empty(), "правка видна поиску сразу");
+        assert!(!index.search(&crate::search::query::Request::new("второе")).unwrap().results.is_empty(), "правка видна поиску сразу");
     }
 }

@@ -44,13 +44,20 @@ impl Host {
     pub(super) fn pointer_moved(&mut self, position: winit::dpi::PhysicalPosition<f64>) {
         self.update_resize_edge(position);
         self.pointer.position = position;
-        let current = self.pointer_state();
-        self.pointer_event(PointerEvent::Move(PointerUpdate {
-            pointer: PRIMARY_MOUSE,
-            current,
-            coalesced: vec![],
-            predicted: vec![],
-        }));
+        self.moved = true;
+        self.vsync.request();
+    }
+
+    pub(super) fn flush_move(&mut self) {
+        if std::mem::take(&mut self.moved) {
+            let current = self.pointer_state();
+            self.pointer_event(PointerEvent::Move(PointerUpdate {
+                pointer: PRIMARY_MOUSE,
+                current,
+                coalesced: vec![],
+                predicted: vec![],
+            }));
+        }
     }
 
     pub(super) fn pointer_button(&mut self, state: ElementState, position: winit::dpi::PhysicalPosition<f64>, button: winit::event::ButtonSource) {
@@ -92,12 +99,8 @@ impl Host {
     }
 
     pub(super) fn wheel_zoom(&mut self, up: bool) {
-        if self.app.zoom_wheel(up) {
-            self.rescale();
-            if let Some(root) = &mut self.root {
-                self.app.scale_changed(root);
-            }
-        }
+        let rescale = self.app.zoom(up);
+        self.apply(crate::app::Outcome { rescale, ..Default::default() });
     }
 
     pub(super) fn wheel_delta(&mut self, delta: MouseScrollDelta) -> Option<ScrollDelta> {

@@ -46,6 +46,12 @@ impl Session {
         self.insert(view, "")
     }
 
+    pub fn range_text(&self, view: &TableView) -> Option<String> {
+        let range = self.range?;
+        let row = |r: usize| (range.left..=range.right).map(|c| view.model.value(r, c).to_owned()).collect::<Vec<_>>().join("\t");
+        Some((range.top..=range.bottom).map(row).collect::<Vec<_>>().join("\n"))
+    }
+
     pub fn selected(&self, view: &TableView) -> Option<String> {
         let (r, c) = self.active?;
         let value = view.model.value(r, c);

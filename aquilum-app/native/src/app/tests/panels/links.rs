@@ -76,5 +76,5 @@ fn history_panel_opens_version_and_reverts_it() {
     h.send(revert, Pressed);
     assert_eq!(std::fs::read_to_string(&note).unwrap(), "один\nдва\n");
     assert!(h.app.version_view.is_none());
-    assert_eq!(h.app.editor_text, "один\nдва\n");
+    assert_eq!(h.app.text.to_string(), "один\nдва\n");
 }

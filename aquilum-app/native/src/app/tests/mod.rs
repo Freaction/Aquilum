@@ -4,6 +4,7 @@ mod external;
 mod folder_colors;
 mod graph;
 mod harness;
+mod keys;
 #[cfg(feature = "memory-probe")]
 mod memory;
 mod misc;

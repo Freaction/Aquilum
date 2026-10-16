@@ -81,7 +81,7 @@ impl TextEditor {
         let Some(start) = self.table.as_ref().map(|s| s.start) else { return };
         let Some((range, _)) = self.doc.table_at(start) else { return };
         let text = model.serialize();
-        if self.doc.text()[range.clone()] != text {
+        if self.doc.slice(range.clone()) != text {
             self.dispatch(vec![(range, text)], None, Kind::Block);
         }
     }
@@ -146,7 +146,7 @@ impl TextEditor {
     pub(super) fn paint_table_caret(&self, painter: &mut Painter<'_>) {
         let Some(session) = self.table.as_ref().filter(|s| s.active.is_some()) else { return };
         let Some((range, view)) = self.doc.table_at(session.start) else { return };
-        let top = self.doc.paragraph(self.doc.at_offset(range.start)).top;
+        let top = self.doc.top(self.doc.at_offset(range.start));
         let Some((at, height, selection)) = session.caret_geometry(view) else { return };
         let origin = Vec2::new(self.shift().x, top);
         let tm = theme::current();

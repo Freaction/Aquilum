@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use aquilum_core::search::paths::{is_markdown, is_plain_text, same_path};
+use aquilum_core::search::paths::{is_markdown, is_plain_text};
 use masonry::app::RenderRoot;
 use masonry::widgets::IndexedStack;
 
@@ -45,12 +45,16 @@ impl App {
             return;
         }
         self.leave_note();
-        match Note::open(path.clone()) {
+        let read = aq_trace::zone("открытие: чтение файла");
+        let opened = Note::open(path.clone());
+        drop(read);
+        match opened {
             Ok((note, text)) => {
                 self.open_error = None;
                 self.open_error_ids = None;
-                self.editor_text = text;
+                self.text = text;
                 self.note = Some(note);
+                let _zone = aq_trace::zone("открытие: страница заметки");
                 self.render_note(root);
                 self.reveal_pending(root);
             }
@@ -82,7 +86,7 @@ impl App {
         if self.note_ids.take().is_none() {
             return;
         }
-        self.editor_text = String::new();
+        self.text = crop::Rope::new();
         if let Some(chrome) = &self.chrome {
             chrome.note_page.edit(root, |mut slot| Slot::set_child(&mut slot, masonry::core::NewWidget::new(masonry::widgets::SizedBox::empty()).erased()));
         }
@@ -92,8 +96,8 @@ impl App {
         self.flush_view();
         self.view = None;
         self.restore = None;
-        if let Some(mut note) = self.note.take() {
-            let _ = note.save(&self.workspace.core, &self.editor_text);
+        if let Some(note) = self.note.take() {
+            note.leave(&self.workspace.core, &self.text);
         }
     }
 
@@ -113,7 +117,7 @@ impl App {
 
     fn reveal_pending(&mut self, root: &mut RenderRoot) {
         let Some(units) = self.pending_reveal.take() else { return };
-        let byte = aquilum_core::documents::merge::utf16_byte(&self.editor_text, usize::try_from(units).unwrap_or(0)).saturating_sub(self.hidden);
+        let byte = self.byte_of(usize::try_from(units).unwrap_or(0)).saturating_sub(self.hidden);
         self.reveal(root, byte);
         if let Some(ids) = &self.note_ids {
             ids.body.edit(root, |mut b| TextEditor::select_byte_range(&mut b, byte, byte));
@@ -152,29 +156,5 @@ impl App {
         self.tabs.close(self.tabs.active_id());
         self.show_active(root);
         Outcome { title: true, ..Outcome::default() }
-    }
-
-    pub(in crate::app) fn relocate_tabs(&mut self, root: &mut RenderRoot, from: &Path, to: &Path) {
-        if !self.tabs.rename(from, to) {
-            return;
-        }
-        if let Some(session) = &self.session {
-            for tab in self.tabs.tabs().iter().filter(|t| t.path.as_deref() == Some(to)) {
-                session.renamed(&self.workspace.core, tab);
-            }
-        }
-        self.refresh_tabs(root);
-    }
-
-    pub(in crate::app) fn close_missing_tabs(&mut self, root: &mut RenderRoot, removed: &[PathBuf]) -> bool {
-        let inside = |path: &Path| path.ancestors().any(|ancestor| removed.iter().any(|gone| same_path(ancestor, gone)));
-        let gone: Vec<_> = self.tabs.tabs().iter().filter(|tab| tab.path.as_ref().is_some_and(|p| !p.exists() && inside(p))).map(|tab| tab.id).collect();
-        for id in &gone {
-            self.tabs.close(*id);
-        }
-        if !gone.is_empty() {
-            self.show_active(root);
-        }
-        !gone.is_empty()
     }
 }

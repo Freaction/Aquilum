@@ -36,7 +36,7 @@ fn numbered(path: &Path, index: usize) -> PathBuf {
 
 fn background(core: &Arc<Core>, targets: Vec<PathBuf>, failure: &'static str, op: impl Fn(&Core, &Path) -> Result<(), FileCommandError> + Send + 'static) {
     let core = Arc::clone(core);
-    std::thread::spawn(move || {
+    crate::disk::run(move || {
         for target in targets {
             if let Err(error) = op(&core, &target) {
                 report!("{} {failure}: {error}", target.display());
@@ -84,8 +84,14 @@ pub fn rename_target(from: &Path, input: &str) -> Option<(PathBuf, String)> {
     Some((to, name))
 }
 
-pub fn rename(core: &Arc<Core>, from: PathBuf, to: PathBuf) {
-    background(core, vec![from], "не переименован", move |core, from| gate::rename(core, from, &to).map(drop));
+pub fn rename(core: &Arc<Core>, from: PathBuf, to: PathBuf, failed: impl FnOnce() + Send + 'static) {
+    let core = Arc::clone(core);
+    crate::disk::run(move || {
+        if let Err(error) = gate::rename(&core, &from, &to) {
+            report!("{} не переименован: {error}", from.display());
+            failed();
+        }
+    });
 }
 
 pub fn move_all(core: &Arc<Core>, sources: Vec<PathBuf>, target: PathBuf) {

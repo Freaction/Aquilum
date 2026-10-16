@@ -1,4 +1,5 @@
 use super::terms::QueryTerm;
+use crate::search::analysis::MAX_REASONS;
 use crate::search::error::SearchError;
 use crate::search::index::FieldStats;
 use crate::settings::models::Bm25fParams;
@@ -44,7 +45,7 @@ impl SegmentTerms {
         for (index, term) in terms.iter().enumerate() {
             let title_tf = seek_term_freq(&mut self.title[index], candidate.id) as f64;
             let body_tf = seek_term_freq(&mut self.body[index], candidate.id) as f64;
-            if (title_tf > 0.0 || body_tf > 0.0) && reasons.len() < 3 {
+            if (title_tf > 0.0 || body_tf > 0.0) && reasons.len() < MAX_REASONS {
                 reasons.push(term.label.clone());
             }
             let title_norm = normalized_tf(

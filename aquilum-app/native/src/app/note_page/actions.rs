@@ -5,6 +5,7 @@ use crate::ui::editor::TextAction;
 
 use super::super::{App, Outcome};
 use crate::ui::editor::TextEditor;
+use crate::ui::scroll::ScrollArea;
 use crate::ui::note::{MetadataToggled, TitleAction, TitleField};
 use crate::ui::widgets::Pressed;
 
@@ -46,12 +47,23 @@ impl App {
             return Some(Outcome::default());
         }
         if id == ids.body.id() {
+            let (scroll, body) = (ids.scroll, ids.body);
             match action.downcast_ref::<TextAction>() {
-                Some(TextAction::Edited(edits)) => self.body_edited(root, edits),
-                Some(TextAction::Changed(visible)) => {
-                    let range = 0..self.editor_text.len() - self.hidden;
-                    self.body_edited(root, &[crate::ui::editor::Edit { range, insert: visible.clone() }]);
+                Some(TextAction::Page { down, extend }) => {
+                    let (down, extend) = (*down, *extend);
+                    let dy = scroll
+                        .edit(root, |mut area| {
+                            let step = area.widget.page();
+                            ScrollArea::scroll_by(&mut area, if down { step } else { -step })
+                        })
+                        .unwrap_or(0.0);
+                    body.edit(root, |mut editor| TextEditor::page(&mut editor, down, dy, extend));
                 }
+                Some(TextAction::Line { down }) => {
+                    let line = if *down { crate::ui::scroll::LINE } else { -crate::ui::scroll::LINE };
+                    scroll.edit(root, |mut area| ScrollArea::scroll_by(&mut area, line));
+                }
+                Some(TextAction::Edited(edits)) => self.body_edited(root, edits),
                 _ => {}
             }
             return Some(Outcome::default());
@@ -77,7 +89,7 @@ impl App {
         }
         if id == ids.title_box.id() && action.downcast_ref::<TitleAction>().is_some() {
             let title = ids.title;
-            let text = title.get(root).map(|t| t.inner().text().to_string()).unwrap_or_default();
+            let text = title.get(root).map(|t| t.inner().text()).unwrap_or_default();
             self.commit_title(root, &text);
             return Some(Outcome::default());
         }

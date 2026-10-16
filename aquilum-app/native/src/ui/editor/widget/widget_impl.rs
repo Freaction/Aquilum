@@ -58,7 +58,7 @@ impl Widget for TextEditor {
     }
 
     fn accessibility(&mut self, _ctx: &mut AccessCtx<'_>, _props: &PropertiesRef<'_>, node: &mut Node) {
-        node.set_value(self.doc.text());
+        node.set_value(self.doc.loaded().1);
     }
 
     fn children_ids(&self) -> ChildrenIds {

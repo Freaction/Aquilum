@@ -16,7 +16,7 @@ pub(super) fn snapshot(scene: &Scene) {
     let terms = vec!["кофе".to_owned()];
     let card = |title: &str, snippet: &str, count: &str, selected| {
         let find = |text: &str| {
-            aquilum_core::search::matching::find_prefix_matches(text, &terms).into_iter().map(|(s, e, _)| (s, e)).collect()
+            aquilum_core::search::hits::query_matcher(&terms).find_all(text).into_iter().map(|r| (r.start, r.end)).collect()
         };
         ResultCard::new(
             CardData {

@@ -1,4 +1,5 @@
 use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
+use crate::ui::keymap::{self, Command, Scope};
 use masonry::kurbo::{Axis, Size};
 use masonry::layout::Length;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
@@ -47,7 +48,7 @@ fn hint(keys: &str, text: &str) -> NewWidget<Flex> {
     NewWidget::new(row).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))))
 }
 
-fn hints(list: &[(&str, String)]) -> NewWidget<Flex> {
+fn hints(list: &[(String, String)]) -> NewWidget<Flex> {
     let mut row = Flex::row().main_axis_alignment(MainAxisAlignment::Center).cross_axis_alignment(CrossAxisAlignment::Center);
     for (keys, text) in list {
         row = row.with_fixed(hint(keys, text));
@@ -57,12 +58,25 @@ fn hints(list: &[(&str, String)]) -> NewWidget<Flex> {
     )
 }
 
+fn key(command: Command) -> String {
+    keymap::label(Scope::List, command)
+}
+
+fn arrows() -> String {
+    format!("{} {}", key(Command::ListPrevious), key(Command::ListNext))
+}
+
 pub fn footer() -> NewWidget<Flex> {
-    hints(&[("↕", t("search.navigate")), ("↵", t("search.open")), ("Ctrl ↵", t("search.newPane")), ("Shift ↵", t("search.create"))])
+    hints(&[
+        (arrows(), t("search.navigate")),
+        (key(Command::ListOpen), t("search.open")),
+        (key(Command::ListOpenInNewTab), t("search.newPane")),
+        (key(Command::ListCreate), t("search.create")),
+    ])
 }
 
 pub fn template_footer() -> NewWidget<Flex> {
-    hints(&[("↕", t("search.navigate")), ("↵", t("search.open")), ("Esc", t("templateDialog.close"))])
+    hints(&[(arrows(), t("search.navigate")), (key(Command::ListOpen), t("search.open")), (key(Command::Close), t("templateDialog.close"))])
 }
 
 pub fn dialog_card(head: NewWidget<Flex>, body: NewWidget<Slot>, footer: NewWidget<Flex>) -> NewWidget<Flex> {

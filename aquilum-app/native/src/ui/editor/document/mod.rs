@@ -1,7 +1,15 @@
+mod checkpoints;
 mod classify;
+mod edges;
 mod edit;
 mod embeds;
+mod estimate;
+mod full;
+mod geometry;
+mod heights;
+mod laid;
 mod layout;
+mod lines;
 mod paragraph;
 #[cfg(feature = "memory-probe")]
 mod probe;
@@ -9,18 +17,23 @@ mod probe;
 mod corpus_blocks;
 #[cfg(test)]
 mod corpus_inline;
+mod source;
+mod scan;
+mod sparse;
 #[cfg(test)]
 mod tests;
 mod text;
+mod window;
+#[cfg(test)]
+mod window_tests;
 
 use std::collections::HashSet;
 use std::ops::Range;
 use std::sync::Arc;
 
 use super::embed::View;
-use super::markdown::Fonts;
+use super::markdown::{self, Fonts};
 use super::resolve::Resolver;
-use classify::States;
 pub use paragraph::Paragraph;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -38,8 +51,21 @@ pub struct Embed {
 }
 
 pub struct Document {
+    full: crop::Rope,
+    base: usize,
     text: String,
-    paragraphs: Vec<Paragraph>,
+    entry: markdown::State,
+    windowed: bool,
+    points: checkpoints::Checkpoints,
+    above: f64,
+    below: f64,
+    view: (f64, f64),
+    jump: Option<(usize, f64, f64)>,
+    lines: lines::Lines,
+    blocks: classify::Blocks,
+    heights: heights::Heights,
+    laid: sparse::Sparse<laid::Laid>,
+    embeds: sparse::Sparse<Embed>,
     width: Option<f32>,
     pub markdown: Option<Fonts>,
     pub resolver: Option<Arc<dyn Resolver>>,
@@ -50,15 +76,11 @@ pub struct Document {
     pub source: Option<usize>,
     pub keep: (f64, f64),
     pub pins: Vec<usize>,
-    shown: std::ops::RangeInclusive<usize>,
     edits: Option<Vec<super::Edit>>,
     anchor: Option<(usize, f64)>,
-    states: States,
     front: usize,
     dirty: Option<Range<usize>>,
     pub rebroke: bool,
-    laid: Range<usize>,
-    held: Vec<usize>,
     placed: bool,
     shift: f64,
     line: f64,
@@ -66,44 +88,56 @@ pub struct Document {
 
 impl Document {
     pub fn new(text: &str) -> Self {
-        Document { text: text.to_owned(), paragraphs: paragraph::split(text, 0), width: None, markdown: None, resolver: None, unresolved: (Arc::default(), 0), editing: None, uncropped: None, resized: None, source: None, keep: (0.0, 0.0), pins: Vec::new(), shown: 0..=0, edits: None, anchor: None, states: States::default(), front: 0, dirty: None, rebroke: false, laid: 0..0, held: Vec::new(), placed: false, shift: 0.0, line: 0.0 }
+        Document::entire(crop::Rope::from(text))
     }
 
-    pub fn text(&self) -> &str {
-        &self.text
+    pub fn windowed(text: crop::Rope) -> Self {
+        Document::of(text, true)
     }
 
-    pub fn len(&self) -> usize {
-        self.text.len()
+    pub fn entire(text: crop::Rope) -> Self {
+        Document::of(text, false)
     }
 
-    pub fn paragraphs(&self) -> &[Paragraph] {
-        &self.paragraphs
-    }
-
-    pub fn paragraph(&self, index: usize) -> &Paragraph {
-        &self.paragraphs[index]
-    }
-
-    pub fn height(&self) -> f64 {
-        self.paragraphs.last().map_or(0.0, |p| p.top + p.height)
-    }
-
-    pub fn at_offset(&self, offset: usize) -> usize {
-        self.paragraphs.partition_point(|p| p.start <= offset).saturating_sub(1)
-    }
-
-    pub fn at_y(&self, y: f64) -> usize {
-        self.paragraphs.partition_point(|p| p.top <= y).saturating_sub(1)
-    }
-
-    pub fn take_shift(&mut self) -> f64 {
-        std::mem::take(&mut self.shift)
-    }
-
-    pub fn anchor_at(&mut self, y: f64) {
-        let p = &self.paragraphs[self.at_y(y + 8.0)];
-        self.anchor = self.placed.then_some((p.start, p.top));
+    fn of(full: crop::Rope, windowed: bool) -> Self {
+        let mut doc = Document {
+            full,
+            base: 0,
+            text: String::new(),
+            entry: markdown::State::default(),
+            windowed,
+            points: Default::default(),
+            above: 0.0,
+            below: 0.0,
+            view: (0.0, 0.0),
+            jump: None,
+            lines: lines::Lines::new(""),
+            blocks: classify::Blocks::new(1),
+            heights: heights::Heights::new(1),
+            laid: Default::default(),
+            embeds: Default::default(),
+            width: None,
+            markdown: None,
+            resolver: None,
+            unresolved: (Arc::default(), 0),
+            editing: None,
+            uncropped: None,
+            resized: None,
+            source: None,
+            keep: (0.0, 0.0),
+            pins: Vec::new(),
+            edits: None,
+            anchor: None,
+            front: 0,
+            dirty: None,
+            rebroke: false,
+            placed: false,
+            shift: 0.0,
+            line: 0.0,
+        };
+        doc.rescan();
+        doc.load(0, None);
+        doc
     }
 
     fn mark(&mut self, range: Range<usize>) {
@@ -111,21 +145,5 @@ impl Document {
             Some(dirty) => dirty.start.min(range.start)..dirty.end.max(range.end),
             None => range,
         });
-    }
-
-    pub fn set_flavors(&mut self, callouts: bool, tags: bool) {
-        if let Some(fonts) = self.markdown.as_mut()
-            && (fonts.callouts != callouts || fonts.tags != tags)
-        {
-            fonts.callouts = callouts;
-            fonts.tags = tags;
-            self.invalidate_all();
-        }
-    }
-
-    pub fn set_markdown(&mut self, fonts: Option<Fonts>) {
-        self.markdown = fonts;
-        self.invalidate_all();
-        self.classify();
     }
 }

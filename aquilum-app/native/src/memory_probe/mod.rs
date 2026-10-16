@@ -14,6 +14,26 @@ pub(crate) fn heap() -> usize {
 }
 
 #[cfg(test)]
+pub(crate) fn reset_peak() {
+    counting::PEAK.store(counting::CURRENT.load(std::sync::atomic::Ordering::Relaxed), std::sync::atomic::Ordering::Relaxed);
+}
+
+#[cfg(test)]
+pub(crate) fn peak() -> usize {
+    counting::PEAK.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+#[cfg(test)]
+pub(crate) fn cpu_ms() -> f64 {
+    process::cpu_ms()
+}
+
+#[cfg(test)]
+pub(crate) fn threads() -> Vec<(u32, String, f64)> {
+    process::threads()
+}
+
+#[cfg(test)]
 pub(crate) fn trace(on: bool) {
     trace::TRACE.store(on, std::sync::atomic::Ordering::Relaxed);
 }

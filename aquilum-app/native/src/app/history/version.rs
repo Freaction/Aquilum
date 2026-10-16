@@ -42,7 +42,7 @@ impl App {
     pub(super) fn run_version_command(&mut self, root: &mut RenderRoot, version: &Version, command: VersionCommand) {
         let Some(path) = self.tabs.active().path.clone() else { return };
         if let Some(note) = &mut self.note {
-            let _ = note.save(&self.workspace.core, &self.editor_text);
+            note.flush(&self.workspace.core, &self.text);
         }
         let result = match command {
             VersionCommand::Restore => history::restore(&self.workspace.core, &path, version),
@@ -54,7 +54,7 @@ impl App {
                 if let Some(note) = &mut self.note
                     && let Some(text) = note.reload()
                 {
-                    self.set_editor_text(root, text);
+                    self.set_text(root, text);
                 }
                 if self.opened_versions.contains_key(&self.tabs.active_id()) {
                     self.close_version(root);

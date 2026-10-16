@@ -38,7 +38,10 @@ fn spawn(inner: &Arc<Inner>, targets: Vec<String>) {
     inner.links.lock().unwrap_or_else(|e| e.into_inner()).pending.extend(targets.iter().cloned());
     let inner = Arc::clone(inner);
     std::thread::spawn(move || {
-        let found = indexed(|| inner.core.search.resolve_wiki_links(&inner.workspace(), &inner.source(), &targets));
+        let found = {
+            let _zone = aq_trace::zone("фон: вики-ссылки");
+            indexed(|| inner.core.search.resolve_wiki_links(&inner.workspace(), &inner.source(), &targets))
+        };
         let mut links = inner.links.lock().unwrap_or_else(|e| e.into_inner());
         for (i, target) in targets.into_iter().enumerate() {
             links.pending.remove(&target);

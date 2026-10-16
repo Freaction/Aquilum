@@ -1,10 +1,14 @@
 use super::error::SearchError;
-use super::models::SearchResult;
-use super::{query, schema};
+use super::query::{self, Found, Request};
+use super::schema;
 use std::path::Path;
 use std::sync::RwLock;
-use tantivy::schema::Field;
-use tantivy::{Index, IndexReader};
+use tantivy::schema::{Field, Value};
+use tantivy::{Index, IndexReader, TantivyDocument};
+
+pub fn stored_text(document: &TantivyDocument, field: Field) -> Option<String> {
+    document.get_first(field).and_then(|value| value.as_str()).map(ToOwned::to_owned)
+}
 
 #[derive(Clone, Copy)]
 pub struct SearchFields {
@@ -89,11 +93,7 @@ impl SearchIndex {
         Ok(stats)
     }
 
-    pub fn search(
-        &self,
-        input: &str,
-        limit: usize,
-    ) -> Result<(Vec<String>, Vec<SearchResult>), SearchError> {
-        query::search(self, input, limit)
+    pub fn search(&self, request: &Request) -> Result<Found, SearchError> {
+        query::search(self, request)
     }
 }

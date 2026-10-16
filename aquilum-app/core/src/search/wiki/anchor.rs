@@ -1,4 +1,5 @@
 use crate::search::headings::{headings, matching};
+use crate::text::utf16::utf16_len;
 
 pub fn anchor_offset(text: &str, anchor: &str) -> Option<usize> {
     let anchor = anchor.trim();
@@ -6,7 +7,7 @@ pub fn anchor_offset(text: &str, anchor: &str) -> Option<usize> {
         Some(id) => block_start(text, id)?,
         None => heading_start(text, anchor)?,
     };
-    Some(text[..start].encode_utf16().count())
+    Some(utf16_len(&text[..start]))
 }
 
 fn heading_start(text: &str, anchor: &str) -> Option<usize> {

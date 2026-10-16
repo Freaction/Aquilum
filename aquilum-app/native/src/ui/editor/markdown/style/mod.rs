@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use masonry::core::{BrushIndex, StyleProperty};
 use masonry::parley::{FontStyle, FontWeight, RangedBuilder};
 
-use super::super::highlight::{self, Token};
+use super::super::highlight::{self, Lang, Token};
 use super::blocks::{self, Block, Callout};
 use super::brushes::{HIDDEN, MARKER, MUTED, SYNTAX, TEXT, TOKENS, token_brush};
 use super::metrics::{BOX_CHARS, CHECKBOX, CODE_PADDING, Fonts, LIST_LEVEL, LIST_START, QUOTE_BAR, TAB_SIZE};
@@ -99,10 +99,10 @@ pub fn style(builder: &mut RangedBuilder<'_, BrushIndex>, block: &Block, text: &
             decor.pad = (if *first { CODE_PADDING } else { 0.0 }, if *last { CODE_PADDING } else { 0.0 });
             push(builder, StyleProperty::FontFamily(fonts.mono.clone()), 0..text.len());
             if *fence {
-                let ticks = text.len() - text.trim_start_matches([' ', '`', '~']).len();
+                let ticks = text.len() - text.trim_start_matches([' ', '`', '~', '$']).len();
                 push(builder, StyleProperty::Brush(SYNTAX), 0..ticks);
-            } else if let Some(lang) = lang {
-                for (range, token) in highlight::tokens(text, *lang) {
+            } else if let Some(lang) = lang.filter(|lang| *lang != Lang::Math) {
+                for (range, token) in highlight::tokens(text, lang) {
                     push(builder, StyleProperty::Brush(token_brush(token)), range.clone());
                     if token == Token::Comment {
                         push(builder, StyleProperty::FontStyle(FontStyle::Italic), range);

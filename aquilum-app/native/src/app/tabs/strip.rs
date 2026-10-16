@@ -39,7 +39,7 @@ impl App {
         }
         if let Some(field) = self.rename_field {
             field.edit(root, |mut field| {
-                let len = field.widget.text().to_string().len();
+                let len = field.widget.len();
                 TextEditor::select_byte_range(&mut field, 0, len);
             });
             root.focus_on(Some(field.id()));
@@ -55,12 +55,12 @@ impl App {
     pub(in crate::app) fn finish_tab_rename(&mut self, root: &mut RenderRoot, input: Option<&str>) {
         let Some(id) = self.renaming_tab.take() else { return };
         let field = self.rename_field.take();
-        let input = input.map(str::to_owned).or_else(|| field.and_then(|f| f.get(root)).map(|f| f.inner().text().to_string()));
+        let input = input.map(str::to_owned).or_else(|| field.and_then(|f| f.get(root)).map(|f| f.inner().text()));
         let path = self.tabs.tabs().iter().find(|t| t.id == id).and_then(|t| t.path.clone());
         if let (Some(input), Some(from)) = (input, path)
             && let Some((to, _)) = file_ops::rename_target(&from, &input)
         {
-            file_ops::rename(&self.workspace.core, from, to);
+            self.rename_file(root, from, to);
         }
         self.refresh_tabs(root);
     }

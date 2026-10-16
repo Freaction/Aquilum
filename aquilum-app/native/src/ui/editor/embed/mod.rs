@@ -1,6 +1,7 @@
 mod book;
 mod dataview;
 mod drawing;
+mod math;
 pub mod media;
 mod metrics;
 mod spec;
@@ -14,6 +15,7 @@ use drawing::{Item, Tone, card, link_hits};
 pub use book::{Row as BookRow, books};
 pub use dataview::dataview;
 pub use drawing::{Action, Drawing};
+pub use math::{Formula, formula, math};
 pub use media::{MediaHit, MediaOverlay, MediaView};
 pub use spec::{Font, Spec};
 

@@ -329,7 +329,8 @@ pub(crate) fn run_on_text_event_pass(root: &mut RenderRoot, event: &TextEvent) -
             handled = Handled::Yes;
         }
 
-        if key.key == Key::Named(NamedKey::F11)
+        if cfg!(debug_assertions)
+            && key.key == Key::Named(NamedKey::F11)
             && key.state == KeyState::Down
             && handled == Handled::No
         {
@@ -340,7 +341,8 @@ pub(crate) fn run_on_text_event_pass(root: &mut RenderRoot, event: &TextEvent) -
             handled = Handled::Yes;
         }
 
-        if key.key == Key::Named(NamedKey::F12)
+        if cfg!(debug_assertions)
+            && key.key == Key::Named(NamedKey::F12)
             && key.state == KeyState::Down
             && handled == Handled::No
         {

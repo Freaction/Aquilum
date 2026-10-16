@@ -15,6 +15,7 @@ pub(super) struct TextStyle {
     pub weight: f32,
     pub line_height: f32,
     pub indent: Option<f32>,
+    pub dash: f32,
 }
 
 pub(super) fn glyph_width(fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, glyph: &str, font: FontFamily<'static>, size: f32, weight: f32) -> f32 {
@@ -27,11 +28,14 @@ pub(super) fn glyph_width(fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIn
     layout.width()
 }
 
-fn break_with(layout: &mut Layout<BrushIndex>, width: impl Fn(usize) -> f32) {
+fn break_with(layout: &mut Layout<BrushIndex>, wrap: f32, width: impl Fn(usize) -> f32) {
     let mut breaker = layout.break_lines();
-    let mut line = 0;
-    while breaker.break_next(width(line).max(1.0)).is_some() {
-        line += 1;
+    breaker.state_mut().set_layout_max_advance(wrap.max(1.0));
+    for line in 0.. {
+        breaker.state_mut().set_line_max_advance(width(line).max(1.0));
+        if breaker.break_next().is_none() {
+            break;
+        }
     }
     breaker.finish();
 }
@@ -89,11 +93,11 @@ pub(super) fn wrapped(
         layout.break_all_lines(Some(wrap));
         return (layout, breaks);
     }
-    let dash = glyph_width(fcx, lcx, "-", style.font.clone(), style.size, style.weight);
+    let dash = style.dash;
     let shown = hyphen::apply(text, &breaks);
     let mut narrow: Vec<bool> = Vec::new();
     let ends = loop {
-        break_with(&mut layout, |i| if flag(&narrow, i) { wrap - dash } else { wrap });
+        break_with(&mut layout, wrap, |i| if flag(&narrow, i) { wrap - dash } else { wrap });
         let ends: Vec<bool> = layout.lines().map(|l| shown[..l.text_range().end].ends_with(SHY)).collect();
         let mut grew = false;
         for (i, &end) in ends.iter().enumerate() {
@@ -118,7 +122,7 @@ pub(super) fn wrapped(
             }
         }
         layout = build_text(fcx, lcx, text, spans, &breaks, style);
-        break_with(&mut layout, |i| if !flag(&ends, i) && flag(&narrow, i) { wrap - dash } else { wrap });
+        break_with(&mut layout, wrap, |i| if !flag(&ends, i) && flag(&narrow, i) { wrap - dash } else { wrap });
     }
     (layout, breaks)
 }

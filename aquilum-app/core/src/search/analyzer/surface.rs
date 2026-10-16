@@ -1,52 +1,43 @@
 use super::indexing_tokenizer;
+use std::cmp::Ordering;
 use std::collections::HashMap;
-use tantivy::tokenizer::TokenStream;
+use tantivy::tokenizer::{TextAnalyzer, TokenStream};
 
 pub fn stem_surface_labels(title: &str, body: &str) -> HashMap<String, String> {
-    let mut by_stem: HashMap<String, HashMap<String, u32>> = HashMap::new();
+    let mut surfaces = HashMap::<&str, u32>::new();
     for text in [title, body] {
-        for surface in alphanumeric_words(text) {
-            if surface.chars().count() < 2 {
-                continue;
-            }
-            let Some(stem) = stem_token(surface) else {
-                continue;
-            };
-            if stem.chars().count() < 2 {
-                continue;
-            }
-            *by_stem
-                .entry(stem)
-                .or_default()
-                .entry(surface.to_owned())
-                .or_insert(0) += 1;
+        for surface in alphanumeric_words(text).filter(|surface| surface.chars().nth(1).is_some()) {
+            *surfaces.entry(surface).or_insert(0) += 1;
         }
     }
-    by_stem
-        .into_iter()
-        .filter_map(|(stem, surfaces)| {
-            surfaces
-                .into_iter()
-                .max_by(|(left, left_count), (right, right_count)| {
-                    left_count
-                        .cmp(right_count)
-                        .then_with(|| right.chars().count().cmp(&left.chars().count()))
-                        .then_with(|| right.cmp(left))
-                })
-                .map(|(surface, _)| (stem, surface))
-        })
-        .collect()
+    let mut analyzer = indexing_tokenizer();
+    let mut best = HashMap::<String, (&str, u32)>::new();
+    for (surface, count) in surfaces {
+        let Some(stem) = stem_token(&mut analyzer, surface).filter(|stem| stem.chars().nth(1).is_some()) else {
+            continue;
+        };
+        let chosen = best.entry(stem).or_insert((surface, count));
+        if preference(&(surface, count), chosen) == Ordering::Greater {
+            *chosen = (surface, count);
+        }
+    }
+    best.into_iter().map(|(stem, (surface, _))| (stem, surface.to_owned())).collect()
 }
 
-fn stem_token(surface: &str) -> Option<String> {
+fn preference((left, left_count): &(&str, u32), (right, right_count): &(&str, u32)) -> Ordering {
+    left_count
+        .cmp(right_count)
+        .then_with(|| right.chars().count().cmp(&left.chars().count()))
+        .then_with(|| right.cmp(left))
+}
+
+fn stem_token(analyzer: &mut TextAnalyzer, surface: &str) -> Option<String> {
     let mut stem = None;
-    indexing_tokenizer()
-        .token_stream(surface)
-        .process(&mut |token| {
-            if stem.is_none() && !token.text.is_empty() {
-                stem = Some(token.text.clone());
-            }
-        });
+    analyzer.token_stream(surface).process(&mut |token| {
+        if stem.is_none() && !token.text.is_empty() {
+            stem = Some(token.text.clone());
+        }
+    });
     stem
 }
 

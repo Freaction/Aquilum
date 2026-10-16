@@ -70,7 +70,7 @@ fn typing_cost() {
     h.root.focus_on(h.app.editor_id());
     let _ = h.root.redraw();
     h.key(Key::Named(NamedKey::End), crate::test_dir::command());
-    let before = h.app.editor_text.len();
+    let before = h.app.text.byte_len();
     let mut renderer = Renderer::new(4);
     let (w, hh) = ((f64::from(W) * 1.75) as u16, (f64::from(H) * 1.75) as u16);
     let (mut event, mut deliver, mut scene, mut raster) = (Duration::ZERO, Duration::ZERO, Duration::ZERO, Duration::ZERO);
@@ -94,7 +94,7 @@ fn typing_cost() {
     if let Ok(out) = std::env::var("AQ_TRACE") {
         aq_trace::write(std::path::Path::new(&out)).unwrap();
     }
-    eprintln!("удалено байт {}; нажатие: событие {:?}, действия {:?}, сцена {:?}, растр {:?}", before - h.app.editor_text.len(), event / n, deliver / n, scene / n, raster / n);
+    eprintln!("удалено байт {}; нажатие: событие {:?}, действия {:?}, сцена {:?}, растр {:?}", before - h.app.text.byte_len(), event / n, deliver / n, scene / n, raster / n);
 }
 
 #[test]

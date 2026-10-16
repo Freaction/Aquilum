@@ -1,3 +1,4 @@
+use aquilum_core::text::matcher::{IGNORE_CASE, Matcher};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
     AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update,
@@ -114,7 +115,7 @@ impl Widget for SuggestList {
         painter.fill(shape, tm.dialog_bg).draw();
         let line = (f64::from(theme::ui_font_settings().size) * number::FONT_LINE_HEIGHT_NORMAL).round();
         let style = Style::ui(line);
-        let query = self.query.to_lowercase();
+        let matcher = Matcher::new(&self.query, IGNORE_CASE);
         self.lines.resize_with(self.items.len(), Line::default);
         for (i, (title, cache)) in self.items.iter().zip(&mut self.lines).enumerate() {
             let row = Rect::new(bounds.x0 + size::GAP_XS, bounds.y0 + size::GAP_XS + i as f64 * Self::row(), bounds.x1 - size::GAP_XS, bounds.y0 + size::GAP_XS + (i + 1) as f64 * Self::row());
@@ -125,14 +126,9 @@ impl Widget for SuggestList {
             let width = (row.width() - Self::row_pad() * 2.0).max(1.0);
             let layout = cache.layout(ctx, title, width, style);
             let origin = Point::new(row.x0 + Self::row_pad(), row.y0 + ((row.height() - line) / 2.0).round());
-            if !query.is_empty()
-                && let Some(at) = title.to_lowercase().find(&query)
-                && title.is_char_boundary(at)
-                && title.is_char_boundary((at + query.len()).min(title.len()))
-            {
-                let end = (at + query.len()).min(title.len());
-                let start_x = masonry::parley::Cursor::from_byte_index(layout, at, masonry::parley::Affinity::Downstream).geometry(layout, 0.0).x0;
-                let end_x = masonry::parley::Cursor::from_byte_index(layout, end, masonry::parley::Affinity::Upstream).geometry(layout, 0.0).x0;
+            if let Some(found) = matcher.first(title) {
+                let start_x = masonry::parley::Cursor::from_byte_index(layout, found.start, masonry::parley::Affinity::Downstream).geometry(layout, 0.0).x0;
+                let end_x = masonry::parley::Cursor::from_byte_index(layout, found.end, masonry::parley::Affinity::Upstream).geometry(layout, 0.0).x0;
                 let mark = Rect::new(origin.x + start_x, origin.y, origin.x + end_x, origin.y + line);
                 painter.fill(RoundedRect::from_rect(mark, size::ROUNDED_SM), tm.search_match_bg).draw();
             }

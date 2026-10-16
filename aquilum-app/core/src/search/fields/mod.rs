@@ -27,8 +27,8 @@ pub fn head_fields(path: &Path) -> Vec<Field> {
     if file.take(HEAD_BYTES).read_to_end(&mut buffer).is_err() {
         return Vec::new();
     }
-    let head = String::from_utf8_lossy(&buffer).into_owned();
-    note_fields(&crate::files::document::normalize_line_endings(head))
+    let kept = crate::files::document::normalize_line_endings_in_place(&mut buffer);
+    note_fields(&String::from_utf8_lossy(&buffer[..kept]))
 }
 
 #[derive(Clone, Debug, Serialize)]

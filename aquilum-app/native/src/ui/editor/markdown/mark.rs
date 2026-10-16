@@ -7,6 +7,7 @@ pub enum Mark {
     Bold,
     Italic,
     Strike,
+    Code,
 }
 
 impl Mark {
@@ -15,6 +16,7 @@ impl Mark {
             Mark::Bold => "**",
             Mark::Italic => "*",
             Mark::Strike => "~~",
+            Mark::Code => "`",
         }
     }
 
@@ -23,6 +25,7 @@ impl Mark {
             Mark::Bold => Kind::Strong,
             Mark::Italic => Kind::Emphasis,
             Mark::Strike => Kind::Strike,
+            Mark::Code => Kind::Code,
         }
     }
 }
@@ -41,6 +44,11 @@ pub fn enclosing(line: &str, mark: Mark, selection: Range<usize>) -> Option<(Ran
     of().filter(around).min_by_key(|s| s.whole.len()).or_else(|| of().filter(covered).max_by_key(|s| s.whole.len())).map(|s| (s.whole.clone(), s.inner.clone()))
 }
 
+pub fn word_at(line: &str, at: usize) -> Option<Range<usize>> {
+    use unicode_segmentation::UnicodeSegmentation;
+    line.split_word_bound_indices().map(|(start, word)| start..start + word.len()).find(|r| r.start <= at && at <= r.end && line[r.clone()].chars().any(char::is_alphanumeric))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -51,6 +59,7 @@ mod tests {
         assert_eq!(enclosing("a __b__ c", Mark::Bold, 4..5), Some((2..7, 4..5)));
         assert_eq!(enclosing("a _b_ c", Mark::Italic, 3..4), Some((2..5, 3..4)));
         assert_eq!(enclosing("a ~~b~~ c", Mark::Strike, 4..5), Some((2..7, 4..5)));
+        assert_eq!(enclosing("a `b` c", Mark::Code, 3..4), Some((2..5, 3..4)));
     }
 
     #[test]
@@ -66,5 +75,13 @@ mod tests {
     fn only_the_asked_kind_counts_and_the_innermost_wins() {
         assert_eq!(enclosing("*b*", Mark::Bold, 1..2), None);
         assert_eq!(enclosing("**a **b** c**", Mark::Bold, 6..7), Some((4..9, 6..7)));
+    }
+
+    #[test]
+    fn the_word_under_the_caret_is_whole_and_prefers_the_left_one() {
+        assert_eq!(word_at("ab слово cd", 5), Some(3..13));
+        assert_eq!(word_at("ab слово cd", 13), Some(3..13));
+        assert_eq!(word_at("ab, cd", 2), Some(0..2));
+        assert_eq!(word_at("**", 1), None);
     }
 }

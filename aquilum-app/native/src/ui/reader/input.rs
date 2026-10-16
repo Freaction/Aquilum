@@ -6,24 +6,21 @@ impl ReaderView {
         if k.state != KeyState::Down {
             return;
         }
-        if k.code == Code::KeyC && (k.modifiers.ctrl() || k.modifiers.meta()) && self.popover.is_none() {
+        let command = keymap::command(&[Scope::Text, Scope::Reader], &k.key, k.modifiers);
+        if command == Some(Command::Copy) && self.popover.is_none() {
             if let Some((from, to)) = self.ordered() {
-                let text = self.session.text(from, to);
-                if let Err(error) = arboard::Clipboard::new().and_then(|mut c| c.set_text(text)) {
-                    report!("не скопировано: {error}");
-                }
+                ctx.set_clipboard(self.session.text(from, to));
                 ctx.set_handled();
             }
             return;
         }
-        match &k.key {
-            Key::Named(NamedKey::Escape) => {
+        match command {
+            Some(Command::Close) => {
                 ctx.submit_action::<ReaderAction>(if self.popover.is_some() { ReaderAction::Settings } else { ReaderAction::Close });
             }
             _ if self.popover.is_some() => return,
-            Key::Named(NamedKey::ArrowRight | NamedKey::PageDown) => self.turn(ctx, Side::Next),
-            Key::Character(c) if c == " " => self.turn(ctx, Side::Next),
-            Key::Named(NamedKey::ArrowLeft | NamedKey::PageUp) => self.turn(ctx, Side::Prev),
+            Some(Command::NextPage) => self.turn(ctx, Side::Next),
+            Some(Command::PreviousPage) => self.turn(ctx, Side::Prev),
             _ => return,
         }
         ctx.set_handled();

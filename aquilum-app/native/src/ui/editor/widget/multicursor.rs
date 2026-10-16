@@ -3,9 +3,9 @@ use std::ops::Range;
 use masonry::imaging::Painter;
 use masonry::parley::Affinity;
 use masonry::peniko::Color;
-use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Paragraph, TextEditor};
+use super::TextEditor;
+use crate::ui::editor::document::Document;
 use crate::ui::editor::history::Kind;
 
 impl TextEditor {
@@ -35,12 +35,12 @@ impl TextEditor {
         }
     }
 
-    pub(super) fn paint_extra_selections(&self, painter: &mut Painter<'_>, shown: &[Paragraph], color: Color) {
+    pub(super) fn paint_extra_selections(&self, painter: &mut Painter<'_>, shown: std::ops::RangeInclusive<usize>, color: Color) {
         for &(anchor, focus) in &self.extra_cursors {
             let start = anchor.min(focus);
             let end = anchor.max(focus);
             if start < end {
-                self.paint_range(painter, shown, start..end, color);
+                self.paint_range(painter, shown.clone(), start..end, color);
             }
         }
     }
@@ -50,26 +50,26 @@ impl TextEditor {
     }
 
     pub(super) fn apply_multicursor_delete(&mut self, forward: bool) -> bool {
-        self.each_cursor(Kind::Deleting, |text, range| {
+        self.each_cursor(Kind::Deleting, |doc, range| {
             let range = if !range.is_empty() {
                 range
             } else if forward {
-                range.start..text[range.start..].graphemes(true).next().map_or(range.start, |g| range.start + g.len())
+                range.start..range.start + doc.next_grapheme(range.start)
             } else {
-                text[..range.start].graphemes(true).next_back().map_or(range.start, |g| range.start - g.len())..range.start
+                range.start - doc.previous_grapheme(range.start)..range.start
             };
             (!range.is_empty()).then_some((range, String::new()))
         })
     }
 
-    fn each_cursor(&mut self, kind: Kind, edit: impl Fn(&str, Range<usize>) -> Option<(Range<usize>, String)>) -> bool {
+    fn each_cursor(&mut self, kind: Kind, edit: impl Fn(&Document, Range<usize>) -> Option<(Range<usize>, String)>) -> bool {
         if self.extra_cursors.is_empty() {
             return false;
         }
         let mut ranges: Vec<Range<usize>> = self.extra_cursors.iter().chain([&(self.anchor, self.focus)]).map(|&(a, f)| a.min(f)..a.max(f)).collect();
         ranges.sort_unstable_by_key(|range| (range.start, range.end));
         ranges.dedup_by(|next, previous| next.start < previous.end || next == previous);
-        let edits = ranges.into_iter().filter_map(|range| edit(self.doc.text(), range)).collect();
+        let edits = ranges.into_iter().filter_map(|range| edit(&self.doc, range)).collect();
         self.dispatch(edits, None, kind);
         for (anchor, focus) in std::iter::once((&mut self.anchor, &mut self.focus)).chain(self.extra_cursors.iter_mut().map(|(a, f)| (a, f))) {
             let end = (*anchor).max(*focus);
@@ -96,10 +96,10 @@ mod tests {
         editor.add_cursor_at(5);
         editor.add_cursor_at(8);
         editor.apply_multicursor_typing("XY");
-        assert_eq!(editor.doc.text(), "abXYcdeXYfghXYij");
+        assert_eq!(editor.doc.whole(), "abXYcdeXYfghXYij");
         assert_eq!(cursors(&editor), (4, vec![9, 14]));
         editor.apply_multicursor_delete(false);
-        assert_eq!(editor.doc.text(), "abXcdeXfghXij");
+        assert_eq!(editor.doc.whole(), "abXcdeXfghXij");
         assert_eq!(cursors(&editor), (3, vec![7, 11]));
     }
 
@@ -111,6 +111,6 @@ mod tests {
         (editor.anchor, editor.focus) = (thumb, thumb);
         editor.add_cursor_at(accent);
         editor.apply_multicursor_delete(false);
-        assert_eq!(editor.doc.text(), "ab  c");
+        assert_eq!(editor.doc.whole(), "ab  c");
     }
 }

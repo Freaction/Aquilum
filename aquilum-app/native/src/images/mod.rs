@@ -83,6 +83,14 @@ pub fn decode(bytes: &[u8]) -> Option<ImageBrush> {
     decode_within(bytes, MAX_WIDTH).map(|p| p.image)
 }
 
+pub fn dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok()?.into_dimensions().ok()
+}
+
+pub fn decoded_size(bytes: &[u8]) -> Option<(u32, u32)> {
+    dimensions(bytes).map(|natural| decode::fit(natural, MAX_WIDTH, MAX_PIXELS))
+}
+
 pub fn decode_shown(bytes: &[u8]) -> Option<Picture> {
     decode_within(bytes, shown())
 }

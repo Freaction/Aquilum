@@ -1,9 +1,16 @@
 use super::*;
-use aquilum_core::markdown::line;
 
 impl TextEditor {
-    pub fn text(&self) -> &str {
-        self.doc.text()
+    pub fn text(&self) -> String {
+        self.doc.whole()
+    }
+
+    pub fn len(&self) -> usize {
+        self.doc.len()
+    }
+
+    pub fn rope(&self) -> crop::Rope {
+        self.doc.rope()
     }
 
     #[cfg(test)]
@@ -23,12 +30,12 @@ impl TextEditor {
         if !self.laid_out() {
             return None;
         }
-        let p = self.doc.paragraph(self.doc.at_y(y.max(0.0)));
-        Some((p.start, y - p.top))
+        let i = self.doc.at_y(y.max(0.0));
+        Some((self.doc.paragraph(i).start, y - self.doc.top(i)))
     }
 
     pub fn top_of(&self, offset: usize) -> Option<f64> {
-        self.laid_out().then(|| self.doc.paragraph(self.doc.at_offset(offset.min(self.doc.len()))).top)
+        self.laid_out().then(|| self.doc.y_of(offset.min(self.doc.len())))
     }
 
     fn repaint(this: &mut WidgetMut<'_, Self>) {
@@ -48,40 +55,49 @@ impl TextEditor {
     }
 
     pub fn reset_text(this: &mut WidgetMut<'_, Self>, text: &str) {
+        Self::reset_rope(this, crop::Rope::from(text));
+    }
+
+    pub fn reset_rope(this: &mut WidgetMut<'_, Self>, text: crop::Rope) {
         let widget = &mut *this.widget;
         widget.videos.stop();
-        widget.doc.set_text(text);
+        widget.doc.set_rope(text);
         widget.history.clear();
-        widget.refind();
+        widget.refind(&[]);
         widget.table_scrolls.clear();
         widget.compose = None;
         widget.extra_cursors.clear();
         widget.media = Default::default();
         (widget.table, widget.hovered_table, widget.hovered_link, widget.unit) = (None, None, None, None);
-        let end = widget.doc.len();
-        widget.anchor = text.floor_char_boundary(widget.anchor.min(end));
-        widget.focus = text.floor_char_boundary(widget.focus.min(end));
+        widget.anchor = widget.doc.floor(widget.anchor);
+        widget.focus = widget.doc.floor(widget.focus);
         Self::repaint(this);
     }
 
     pub fn select_byte_range(this: &mut WidgetMut<'_, Self>, start: usize, end: usize) {
         let widget = &mut *this.widget;
-        let len = widget.doc.len();
-        widget.anchor = widget.doc.text().floor_char_boundary(start.min(len));
-        widget.focus = widget.doc.text().floor_char_boundary(end.min(len));
+        widget.anchor = widget.doc.floor(start);
+        widget.focus = widget.doc.floor(end);
         widget.column = None;
         Self::repaint(this);
     }
 
     pub fn insert_block(this: &mut WidgetMut<'_, Self>, at: usize, lines: &[String]) {
-        let text = this.widget.doc.text();
-        let at = at.min(text.len());
-        let Range { start: line_start, end: line_end } = line::bounds(text, at);
+        let at = at.min(this.widget.doc.len());
+        this.widget.doc.include(at);
+        let Range { start: line_start, end: line_end } = this.widget.doc.line_at(at);
         let prefix = if at == line_start { "" } else { "\n" };
-        let tail = if text[at..line_end].trim().is_empty() { "" } else { "\n" };
+        let tail = if this.widget.doc.slice(at..line_end).trim().is_empty() { "" } else { "\n" };
         let insert = format!("{prefix}{}\n{tail}", lines.join("\n\n"));
         this.widget.replace(at..at, &insert, Kind::Other);
         Self::edited(this);
+    }
+
+    pub fn apply_external(this: &mut WidgetMut<'_, Self>, range: Range<usize>, insert: &str) {
+        let widget = &mut *this.widget;
+        let change = widget.apply_change(range, insert.to_owned());
+        (widget.anchor, widget.focus) = (change.map(widget.anchor), change.map(widget.focus));
+        Self::repaint(this);
     }
 
     pub fn insert_text(this: &mut WidgetMut<'_, Self>, text: &str) {

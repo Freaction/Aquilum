@@ -62,7 +62,7 @@ impl FileTree {
                     self.refresh(root);
                     None
                 }
-                TextAction::Changed(_) | TextAction::Edited(_) => None,
+                TextAction::Changed(_) | TextAction::Edited(_) | TextAction::Page { .. } | TextAction::Line { .. } => None,
             };
         }
         self.on_row_action(root, id, action.downcast_ref::<RowAction>()?)
@@ -70,7 +70,7 @@ impl FileTree {
 
     fn on_row_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &RowAction) -> Option<TreeAction> {
         if self.model.renaming().is_some() {
-            let name = self.rename.and_then(|field| field.get(root)).map(|f| f.inner().text().to_string());
+            let name = self.rename.and_then(|field| field.get(root)).map(|f| f.inner().text());
             if let Some(name) = name {
                 return self.commit_rename(root, &name);
             }
@@ -119,7 +119,7 @@ impl FileTree {
         self.refresh(root);
         let Some(field) = self.rename else { return };
         field.edit(root, |mut field| {
-            let len = field.widget.text().to_string().len();
+            let len = field.widget.len();
             TextEditor::select_byte_range(&mut field, 0, len);
         });
         root.focus_on(Some(field.id()));

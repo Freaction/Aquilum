@@ -1,10 +1,20 @@
 use super::*;
 use crate::render::Renderer;
 
+#[cfg(feature = "memory-probe")]
+mod analysis;
 mod atlas;
+#[cfg(feature = "memory-probe")]
+mod big;
 mod cost;
 mod frames;
+#[cfg(feature = "memory-probe")]
+mod open_memory;
+#[cfg(feature = "memory-probe")]
+mod search;
 mod timing;
+
+use crate::stats::percentiles;
 
 fn dense_body(paragraphs: usize) -> String {
     (0..paragraphs).map(|i| format!("Абзац {i}: плотный текст заметки с длинными предложениями, которые переносятся на несколько строк.\n\n")).collect()

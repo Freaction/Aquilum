@@ -1,6 +1,7 @@
 use masonry::core::keyboard::KeyboardEvent;
 
 use super::*;
+use crate::ui::keymap::{self, Command, Scope};
 
 impl TextEditor {
     pub(in crate::ui::editor::widget) fn media_key(&mut self, ctx: &mut EventCtx<'_>, event: &KeyboardEvent) -> bool {
@@ -10,18 +11,18 @@ impl TextEditor {
             return true;
         }
         let cropping = self.media.crop.is_some();
-        match &event.key {
-            Key::Named(NamedKey::Enter) if cropping => {
+        match keymap::command(&[Scope::Image], &event.key, event.modifiers) {
+            Some(Command::ImageSource) if cropping => {
                 self.end_crop(true);
                 self.changed(ctx);
             }
-            Key::Named(NamedKey::Escape) if cropping => {
+            Some(Command::Close) if cropping => {
                 self.end_crop(false);
                 ctx.request_layout();
             }
-            Key::Named(NamedKey::Enter) => self.show_source(ctx, start),
-            Key::Named(NamedKey::Escape) => self.media.selected = None,
-            Key::Named(NamedKey::Backspace | NamedKey::Delete) => {
+            Some(Command::ImageSource) => self.show_source(ctx, start),
+            Some(Command::Close) => self.media.selected = None,
+            Some(Command::ImageDelete) => {
                 let p = self.doc.paragraph(self.doc.at_offset(start));
                 let range = p.start..(p.end() + 1).min(self.doc.len());
                 self.media.selected = None;

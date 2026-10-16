@@ -6,15 +6,13 @@ use super::metadata;
 use super::models::{IndexRevision, SearchIndexStatus, SearchResponse};
 use super::paths::{canonical_path, canonical_workspace, same_path};
 use super::progress::IndexProgress;
+use super::query::Request;
 use super::worker::WorkerHandle;
 use super::{ChangeNotifier, IndexNotifier};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-
-const DEFAULT_LIMIT: usize = 50;
-const MAX_LIMIT: usize = 100;
 
 #[derive(Clone)]
 pub struct SearchService {
@@ -184,12 +182,7 @@ impl SearchService {
         })
     }
 
-    pub fn search(
-        &self,
-        workspace: &str,
-        query: &str,
-        limit: Option<usize>,
-    ) -> Result<SearchResponse, SearchError> {
+    pub fn search(&self, workspace: &str, request: &Request) -> Result<SearchResponse, SearchError> {
         let found = self.with_index(workspace, |open| {
             Ok((Arc::clone(&open.index), Arc::clone(&open.progress)))
         });
@@ -198,11 +191,11 @@ impl SearchService {
             Err(SearchError::Unavailable { .. }) => return Ok(SearchResponse::idle()),
             Err(error) => return Err(error),
         };
-        let limit = limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
-        let (query_terms, results) = index.search(query, limit)?;
+        let found = index.search(request)?;
         Ok(SearchResponse {
-            query_terms,
-            results,
+            query_terms: found.terms,
+            results: found.results,
+            has_more: found.has_more,
             status: progress.snapshot(),
         })
     }

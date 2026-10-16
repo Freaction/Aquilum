@@ -1,4 +1,5 @@
 use super::target::{is_attachment, parts};
+use crate::text::utf16::utf16_len;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use std::ops::Range;
 
@@ -57,7 +58,7 @@ pub fn extract(source: &str) -> Vec<WikiLink> {
     found
         .into_iter()
         .map(|link| {
-            offset_utf16 += source[prior..link.start].encode_utf16().count();
+            offset_utf16 += utf16_len(&source[prior..link.start]);
             prior = link.start;
             WikiLink {
                 target: link.target,

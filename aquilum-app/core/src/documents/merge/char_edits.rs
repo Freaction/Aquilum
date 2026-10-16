@@ -1,11 +1,26 @@
 use super::line_diff::LineHunk;
-use super::utf16::{utf16_len, utf16_slice};
+use crate::text::utf16::{utf16_len, utf16_seek, utf16_slice};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TextEdit {
     pub from: usize,
     pub to: usize,
     pub insert: String,
+}
+
+pub fn apply_edits(text: &str, edits: &[TextEdit]) -> String {
+    let mut ordered: Vec<&TextEdit> = edits.iter().collect();
+    ordered.sort_by_key(|edit| edit.from);
+    let mut result = String::with_capacity(text.len());
+    let mut cursor = (0, 0);
+    for edit in ordered {
+        let from = utf16_seek(text, cursor, edit.from);
+        result.push_str(&text[cursor.0..from.0]);
+        result.push_str(&edit.insert);
+        cursor = utf16_seek(text, from, edit.to);
+    }
+    result.push_str(&text[cursor.0..]);
+    result
 }
 
 fn line_offsets(lines: &[&str]) -> Vec<usize> {
@@ -66,9 +81,9 @@ fn with_tail_joined(mut edits: Vec<TextEdit>, text: &str) -> Vec<TextEdit> {
     }
     let bridged = if ahead.to > tail.from {
         let kept = utf16_len(&ahead.insert).saturating_sub(ahead.to - tail.from);
-        utf16_slice(&ahead.insert, 0, kept)
+        utf16_slice(&ahead.insert, 0, kept).to_owned()
     } else {
-        ahead.insert.clone() + &utf16_slice(text, ahead.to, tail.from)
+        ahead.insert.clone() + utf16_slice(text, ahead.to, tail.from)
     };
     edits.push(TextEdit {
         from: ahead.from,

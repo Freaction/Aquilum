@@ -1,13 +1,6 @@
 use super::*;
+use crate::documents::merge::apply_edits;
 use serde_json::json;
-
-fn apply(text: &str, edits: &[TextEdit]) -> String {
-    let mut units: Vec<u16> = text.encode_utf16().collect();
-    for edit in edits.iter().rev() {
-        units.splice(edit.from..edit.to, edit.insert.encode_utf16());
-    }
-    String::from_utf16(&units).expect("whole surrogate pairs")
-}
 
 const DOC: &str = "😀 мир\nвторой";
 
@@ -15,7 +8,7 @@ const DOC: &str = "😀 мир\nвторой";
 fn reads_a_change_set_serialized_by_codemirror() {
     let changes = json!([[2, "A"], 4, [0, "", "новая", "строка"], 2, [2], 3]);
     let edits = edits_from_json(&changes, 13).expect("valid change set");
-    assert_eq!(apply(DOC, &edits), "A мир\nновая\nстрока\nврой");
+    assert_eq!(apply_edits(DOC, &edits),"A мир\nновая\nстрока\nврой");
 }
 
 #[test]

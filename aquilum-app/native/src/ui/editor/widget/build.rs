@@ -2,10 +2,22 @@ use super::*;
 
 impl TextEditor {
     pub fn new(text: &str) -> Self {
+        TextEditor::with(Document::new(text))
+    }
+
+    pub fn windowed(text: crop::Rope) -> Self {
+        TextEditor::with(Document::windowed(text))
+    }
+
+    pub fn entire(text: crop::Rope) -> Self {
+        TextEditor::with(Document::entire(text))
+    }
+
+    fn with(doc: Document) -> Self {
         let mut styles = StyleSet::new(16.0);
         styles.insert(StyleProperty::LineHeight(masonry::parley::LineHeight::FontSizeRelative(1.2)));
         TextEditor {
-            doc: Document::new(text),
+            doc,
             history: History::default(),
             styles,
             style: None,
@@ -35,9 +47,9 @@ impl TextEditor {
             smart: Smart::default(),
             suggest_shown: None,
             hover_terms: Vec::new(),
-            hover_marks: Vec::new(),
             external_reveal: None,
             extra_cursors: Vec::new(),
+            wake: None,
         }
     }
 
@@ -59,6 +71,11 @@ impl TextEditor {
 
     pub fn report_edits(mut self) -> Self {
         self.doc.report_edits();
+        self
+    }
+
+    pub fn with_wake(mut self, wake: std::sync::Arc<dyn Fn() + Send + Sync>) -> Self {
+        self.wake = Some(wake);
         self
     }
 

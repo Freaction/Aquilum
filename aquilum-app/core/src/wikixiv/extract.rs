@@ -1,5 +1,6 @@
 use crate::search::analyzer::stem_surface_labels;
 use crate::search::schema;
+use crate::text::matcher::{Matcher, IGNORE_CASE};
 use super::stopwords::is_stop_term;
 use std::path::Path;
 
@@ -52,9 +53,10 @@ pub fn extract_queries(text: &str, document_path: Option<&str>) -> ExtractedQuer
         {
             continue;
         }
-        if title.as_deref().is_some_and(|title| {
-            title.to_lowercase().contains(&label.to_lowercase())
-        }) {
+        if title
+            .as_deref()
+            .is_some_and(|title| Matcher::new(&label, IGNORE_CASE).first(title).is_some())
+        {
             continue;
         }
         if body_terms.iter().any(|existing: &String| {

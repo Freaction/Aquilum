@@ -9,9 +9,7 @@ use std::sync::mpsc::{Receiver, channel};
 
 use aquilum_core::{Core, CoreEvent, EventSink};
 
-const DEV_APP_ID: &str = "com.dmitriy.aquilum-app.native-dev";
-
-pub const APP_ID: &str = if cfg!(debug_assertions) { DEV_APP_ID } else { PRODUCTION_APP_ID };
+pub const APP_ID: &str = "com.dmitriy.aquilum-app";
 
 pub struct Workspace {
     pub core: Arc<Core>,
@@ -28,10 +26,8 @@ impl Workspace {
     pub fn open(data_dir: Option<&Path>, vault: Option<&Path>, wake: impl Fn() + Send + Sync + 'static) -> Result<Self, String> {
         let data_dir = data_dir_or_default(data_dir)?;
         std::fs::create_dir_all(&data_dir).map_err(|e| format!("{}: {e}", data_dir.display()))?;
-        if data_dir.ends_with(PRODUCTION_APP_ID) {
+        if data_dir.ends_with(APP_ID) {
             aquilum_core::migration::migrate_legacy_data(&data_dir);
-        } else {
-            adopt_production_settings(&data_dir);
         }
 
         let (sender, events) = channel();
@@ -81,24 +77,6 @@ pub fn normalize(path: &Path) -> PathBuf {
         None => canonical.clone(),
     }
 }
-
-/// При первом запуске нативной сборки берёт настройки рабочей версии (язык, тема, шрифты),
-/// чтобы интерфейс выглядел как привычный Aquilum. Файл рабочей версии только читается.
-fn adopt_production_settings(data_dir: &Path) {
-    let target = data_dir.join("settings.json");
-    if target.exists() {
-        return;
-    }
-    let Some(source) = platform_data_dir().map(|dir| dir.join(PRODUCTION_APP_ID).join("settings.json")) else { return };
-    if source.exists()
-        && let Err(e) = std::fs::copy(&source, &target)
-    {
-        report!("настройки рабочей версии не скопированы: {e}");
-    }
-}
-
-/// Идентификатор рабочей версии на Tauri: там лежат её данные.
-const PRODUCTION_APP_ID: &str = "com.dmitriy.aquilum-app";
 
 /// Тот же корень, что `app_data_dir` у Tauri: %APPDATA%, ~/Library/Application Support,
 /// $XDG_DATA_HOME или ~/.local/share.

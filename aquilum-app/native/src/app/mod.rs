@@ -1,4 +1,5 @@
 mod actions;
+mod commands;
 mod book;
 mod core_events;
 mod embeds;
@@ -11,7 +12,6 @@ mod home;
 mod init;
 mod lifecycle;
 mod media;
-mod note_edit;
 mod note_page;
 mod panel;
 #[cfg(feature = "memory-probe")]
@@ -112,7 +112,7 @@ pub struct App {
     suggest_layer: Option<(WidgetId, WidgetId)>,
     find: Option<crate::ui::find::FindBar>,
     note: Option<Note>,
-    editor_text: String,
+    text: crop::Rope,
     system_dark: bool,
     tabs: Tabs,
     renaming_tab: Option<Uuid>,
@@ -138,14 +138,15 @@ pub struct App {
     vault_error: Option<String>,
     note_ids: Option<crate::ui::note::NoteIds>,
     hidden: usize,
-    view: Option<(i64, f64)>,
+    view: Option<(usize, f64)>,
     view_due: Option<Instant>,
-    restore: Option<(i64, f64)>,
+    restore: Option<(usize, f64)>,
     embeds: Option<embeds::Embeds>,
     navigation: crate::navigation::Navigation,
     renaming_to: Option<PathBuf>,
     hero_shown: Option<Vec<String>>,
     picked_tx: Sender<book::Picked>,
+    failed_renames: (Sender<(PathBuf, PathBuf)>, Receiver<(PathBuf, PathBuf)>),
     picked_rx: Receiver<book::Picked>,
     home: Option<PathBuf>,
     home_tx: Sender<(u64, Option<PathBuf>)>,

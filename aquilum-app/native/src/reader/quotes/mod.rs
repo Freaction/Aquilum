@@ -17,7 +17,7 @@ pub struct Quote {
     pub label: String,
 }
 
-pub fn append(doc: &str, quote: &str) -> String {
-    let gap = if !doc.is_empty() && !doc.ends_with('\n') { "\n\n" } else { "\n" };
-    format!("{doc}{gap}{quote}")
+pub fn appended(last: Option<u8>, quote: &str) -> String {
+    let gap = if last.is_some_and(|byte| byte != b'\n') { "\n\n" } else { "\n" };
+    format!("{gap}{quote}")
 }

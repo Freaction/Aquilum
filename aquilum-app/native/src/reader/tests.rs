@@ -4,6 +4,26 @@ use serde_json::Value;
 
 use super::{Book, Point};
 
+pub(crate) fn sample_fb2() -> String {
+    fb2("Съешь же ещё этих мягких французских булок да выпей чаю, повторяя это снова и снова.")
+}
+
+pub(crate) fn settings(size: f32, scrolled: bool) -> super::page::Settings {
+    super::page::Settings { family: "iA Writer Quattro".into(), size, weight: 400.0, line_height: 1.6, justify: true, hyphenate: true, max_width_ch: 65, margin: 48.0, scrolled }
+}
+
+pub(crate) fn book_file(content: String) -> (tempfile::TempDir, PathBuf) {
+    let dir = crate::test_dir::tempdir();
+    let file = dir.path().join("книга.fb2");
+    std::fs::write(&file, content).unwrap();
+    (dir, file)
+}
+
+pub(crate) fn fb2(sentence: &str) -> String {
+    let paragraphs: String = (1..=400).map(|i| format!("<p>Абзац номер {i}. {sentence}</p>")).collect();
+    format!("<?xml version=\"1.0\" encoding=\"utf-8\"?><FictionBook xmlns=\"http://www.gribuser.ru/xml/fictionbook/2.0\"><body><section><title><p>Глава первая</p></title>{paragraphs}</section><section><title><p>Глава вторая</p></title>{paragraphs}</section></body></FictionBook>")
+}
+
 fn after(book: &Book, index: usize, point: Point) -> String {
     let Point::At(node, offset) = point else { return String::new() };
     let Some(text) = book.document(index).and_then(|d| d.text_of(node)) else { return String::new() };

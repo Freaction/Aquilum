@@ -27,7 +27,7 @@ fn parts(text: &str) -> RootParts<'_> {
         note: note::page(note::NoteView {
             file_name: "Заметка.md",
             title: "Заметка",
-            body: text,
+            body: crop::Rope::from(text),
             metadata: Some(false),
             can_back: true,
             can_forward: false,
@@ -36,6 +36,7 @@ fn parts(text: &str) -> RootParts<'_> {
             hero: None,
             resolver: None,
             smart: Default::default(),
+            wake: std::sync::Arc::new(|| {}),
         })
         .0
         .erased(),

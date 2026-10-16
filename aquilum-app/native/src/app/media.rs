@@ -11,14 +11,18 @@ use crate::vault_files::{self, Source};
 fn natural_width(source: &Source<'_>) -> Option<f64> {
     let (width, _) = match source {
         Source::Path(path) => image::image_dimensions(path).ok()?,
-        Source::Bytes(bytes, _) => image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok()?.into_dimensions().ok()?,
+        Source::Bytes(bytes, _) => crate::images::dimensions(bytes)?,
     };
     Some(f64::from(width))
 }
 
 impl App {
-    pub fn paste_image(&mut self, root: &mut RenderRoot, png: &[u8]) {
+    pub fn paste_image(&mut self, root: &mut RenderRoot, png: &[u8]) -> bool {
+        if self.note_ids.as_ref().is_none_or(|ids| root.focused_widget() != Some(ids.body.id())) {
+            return false;
+        }
         self.insert_media(root, &[Source::Bytes(png, "image.png")], None);
+        true
     }
 
     pub fn drop_files(&mut self, root: &mut RenderRoot, paths: &[PathBuf], at: Point) {

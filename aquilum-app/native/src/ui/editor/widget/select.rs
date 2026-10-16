@@ -7,7 +7,11 @@ impl TextEditor {
 
     pub fn selected_text(&self) -> Option<String> {
         let range = self.selection();
-        (!range.is_empty()).then(|| self.doc.text()[range].to_owned())
+        (!range.is_empty()).then(|| self.doc.copy(range))
+    }
+
+    pub(super) fn include_caret(&mut self) {
+        self.doc.include(self.focus);
     }
 
     pub(super) fn move_to(&mut self, (offset, affinity): (usize, Affinity), extend: bool) {
@@ -20,11 +24,12 @@ impl TextEditor {
 
     fn unit_at(&self, point: Point, count: u8) -> Range<usize> {
         let (offset, _) = self.hit(point);
-        let p = self.doc.paragraph(self.doc.at_offset(offset));
-        let local = point - self.shift() - p.origin();
+        let i = self.doc.at_offset(offset);
+        let p = self.doc.paragraph(i);
+        let local = point - self.shift() - self.doc.origin(i);
         match count {
             2 => {
-                let Some(layout) = p.layout.as_deref() else { return offset..offset };
+                let Some(layout) = p.laid() else { return offset..offset };
                 let r = Selection::word_from_point(layout, local.x as f32, local.y as f32).text_range();
                 p.start + r.start..p.start + r.end
             }

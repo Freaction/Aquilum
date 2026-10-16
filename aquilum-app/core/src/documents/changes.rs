@@ -1,4 +1,5 @@
-use super::merge::{utf16_len, TextEdit};
+use super::merge::TextEdit;
+use crate::text::utf16::utf16_len;
 use serde_json::{json, Value};
 use std::fmt;
 

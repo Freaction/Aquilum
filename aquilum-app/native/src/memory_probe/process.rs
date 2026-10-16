@@ -1,9 +1,7 @@
 #[cfg(target_os = "windows")]
 use std::collections::HashMap;
 
-pub(super) fn mb(bytes: usize) -> f64 {
-    bytes as f64 / 1_048_576.0
-}
+use crate::stats::mb;
 
 #[cfg(target_os = "windows")]
 pub(super) fn cpu_ms() -> f64 {
@@ -18,6 +16,42 @@ pub(super) fn cpu_ms() -> f64 {
 #[cfg(not(target_os = "windows"))]
 pub(super) fn cpu_ms() -> f64 {
     0.0
+}
+
+#[cfg(all(test, target_os = "windows"))]
+pub(super) fn threads() -> Vec<(u32, String, f64)> {
+    use windows::Win32::Foundation::{CloseHandle, FILETIME, HLOCAL, LocalFree};
+    use windows::Win32::System::Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, TH32CS_SNAPTHREAD, THREADENTRY32, Thread32First, Thread32Next};
+    use windows::Win32::System::Threading::{GetCurrentProcessId, GetThreadDescription, GetThreadTimes, OpenThread, THREAD_QUERY_LIMITED_INFORMATION};
+    let ticks = |t: FILETIME| (u64::from(t.dwHighDateTime) << 32 | u64::from(t.dwLowDateTime)) as f64 / 10_000.0;
+    let mut out = Vec::new();
+    let Ok(snapshot) = (unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0) }) else { return out };
+    let pid = unsafe { GetCurrentProcessId() };
+    let mut entry = THREADENTRY32 { dwSize: size_of::<THREADENTRY32>() as u32, ..Default::default() };
+    let mut more = unsafe { Thread32First(snapshot, &mut entry) }.is_ok();
+    while more {
+        if entry.th32OwnerProcessID == pid
+            && let Ok(thread) = unsafe { OpenThread(THREAD_QUERY_LIMITED_INFORMATION, false, entry.th32ThreadID) }
+        {
+            let (mut a, mut b, mut kernel, mut user) = (FILETIME::default(), FILETIME::default(), FILETIME::default(), FILETIME::default());
+            let _ = unsafe { GetThreadTimes(thread, &mut a, &mut b, &mut kernel, &mut user) };
+            let name = unsafe { GetThreadDescription(thread) }.map_or_else(|_| String::new(), |text| {
+                let name = unsafe { text.to_string() }.unwrap_or_default();
+                let _ = unsafe { LocalFree(Some(HLOCAL(text.0.cast()))) };
+                name
+            });
+            out.push((entry.th32ThreadID, name, ticks(kernel) + ticks(user)));
+            let _ = unsafe { CloseHandle(thread) };
+        }
+        more = unsafe { Thread32Next(snapshot, &mut entry) }.is_ok();
+    }
+    let _ = unsafe { CloseHandle(snapshot) };
+    out
+}
+
+#[cfg(all(test, not(target_os = "windows")))]
+pub(super) fn threads() -> Vec<(u32, String, f64)> {
+    Vec::new()
 }
 
 #[cfg(not(target_os = "windows"))]

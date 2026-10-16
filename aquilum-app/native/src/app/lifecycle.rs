@@ -16,14 +16,13 @@ impl App {
         if self.view_due.is_some_and(|t| t <= now) {
             self.flush_view();
         }
-        if let Some(note) = self.note.as_mut().filter(|n| n.deadline().is_some_and(|t| t <= now)) {
-            let had = note.save_error.is_some();
-            if note.save(&self.workspace.core, &self.editor_text).is_err() || had {
-                self.refresh_save_error(root);
-            }
+        if let Some(note) = self.note.as_mut()
+            && note.tick(&self.workspace.core, &self.text, now)
+        {
+            self.refresh_save_error(root);
         }
         if let Some(text) = self.note.as_mut().and_then(crate::note::Note::take_replaced) {
-            self.set_editor_text(root, text);
+            self.set_text(root, text);
             self.refresh_save_error(root);
         }
     }
@@ -32,25 +31,16 @@ impl App {
         self.interface.scale()
     }
 
-    pub fn zoom_key(&mut self, key: &str) -> bool {
-        let scale = self.interface.scale();
-        match key {
-            "=" | "+" => self.interface.set_scale(scale + SCALE_STEP),
-            "-" => self.interface.set_scale(scale - SCALE_STEP),
-            "0" => self.interface.set_scale(1.0),
-            _ => false,
-        }
-    }
-
-    pub fn zoom_wheel(&mut self, up: bool) -> bool {
+    pub fn zoom(&mut self, up: bool) -> bool {
         let step = if up { SCALE_STEP } else { -SCALE_STEP };
         self.interface.set_scale(self.interface.scale() + step)
     }
 
     pub fn shutdown(&mut self) {
         self.flush_view();
-        if let Some(note) = &mut self.note {
-            let _ = note.save(&self.workspace.core, &self.editor_text);
+        match &mut self.note {
+            Some(note) => note.flush(&self.workspace.core, &self.text),
+            None => crate::disk::wait(),
         }
         self.workspace.core.shutdown();
     }

@@ -41,7 +41,7 @@ impl MediaState {
 impl TextEditor {
     fn media_view(&self, start: usize) -> Option<&MediaView> {
         let p = self.doc.paragraph(self.doc.at_offset(start));
-        match (p.start == start, p.embed.as_deref().map(|e| &e.view)) {
+        match (p.start == start, p.embed.map(|e| &e.view)) {
             (true, Some(View::Media(view))) => Some(view),
             _ => None,
         }
@@ -51,9 +51,10 @@ impl TextEditor {
         if self.doc.markdown.is_none() || !self.laid_out() {
             return None;
         }
-        let p = self.doc.paragraph(self.doc.at_y(point.y.max(0.0)));
-        let Some(View::Media(view)) = p.embed.as_deref().map(|e| &e.view).filter(|_| matches!(p.fold, Fold::Head | Fold::Above)) else { return None };
-        let local = Point::new(point.x - self.shift().x, point.y - p.top);
+        let i = self.doc.at_y(point.y.max(0.0));
+        let p = self.doc.paragraph(i);
+        let Some(View::Media(view)) = p.embed.map(|e| &e.view).filter(|_| matches!(p.fold, Fold::Head | Fold::Above)) else { return None };
+        let local = Point::new(point.x - self.shift().x, point.y - self.doc.top(i));
         if local.y >= view.height {
             return None;
         }
@@ -63,11 +64,12 @@ impl TextEditor {
 
     pub(super) fn paint_videos(&self, painter: &mut masonry::imaging::Painter<'_>) {
         let (first, last) = (self.doc.at_y(self.painted.0), self.doc.at_y(self.painted.1));
-        for p in &self.doc.paragraphs()[first..=last] {
-            if let (Fold::Head | Fold::Above, Some(View::Media(view))) = (p.fold, p.embed.as_deref().map(|e| &e.view)) {
+        for (i, top, _) in self.doc.placed(first..=last) {
+            let p = self.doc.paragraph(i);
+            if let (Fold::Head | Fold::Above, Some(View::Media(view))) = (p.fold, p.embed.map(|e| &e.view)) {
                 let overlay = self.media_overlay(p.start);
                 if overlay.video.is_some() {
-                    view.paint(painter, self.shift().x, p.top, &overlay);
+                    view.paint(painter, self.shift().x, top, &overlay);
                 }
             }
         }
@@ -85,7 +87,7 @@ impl TextEditor {
     fn rewrite(&mut self, start: usize, line: &EmbedLine) {
         let range = self.doc.paragraph(self.doc.at_offset(start)).range();
         let text = media::format(line);
-        if self.doc.text()[range.clone()] != text {
+        if self.doc.slice(range.clone()) != text {
             self.dispatch(vec![(range, text)], None, Kind::Block);
         }
     }

@@ -2,7 +2,9 @@ mod context;
 
 use super::*;
 use crate::ui::editor::resolve::{Request, Suggestions};
+use crate::ui::keymap::{self, Command, Scope};
 use masonry::core::WidgetId;
+use masonry::core::keyboard::Modifiers;
 
 const OPEN: &str = "[[";
 const CLOSE: &str = "]]";
@@ -118,20 +120,19 @@ impl TextEditor {
         self.suggest_shown.is_some()
     }
 
-    pub(super) fn suggest_key(&mut self, id: WidgetId, key: &Key) -> Option<bool> {
+    pub(super) fn suggest_key(&mut self, id: WidgetId, key: &Key, modifiers: Modifiers) -> Option<bool> {
         let count = self.suggest.as_ref().map_or(0, |s| s.items.len());
         if !self.suggest_open() || count == 0 {
             return None;
         }
         let page = 8;
         let current = self.suggest.as_ref().map_or(0, |s| s.selected);
-        let selected = match key {
-            Key::Named(NamedKey::ArrowDown) => (current + 1) % count,
-            Key::Named(NamedKey::ArrowUp) => (current + count - 1) % count,
-            Key::Named(NamedKey::PageDown) => (current + page).min(count - 1),
-            Key::Named(NamedKey::PageUp) => current.saturating_sub(page),
-            Key::Named(NamedKey::Enter) => return Some(self.accept_suggest(current)),
-            Key::Named(NamedKey::Escape) => {
+        let selected = match keymap::command(&[Scope::List, Scope::Navigation], key, modifiers)? {
+            command @ (Command::ListNext | Command::ListPrevious) => keymap::cycle(current, count, command == Command::ListNext),
+            Command::PageDown => (current + page).min(count - 1),
+            Command::PageUp => current.saturating_sub(page),
+            Command::ListOpen | Command::ListCreate => return Some(self.accept_suggest(current)),
+            Command::Close => {
                 self.close_suggest();
                 return Some(false);
             }
@@ -152,7 +153,7 @@ impl TextEditor {
             Source::Key => format!("{title}: "),
             Source::Value => title.clone(),
         };
-        let skip = matches!(s.source, Source::Link { close: false, .. }) && self.doc.text()[s.to..].starts_with(CLOSE);
+        let skip = matches!(s.source, Source::Link { close: false, .. }) && self.doc.after(s.to).starts_with(CLOSE);
         let caret = s.from + insert.len() + if skip { CLOSE.len() } else { 0 };
         self.replace_and_select(s.from..s.to, &insert, Kind::Other, (caret, caret));
         self.close_suggest();

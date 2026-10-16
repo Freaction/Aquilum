@@ -1,45 +1,30 @@
 use super::store::Candidate;
 use crate::search::models::NoteSuggestion;
+use crate::text::matcher::{Matcher, Mode, Options, EXACT};
 use std::path::Path;
 
-const WORD_BOUNDARIES: [char; 8] = [' ', '-', '_', '.', ',', '(', '[', '/'];
+const WORD_START: Options = Options { mode: Mode::WordPrefix, ..EXACT };
 
-pub fn rank(mut candidates: Vec<Candidate>, key: &str, limit: usize) -> Vec<NoteSuggestion> {
-    candidates.sort_by(|left, right| {
-        tier(&left.title_key, key)
-            .cmp(&tier(&right.title_key, key))
-            .then_with(|| {
-                left.title_key
-                    .chars()
-                    .count()
-                    .cmp(&right.title_key.chars().count())
-            })
-            .then_with(|| left.path.cmp(&right.path))
-    });
-    candidates
+pub fn rank(candidates: Vec<Candidate>, key: &str, limit: usize) -> Vec<NoteSuggestion> {
+    let matcher = Matcher::new(key, WORD_START);
+    let mut ranked = candidates
+        .into_iter()
+        .map(|candidate| ((tier(&matcher, &candidate.title_key), candidate.title_key.chars().count()), candidate))
+        .collect::<Vec<_>>();
+    ranked.sort_by(|(left_order, left), (right_order, right)| left_order.cmp(right_order).then_with(|| left.path.cmp(&right.path)));
+    ranked
         .into_iter()
         .take(limit)
-        .map(|candidate| suggestion(&candidate.path))
+        .map(|(_, candidate)| suggestion(&candidate.path))
         .collect()
 }
 
-fn tier(title_key: &str, key: &str) -> u8 {
-    if title_key.starts_with(key) {
-        return 0;
+fn tier(matcher: &Matcher, title_key: &str) -> u8 {
+    match matcher.first(title_key) {
+        Some(found) if found.start == 0 => 0,
+        Some(_) => 1,
+        None => 2,
     }
-    if starts_word(title_key, key) {
-        return 1;
-    }
-    2
-}
-
-fn starts_word(title_key: &str, key: &str) -> bool {
-    title_key.match_indices(key).any(|(index, _)| {
-        title_key[..index]
-            .chars()
-            .next_back()
-            .is_some_and(|character| WORD_BOUNDARIES.contains(&character))
-    })
 }
 
 fn suggestion(raw: &str) -> NoteSuggestion {

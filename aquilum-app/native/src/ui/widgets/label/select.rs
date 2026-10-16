@@ -1,10 +1,11 @@
-use masonry::core::keyboard::{Key, KeyState};
+use masonry::core::keyboard::KeyState;
 use masonry::core::{BrushIndex, EventCtx, PointerButton, PointerButtonEvent, PointerEvent, PointerUpdate, TextEvent};
 use masonry::imaging::Painter;
 use masonry::kurbo::{Rect, Vec2};
 use masonry::parley::{Affinity, Cursor, Layout, Selection};
 
 use super::Label;
+use crate::ui::keymap::{self, Command, Scope};
 use crate::ui::theme;
 
 fn whole(layout: &Layout<BrushIndex>, len: usize) -> Selection {
@@ -58,17 +59,17 @@ impl Label {
 
     pub(super) fn keyboard(&mut self, ctx: &mut EventCtx<'_>, event: &TextEvent) {
         let TextEvent::Keyboard(key) = event else { return };
-        let action = if cfg!(target_os = "macos") { key.modifiers.meta() } else { key.modifiers.ctrl() };
-        let Key::Character(letter) = &key.key else { return };
-        if key.state != KeyState::Down || !action {
+        if key.state != KeyState::Down {
             return;
         }
-        if letter.eq_ignore_ascii_case("c") {
+        let command = keymap::command(&[Scope::Text], &key.key, key.modifiers);
+        let select_all = command == Some(Command::SelectAll);
+        if command == Some(Command::Copy) {
             if let Some(text) = self.text.get(self.selection.text_range()).filter(|text| !text.is_empty()) {
                 ctx.set_clipboard(text.to_owned());
             }
             ctx.set_handled();
-        } else if letter.eq_ignore_ascii_case("a")
+        } else if select_all
             && let Some((_, layout)) = &self.cached
         {
             self.selection = whole(layout, self.text.len());

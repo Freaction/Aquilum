@@ -1,9 +1,9 @@
 use std::borrow::Cow;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 
 use masonry::app::RenderRoot;
 use masonry::parley::FontFamily;
-use masonry::peniko::Blob;
+use masonry::peniko::{Blob, FontData};
 
 use crate::ui::tokens::{number, size};
 
@@ -36,9 +36,15 @@ macro_rules! symbols {
     };
 }
 
+static BUNDLED: LazyLock<Vec<FontData>> = LazyLock::new(|| bundled::FONTS.iter().map(|data| FontData::new(Blob::new(Arc::new(*data)), 0)).collect());
+
+pub fn bundled_fonts() -> &'static [FontData] {
+    &BUNDLED
+}
+
 pub fn register_fonts(root: &mut RenderRoot) {
-    for data in bundled::FONTS {
-        root.register_fonts(Blob::new(Arc::new(*data)));
+    for font in bundled_fonts() {
+        root.register_fonts(font.data.clone());
     }
 }
 

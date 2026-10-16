@@ -47,7 +47,7 @@ impl App {
             && let Some(Binding::Commit(field)) = bindings.get(&id)
         {
             let field = *field;
-            if let Some(text) = field.get(root).map(|f| f.inner().text().to_string()) {
+            if let Some(text) = field.get(root).map(|f| f.inner().text()) {
                 effect = self.field_changed(root, bindings, field.id(), &text, true);
             }
         }

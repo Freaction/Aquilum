@@ -1,12 +1,13 @@
+use aquilum_core::text::matcher::{IGNORE_CASE, Matcher};
+
 pub fn rank<'a>(items: &[&'a str], query: &str) -> Vec<&'a str> {
-    let query = query.trim().to_lowercase();
-    let (mut first, rest): (Vec<&str>, Vec<&str>) = items
-        .iter()
-        .copied()
-        .filter(|item| item.to_lowercase().contains(&query))
-        .partition(|item| item.to_lowercase().starts_with(&query));
+    let matcher = Matcher::new(query.trim(), IGNORE_CASE);
+    if matcher.is_empty() {
+        return items.to_vec();
+    }
+    let (mut first, rest): (Vec<_>, Vec<_>) = items.iter().filter_map(|&item| Some((item, matcher.first(item)?.start))).partition(|&(_, at)| at == 0);
     first.extend(rest);
-    first
+    first.into_iter().map(|(item, _)| item).collect()
 }
 
 #[cfg(test)]

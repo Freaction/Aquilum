@@ -58,7 +58,7 @@ pub(super) fn editor_id(root: &RenderRoot) -> WidgetId {
 }
 
 pub(super) fn text(root: &RenderRoot) -> String {
-    root.get_widget_with_tag(TAG).expect("редактор").inner().text().to_owned()
+    root.get_widget_with_tag(TAG).expect("редактор").inner().text()
 }
 
 pub(super) fn selected(root: &RenderRoot) -> String {

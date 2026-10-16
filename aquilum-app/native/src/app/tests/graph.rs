@@ -148,7 +148,7 @@ fn typing_suggests_notes_and_enter_links_them() {
     let editor = h.app.editor_id().unwrap();
     h.root.handle_text_event(TextEvent::WindowFocusChange(true));
     h.root.focus_on(Some(editor));
-    let text = |h: &Harness| h.root.get_widget(editor).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).unwrap().inner().text().to_owned();
+    let text = |h: &Harness| h.root.get_widget(editor).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).unwrap().inner().text();
     for round in ["", "[["] {
         for ch in round.chars().chain("Прое".chars()) {
             h.key(Key::Character(ch.to_string().into()), Modifiers::empty());

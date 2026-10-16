@@ -16,14 +16,14 @@ use list::Levels;
 pub(super) use line::heading;
 pub use list::Item;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Callout {
     Quote,
     Book,
     Other,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Block {
     #[default]
     Text,
@@ -112,7 +112,7 @@ impl State {
         }
         let (first, close) = (!self.math, self.math && marker);
         self.math = !close;
-        Some(Block::Code { first, last: close || next.is_none(), fence: first || close, lang: None })
+        Some(Block::Code { first, last: close || next.is_none(), fence: first || close, lang: Some(Lang::Math) })
     }
 
     fn comment_line(&mut self, line: &str) -> Option<Block> {

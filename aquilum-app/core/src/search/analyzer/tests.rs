@@ -11,7 +11,7 @@ fn tokens(text: &str) -> Vec<String> {
 
 #[test]
 fn analyzer_version_tracks_morphology_pipeline() {
-    assert_eq!(ANALYZER_VERSION, 10);
+    assert_eq!(ANALYZER_VERSION, 11);
 }
 
 #[test]
@@ -77,6 +77,7 @@ fn short_cyrillic_tokens_stay_intact() {
 #[test]
 fn stemmed_query_matches_inflected_document() {
     use crate::search::index::SearchIndex;
+    use crate::search::query::Request;
     use std::fs;
     use tantivy::doc;
 
@@ -97,7 +98,7 @@ fn stemmed_query_matches_inflected_document() {
     index.reload().unwrap();
 
     assert_eq!(tokens("нейронные"), tokens("нейронных"));
-    let (_terms, results) = index.search("нейронных", 10).unwrap();
+    let results = index.search(&Request::new("нейронных")).unwrap().results;
     assert!(
         results.iter().any(|result| result.path.contains("note.md")),
         "omnisearch should hit via analyzer, got {results:?}"

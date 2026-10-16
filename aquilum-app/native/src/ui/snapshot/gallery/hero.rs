@@ -10,7 +10,7 @@ pub(super) fn snapshots(scene: &Scene) {
         let (page, ids) = note::page(NoteView {
             file_name: "Дюна.md",
             title: "Дюна",
-            body: "Фрэнк Герберт, 1965.",
+            body: crop::Rope::from("Фрэнк Герберт, 1965."),
             metadata: Some(false),
             can_back: true,
             can_forward: false,
@@ -24,6 +24,7 @@ pub(super) fn snapshots(scene: &Scene) {
             }),
             resolver: None,
             smart: Default::default(),
+            wake: std::sync::Arc::new(|| {}),
         });
         p.note = page.erased();
         let (mut root, _) = open_parts(Some(scene.vault), scene.data, p);

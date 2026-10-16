@@ -62,16 +62,6 @@ fn ms(d: Duration) -> f64 {
     d.as_secs_f64() * 1000.0
 }
 
-fn avg(v: &[f64]) -> f64 {
-    if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 }
-}
-
-fn p95(v: &[f64]) -> f64 {
-    let mut sorted = v.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    sorted.get(((sorted.len().max(1) - 1) as f64 * 0.95).round() as usize).copied().unwrap_or(0.0)
-}
-
 impl Metrics {
     pub fn new(threads: u16, path: Option<PathBuf>) -> Self {
         Metrics { path, threads, ..Default::default() }
@@ -125,10 +115,10 @@ impl Metrics {
             self.first_frame_ms,
             self.frames,
             self.anim_ticks,
-            avg(&self.raster),
-            p95(&self.raster),
-            avg(&self.total),
-            p95(&self.total),
+            crate::stats::mean(&self.raster),
+            crate::stats::percentiles(&self.raster, [0.95])[0],
+            crate::stats::mean(&self.total),
+            crate::stats::percentiles(&self.total, [0.95])[0],
         );
         if let Err(e) = std::fs::write(path, &json) {
             eprintln!("не удалось записать замеры в {}: {e}", path.display());

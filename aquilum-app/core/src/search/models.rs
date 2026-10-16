@@ -63,6 +63,7 @@ pub struct SearchResult {
 pub struct SearchResponse {
     pub query_terms: Vec<String>,
     pub results: Vec<SearchResult>,
+    pub has_more: bool,
     pub status: SearchIndexStatus,
 }
 
@@ -94,6 +95,7 @@ impl SearchResponse {
         Self {
             query_terms: Vec::new(),
             results: Vec::new(),
+            has_more: false,
             status: SearchIndexStatus::idle(),
         }
     }

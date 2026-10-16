@@ -73,6 +73,9 @@ impl TextEditor {
         if self.single_line {
             return;
         }
+        if self.doc.track((top, bottom)) {
+            ctx.request_layout();
+        }
         self.doc.anchor_at(top.max(0.0));
         let (keep, margin) = (self.doc.keep, bottom - top);
         let cover = margin / 4.0;

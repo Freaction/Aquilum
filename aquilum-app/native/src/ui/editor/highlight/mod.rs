@@ -31,4 +31,5 @@ pub enum Lang {
     Markup,
     Lua,
     Dataview,
+    Math,
 }

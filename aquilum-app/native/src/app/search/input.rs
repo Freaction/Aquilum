@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use masonry::app::RenderRoot;
-use masonry::core::keyboard::{Key, Modifiers, NamedKey};
+use masonry::core::keyboard::{Key, Modifiers};
+use crate::ui::keymap::{self, Command, Scope};
 use masonry::core::{ErasedAction, WidgetId};
 
 use super::{App, Popup, select_card};
@@ -42,17 +43,16 @@ impl App {
         let Some(Popup::Search(state)) = &self.popup else { return None };
         let count = state.cards.len();
         let selected = state.selected;
-        match key {
-            Key::Named(NamedKey::ArrowDown | NamedKey::ArrowUp) => {
+        match keymap::command(&[Scope::List], key, modifiers)? {
+            command @ (Command::ListNext | Command::ListPrevious) => {
                 if count > 0 {
-                    let next = if *key == Key::Named(NamedKey::ArrowDown) { (selected + 1) % count } else { (selected + count - 1) % count };
-                    self.select_result(root, next);
+                    self.select_result(root, keymap::cycle(selected, count, command == Command::ListNext));
                 }
                 Some(Outcome::default())
             }
-            Key::Named(NamedKey::Enter) if modifiers.shift() => Some(self.create_from_query(root)),
-            Key::Named(NamedKey::Enter) => Some(self.open_selected(root, modifiers.ctrl() || modifiers.meta())),
-            Key::Named(NamedKey::Escape) => {
+            Command::ListCreate => Some(self.create_from_query(root)),
+            command @ (Command::ListOpen | Command::ListOpenInNewTab) => Some(self.open_selected(root, command == Command::ListOpenInNewTab)),
+            Command::Close => {
                 self.close_search(root);
                 Some(Outcome::default())
             }
@@ -67,10 +67,8 @@ impl App {
             return Outcome::default();
         }
         if id == state.field.id() {
-            match action.downcast_ref::<TextAction>() {
-                Some(TextAction::Changed(text)) => self.query_changed(root, text.clone()),
-                Some(TextAction::Cancelled) => self.close_search(root),
-                _ => {}
+            if let Some(TextAction::Changed(text)) = action.downcast_ref::<TextAction>() {
+                self.query_changed(root, text.clone());
             }
             return Outcome::default();
         }

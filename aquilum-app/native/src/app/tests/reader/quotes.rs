@@ -33,13 +33,14 @@ fn reader_quotes_round_trip() {
     let _ = h.root.redraw();
     open_book(&mut h, &file, Some(&page), "Книга");
     quote_selection(&mut h, (120.0, 160.0), (420.0, 220.0));
-    let text = h.app.editor_text.clone();
+    let text = h.app.text.to_string();
     let found = crate::reader::quotes::find(&text);
     assert_eq!(found.len(), 1, "{text}");
     assert_eq!(found[0].label, "1");
     assert_eq!(found[0].book.as_deref(), Some("Files/книга.fb2"));
     assert!(found[0].cfi.starts_with("epubcfi(/6/2!"), "{}", found[0].cfi);
     assert!(text[found[0].text.clone()].contains("Абзац номер"), "{text}");
+    h.save_now();
     assert!(std::fs::read_to_string(&page).unwrap().contains("[!quote]"), "цитата не сохранена в файл");
     let _ = h.root.redraw();
     let label = match &h.app.popup {
@@ -93,7 +94,7 @@ fn the_quote_you_came_from_is_brightest_and_hovering_deepens_the_others() {
     let mut h = Harness::new();
     two_quotes(&mut h);
     h.escape();
-    let found = crate::reader::quotes::find(&h.app.editor_text);
+    let found = crate::reader::quotes::find(&h.app.text.to_string());
     let url = format!("aquilum-reader:cfi={}", found[1].cfi.replace('(', "%28").replace(')', "%29"));
     h.app.open_target(&mut h.root, crate::links::Target::Url(url), false);
     h.deliver();

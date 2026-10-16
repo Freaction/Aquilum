@@ -64,7 +64,7 @@ impl Lang {
             Lang::Sql => SQL,
             Lang::Lua => LUA,
             Lang::Dataview => DATAVIEW,
-            Lang::Css | Lang::Json | Lang::Yaml | Lang::Markup => &[],
+            Lang::Css | Lang::Json | Lang::Yaml | Lang::Markup | Lang::Math => &[],
         }
     }
 

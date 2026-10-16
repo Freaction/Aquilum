@@ -9,7 +9,6 @@ pub struct Task {
 
 pub fn note_tasks(body: &str) -> Vec<Task> {
     fence::outside(body)
-        .into_iter()
         .filter_map(|(index, line)| {
             let item = list::item(line)?;
             let task = item.task?;

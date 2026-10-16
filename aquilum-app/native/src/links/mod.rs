@@ -46,7 +46,10 @@ pub struct Request {
 
 pub fn spawn(core: Arc<Core>, request: Request, results: Sender<Listing>, wake: Arc<dyn Fn() + Send + Sync>) {
     std::thread::spawn(move || {
-        let listing = run(&core, &request);
+        let listing = {
+            let _zone = aq_trace::zone("фон: панель ссылок");
+            run(&core, &request)
+        };
         if results.send(listing).is_ok() {
             wake();
         }

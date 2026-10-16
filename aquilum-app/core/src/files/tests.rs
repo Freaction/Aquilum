@@ -1,7 +1,7 @@
 use super::document::{
-    create_file_impl, hash_bytes, normalize_line_endings, read_file_snapshot_impl,
-    read_file_stat_impl, rename_file_impl, write_file_atomic_impl,
+    hash_bytes, normalize_line_endings, read_file_snapshot_impl, read_file_stat_impl, write_file_atomic_impl,
 };
+use super::entries::{create_file_impl, rename_file_impl};
 use super::error::FileCommandError;
 use super::models::FileItemType;
 use super::workspace::read_directory_impl;
@@ -197,4 +197,5 @@ fn a_snapshot_of_an_lf_file_reports_the_same_hash_twice() {
 fn a_lone_carriage_return_is_normalised_too() {
     assert_eq!(normalize_line_endings("одна\rдве".to_owned()), "одна\nдве");
     assert_eq!(normalize_line_endings("без переносов".to_owned()), "без переносов");
+    assert_eq!(normalize_line_endings("\r\rа\r\nб\r\r\nв\n\r".to_owned()), "\n\nа\nб\n\nв\n\n");
 }

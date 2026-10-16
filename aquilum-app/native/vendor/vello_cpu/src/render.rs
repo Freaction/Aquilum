@@ -1025,10 +1025,6 @@ mod tests {
         BLUE.premultiply().to_rgba8()
     }
 
-    fn transparent_pixel() -> PremulRgba8 {
-        PremulRgba8::from_u32(0)
-    }
-
     fn solid_pixmap(width: u16, height: u16, color: PremulRgba8) -> Pixmap {
         Pixmap::from_parts(
             bytemuck::cast_vec(vec![color; usize::from(width) * usize::from(height)]),

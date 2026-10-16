@@ -78,58 +78,13 @@ pub(super) fn history(config: &AppConfig) -> Vec<Block> {
 }
 
 pub(super) fn shortcuts() -> Vec<Block> {
-    const GROUPS: &[(&str, &[(&str, &str)])] = &[
-        (
-            "global",
-            &[
-                ("newTab", "Ctrl + N"),
-                ("newFromTemplate", "Ctrl + U"),
-                ("globalSearch", "Ctrl + O"),
-                ("focusMode", "Ctrl + Shift + F"),
-                ("wideMode", "Ctrl + Shift + L"),
-                ("pageSearch", "Ctrl + F"),
-                ("zoomIn", "Ctrl + +"),
-                ("zoomOut", "Ctrl + -"),
-                ("zoomReset", "Ctrl + 0"),
-            ],
-        ),
-        (
-            "editor",
-            &[
-                ("bold", "Ctrl + B"),
-                ("italic", "Ctrl + I"),
-                ("strikethrough", "Ctrl + Shift + S"),
-                ("indent", "Tab"),
-                ("outdent", "Shift + Tab"),
-                ("lineBreak", "Shift + ↵"),
-            ],
-        ),
-        (
-            "searchWindow",
-            &[
-                ("searchNext", "↓"),
-                ("searchPrevious", "↑"),
-                ("searchOpen", "↵"),
-                ("searchOpenNewPane", "Ctrl + ↵"),
-                ("searchCreate", "Shift + ↵"),
-            ],
-        ),
-        ("pageSearchWindow", &[("searchNext", "↵"), ("searchPrevious", "Shift + ↵")]),
-        ("reader", &[("nextPage", "→"), ("previousPage", "←")]),
-    ];
-    GROUPS
-        .iter()
+    crate::ui::keymap::groups()
+        .into_iter()
         .map(|(group, items)| Block {
             title: t(&format!("settings.shortcuts.{group}")),
             rows: items
-                .iter()
-                .map(|(label, keys)| Row {
-                    label: t(&format!("settings.shortcuts.{label}")),
-                    description: None,
-                    control: Control::Kbd((*keys).to_owned()),
-                    setter: None,
-                    code: None,
-                })
+                .into_iter()
+                .map(|(label, keys)| Row { label: t(&format!("settings.shortcuts.{label}")), description: None, control: Control::Kbd(keys), setter: None, code: None })
                 .collect(),
         })
         .collect()

@@ -1,55 +1,105 @@
 use masonry::core::BrushIndex;
 use masonry::kurbo::Size;
-use masonry::parley::{FontContext, LayoutContext};
+use masonry::parley::{FontContext, Layout, LayoutContext};
+use masonry::peniko::ImageBrush;
 
+use crate::reader::flow::Block;
 use crate::reader::hyphen;
 use crate::reader::page::{self, Item, Settings};
 use super::{Anchor, Session};
 
 fn line_start(item: &Item, y: f64) -> usize {
     match item {
-        Item::Text { layout, breaks, .. } => {
-            let at = layout.lines().find(|l| f64::from(l.metrics().max_coord) > y + 0.5).or_else(|| layout.lines().last()).map_or(0, |l| l.text_range().start);
-            hyphen::to_text(breaks, at)
-        }
+        Item::Text { lines, breaks, .. } => hyphen::to_text(breaks, lines.iter().find(|l| l.bottom > y + 0.5).or(lines.last()).map_or(0, |l| l.start)),
         _ => 0,
     }
 }
 
 fn line_end(item: &Item, y: f64) -> usize {
     match item {
-        Item::Text { layout, breaks, .. } => {
-            let at = layout.lines().filter(|l| f64::from(l.metrics().min_coord) < y - 0.5).last().map_or(0, |l| l.text_range().end);
-            hyphen::to_text(breaks, at)
-        }
+        Item::Text { lines, breaks, .. } => hyphen::to_text(breaks, lines.iter().filter(|l| l.top < y - 0.5).last().map_or(0, |l| l.end)),
         _ => 0,
     }
 }
 
 impl Session {
     pub fn needs_layout(&self) -> bool {
-        self.laid.is_none()
+        self.laid.is_none() || self.on_screen().into_iter().any(|item| !self.shown(item))
     }
 
     pub fn ensure(&mut self, view: Size, settings: &Settings, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>) {
         let key = (view, settings.clone());
-        if self.laid.is_some() && self.key.as_ref() == Some(&key) {
-            return;
+        if self.laid.is_none() || self.key.as_ref() != Some(&key) {
+            self.lay_out(key, fcx, lcx);
         }
+        self.show(fcx, lcx);
+    }
+
+    fn lay_out(&mut self, key: (Size, Settings), fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>) {
         if self.laid.is_some() && (self.page, self.scroll) != self.placed {
             self.anchor = self.current();
         }
-        self.view = view;
+        let (view, settings) = &key;
+        self.view = *view;
         let max_inline = (f64::from(settings.max_width_ch) * page::advance(fcx, lcx, settings)).round();
-        self.geometry = page::geometry(view, settings, max_inline);
-        let (book, section, images) = (&self.book, self.section, &mut self.images);
-        let mut load = |src: &str| images.entry(src.to_owned()).or_insert_with(|| book.resource(section, src).and_then(|b| crate::images::decode(&b))).clone();
+        self.geometry = page::geometry(*view, settings, max_inline);
+        let (book, section) = (&self.book, self.section);
+        let mut load = |src: &str| book.resource(section, src).and_then(|b| crate::images::decoded_size(&b));
         let fit = if settings.scrolled { view.height - 2.0 * settings.margin } else { self.geometry.height };
         let items = page::layout_blocks(&self.blocks, &mut load, fcx, lcx, settings, self.geometry.column_width, fit.max(1.0));
         let height = if settings.scrolled { f64::INFINITY } else { self.geometry.height };
         self.laid = Some(page::paginate(items, height));
+        self.layouts.clear();
+        self.images.clear();
         self.key = Some(key);
         self.place();
+    }
+
+    pub(super) fn on_screen(&self) -> Vec<usize> {
+        let bottom = self.view.height;
+        self.visible().into_iter().flat_map(|(_, y0, column)| column.pieces.iter().filter(move |p| y0 + p.y + (p.to - p.from) >= 0.0 && y0 + p.y <= bottom).map(|p| p.item)).collect()
+    }
+
+    fn shown(&self, item: usize) -> bool {
+        match &self.blocks[item] {
+            Block::Text { .. } => self.layout(item).is_some(),
+            Block::Image { src, .. } => self.images.contains_key(src),
+            Block::Rule => true,
+        }
+    }
+
+    fn show(&mut self, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>) {
+        let Some((_, settings)) = &self.key else { return };
+        let wanted = self.on_screen();
+        self.layouts.retain(|(item, _)| wanted.contains(item));
+        let sources: Vec<&str> = wanted.iter().filter_map(|&item| if let Block::Image { src, .. } = &self.blocks[item] { Some(src.as_str()) } else { None }).collect();
+        self.images.retain(|src, _| sources.contains(&src.as_str()));
+        let dash = page::dash_width(fcx, lcx, settings);
+        for item in wanted {
+            if self.shown(item) {
+                continue;
+            }
+            match &self.blocks[item] {
+                Block::Image { src, .. } => {
+                    let image = self.book.resource(self.section, src).and_then(|b| crate::images::decode(&b));
+                    self.images.insert(src.clone(), image);
+                }
+                block => {
+                    if let Some((layout, ..)) = page::text_layout(block, fcx, lcx, settings, self.geometry.column_width, dash) {
+                        self.layouts.push((item, layout));
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn layout(&self, item: usize) -> Option<&Layout<BrushIndex>> {
+        self.layouts.iter().find(|(i, _)| *i == item).map(|(_, layout)| layout)
+    }
+
+    pub fn image(&self, item: usize) -> Option<&ImageBrush> {
+        let Block::Image { src, .. } = self.blocks.get(item)? else { return None };
+        self.images.get(src)?.as_ref()
     }
 
     pub(super) fn scrolled(&self) -> bool {
@@ -72,7 +122,7 @@ impl Session {
     fn find(&self, block: usize, byte: usize) -> Option<(usize, f64)> {
         let laid = self.laid.as_ref()?;
         let y = match laid.items.get(block)? {
-            Item::Text { layout, breaks, .. } => layout.lines().find(|l| l.text_range().end > hyphen::to_layout(breaks, byte)).or_else(|| layout.lines().last()).map_or(0.0, |l| f64::from(l.metrics().min_coord)),
+            Item::Text { lines, breaks, .. } => lines.iter().find(|l| l.end > hyphen::to_layout(breaks, byte)).or(lines.last()).map_or(0.0, |l| l.top),
             _ => 0.0,
         };
         laid.columns.iter().enumerate().find_map(|(index, column)| {

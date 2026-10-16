@@ -106,6 +106,12 @@ pub fn workspace_property() -> Value {
     json!({ "type": "string", "description": "База знаний, если не текущая: address из list_workspaces или полный путь" })
 }
 
+impl super::vault::Vault {
+    pub fn note_argument(&self, arguments: &Value) -> Result<std::path::PathBuf, String> {
+        self.note(&text(arguments, "note")?)
+    }
+}
+
 pub fn text(arguments: &Value, key: &str) -> Result<String, String> {
     optional_text(arguments, key)
         .or_else(|| alias(key).and_then(|other| optional_text(arguments, other)))
@@ -131,6 +137,10 @@ pub fn optional_text(arguments: &Value, key: &str) -> Option<String> {
 
 pub fn content(arguments: &Value, key: &str) -> Result<String, String> {
     optional_content(arguments, key).ok_or_else(|| missing(arguments, key))
+}
+
+pub fn content_or_empty(arguments: &Value, key: &str) -> Result<String, String> {
+    arguments.get(key).and_then(Value::as_str).map(str::to_owned).ok_or_else(|| missing(arguments, key))
 }
 
 pub fn optional_content(arguments: &Value, key: &str) -> Option<String> {

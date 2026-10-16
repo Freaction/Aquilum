@@ -1,0 +1,345 @@
+// Copyright 2026 the Xilem Authors
+// SPDX-License-Identifier: Apache-2.0
+
+use std::any::TypeId;
+
+use crate::core::{
+    AccessCtx, ArcStr, ChildrenIds, LayoutCtx, MeasureCtx, NewWidget, NoAction, PaintCtx,
+    PropertiesRef, RegisterCtx, UpdateCtx, Widget, WidgetMut, WidgetPod,
+};
+use crate::imaging::Painter;
+use crate::kurbo::{Axis, Line, Point, Size, Stroke};
+use crate::layout::{AsUnit, LayoutSize, LenDef, LenReq, Length, SizeDef};
+use crate::properties::{BorderColor, BorderWidth, Dimensions, Padding};
+use crate::widgets::{DisclosureButton, Label};
+use crate::{accesskit, theme};
+
+/// Square disclosure button length.
+const BUTTON_LENGTH: Length = Length::const_px(16.);
+/// Padding around the separator line.
+const SEPARATOR_PAD: Padding = Padding {
+    top: Length::const_px(4.),
+    left: Length::const_px(1.),
+    right: Length::const_px(1.),
+    bottom: Length::ZERO,
+};
+
+/// A collapsible panel with a header that contains a child widget.
+pub struct CollapsePanel {
+    disclosure_button: WidgetPod<DisclosureButton>,
+    header_label: WidgetPod<Label>,
+    /// The y location of the separator line.
+    ///
+    /// If it's [`None`], no line will be rendered.
+    separator_line_y: Option<f64>,
+    child: WidgetPod<dyn Widget>,
+}
+
+impl CollapsePanel {
+    /// Create a new [`CollapsePanel`] with a header text and a child widget.
+    pub fn new(
+        collapse: bool,
+        header_text: impl Into<ArcStr>,
+        child: NewWidget<impl Widget + ?Sized>,
+    ) -> Self {
+        Self {
+            disclosure_button: Self::disclosure_button(collapse),
+            header_label: WidgetPod::new(Label::new(header_text)),
+            separator_line_y: None,
+            child: child.erased().to_pod(),
+        }
+    }
+
+    /// Create a new [`CollapsePanel`] with a header label widget and a child widget.
+    pub fn from_label(
+        collapse: bool,
+        header_label: NewWidget<Label>,
+        child: NewWidget<impl Widget + ?Sized>,
+    ) -> Self {
+        Self {
+            disclosure_button: Self::disclosure_button(collapse),
+            header_label: header_label.to_pod(),
+            separator_line_y: None,
+            child: child.erased().to_pod(),
+        }
+    }
+
+    fn disclosure_button(collapse: bool) -> WidgetPod<DisclosureButton> {
+        DisclosureButton::new(!collapse)
+            .prepare()
+            .with_props(
+                // TODO - Move to DefaultProperties
+                Dimensions::fixed(BUTTON_LENGTH, BUTTON_LENGTH),
+            )
+            .to_pod()
+    }
+}
+
+// --- MARK: WIDGETMUT
+impl CollapsePanel {
+    /// Set the child widget.
+    pub fn set_child(this: &mut WidgetMut<'_, Self>, child: NewWidget<impl Widget + ?Sized>) {
+        this.ctx.remove_child(std::mem::replace(
+            &mut this.widget.child,
+            child.erased().to_pod(),
+        ));
+    }
+
+    /// Set whether or not the panel is collapsed.
+    pub fn set_collapsed(this: &mut WidgetMut<'_, Self>, collapsed: bool) {
+        DisclosureButton::set_disclosed(&mut Self::disclosure_button_mut(this), !collapsed);
+        this.ctx.request_layout();
+    }
+
+    /// Set the text.
+    ///
+    /// We enforce this to be an `ArcStr` to make the allocation explicit.
+    pub fn set_text(this: &mut WidgetMut<'_, Self>, new_text: ArcStr) {
+        Label::set_text(&mut Self::header_label_mut(this), new_text);
+    }
+
+    /// Get a mutable reference to the disclosure button.
+    pub fn disclosure_button_mut<'t>(
+        this: &'t mut WidgetMut<'_, Self>,
+    ) -> WidgetMut<'t, DisclosureButton> {
+        this.ctx.get_mut(&mut this.widget.disclosure_button)
+    }
+
+    /// Get a mutable reference to the label.
+    pub fn header_label_mut<'t>(this: &'t mut WidgetMut<'_, Self>) -> WidgetMut<'t, Label> {
+        this.ctx.get_mut(&mut this.widget.header_label)
+    }
+
+    /// Get a mutable reference to the child.
+    pub fn child_mut<'t>(this: &'t mut WidgetMut<'_, Self>) -> WidgetMut<'t, dyn Widget> {
+        this.ctx.get_mut(&mut this.widget.child)
+    }
+}
+
+// --- MARK: IMPL WIDGET
+impl Widget for CollapsePanel {
+    type Action = NoAction;
+
+    fn register_children(&mut self, ctx: &mut RegisterCtx<'_>) {
+        ctx.register_child(&mut self.disclosure_button);
+        ctx.register_child(&mut self.header_label);
+        ctx.register_child(&mut self.child);
+    }
+
+    fn property_changed(&mut self, _ctx: &mut UpdateCtx<'_>, _property_type: TypeId) {}
+
+    fn measure(
+        &mut self,
+        ctx: &mut MeasureCtx<'_>,
+        props: &PropertiesRef<'_>,
+        axis: Axis,
+        len_req: LenReq,
+        cross_length: Option<Length>,
+    ) -> Length {
+        let cache = ctx.property_cache();
+        let border = props.get::<BorderWidth>(cache);
+        let header_x_padding = theme::WIDGET_CONTROL_COMPONENT_PADDING;
+
+        let header_x_padding_length = header_x_padding.saturating_add(header_x_padding);
+        let btn_length = BUTTON_LENGTH;
+
+        let separator_height = border
+            .width
+            .saturating_add(SEPARATOR_PAD.length(Axis::Vertical));
+
+        let space: LenDef = len_req.into();
+
+        let cross = axis.cross();
+        let label_cross_space = match cross {
+            // If we know the horizontal space, then we can derive the label's horizontal space.
+            Axis::Horizontal => cross_length.map(|cross_length| {
+                cross_length
+                    .saturating_sub(header_x_padding_length)
+                    .saturating_sub(btn_length)
+            }),
+            // Even if we know our vertical space, we don't know the child's height.
+            // So we can't provide an accurate height for the label.
+            Axis::Vertical => None,
+        };
+        // We don't give any special context to the label, just our full size
+        let label_context_size = LayoutSize::maybe(cross, cross_length);
+        let label_auto_length = match axis {
+            Axis::Horizontal => space.reduce(header_x_padding_length.saturating_add(btn_length)),
+            Axis::Vertical => space,
+        };
+        let label_length = ctx.compute_length(
+            &mut self.header_label,
+            label_auto_length,
+            label_context_size,
+            axis,
+            label_cross_space,
+        );
+
+        let header_length = match axis {
+            Axis::Horizontal => btn_length
+                .saturating_add(label_length)
+                .saturating_add(header_x_padding_length),
+            Axis::Vertical => btn_length.max(label_length),
+        };
+
+        // Collapsed = !Disclosed
+        let is_collapsed = !ctx.get_raw(&mut self.disclosure_button).0.is_disclosed();
+
+        let child_length = if !is_collapsed {
+            let child_cross_space = match cross {
+                // If we know the horizontal space, then that is also the child's horizontal space.
+                Axis::Horizontal => cross_length,
+                // Even if we know our vertical space, we don't know the header's height.
+                // So we can't provide an accurate height for the child.
+                Axis::Vertical => None,
+            };
+            // Child's context size has the same restrictions as child's cross space.
+            let child_context_size = LayoutSize::maybe(cross, child_cross_space);
+            let child_auto_length = match axis {
+                Axis::Horizontal => space,
+                Axis::Vertical => space.reduce(header_length.saturating_add(separator_height)),
+            };
+            ctx.compute_length(
+                &mut self.child,
+                child_auto_length,
+                child_context_size,
+                axis,
+                child_cross_space,
+            )
+        } else {
+            Length::ZERO
+        };
+
+        match axis {
+            Axis::Horizontal => header_length.max(child_length),
+            Axis::Vertical => {
+                let mut length = header_length;
+                if !is_collapsed {
+                    length = length
+                        .saturating_add(child_length)
+                        .saturating_add(separator_height);
+                }
+                length
+            }
+        }
+    }
+
+    fn layout(&mut self, ctx: &mut LayoutCtx<'_>, props: &PropertiesRef<'_>, size: Size) {
+        let cache = ctx.property_cache();
+        let border = props.get::<BorderWidth>(cache);
+        let header_x_padding = theme::WIDGET_CONTROL_COMPONENT_PADDING;
+
+        let border_width = border.width.get();
+        let separator_height = border_width + SEPARATOR_PAD.length(Axis::Vertical).get();
+
+        let button_width = BUTTON_LENGTH.get();
+        let header_padding_width = header_x_padding.get();
+
+        // Square button
+        let button_size = Size::new(button_width, button_width);
+        ctx.run_layout(&mut self.disclosure_button, button_size);
+
+        let label_auto_size = SizeDef::new(
+            LenDef::FitContent(
+                (size.width - header_padding_width * 2. - button_size.width)
+                    .max(0.)
+                    .px(),
+            ),
+            LenDef::FitContent(size.height.px()),
+        );
+        let label_size = ctx.compute_size(&mut self.header_label, label_auto_size, size.into());
+
+        ctx.run_layout(&mut self.header_label, label_size);
+
+        let header_height = button_size.height.max(label_size.height);
+
+        // Place it at the center of the label height.
+        let btn_origin = Point::new(
+            header_padding_width,
+            (label_size.height - button_size.height) * 0.5,
+        );
+        ctx.place_child(&mut self.disclosure_button, btn_origin);
+
+        let label_origin = Point::new(button_size.width + header_padding_width * 2.0, 0.0);
+        ctx.place_child(&mut self.header_label, label_origin);
+
+        // Collapsed = !Disclosed
+        let is_collapsed = !ctx.get_raw(&mut self.disclosure_button).0.is_disclosed();
+
+        // Only render child if it's not collapsed.
+        ctx.set_stashed(&mut self.child, is_collapsed);
+
+        if !is_collapsed {
+            let child_space = Size::new(
+                size.width,
+                (size.height - header_height - separator_height).max(0.),
+            );
+
+            let child_auto_size = SizeDef::fit(child_space);
+            let child_context_size = child_space.into();
+
+            let child_size = ctx.compute_size(&mut self.child, child_auto_size, child_context_size);
+
+            ctx.run_layout(&mut self.child, child_size);
+
+            let child_origin = Point::new(0.0, header_height + separator_height);
+            ctx.place_child(&mut self.child, child_origin);
+
+            self.separator_line_y =
+                Some(header_height + SEPARATOR_PAD.top.get() + border_width * 0.5);
+        } else {
+            self.separator_line_y = None;
+        }
+
+        ctx.derive_baselines(&self.header_label);
+    }
+
+    fn paint(
+        &mut self,
+        ctx: &mut PaintCtx<'_>,
+        props: &PropertiesRef<'_>,
+        painter: &mut Painter<'_>,
+    ) {
+        if let Some(y) = self.separator_line_y {
+            let cache = ctx.property_cache();
+            let border_width = *props.get::<BorderWidth>(cache);
+            let border_color = *props.get::<BorderColor>(cache);
+
+            let border_box = ctx.border_box();
+
+            // Only paint the line if it would have a positive width
+            if SEPARATOR_PAD.length(Axis::Horizontal).get() < border_box.width() {
+                let x1 = border_box.x0 + SEPARATOR_PAD.left.get();
+                let x2 = border_box.x1 - SEPARATOR_PAD.right.get();
+                let line = Line::new((x1, y), (x2, y));
+                painter
+                    .stroke(
+                        line,
+                        &Stroke::new(border_width.width.get()),
+                        border_color.color,
+                    )
+                    .draw();
+            }
+        }
+    }
+
+    fn accessibility_role(&self) -> accesskit::Role {
+        accesskit::Role::GenericContainer
+    }
+
+    fn accessibility(
+        &mut self,
+        _ctx: &mut AccessCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        _node: &mut accesskit::Node,
+    ) {
+    }
+
+    fn children_ids(&self) -> ChildrenIds {
+        ChildrenIds::from_slice(&[
+            self.disclosure_button.id(),
+            self.header_label.id(),
+            self.child.id(),
+        ])
+    }
+}

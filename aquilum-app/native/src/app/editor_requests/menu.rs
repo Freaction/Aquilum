@@ -46,7 +46,7 @@ impl App {
     }
 
     pub(in crate::app) fn open_editor_context_menu(&mut self, root: &mut RenderRoot, at: Point, has_selection: bool) {
-        let has_frontmatter = frontmatter::end(&self.editor_text).is_some();
+        let has_frontmatter = frontmatter::end_of(&self.text).is_some();
         let commands = vec![
             EditorCommand::Copy,
             EditorCommand::Paste,
@@ -102,9 +102,10 @@ impl App {
                 body.edit(root, |mut e| TextEditor::insert_table(&mut e, 2, 2));
             }
             EditorCommand::InsertFrontmatter => {
-                if frontmatter::end(&self.editor_text).is_none() {
-                    let new_text = frontmatter::template(&[(frontmatter::TAGS, "[]")]) + &self.editor_text;
-                    self.commit_editor_text(root, new_text);
+                if frontmatter::end_of(&self.text).is_none() {
+                    let mut text = self.text.clone();
+                    text.insert(0, frontmatter::template(&[(frontmatter::TAGS, "[]")]));
+                    self.commit_text(root, text);
                 }
             }
         }

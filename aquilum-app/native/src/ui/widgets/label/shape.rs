@@ -1,6 +1,6 @@
 use masonry::core::BrushIndex;
 use masonry::parley::style::StyleProperty;
-use masonry::parley::{Alignment, AlignmentOptions, FontContext, FontFamily, FontWeight, Layout, LayoutContext, LineHeight};
+use masonry::parley::{Alignment, AlignmentOptions, FontContext, FontFamily, FontWeight, Layout, LayoutContext, LineHeight, TextWrapMode};
 
 use super::{Font, Label, Leading, Scale};
 use crate::ui::theme;
@@ -44,10 +44,13 @@ impl Label {
             builder.push_default(StyleProperty::FontSize(size));
             builder.push_default(StyleProperty::FontWeight(FontWeight::new(weight)));
             builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(line)));
+            if !self.wrap {
+                builder.push_default(StyleProperty::TextWrapMode(TextWrapMode::NoWrap));
+            }
             let mut layout = builder.build(&self.text);
-            layout.break_all_lines(width.filter(|_| self.wrap));
+            layout.break_all_lines(width);
             if self.centered {
-                layout.align(width, Alignment::Center, AlignmentOptions::default());
+                layout.align(Alignment::Center, AlignmentOptions::default());
             }
             self.cached = Some((key, layout));
         }

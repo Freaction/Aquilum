@@ -1,4 +1,4 @@
-use super::{Column, Item, Laid, Piece};
+use super::{Column, Item, Laid, Line, Piece};
 
 pub fn paginate(items: Vec<Item>, height: f64) -> Laid {
     let mut columns = vec![Column::default()];
@@ -15,10 +15,8 @@ pub fn paginate(items: Vec<Item>, height: f64) -> Laid {
         }
         total += before;
         match item {
-            Item::Text { layout, .. } => {
-                for line in layout.lines() {
-                    let m = line.metrics();
-                    let (top, bottom) = (f64::from(m.min_coord), f64::from(m.max_coord));
+            Item::Text { lines, .. } => {
+                for &Line { top, bottom, .. } in lines {
                     let tall = bottom - top;
                     if y + tall > height && y > 0.0 {
                         start(&mut columns, &mut y);

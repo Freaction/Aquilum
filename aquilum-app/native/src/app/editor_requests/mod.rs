@@ -65,7 +65,7 @@ impl App {
     fn toggle_task_in_file(&mut self, root: &mut RenderRoot, target: &str, line: usize) {
         let Some(vault) = self.tree.root() else { return };
         let path = vault.join(target);
-        if self.edit_note_text(root, &path, aquilum_core::history::Source::Me, |text| toggle_task_line(text, line))
+        if self.change_note(root, &path, aquilum_core::history::Source::Me, |text| toggle_task_line(text, line))
             && let Some(embeds) = &self.embeds
         {
             embeds.forget_queries();
@@ -81,19 +81,26 @@ impl App {
     }
 }
 
-fn toggle_task_line(text: &str, line: usize) -> Option<String> {
-    let mut lines: Vec<String> = text.split('\n').map(str::to_owned).collect();
-    let current = lines.get_mut(line.checked_sub(1)?)?;
-    *current = aquilum_core::markdown::list::toggle_task(current)?;
-    Some(lines.join("\n"))
+fn toggle_task_line(text: &crop::Rope, line: usize) -> super::note_page::text::Change {
+    let index = line.checked_sub(1).filter(|index| *index < text.line_len())?;
+    let start = text.byte_of_line(index);
+    let current = text.line(index).to_string();
+    let next = aquilum_core::markdown::list::toggle_task(&current)?;
+    Some((start..start + current.len(), next))
 }
 
 #[cfg(test)]
 mod tests {
     #[test]
     fn toggles_task_lines() {
-        assert_eq!(super::toggle_task_line("a\n- [ ] дело", 2).as_deref(), Some("a\n- [x] дело"));
-        assert_eq!(super::toggle_task_line("\t1. [x] b", 1).as_deref(), Some("\t1. [ ] b"));
-        assert_eq!(super::toggle_task_line("просто текст", 1), None);
+        let toggled = |text: &str, line| {
+            let mut rope = crop::Rope::from(text);
+            let (range, insert) = super::toggle_task_line(&rope, line)?;
+            rope.replace(range, &insert);
+            Some(rope.to_string())
+        };
+        assert_eq!(toggled("a\n- [ ] дело", 2).as_deref(), Some("a\n- [x] дело"));
+        assert_eq!(toggled("\t1. [x] b", 1).as_deref(), Some("\t1. [ ] b"));
+        assert_eq!(toggled("просто текст", 1), None);
     }
 }

@@ -3,6 +3,7 @@ pub mod edit;
 pub mod export;
 pub mod focus;
 pub mod menu;
+pub mod text;
 pub mod view;
 pub mod wide;
 
@@ -20,13 +21,13 @@ use crate::ui::widgets::Slot;
 
 impl App {
     pub(in crate::app) fn metadata_state(&self) -> Option<bool> {
-        frontmatter::end(&self.editor_text)?;
+        frontmatter::end_of(&self.text)?;
         Some(self.note.as_ref().is_some_and(|n| self.interface.metadata_expanded(&n.path)))
     }
 
     pub(in crate::app) fn hidden_len(&self) -> usize {
         match self.metadata_state() {
-            Some(false) => frontmatter::hidden_len(&self.editor_text),
+            Some(false) => frontmatter::hidden_of(&self.text),
             _ => 0,
         }
     }
@@ -41,7 +42,7 @@ impl App {
             resolver,
             file_name: &file_name,
             title: &title,
-            body: &self.editor_text[self.hidden..],
+            body: self.body(),
             metadata: self.metadata_state(),
             can_back: self.navigation.can_back(),
             can_forward: self.navigation.can_forward(),
@@ -49,6 +50,7 @@ impl App {
             wide: self.interface.wide(),
             hero: self.hero_view(),
             smart: crate::ui::editor::Smart::from_config(&self.workspace.core.settings.get_config()),
+            wake: std::sync::Arc::clone(&self.workspace.wake),
         };
         self.hero_shown = self.hero_key();
         let (page, ids) = note::page(view);
@@ -65,10 +67,11 @@ impl App {
         self.embeds.clone().map(|e| std::sync::Arc::new(e) as std::sync::Arc<dyn crate::ui::editor::resolve::Resolver>)
     }
 
-    fn stored_view(&self) -> Option<(i64, f64)> {
+    fn stored_view(&self) -> Option<(usize, f64)> {
         let (session, note) = (self.session.as_ref()?, self.note.as_ref()?);
         let document = session.document(&self.workspace.core, &note.path)?;
-        session.load_view(&self.workspace.core, document)
+        let (units, px) = session.load_view(&self.workspace.core, document)?;
+        Some((self.byte_of(usize::try_from(units).unwrap_or(0)), px))
     }
 
     pub(in crate::app) fn render_note(&mut self, root: &mut RenderRoot) {
@@ -96,12 +99,12 @@ impl App {
 
     pub(in crate::app) fn retry_save(&mut self, root: &mut RenderRoot) {
         let Some(note) = &mut self.note else { return };
-        let _ = note.retry_save(&self.workspace.core, &self.editor_text);
+        note.retry();
         self.refresh_save_error(root);
     }
 
-    pub(in crate::app) fn set_editor_text(&mut self, root: &mut RenderRoot, text: String) {
-        self.editor_text = text;
+    pub(in crate::app) fn set_text(&mut self, root: &mut RenderRoot, text: crop::Rope) {
+        self.text = text;
         self.sync_body(root);
         self.refresh_hero(root);
     }
@@ -111,15 +114,14 @@ impl App {
         let reveal = hidden == self.hidden;
         self.hidden = hidden;
         let Some(ids) = &self.note_ids else { return };
-        let visible = &self.editor_text[self.hidden..];
+        let visible = self.body();
         ids.body.edit(root, |mut body| {
-            let prev = body.widget.text().to_owned();
-            if prev != visible {
-                let prev_len = prev.len();
-                crate::ui::editor::TextEditor::reset_text(&mut body, visible);
-                if reveal && visible.len() > prev_len {
-                    let prefix = prev.bytes().zip(visible.bytes()).take_while(|(a, b)| a == b).count();
-                    let inserted_len = visible.len() - prev_len;
+            let prev = body.widget.rope();
+            let prefix = crate::rope::common_prefix(&prev, &visible);
+            if prefix < prev.byte_len().max(visible.byte_len()) {
+                crate::ui::editor::TextEditor::reset_rope(&mut body, visible.clone());
+                if reveal && visible.byte_len() > prev.byte_len() {
+                    let inserted_len = visible.byte_len() - prev.byte_len();
                     crate::ui::editor::TextEditor::reveal_external_insert(&mut body, prefix..prefix + inserted_len);
                 }
             }
@@ -135,7 +137,7 @@ impl App {
         let stem = note.path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         ids.name.edit(root, |mut caption| Caption::set_text(&mut caption, &name));
         ids.title.edit(root, |mut title| {
-            if title.widget.text().to_string() != stem {
+            if title.widget.text() != stem {
                 TextEditor::reset_text(&mut title, &stem);
             }
         });

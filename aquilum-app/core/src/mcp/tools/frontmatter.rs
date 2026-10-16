@@ -1,6 +1,6 @@
 use super::workspace::{indexed_vault, requested_vault};
 use super::{offset, 
-    limit, open_after_write, optional_names, optional_text, require_write, text, tool,
+    limit, open_after_write, optional_names, optional_text, require_write, tool,
     version_name_property, workspace_property, write_retrying,
 };
 use crate::history::Source;
@@ -60,7 +60,7 @@ pub fn map(text: &str) -> Value {
 fn set_frontmatter(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note_argument(arguments)?;
     let updates = field_updates(arguments)?;
     let version_name = optional_text(arguments, "versionName");
     let (changed, next) = write_retrying(core, &note, Source::Agent, version_name.as_deref(), |current| {

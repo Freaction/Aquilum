@@ -1,5 +1,4 @@
 use super::*;
-use crate::ui::editor::TextAction;
 
 #[test]
 fn text_files_are_listed_opened_edited_and_saved() {
@@ -9,9 +8,8 @@ fn text_files_are_listed_opened_edited_and_saved() {
     assert!(h.app.tree.names().iter().any(|name| name == "заметка.txt"), "текстовый файл не показан в дереве");
     assert!(h.app.open(&mut h.root, path.clone()), "текстовый файл не открылся");
     assert_eq!(h.body_text(), "первая строка");
-    let body = h.app.note_ids.as_ref().unwrap().body.id();
-    h.act(body, TextAction::Changed("первая строка\nвторая".into()));
-    h.app.tick(&mut h.root, std::time::Instant::now() + std::time::Duration::from_secs(3600));
+    h.replace_body("первая строка\nвторая");
+    h.save_now();
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "первая строка\nвторая", "правка не сохранилась в .txt");
 }
 

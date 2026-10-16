@@ -2,6 +2,7 @@ use masonry::core::StyleSet;
 use masonry::parley::{FontContext, LayoutContext};
 
 use super::Document;
+use crate::ui::editor::highlight::Lang;
 use crate::ui::editor::markdown::{Block, Callout, Fonts};
 
 const CORPUS: &str = include_str!("../../../../testdata/markdown-test.md");
@@ -13,11 +14,11 @@ fn corpus() -> Document {
 }
 
 fn at(doc: &Document, line: &str) -> usize {
-    doc.paragraphs().iter().position(|p| &doc.text()[p.range()] == line).unwrap_or_else(|| panic!("нет строки «{line}»"))
+    doc.paragraphs().position(|p| doc.slice(p.range()) == line).unwrap_or_else(|| panic!("нет строки «{line}»"))
 }
 
 fn block<'a>(doc: &'a Document, line: &str) -> &'a Block {
-    &doc.paragraph(at(doc, line)).block
+    doc.block(at(doc, line))
 }
 
 fn item_level(doc: &Document, line: &str) -> Option<usize> {
@@ -31,9 +32,9 @@ fn item_level(doc: &Document, line: &str) -> Option<usize> {
 fn frontmatter_is_metadata_and_the_body_starts_after_it() {
     let doc = corpus();
     let front = crate::frontmatter::end(CORPUS).expect("в тестовой заметке есть frontmatter");
-    let meta = doc.paragraphs().iter().take_while(|p| p.start < front).count();
+    let meta = doc.paragraphs().take_while(|p| p.start < front).count();
     assert_eq!(meta, 13);
-    let kinds: Vec<&Block> = doc.paragraphs()[..meta].iter().map(|p| &p.block).collect();
+    let kinds: Vec<&Block> = (0..meta).map(|i| doc.block(i)).collect();
     assert_eq!((kinds[0], kinds[meta - 1]), (&Block::Rule, &Block::Rule), "обе черты блока свойств — линии");
     assert!(kinds[1..meta - 1].iter().all(|b| **b == Block::Meta));
     assert_eq!(block(&doc, "# Полный тест Markdown-редактора"), &Block::Heading { level: 1, marker: 2 });
@@ -44,7 +45,7 @@ fn headings_atx_setext_and_non_headings() {
     let doc = corpus();
     assert_eq!(block(&doc, "###### Заголовок H6"), &Block::Heading { level: 6, marker: 7 });
     assert_eq!(block(&doc, "Заголовок H1 (Setext)"), &Block::Heading { level: 1, marker: 0 });
-    assert_eq!(doc.paragraph(at(&doc, "Заголовок H1 (Setext)") + 1).block, Block::Underline);
+    assert_eq!(doc.block(at(&doc, "Заголовок H1 (Setext)") + 1), &Block::Underline);
     assert_eq!(block(&doc, "Заголовок H2 (Setext)"), &Block::Heading { level: 2, marker: 0 });
     assert_eq!(block(&doc, "####### Семь решёток — это НЕ заголовок"), &Block::Text);
     assert_eq!(block(&doc, "#Без пробела — это НЕ заголовок"), &Block::Text);
@@ -56,7 +57,7 @@ fn headings_atx_setext_and_non_headings() {
 fn property_fences_are_rules_and_the_lines_between_are_meta() {
     let mut doc = Document::new("---\nтег: один\nдата: 2026\n---\nтекст");
     doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags: true }));
-    let blocks: Vec<&Block> = doc.paragraphs().iter().map(|p| &p.block).collect();
+    let blocks: Vec<&Block> = (0..doc.line_count()).map(|i| doc.block(i)).collect();
     assert!(matches!(blocks[..], [Block::Rule, Block::Meta, Block::Meta, Block::Rule, _]), "{blocks:?}");
     assert!(!matches!(blocks[4], Block::Rule | Block::Meta));
 }
@@ -150,7 +151,7 @@ fn horizontal_rules_in_all_spellings() {
     let doc = corpus();
     let from = at(&doc, "## 10. Горизонтальные линии");
     let until = at(&doc, "## 11. Сноски, аббревиатуры, комментарии");
-    let rules = doc.paragraphs()[from..until].iter().filter(|p| p.block == Block::Rule).count();
+    let rules = (from..until).filter(|&i| *doc.block(i) == Block::Rule).count();
     assert_eq!(rules, 7);
 }
 
@@ -161,7 +162,7 @@ fn comments_and_math_blocks_are_not_markup() {
     assert_eq!(block(&doc, "Многострочный"), &Block::Comment);
     assert_eq!(block(&doc, "-->"), &Block::Comment);
     let math = at(&doc, "\\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}");
-    assert!(matches!(doc.paragraph(math - 1).block, Block::Code { first: true, fence: true, lang: None, .. }));
+    assert!(matches!(doc.paragraph(math - 1).block, Block::Code { first: true, fence: true, lang: Some(Lang::Math), .. }));
     assert!(matches!(doc.paragraph(math).block, Block::Code { fence: false, .. }));
     assert!(matches!(doc.paragraph(math + 1).block, Block::Code { last: true, fence: true, .. }));
     assert_eq!(block(&doc, "Формула в одну строку: $$ x^2 + y^2 = z^2 $$"), &Block::Text);

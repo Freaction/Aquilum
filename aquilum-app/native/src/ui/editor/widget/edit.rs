@@ -29,13 +29,18 @@ impl TextEditor {
         (self.anchor, self.focus) = selection;
         self.affinity = Affinity::Downstream;
         self.column = None;
+        self.refind(&changes);
         self.history.record(Step { changes, before, after: selection, kind, time: std::time::Instant::now() });
         self.reveal_edited_image();
-        self.refind();
     }
 
     fn splice(&mut self, range: Range<usize>, inserted: String) -> Change {
-        let removed = self.doc.text()[range.clone()].to_owned();
+        self.doc.report(range.clone(), &inserted);
+        self.apply_change(range, inserted)
+    }
+
+    pub(super) fn apply_change(&mut self, range: Range<usize>, inserted: String) -> Change {
+        let removed = self.doc.copy(range.clone());
         self.doc.replace(range.clone(), &inserted);
         let change = Change { at: range.start, removed, inserted };
         let map = |at: usize| change.map(at);
@@ -89,20 +94,16 @@ impl TextEditor {
         self.leave_table();
         let step = if redo { self.history.redo() } else { self.history.undo() };
         let Some(step) = step else { return false };
-        if redo {
-            for c in step.changes {
-                self.splice(c.at..c.at + c.removed.len(), c.inserted);
-            }
+        let applied: Vec<Change> = if redo {
+            step.changes.into_iter().map(|c| self.splice(c.at..c.at + c.removed.len(), c.inserted)).collect()
         } else {
-            for c in step.changes.into_iter().rev() {
-                self.splice(c.at..c.at + c.inserted.len(), c.removed);
-            }
-        }
+            step.changes.into_iter().rev().map(|c| self.splice(c.at..c.at + c.inserted.len(), c.removed)).collect()
+        };
         (self.anchor, self.focus) = if redo { step.after } else { step.before };
         self.affinity = Affinity::Downstream;
         self.column = None;
         self.reveal_edited_image();
-        self.refind();
+        self.refind(&applied);
         true
     }
 }
@@ -129,7 +130,7 @@ mod tests {
         editor.dispatch(vec![(0..14, "![](a.png|1200)".into())], None, Kind::Block);
         assert_eq!((editor.anchor, editor.focus), (end + 1, end + 1));
         editor.undo(false);
-        assert_eq!(editor.doc.text(), "![](a.png|300)\nтекст");
+        assert_eq!(editor.doc.whole(), "![](a.png|300)\nтекст");
     }
 
     #[test]
@@ -138,8 +139,8 @@ mod tests {
         editor.add_cursor_at(3);
         editor.add_cursor_at(6);
         editor.apply_multicursor_typing("X");
-        assert_eq!(editor.doc.text(), "Xab\nXcd\nXef");
+        assert_eq!(editor.doc.whole(), "Xab\nXcd\nXef");
         editor.undo(false);
-        assert_eq!(editor.doc.text(), "ab\ncd\nef");
+        assert_eq!(editor.doc.whole(), "ab\ncd\nef");
     }
 }

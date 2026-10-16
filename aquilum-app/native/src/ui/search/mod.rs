@@ -1,5 +1,6 @@
 mod card;
 mod input;
+mod marked;
 mod results;
 
 pub use card::*;

@@ -47,10 +47,12 @@ fn edits_sanitize_and_structure_ops_keep_merges() {
 }
 
 #[test]
-fn a_table_without_saved_widths_hugs_its_content() {
+fn a_table_without_saved_widths_fills_the_column() {
     let view = blank_view(&table("| a | b |\n| --- | --- |\n| 1 | 2 |"));
-    assert_eq!(view.widths(), [DEFAULT_COL, DEFAULT_COL]);
-    assert!(view.layout_w < view.scroll_w);
+    let widths = view.widths();
+    assert!(widths[0] == widths[1] && widths[0] > DEFAULT_COL, "{widths:?}");
+    assert!((view.layout_w - view.scroll_w).abs() < 0.5, "таблица {} при колонке {}", view.layout_w, view.scroll_w);
+    assert_eq!(view.max_scroll(), 0.0);
     assert_eq!(view.edge(), view.layout_w);
 }
 

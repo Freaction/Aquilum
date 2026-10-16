@@ -13,6 +13,7 @@ pub mod find;
 pub mod settings;
 pub mod style;
 pub mod icons;
+pub mod keymap;
 pub mod text;
 pub mod theme;
 pub mod titlebar;

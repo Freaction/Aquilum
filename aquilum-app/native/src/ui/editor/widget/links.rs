@@ -3,22 +3,24 @@ use crate::ui::editor::resolve::Request;
 
 impl TextEditor {
     fn link_at(&self, point: Point) -> Option<&crate::ui::editor::markdown::Link> {
-        let p = self.paragraph_at(point)?;
+        let i = self.index_at(point)?;
+        let p = self.doc.paragraph(i);
         if matches!(p.fold, Fold::Head | Fold::Member) {
             return None;
         }
-        let local = point - self.shift() - p.origin();
-        p.decor().link_at(p.layout.as_deref()?, local.x, local.y)
+        let local = point - self.shift() - self.doc.origin(i);
+        p.decor().link_at(p.laid()?, local.x, local.y)
     }
 
     fn task_at(&self, point: Point) -> Option<(Range<usize>, bool)> {
-        let p = self.paragraph_at(point)?;
+        let i = self.index_at(point)?;
+        let p = self.doc.paragraph(i);
         let Block::Item(item) = &p.block else { return None };
         let (range, done) = item.task()?;
-        if p.layout.is_none() || matches!(p.fold, Fold::Head | Fold::Member) || p.decor().caret.is_some_and(|c| range.start <= c && c <= range.end) {
+        if p.laid().is_none() || matches!(p.fold, Fold::Head | Fold::Member) || p.decor().caret.is_some_and(|c| range.start <= c && c <= range.end) {
             return None;
         }
-        let rect = self.checkbox_rect(p, range.start);
+        let rect = self.checkbox_rect(i, range.start);
         rect.contains(point).then_some((p.start + range.start + 1..p.start + range.end - 1, done))
     }
 
@@ -45,11 +47,12 @@ impl TextEditor {
         }
     }
 
-    pub(super) fn paint_link_hover(&self, painter: &mut Painter<'_>, p: &Paragraph) {
+    pub(super) fn paint_link_hover(&self, painter: &mut Painter<'_>, i: usize) {
+        let p = self.doc.paragraph(i);
         if let Some((_, hit)) = self.hovered_link.filter(|(start, _)| *start == p.start)
-            && let Some(crate::ui::editor::embed::View::Drawing(drawing)) = p.embed.as_deref().map(|e| &e.view)
+            && let Some(crate::ui::editor::embed::View::Drawing(drawing)) = p.embed.map(|e| &e.view)
         {
-            drawing.paint_hover(painter, self.shift().x, p.top, hit);
+            drawing.paint_hover(painter, self.shift().x, self.doc.top(i), hit);
         }
     }
 

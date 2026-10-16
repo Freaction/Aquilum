@@ -14,7 +14,7 @@ impl TextEditor {
 
     #[cfg(feature = "memory-probe")]
     pub fn probe_play(this: &mut masonry::core::WidgetMut<'_, Self>) {
-        let path = this.widget.doc.paragraphs().iter().filter_map(|p| p.embed.as_deref()).find_map(|e| match &e.view {
+        let path = this.widget.doc.embeds().find_map(|e| match &e.view {
             View::Media(view) if view.video => view.path.clone(),
             _ => None,
         });

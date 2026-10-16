@@ -10,6 +10,7 @@ pub enum SearchError {
     Task { message: String },
     Unavailable { message: String },
     Query { message: String },
+    Cancelled,
 }
 
 impl SearchError {
@@ -66,13 +67,15 @@ impl From<crate::app_core::TaskFailed> for SearchError {
 
 impl std::fmt::Display for SearchError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (Self::Io { message }
-        | Self::Index { message }
-        | Self::Database { message }
-        | Self::InvalidWorkspace { message }
-        | Self::Task { message }
-        | Self::Unavailable { message }
-        | Self::Query { message }) = self;
-        formatter.write_str(message)
+        match self {
+            Self::Io { message }
+            | Self::Index { message }
+            | Self::Database { message }
+            | Self::InvalidWorkspace { message }
+            | Self::Task { message }
+            | Self::Unavailable { message }
+            | Self::Query { message } => formatter.write_str(message),
+            Self::Cancelled => formatter.write_str("Search cancelled"),
+        }
     }
 }

@@ -32,16 +32,17 @@ impl TableView {
                 let r = Rect::new(tx + cell.rect.x0, TOP + cell.rect.y0, tx + cell.rect.x1, TOP + cell.rect.y1);
                 let px = Rect::new(x + r.x0.round() + 0.5, y + r.y0.round() + 0.5, x + r.x1.round() + 0.5, y + r.y1.round() + 0.5);
                 painter.stroke(px, &stroke, tm.editor_table_border).draw();
-                let o = self.cell_origin(cell, s);
+                let o = Vec2::new(x, y) + self.cell_origin(cell, s).to_vec2();
+                markdown::paint_backgrounds(painter, &cell.layout, &cell.decor, o);
                 if let Some(search) = &overlay.search {
                     for found in search.ranges(&cell.text, &mut seen) {
                         for (rect, _) in markdown::range_rects(&cell.layout, found.start, found.end) {
-                            painter.fill(rect + Vec2::new(x + o.x, y + o.y), tm.search_match_bg).draw();
+                            painter.fill(rect + o, tm.search_match_bg).draw();
                         }
                     }
                 }
-                markdown::paint_inline(painter, &cell.layout, &cell.decor, Vec2::new(x + o.x, y + o.y));
-                render_text(painter, Affine::translate((x + o.x, y + o.y)), &cell.layout, palette, true);
+                render_text(painter, Affine::translate(o), &cell.layout, palette, true);
+                markdown::paint_formulas(painter, &cell.layout, &cell.decor, o, palette);
             }
             if let Some(range) = overlay.selection {
                 let r = self.range_rect(range, s) + Vec2::new(x, y);

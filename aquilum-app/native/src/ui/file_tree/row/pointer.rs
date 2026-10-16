@@ -38,7 +38,7 @@ impl TreeRow {
                 self.pressed = false;
                 if ctx.is_hovered() {
                     let m = e.state.modifiers;
-                    let action = if cfg!(target_os = "macos") { m.meta() } else { m.ctrl() };
+                    let action = crate::ui::keymap::action(m);
                     ctx.submit_action::<RowAction>(RowAction::Press(Modifiers { action, shift: m.shift() }));
                 }
             }

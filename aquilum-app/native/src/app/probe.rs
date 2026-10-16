@@ -63,6 +63,6 @@ impl App {
 
     pub fn probe_stats(&self, root: &RenderRoot) -> String {
         let editor = self.note_ids.as_ref().and_then(|ids| root.get_widget(ids.body.id())).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>().map(|e| e.inner().probe_stats()));
-        format!("вкладок {} · текст заметки {:.1} МБ · {}\n", self.tabs.tabs().len(), self.editor_text.len() as f64 / 1_048_576.0, editor.unwrap_or_default())
+        format!("вкладок {} · текст заметки {:.1} МБ · {}\n", self.tabs.tabs().len(), crate::stats::mb(self.text.byte_len()),editor.unwrap_or_default())
     }
 }

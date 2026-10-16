@@ -54,7 +54,7 @@ impl TextEditor {
             PointerEvent::Down(PointerButtonEvent { button: None | Some(PointerButton::Primary), state, .. }) => {
                 self.close_suggest();
                 let point = ctx.local_position(state.position);
-                let new_tab = state.modifiers.ctrl() || state.modifiers.meta();
+                let new_tab = crate::ui::keymap::action(state.modifiers);
                 if self.table_press(ctx, point, state.modifiers.shift(), new_tab, state.count)
                     || self.media_press(ctx, point, state.count)
                     || self.card_click(ctx, point, new_tab)
@@ -129,6 +129,9 @@ impl TextEditor {
 
     pub(super) fn do_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
         self.restart_blink(ctx);
+        if !matches!(event, TextEvent::WindowFocusChange(_)) {
+            self.include_caret();
+        }
         match event {
             TextEvent::Keyboard(key) if self.laid_out() => {
                 if !self.media_key(ctx, key) && !self.table_key(ctx, key) {

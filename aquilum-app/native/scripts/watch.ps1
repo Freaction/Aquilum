@@ -18,9 +18,6 @@ if (-not $AppArgs) {
     $AppArgs = @()
 }
 $AppArgs += '--keep-position'
-if ($AppArgs -notcontains '--data-dir') {
-    $AppArgs += @('--data-dir', (Join-Path $env:APPDATA 'com.dmitriy.aquilum-app.native-dev'))
-}
 
 # Профиль задаётся флагами, чтобы не трогать Cargo.toml рабочей версии.
 $cargoArgs = @(
@@ -71,6 +68,7 @@ function Build {
     $LASTEXITCODE -eq 0
 }
 
+Get-Process aquilum-app, aquilum-native -ErrorAction SilentlyContinue | ForEach-Object { Stop-App $_ }
 $process = $null
 $stamp = Get-Stamp
 try {

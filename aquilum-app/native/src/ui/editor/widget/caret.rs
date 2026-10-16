@@ -20,7 +20,7 @@ impl TextEditor {
     pub(super) fn local(&self, offset: usize) -> (usize, usize, Option<&Layout<BrushIndex>>) {
         let i = self.doc.at_offset(offset);
         let p = self.doc.paragraph(i);
-        (i, offset - p.start, p.layout.as_deref())
+        (i, offset.clamp(p.start, p.end()) - p.start, p.laid())
     }
 
     pub(super) fn laid_out(&self) -> bool {
@@ -36,7 +36,7 @@ impl TextEditor {
     }
 
     pub(super) fn shift(&self) -> Vec2 {
-        let content = self.doc.paragraphs().first().and_then(|p| p.layout.as_ref()).map_or(0.0, |l| f64::from(l.width()));
+        let content = self.doc.paragraph(0).laid().map_or(0.0, |l| f64::from(l.width()));
         let center = if self.centered && self.single_line { ((self.inner_width() - content) / 2.0).max(0.0) } else { 0.0 };
         Vec2::new(self.padding() + center - self.scroll_x, 0.0)
     }
@@ -47,19 +47,23 @@ impl TextEditor {
     }
 
     pub(super) fn caret_at(&self, offset: usize, compose: usize, affinity: Affinity) -> Rect {
+        let (start, end) = self.doc.loaded_range();
+        if offset < start || offset > end {
+            let y = self.doc.y_of(offset);
+            return Rect::new(0.0, y, size::CARET_WIDTH, y + self.doc.line_height()) + self.shift();
+        }
         let (i, local, layout) = self.local(offset);
         let Some(layout) = layout else {
-            let p = self.doc.paragraph(i);
-            let origin = p.origin();
-            return Rect::new(origin.x, p.top, origin.x + size::CARET_WIDTH, p.top + p.height) + self.shift();
+            let origin = self.doc.origin(i);
+            return Rect::new(origin.x, self.doc.top(i), origin.x + size::CARET_WIDTH, self.doc.bottom(i)) + self.shift();
         };
         let cursor = Cursor::from_byte_index(layout, local + compose, affinity);
         let line = rect(cursor.geometry(layout, size::CARET_WIDTH as f32), 0.0);
         let middle = line.center().y as f32;
-        let metrics = layout.lines().map(|l| *l.metrics()).find(|m| m.min_coord <= middle && middle < m.max_coord);
-        let (top, bottom) = metrics.map_or((line.y0, line.y1), |m| (f64::from(m.min_coord), f64::from(m.max_coord)));
+        let metrics = layout.lines().map(|l| *l.metrics()).find(|m| m.block_min_coord <= middle && middle < m.block_max_coord);
+        let (top, bottom) = metrics.map_or((line.y0, line.y1), |m| (f64::from(m.block_min_coord), f64::from(m.block_max_coord)));
         let half = (bottom - top) / 2.0;
-        let origin = self.doc.paragraph(i).origin();
+        let origin = self.doc.origin(i);
         let center = (top + bottom) / 2.0 + origin.y;
         let line = line + Vec2::new(origin.x, 0.0);
         Rect::new(line.x0, center - half, line.x0 + size::CARET_WIDTH, center + half) + self.shift()
@@ -93,10 +97,10 @@ impl TextEditor {
         if matches!(p.fold, Fold::Head | Fold::Member) {
             return (p.start, Affinity::Downstream);
         }
-        let local = point - p.origin();
-        let Some(layout) = p.layout.as_deref() else { return (p.start, Affinity::Downstream) };
+        let local = point - self.doc.origin(i);
+        let Some(layout) = p.laid() else { return (p.start, Affinity::Downstream) };
         let cursor = Cursor::from_point(layout, local.x as f32, local.y as f32);
-        let text = &self.doc.text()[p.start..p.start + p.len];
+        let text = self.doc.slice(p.range());
         (p.start + nearest_boundary(text, cursor.index()), cursor.affinity())
     }
 
@@ -104,8 +108,8 @@ impl TextEditor {
         let (i, local, layout) = self.local(self.focus);
         let p = self.doc.paragraph(i);
         let Some(layout) = layout else { return (if forward { p.end() } else { p.start }, Affinity::Downstream) };
-        if forward && local >= p.len {
-            return match self.doc.paragraphs().get(i + 1) {
+        if forward && local >= p.len as usize {
+            return match (i + 1 < self.doc.line_count()).then(|| self.doc.paragraph(i + 1)) {
                 Some(next) => (next.start, Affinity::Downstream),
                 None => (self.focus, self.affinity),
             };
@@ -122,7 +126,7 @@ impl TextEditor {
             (true, true) => cursor.next_visual_word(layout),
             (false, true) => cursor.previous_visual_word(layout),
         };
-        let text = &self.doc.text()[p.start..p.start + p.len];
+        let text = self.doc.slice(p.range());
         let mut moved = advance(Cursor::from_byte_index(layout, local, self.affinity));
         while !on_boundary(text, moved.index()) {
             let next = advance(moved);
@@ -139,9 +143,29 @@ impl TextEditor {
             return if down { (self.doc.len(), Affinity::Downstream) } else { (0, Affinity::Downstream) };
         }
         let caret = self.caret();
-        let x = *self.column.get_or_insert(caret.x0);
-        let y = if down { caret.y1 + 1.0 } else { caret.y0 - 1.0 };
+        self.at_column(if down { caret.y1 + 1.0 } else { caret.y0 - 1.0 })
+    }
+
+    fn at_column(&mut self, y: f64) -> (usize, Affinity) {
+        let x = *self.column.get_or_insert(self.caret().x0);
         self.hit(Point::new(x, y))
+    }
+
+    pub fn page(this: &mut WidgetMut<'_, Self>, down: bool, dy: f64, extend: bool) {
+        let editor = &mut *this.widget;
+        if !editor.laid_out() {
+            return;
+        }
+        let target = if dy.abs() < 0.5 {
+            (if down { editor.doc.len() } else { 0 }, Affinity::Downstream)
+        } else {
+            let caret = editor.caret();
+            editor.at_column((caret.y0 + caret.y1) / 2.0 + dy)
+        };
+        editor.move_to(target, extend);
+        editor.skip_tables(down);
+        this.ctx.request_layout();
+        this.ctx.request_render();
     }
 
     pub(super) fn line_edge(&self, end: bool) -> (usize, Affinity) {

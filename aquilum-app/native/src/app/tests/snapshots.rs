@@ -149,7 +149,7 @@ fn note_snapshot() {
     let carets = std::env::var("AQ_CARET").unwrap_or_default();
     for (i, needle) in std::iter::once("").chain(carets.split('|').filter(|s| !s.is_empty())).enumerate() {
         if !needle.is_empty() {
-            let text = h.root.get_widget(editor).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).unwrap().inner().text().to_owned();
+            let text = h.root.get_widget(editor).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).unwrap().inner().text();
             let at = text.find(needle).unwrap_or(0);
             h.root.handle_text_event(masonry::core::TextEvent::WindowFocusChange(true));
             h.root.focus_on(Some(editor));

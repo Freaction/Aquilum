@@ -1,3 +1,4 @@
+use aquilum_core::text::matcher::{IGNORE_CASE, Matcher};
 use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, NewWidget, PropertySet, WidgetId};
 use masonry::layout::Length;
@@ -15,25 +16,8 @@ use crate::ui::search::{empty_state_with, results_list, CardAction, CardData, Ca
 use crate::ui::tokens::size;
 use crate::ui::widgets::{ButtonSize, Pressed, Slot, TextButton, Variant};
 
-fn fold(c: char) -> char {
-    c.to_lowercase().next().unwrap_or(c)
-}
-
 fn marks(text: &str, query: &str) -> Marks {
-    let needle: Vec<char> = query.chars().map(fold).collect();
-    let chars: Vec<(usize, char)> = text.char_indices().collect();
-    let lower: Vec<char> = chars.iter().map(|&(_, c)| fold(c)).collect();
-    let mut found = Vec::new();
-    let mut at = 0;
-    while !needle.is_empty() && at + needle.len() <= lower.len() {
-        if lower[at..at + needle.len()] == needle[..] {
-            found.push((chars[at].0, chars.get(at + needle.len()).map_or(text.len(), |&(end, _)| end)));
-            at += needle.len();
-        } else {
-            at += 1;
-        }
-    }
-    found
+    Matcher::new(query, IGNORE_CASE).find_all(text).into_iter().map(|found| (found.start, found.end)).collect()
 }
 
 pub(super) fn filtered(templates: &[NoteTemplate], query: &str) -> Vec<usize> {
@@ -120,10 +104,8 @@ impl App {
             return Outcome::default();
         }
         if id == state.field.id() {
-            match action.downcast_ref::<TextAction>() {
-                Some(TextAction::Changed(query)) => self.template_query_changed(root, query.clone()),
-                Some(TextAction::Cancelled) => self.close_templates(root),
-                _ => {}
+            if let Some(TextAction::Changed(query)) = action.downcast_ref::<TextAction>() {
+                self.template_query_changed(root, query.clone());
             }
             return Outcome::default();
         }

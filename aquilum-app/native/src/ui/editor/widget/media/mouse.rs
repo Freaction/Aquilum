@@ -67,7 +67,7 @@ impl TextEditor {
             }
             MediaHit::Bar => {
                 if let Some(path) = &path {
-                    let top = self.doc.paragraph(self.doc.at_offset(start)).top;
+                    let top = self.doc.top(self.doc.at_offset(start));
                     let local = Point::new(point.x - self.shift().x, point.y - top);
                     if let Some(view) = self.media_view(start) {
                         crate::video::seek(path, view.seek_fraction(local));
@@ -117,7 +117,7 @@ impl TextEditor {
                     }
                 }
                 Drag::Seek => {
-                    let top = self.doc.paragraph(self.doc.at_offset(start)).top;
+                    let top = self.doc.top(self.doc.at_offset(start));
                     let local = Point::new(point.x - self.shift().x, point.y - top);
                     if let Some(path) = &view.path {
                         crate::video::seek(path, view.seek_fraction(local));

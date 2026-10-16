@@ -206,7 +206,7 @@ mod tests {
         }
         all.sort_by(|a, b| b.0.total_cmp(&a.0));
         for (ms, id, bytes) in &all {
-            eprintln!("{id:<12} {ms:>7.1} мс  {:.1} МБ", *bytes as f64 / 1_048_576.0);
+            eprintln!("{id:<12} {ms:>7.1} мс  {:.1} МБ", crate::stats::mb(*bytes));
         }
         let total: f64 = all.iter().map(|a| a.0).sum();
         eprintln!("итого {total:.0} мс на {} узоров, в среднем {:.0} мс", all.len(), total / all.len() as f64);

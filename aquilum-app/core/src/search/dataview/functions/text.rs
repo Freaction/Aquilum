@@ -1,5 +1,6 @@
 use super::first;
 use super::super::value::Value;
+use crate::text::matcher::{Matcher, IGNORE_CASE};
 
 pub fn length(value: &Value) -> usize {
     match value {
@@ -13,19 +14,12 @@ pub fn length(value: &Value) -> usize {
 pub fn contains(arguments: &[Value]) -> bool {
     let haystack = first(arguments);
     let needle = arguments.get(1).unwrap_or(&Value::Null);
+    let matcher = Matcher::new(&needle.text(), IGNORE_CASE);
+    let inside = |text: String| matcher.first(&text).is_some();
     match haystack {
-        Value::List(items) => items.iter().any(|item| {
-            item.equals(needle)
-                || item
-                    .text()
-                    .to_lowercase()
-                    .contains(&needle.text().to_lowercase())
-        }),
+        Value::List(items) => items.iter().any(|item| item.equals(needle) || matcher.is_empty() || inside(item.text())),
         Value::Null => false,
-        other => {
-            let needle = needle.text().to_lowercase();
-            !needle.is_empty() && other.text().to_lowercase().contains(&needle)
-        }
+        other => inside(other.text()),
     }
 }
 

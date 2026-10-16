@@ -1,7 +1,5 @@
-use super::document::{
-    hash_bytes, normalize_line_endings, read_file_snapshot_impl, rename_file_impl,
-    write_file_atomic_impl,
-};
+use super::document::{hash_bytes, normalize_line_endings, read_file_snapshot_impl, write_file_atomic_impl};
+use super::entries::rename_file_impl;
 use super::error::FileCommandError;
 use super::models::FileRenameResult;
 use crate::search::wiki::LinkRewrite;

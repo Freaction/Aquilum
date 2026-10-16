@@ -11,6 +11,7 @@ pub mod mcp;
 pub mod migration;
 pub mod search;
 pub mod settings;
+pub mod text;
 pub mod ui_state;
 pub mod web_agent;
 pub mod wikixiv;

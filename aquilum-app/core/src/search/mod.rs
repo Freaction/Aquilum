@@ -7,13 +7,13 @@ pub mod guest;
 pub mod fields;
 pub mod graph;
 pub mod headings;
+pub mod hits;
 pub mod index;
 pub mod index_document;
 #[cfg(test)]
 mod index_tests;
 #[cfg(test)]
 mod benches;
-pub mod matching;
 pub mod metadata;
 pub mod models;
 pub mod note_date;

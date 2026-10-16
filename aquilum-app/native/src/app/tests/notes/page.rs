@@ -9,9 +9,8 @@ fn note_page_hides_frontmatter_renames_and_navigates() {
     h.app.open(&mut h.root, note.clone());
     assert_eq!(h.body_text(), "текст");
 
-    let body = h.app.note_ids.as_ref().unwrap().body.id();
-    h.act(body, TextAction::Changed("новый текст".into()));
-    assert_eq!(h.app.editor_text, "---\ntype: book\n---\nновый текст");
+    h.replace_body("новый текст");
+    assert_eq!(h.app.text.to_string(), "---\ntype: book\n---\nновый текст");
 
     let toggle = h.app.note_ids.as_ref().unwrap().metadata.id();
     h.act(toggle, crate::ui::note::MetadataToggled);
@@ -23,7 +22,7 @@ fn note_page_hides_frontmatter_renames_and_navigates() {
     let ids = h.app.note_ids.as_ref().unwrap();
     let (title, back) = (ids.title.id(), ids.back);
     h.act(title, TextAction::Entered("  ".into()));
-    assert_eq!(h.app.note_ids.as_ref().unwrap().title.get(&h.root).unwrap().inner().text().to_string(), "b");
+    assert_eq!(h.app.note_ids.as_ref().unwrap().title.get(&h.root).unwrap().inner().text(), "b");
     h.act(title, TextAction::Entered("Книга".into()));
     let renamed = h.vault.path().join("Книга.md");
     wait_until(1500, 20, || {
@@ -93,7 +92,12 @@ fn pasted_image_is_saved_and_embedded() {
     let _ = h.root.redraw();
     let mut png = std::io::Cursor::new(Vec::new());
     image::RgbaImage::from_pixel(2000, 10, image::Rgba([255, 0, 0, 255])).write_to(&mut png, image::ImageFormat::Png).unwrap();
-    h.app.paste_image(&mut h.root, png.get_ref());
+    let ids = h.app.note_ids.as_ref().unwrap();
+    let (title, body) = (ids.title.id(), ids.body.id());
+    h.root.focus_on(Some(title));
+    assert!(!h.app.paste_image(&mut h.root, png.get_ref()), "картинка вставилась из заголовка");
+    h.root.focus_on(Some(body));
+    assert!(h.app.paste_image(&mut h.root, png.get_ref()));
     h.deliver();
     let text = h.body_text();
     let embed = text.lines().find(|l| l.starts_with("![")).unwrap_or_else(|| panic!("нет встраивания: {text:?}"));
@@ -114,7 +118,7 @@ fn pdf_export_keeps_what_the_editor_shows() {
     }
     let note = h.write_note("Экспорт.md", &body);
     let embeds = crate::app::embeds::Embeds::new(std::sync::Arc::clone(&h.app.workspace.core), vault, note, std::env::temp_dir(), std::sync::Arc::new(|| {}));
-    let pdf = crate::app::note_page::export::render("Экспорт", &body, crate::ui::editor::Smart::default(), Some(embeds)).unwrap();
+    let pdf = crate::app::note_page::export::render("Экспорт", crop::Rope::from(body.as_str()), crate::ui::editor::Smart::default(), Some(embeds)).unwrap();
     if let Ok(out) = std::env::var("AQ_OUT") {
         std::fs::write(std::path::Path::new(&out).join("export.pdf"), &pdf).unwrap();
     }

@@ -114,5 +114,5 @@ fn enter_inserts_the_chosen_template_into_the_open_note() {
     let outcome = h.app.templates_key(&mut h.root, &Key::Named(NamedKey::Enter), Modifiers::empty());
     assert!(outcome.is_some() && h.app.popup.is_none(), "Enter не выбрал шаблон");
     h.deliver();
-    assert!(h.app.editor_text.contains("Заготовка Книга.md"), "{}", h.app.editor_text);
+    assert!(h.app.text.to_string().contains("Заготовка Книга.md"), "{}", h.app.text.to_string());
 }

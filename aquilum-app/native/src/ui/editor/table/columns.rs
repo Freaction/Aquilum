@@ -4,7 +4,9 @@ const NARROWEST: f64 = 96.0;
 pub fn fit(natural: &[f64], room: f64) -> Vec<f64> {
     let capped: Vec<f64> = natural.iter().map(|w| w.min(WIDEST)).collect();
     let floor: Vec<f64> = capped.iter().map(|w| w.min(NARROWEST)).collect();
-    if capped.iter().sum::<f64>() <= room { between(&capped, natural, room) } else { between(&floor, &capped, room) }
+    let widths = if capped.iter().sum::<f64>() <= room { between(&capped, natural, room) } else { between(&floor, &capped, room) };
+    let total: f64 = widths.iter().sum();
+    if total > 0.0 && total < room { widths.iter().map(|w| w * room / total).collect() } else { widths }
 }
 
 fn between(lo: &[f64], hi: &[f64], room: f64) -> Vec<f64> {
@@ -22,14 +24,14 @@ mod tests {
     }
 
     #[test]
-    fn a_table_is_as_wide_as_its_content_when_it_fits() {
-        assert_eq!(fit(&[80.0, 120.0], 700.0), [80.0, 120.0]);
+    fn a_short_table_fills_the_column_in_proportion_to_its_content() {
+        assert_eq!(rounded(fit(&[80.0, 120.0], 700.0)), [280.0, 420.0]);
+        assert_eq!(rounded(fit(&[80.0, 600.0], 1200.0)), [141.0, 1059.0]);
     }
 
     #[test]
-    fn long_text_takes_the_spare_room_and_no_more() {
+    fn long_text_takes_the_spare_room_and_the_table_ends_at_the_column_edge() {
         assert_eq!(rounded(fit(&[80.0, 2000.0], 700.0)), [80.0, 620.0]);
-        assert_eq!(fit(&[80.0, 600.0], 1200.0), [80.0, 600.0]);
     }
 
     #[test]

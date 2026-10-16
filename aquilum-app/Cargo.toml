@@ -59,3 +59,9 @@ opt-level = 3
 
 [patch."https://github.com/linebender/xilem"]
 masonry_core = { path = "native/vendor/masonry_core" }
+masonry = { path = "native/vendor/masonry" }
+
+[patch.crates-io]
+ratex-parser = { path = "native/vendor/ratex-parser" }
+krilla = { path = "native/vendor/krilla" }
+subsetter = { path = "native/vendor/subsetter" }

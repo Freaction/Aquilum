@@ -85,6 +85,17 @@ impl<W: Widget> ScrollArea<W> {
         Self::set_offset(this, offset);
     }
 
+    pub fn page(&self) -> f64 {
+        self.view() * super::PAGE
+    }
+
+    pub fn scroll_by(this: &mut WidgetMut<'_, Self>, delta: f64) -> f64 {
+        let from = this.widget.offset;
+        let to = (from + delta).clamp(0.0, this.widget.max_offset());
+        Self::set_offset(this, to);
+        to - from
+    }
+
     pub fn reveal(this: &mut WidgetMut<'_, Self>, top: f64, bottom: f64) {
         let viewport = this.widget.view();
         let offset = this.widget.offset;

@@ -16,9 +16,10 @@ impl App {
 
     pub(super) fn add_quote(&mut self, root: &mut RenderRoot, state: &ReaderState, text: &str, cfi: &str) {
         let Some(target) = state.target.clone() else { return };
-        let written = self.edit_note_text(root, &target, Source::Me, |current| {
-            let line = quotes::format(text, cfi, Some(&state.key), quotes::find(current).len() + 1);
-            Some(quotes::append(current, &line))
+        let written = self.change_note(root, &target, Source::Me, |current| {
+            let line = quotes::format(text, cfi, Some(&state.key), quotes::find(&current.to_string()).len() + 1);
+            let len = current.byte_len();
+            Some((len..len, quotes::appended(len.checked_sub(1).map(|last| current.byte(last)), &line)))
         });
         if !written {
             return;
@@ -28,7 +29,7 @@ impl App {
     }
 
     pub(super) fn reveal_quote(&mut self, root: &mut RenderRoot, cfi: &str) {
-        let Some(quote) = quotes::find(&self.editor_text).into_iter().find(|q| q.cfi == cfi) else { return };
+        let Some(quote) = quotes::find(&self.text.to_string()).into_iter().find(|q| q.cfi == cfi) else { return };
         let Some(ids) = &self.note_ids else { return };
         let hidden = self.hidden;
         let (start, end) = (quote.text.start.saturating_sub(hidden), quote.text.end.saturating_sub(hidden));
@@ -39,7 +40,7 @@ impl App {
 
     pub(in crate::app) fn open_reader_link(&mut self, root: &mut RenderRoot, url: &str) -> bool {
         let Some((cfi, book)) = crate::links::reader::parse_href(url) else { return false };
-        let own = frontmatter::parse(&self.editor_text).and_then(|f| f.text(BOOK_FILE).map(str::to_owned));
+        let own = frontmatter::parse(&self.head()).and_then(|f| f.text(BOOK_FILE).map(str::to_owned));
         let Some(book_file) = book.clone().or_else(|| own.clone()) else { return true };
         let Some(file) = crate::vault_files::resolve(self.tree.root(), &book_file) else { return true };
         let same = book.is_none() || book == own;

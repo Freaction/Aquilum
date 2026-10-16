@@ -1,10 +1,11 @@
 use super::*;
+use crate::ui::keymap;
 
 pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     let scale = ctx.scale;
     let scale_row = Row {
         label: t("settings.ui.scale"),
-        description: Some(t_with("settings.ui.scaleHint", &[("reset", "Ctrl + 0")])),
+        description: Some(t_with("settings.ui.scaleHint", &[("reset", &keymap::label(keymap::Scope::Global, keymap::Command::ZoomReset))])),
         control: Control::Number(Number {
             value: (scale * 100.0).round(),
             min: MIN_SCALE * 100.0,
@@ -96,6 +97,7 @@ pub(super) fn editor(config: &AppConfig) -> Vec<Block> {
                 switch("smartDashes", e.smart_dashes, |c, v| c.editor.smart_dashes = flag(v)),
                 switch("listCallouts", e.list_callouts, |c, v| c.editor.list_callouts = flag(v)),
                 switch("coloredTags", e.colored_tags, |c, v| c.editor.colored_tags = flag(v)),
+                switch("selectionMatches", e.selection_matches, |c, v| c.editor.selection_matches = flag(v)),
                 switch("autoLinkTitle", e.auto_link_title, |c, v| c.editor.auto_link_title = flag(v)),
             ],
         },

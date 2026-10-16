@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::process::mb;
+use crate::stats::mb;
 
 static LIMIT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(256 * 1024);
 

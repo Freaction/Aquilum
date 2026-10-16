@@ -64,6 +64,31 @@ pub fn fence(line: &str) -> bool {
     line.trim_end_matches([' ', '\t']) == "---"
 }
 
+pub fn end_of(text: &crop::Rope) -> Option<usize> {
+    let (mut at, mut end, mut first) = (0, None, true);
+    crate::rope::each_line(text.byte_slice(..), |line| {
+        let start = at;
+        at += line.len() + 1;
+        if std::mem::take(&mut first) {
+            return fence(line);
+        }
+        if fence(line) {
+            end = Some(start + line.len());
+            return false;
+        }
+        true
+    });
+    end
+}
+
+pub fn hidden_of(text: &crop::Rope) -> usize {
+    end_of(text).map_or(0, |end| end + usize::from(end < text.byte_len() && text.byte(end) == b'\n'))
+}
+
+pub fn head(text: &crop::Rope) -> String {
+    text.byte_slice(..hidden_of(text)).to_string()
+}
+
 struct Block {
     body: Range<usize>,
     end: usize,
@@ -90,14 +115,6 @@ fn block(text: &str) -> Option<Block> {
 
 pub fn end(text: &str) -> Option<usize> {
     block(text).map(|block| block.end)
-}
-
-pub fn hidden_len(text: &str) -> usize {
-    match end(text) {
-        Some(end) if text[end..].starts_with('\n') => end + 1,
-        Some(end) => end,
-        None => 0,
-    }
 }
 
 pub fn template(fields: &[(&str, &str)]) -> String {
@@ -127,9 +144,12 @@ mod tests {
         assert_eq!(end("текст\n---\nkey: 1\n---"), None);
         assert_eq!(end("---\r\nkey: 1\r\n---"), None);
         assert_eq!(end("---\nkey: 1"), None);
-        assert_eq!(hidden_len("---\nkey: 1\n---\nтекст"), 15);
-        assert_eq!(hidden_len("---\nkey: 1\n---"), 14);
-        assert_eq!(hidden_len("текст"), 0);
+        let hidden = |text: &str| hidden_of(&crop::Rope::from(text));
+        assert_eq!(hidden("---\nkey: 1\n---\nтекст"), 15);
+        assert_eq!(hidden("---\nkey: 1\n---"), 14);
+        assert_eq!(hidden("текст"), 0);
+        assert_eq!(end_of(&crop::Rope::from("---\nkey: 1\n---\nтекст")), Some(14));
+        assert_eq!(end_of(&crop::Rope::from("---\nkey: 1")), None);
     }
 
     #[test]

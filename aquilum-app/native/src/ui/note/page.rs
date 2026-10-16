@@ -19,7 +19,7 @@ use crate::ui::widgets::{ButtonSize, IconButton, Slot, TextButton, Variant, Visi
 pub struct NoteView<'a> {
     pub file_name: &'a str,
     pub title: &'a str,
-    pub body: &'a str,
+    pub body: crop::Rope,
     pub metadata: Option<bool>,
     pub can_back: bool,
     pub can_forward: bool,
@@ -28,6 +28,7 @@ pub struct NoteView<'a> {
     pub hero: Option<crate::ui::book::HeroView>,
     pub resolver: Option<std::sync::Arc<dyn crate::ui::editor::resolve::Resolver>>,
     pub smart: crate::ui::editor::Smart,
+    pub wake: std::sync::Arc<dyn Fn() + Send + Sync>,
 }
 
 pub struct NoteIds {
@@ -112,11 +113,12 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let metadata = Slot::fit(metadata_widget(view.metadata));
     let metadata_handle = Handle::of(&metadata);
 
-    let body_area = crate::ui::editor::TextEditor::new(view.body)
+    let body_area = crate::ui::editor::TextEditor::windowed(view.body)
         .styled(style::editor_text)
         .markdown()
         .report_edits()
         .with_resolver(view.resolver.clone())
+        .with_wake(std::sync::Arc::clone(&view.wake))
         .with_smart(view.smart);
     let body_area = NewWidget::new(body_area).with_class(style::EDITOR_TEXT);
     let body = Handle::of(&body_area);

@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::ui::keymap::{self, Command, Scope};
+
 pub struct Thumbnail {
     pub(super) image: ImageBrush,
     pub(super) height: f64,
@@ -67,18 +69,18 @@ impl Widget for Thumbnail {
         if key.state != KeyState::Down {
             return;
         }
-        let action = key.modifiers.ctrl() || key.modifiers.meta();
+        let paste = keymap::command(&[Scope::Text], &key.key, key.modifiers) == Some(Command::Paste);
         match &key.key {
+            _ if paste => {
+                ctx.submit_action::<ThumbAction>(ThumbAction::Paste);
+                ctx.set_handled();
+            }
             Key::Named(NamedKey::Backspace | NamedKey::Delete) => {
                 ctx.submit_action::<ThumbAction>(ThumbAction::Remove);
                 ctx.set_handled();
             }
             Key::Named(NamedKey::Escape) => {
                 ctx.resign_focus();
-                ctx.set_handled();
-            }
-            Key::Character(c) if action && c.eq_ignore_ascii_case("v") => {
-                ctx.submit_action::<ThumbAction>(ThumbAction::Paste);
                 ctx.set_handled();
             }
             _ => {}

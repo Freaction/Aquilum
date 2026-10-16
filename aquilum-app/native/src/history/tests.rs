@@ -3,7 +3,6 @@ use aquilum_core::files::document::read_file_snapshot_impl;
 use aquilum_core::files::gate;
 use aquilum_core::history::Source;
 
-use super::rewrite::apply_utf16_edits;
 use super::{Change, PAGE_SIZE, diff, page, restore, revert, texts};
 
 #[test]
@@ -14,12 +13,6 @@ fn diff_marks_added_and_removed_lines() {
         kinds,
         [(Change::Same, "a"), (Change::Removed, "b"), (Change::Added, "B"), (Change::Same, "c"), (Change::Added, "d")]
     );
-}
-
-#[test]
-fn utf16_edits_apply_to_cyrillic() {
-    let edits = [aquilum_core::documents::merge::TextEdit { from: 4, to: 6, insert: "ЁЖ".into() }];
-    assert_eq!(apply_utf16_edits("абв гд е", &edits), "абв ЁЖ е");
 }
 
 #[test]

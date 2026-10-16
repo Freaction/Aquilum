@@ -160,7 +160,10 @@ impl Embeds {
         let inner = Arc::clone(&self.0);
         let key = key.to_owned();
         std::thread::spawn(move || {
-            let result = work(&inner);
+            let result = {
+                let _zone = aq_trace::zone("фон: вставка");
+                work(&inner)
+            };
             if settle(cache(&inner), &key, epoch, result) {
                 inner.touch();
             }

@@ -1,13 +1,9 @@
 use super::*;
+use crate::reader::tests::sample_fb2;
 
 mod pages;
 mod quotes;
 mod shots;
-
-fn sample_fb2() -> String {
-    let paragraphs: String = (1..=400).map(|i| format!("<p>Абзац номер {i}. Съешь же ещё этих мягких французских булок да выпей чаю, повторяя это снова и снова.</p>")).collect();
-    format!("<?xml version=\"1.0\" encoding=\"utf-8\"?><FictionBook xmlns=\"http://www.gribuser.ru/xml/fictionbook/2.0\"><body><section><title><p>Глава первая</p></title>{paragraphs}</section><section><title><p>Глава вторая</p></title>{paragraphs}</section></body></FictionBook>")
-}
 
 impl Harness {
     pub(super) fn reader(&self) -> bool {

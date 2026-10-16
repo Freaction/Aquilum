@@ -7,7 +7,8 @@ use std::path::PathBuf;
 
 use masonry::accesskit::Role;
 use masonry::app::RenderRoot;
-use masonry::core::keyboard::{Key, Modifiers, NamedKey};
+use masonry::core::keyboard::{Key, Modifiers};
+use crate::ui::keymap::{self, Command, Scope};
 use masonry::core::{NewWidget, WidgetId};
 use masonry::kurbo::Point;
 use masonry::widgets::Flex;
@@ -96,30 +97,24 @@ impl App {
         list
     }
 
-    pub fn templates_key(&mut self, root: &mut RenderRoot, key: &Key, _modifiers: Modifiers) -> Option<Outcome> {
+    pub fn templates_key(&mut self, root: &mut RenderRoot, key: &Key, modifiers: Modifiers) -> Option<Outcome> {
         let Some(Popup::Templates(state)) = &self.popup else { return None };
         let count = state.filtered.len();
-        match key {
-            Key::Named(NamedKey::ArrowDown) => {
+        match keymap::command(&[Scope::List], key, modifiers)? {
+            command @ (Command::ListNext | Command::ListPrevious) => {
                 if count > 0 {
-                    self.select_template(root, (state.selected + 1) % count);
+                    self.select_template(root, keymap::cycle(state.selected, count, command == Command::ListNext));
                 }
                 Some(Outcome::default())
             }
-            Key::Named(NamedKey::ArrowUp) => {
-                if count > 0 {
-                    self.select_template(root, (state.selected + count - 1) % count);
-                }
-                Some(Outcome::default())
-            }
-            Key::Named(NamedKey::Enter) => {
+            Command::ListOpen => {
                 if count > 0 {
                     Some(self.choose_template(root, state.selected))
                 } else {
                     Some(Outcome::default())
                 }
             }
-            Key::Named(NamedKey::Escape) => {
+            Command::Close => {
                 self.close_templates(root);
                 Some(Outcome::default())
             }
@@ -146,7 +141,7 @@ impl App {
             let title = template.name;
             let opened = self.create_note_titled(root, Some(&title));
             if opened {
-                self.commit_editor_text(root, content);
+                self.commit_text(root, crop::Rope::from(content));
             }
             Outcome { title: opened, ..Outcome::default() }
         }

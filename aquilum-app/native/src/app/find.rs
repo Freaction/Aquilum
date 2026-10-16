@@ -2,7 +2,8 @@
 //! совпадению, Escape закрывает.
 
 use masonry::app::RenderRoot;
-use masonry::core::keyboard::{Key, Modifiers, NamedKey};
+use masonry::core::keyboard::{Key, Modifiers};
+use crate::ui::keymap::{self, Command, Scope};
 use masonry::core::{ErasedAction, NewWidget, WidgetId};
 use masonry::widgets::SizedBox;
 use crate::ui::editor::TextAction;
@@ -31,9 +32,17 @@ impl App {
         root.focus_on(Some(ids.body.id()));
     }
 
-    fn show_status(&self, root: &mut RenderRoot, (current, total): (usize, usize)) {
+    fn show_status(&self, root: &mut RenderRoot, (current, total, more): crate::ui::editor::Status) {
         if let Some(find) = &self.find {
-            find.counter.edit(root, |mut c| crate::ui::widgets::Label::set_text(&mut c, &format!("{current}/{total}")));
+            let plus = if more { "+" } else { "" };
+            find.counter.edit(root, |mut c| crate::ui::widgets::Label::set_text(&mut c, &format!("{current}/{total}{plus}")));
+        }
+    }
+
+    pub(super) fn poll_find(&mut self, root: &mut RenderRoot) {
+        let (Some(_), Some(ids)) = (&self.find, &self.note_ids) else { return };
+        if let Some(status) = ids.body.edit(root, |mut body| TextEditor::poll_find(&mut body)).flatten() {
+            self.show_status(root, status);
         }
     }
 
@@ -80,9 +89,10 @@ impl App {
         if root.focused_widget() != Some(find.field.id()) {
             return false;
         }
-        match key {
-            Key::Named(NamedKey::Enter) => self.find_step(root, if modifiers.shift() { -1 } else { 1 }),
-            Key::Named(NamedKey::Escape) => self.close_find(root),
+        match keymap::command(&[Scope::Find], key, modifiers) {
+            Some(Command::FindNext) => self.find_step(root, 1),
+            Some(Command::FindPrevious) => self.find_step(root, -1),
+            Some(Command::Close) => self.close_find(root),
             _ => return false,
         }
         true

@@ -79,7 +79,7 @@ fn missing_version(id: &str) -> String {
 
 fn note_history(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note_argument(arguments)?;
     let offset = offset(arguments);
     let history = &core.history;
     let page = history.page(&|| core.known_roots(), &note, offset, limit(arguments, 50, LIST_LIMIT));
@@ -94,7 +94,7 @@ fn note_history(core: &Core, arguments: &Value) -> Result<Value, String> {
 
 fn read_version(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note_argument(arguments)?;
     let id = text(arguments, "version")?;
     let history = &core.history;
     let texts = history
@@ -117,7 +117,7 @@ fn read_version(core: &Core, arguments: &Value) -> Result<Value, String> {
 fn restore_version(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note_argument(arguments)?;
     let id = text(arguments, "version")?;
     let from_ms = version_at(&id).ok_or_else(|| missing_version(&id))?;
     let history = &core.history;
@@ -137,7 +137,7 @@ fn restore_version(core: &Core, arguments: &Value) -> Result<Value, String> {
 fn name_version(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note_argument(arguments)?;
     let version = optional_text(arguments, "version");
     let name = optional_text(arguments, "name").unwrap_or_default();
     let named = gate::name_version(core, &note, version.as_deref(), &name)

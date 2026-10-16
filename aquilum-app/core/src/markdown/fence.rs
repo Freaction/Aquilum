@@ -35,23 +35,20 @@ impl Fence {
     }
 }
 
-pub fn outside(text: &str) -> Vec<(usize, &str)> {
-    let mut kept = Vec::new();
+pub fn outside(text: &str) -> impl Iterator<Item = (usize, &str)> {
     let mut inside: Option<Fence> = None;
-    for (index, line) in text.lines().enumerate() {
-        if let Some(fence) = inside {
+    text.lines().enumerate().filter(move |(_, line)| match inside {
+        Some(fence) => {
             if fence.closes(line) {
                 inside = None;
             }
-            continue;
+            false
         }
-        if let Some(fence) = Fence::open(line, usize::MAX) {
-            inside = Some(fence);
-            continue;
+        None => {
+            inside = Fence::open(line, usize::MAX);
+            inside.is_none()
         }
-        kept.push((index, line));
-    }
-    kept
+    })
 }
 
 #[cfg(test)]
@@ -61,7 +58,7 @@ mod tests {
     #[test]
     fn a_fence_hides_its_lines_until_the_same_marker_closes_it() {
         let text = "до\n````md\n```\nвнутри\n````\nпосле\n~~~\nтильды\n~~~";
-        assert_eq!(outside(text), vec![(0, "до"), (5, "после")]);
+        assert_eq!(outside(text).collect::<Vec<_>>(), vec![(0, "до"), (5, "после")]);
     }
 
     #[test]

@@ -69,6 +69,7 @@ struct Host {
     renderer: Renderer,
     modifiers: Modifiers,
     pointer: PointerState,
+    moved: bool,
     ime_enabled: bool,
     ime_area: Option<(LogicalPosition<f64>, LogicalSize<f64>)>,
     clipboard: Option<arboard::Clipboard>,

@@ -11,12 +11,10 @@ fn note_reopens_at_saved_scroll_position() {
     std::fs::write(&other, "текст").unwrap();
     h.app.open(&mut h.root, long.clone());
     let _ = h.root.redraw();
-    let scroll = h.app.note_ids.as_ref().unwrap().scroll.id();
-    let offset = |h: &Harness| h.root.get_widget(scroll).and_then(|w| w.downcast::<crate::ui::scroll::ScrollArea<masonry::widgets::Flex>>()).map(|w| w.inner().offset());
     let state = PointerState { position: PhysicalPosition::new(600.0, 300.0), count: 1, scale_factor: 1.0, ..PointerState::default() };
     h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, -2500.0)), state }));
     h.deliver();
-    let saved = offset(&h).unwrap();
+    let saved = note_offset(&h);
     assert!(saved > 2000.0, "прокрутка не сработала: {saved}");
     h.app.open(&mut h.root, other);
     let _ = h.root.redraw();
@@ -24,8 +22,7 @@ fn note_reopens_at_saved_scroll_position() {
     let _ = h.root.redraw();
     assert!(h.app.restore_view(&mut h.root), "позиция не восстановлена");
     let _ = h.root.redraw();
-    let scroll = h.app.note_ids.as_ref().unwrap().scroll.id();
-    let restored = h.root.get_widget(scroll).and_then(|w| w.downcast::<crate::ui::scroll::ScrollArea<masonry::widgets::Flex>>()).map(|w| w.inner().offset()).unwrap();
+    let restored = note_offset(&h);
     assert!((restored - saved).abs() < 1.0, "сохранено {saved}, восстановлено {restored}");
 }
 
@@ -66,10 +63,7 @@ fn tree_rows_survive_focus_mode() {
     let mut h = Harness::with(Some(vault.path()), 1.0);
     h.app.open(&mut h.root, vault.path().join("Заметка 0900.md"));
     h.deliver();
-    let offset = |h: &Harness| {
-        let id = h.app.tree.scroll_id().unwrap();
-        h.root.get_widget(id).and_then(|w| w.downcast::<crate::ui::scroll::ScrollArea<masonry::widgets::Flex>>()).map(|w| w.inner().offset()).unwrap()
-    };
+    let offset = |h: &Harness| scroll_offset(h, h.app.tree.scroll_id().unwrap());
     let before = (offset(&h), h.app.tree.built_rows());
     h.app.toggle_focus_mode(&mut h.root);
     h.deliver();

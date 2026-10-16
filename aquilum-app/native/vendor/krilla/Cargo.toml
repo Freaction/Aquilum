@@ -1,0 +1,40 @@
+[package]
+name = "krilla"
+version = "0.8.2"
+edition = "2021"
+description = "Форк krilla 0.8.2 под Aquilum: skrifa 0.44, как у parley"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LaurenzV/krilla"
+
+[features]
+default = ["raster-images", "simple-text"]
+comemo = ["dep:comemo"]
+pdf = ["dep:hayro-write"]
+raster-images = ["dep:png", "dep:zune-jpeg", "dep:gif", "dep:image-webp", "dep:imagesize"]
+rayon = ["dep:rayon"]
+simple-text = ["dep:rustybuzz"]
+
+[dependencies]
+base64 = "0.22.1"
+bumpalo = "3.16.0"
+comemo = { version = "0.5.0", optional = true }
+flate2 = "1.1.0"
+float-cmp = "0.9.0"
+gif = { version = "0.14.2", optional = true }
+hayro-write = { version = "0.7.0", optional = true }
+image-webp = { version = "0.2.1", optional = true }
+imagesize = { version = "0.14.0", optional = true }
+indexmap = "2.10.0"
+pdf-writer = "0.15.0"
+png = { version = "0.18.1", optional = true }
+rayon = { version = "1.10.0", optional = true }
+rustc-hash = "2.1.1"
+rustybuzz = { version = "0.20.1", optional = true }
+siphasher = "1.0.1"
+skrifa = "0.44.0"
+smallvec = { version = "1.15.1", features = ["union", "const_new", "write"] }
+subsetter = { version = "0.2.6", features = ["variable-fonts"] }
+tiny-skia-path = "0.12.0"
+xmp-writer = "0.3.3"
+yoke = { version = "0.8.0", features = ["derive"] }
+zune-jpeg = { version = "0.5.5", optional = true }

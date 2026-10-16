@@ -31,6 +31,9 @@ impl Host {
             eprintln!("{:>8.1} мс  {event:?}", self.started.elapsed().as_secs_f64() * 1000.0);
         }
         let Some(window) = self.window.clone() else { return };
+        if !matches!(event, WindowEvent::PointerMoved { .. } | WindowEvent::RedrawRequested) {
+            self.flush_move();
+        }
         if let Some(accessibility) = self.accessibility.as_mut() {
             accessibility.window_event(&*window, &event);
         }

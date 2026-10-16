@@ -23,10 +23,10 @@ fn removed_images_leave_caches() {
     h.app.open(&mut h.root, note);
     wait_cached(&mut h);
     assert_eq!(cached(&h), 2, "картинка не попала в кэш заметки и общий кэш");
-    h.app.set_editor_text(&mut h.root, "текст\n\nконец".into());
+    h.app.set_text(&mut h.root, crop::Rope::from("текст\n\nконец"));
     let _ = h.root.redraw();
     assert_eq!(cached(&h), 0, "удалённая с холста картинка осталась в кэше");
-    h.app.set_editor_text(&mut h.root, "текст\n\n![](pic.png)\n\nконец".into());
+    h.app.set_text(&mut h.root, crop::Rope::from("текст\n\n![](pic.png)\n\nконец"));
     wait_cached(&mut h);
     h.app.embeds.as_ref().unwrap().forget_paths(&[h.vault.path().join("pic.png")]);
     assert_eq!(cached(&h), 0, "удалённый файл остался в кэше");

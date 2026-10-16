@@ -1,8 +1,5 @@
 use super::*;
-
-fn mb(bytes: usize) -> f64 {
-    bytes as f64 / 1_048_576.0
-}
+use crate::stats::mb;
 
 fn settle(h: &mut Harness, renderer: &mut crate::render::Renderer) {
     for _ in 0..300 {

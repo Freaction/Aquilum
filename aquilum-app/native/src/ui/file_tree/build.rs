@@ -96,7 +96,7 @@ impl FileTree {
     pub fn refresh(&mut self, root: &mut RenderRoot) {
         let editing = self.rename.and_then(|field| {
             let focused = root.focused_widget() == Some(field.id());
-            field.get(root).map(|f| (f.inner().text().to_owned(), f.inner().selection(), focused))
+            field.get(root).map(|f| (f.inner().text(), f.inner().selection(), focused))
         });
         let list = self.list();
         if let Some(scroll) = self.scroll {

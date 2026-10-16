@@ -1,13 +1,14 @@
 use super::super::vault::Vault;
 use super::workspace::{indexed_vault, requested_vault, workspace_vault};
 use super::{offset, 
-    content, flag, limit, open_after_write, optional_content, optional_names, optional_text,
+    content, content_or_empty, flag, limit, open_after_write, optional_content, optional_names, optional_text,
     require_write, shorten, text, tool, version_name_property, workspace_property, write_retrying,
 };
 use crate::files::document::{ensure_directory_impl, read_text};
 use crate::files::gate;
 use crate::history::Source;
 use crate::search::headings::{self, Heading};
+use crate::text::matcher::{Matcher, IGNORE_CASE};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use crate::app_core::Core;
@@ -55,7 +56,7 @@ pub fn definitions() -> Vec<Value> {
                     "enum": ["append", "prepend", "replace", "findReplace", "underHeading", "replaceSection"],
                     "description": "Способ правки, по умолчанию append. underHeading вставляет текст первым абзацем раздела, replaceSection заменяет текст раздела, сохраняя заголовок",
                 },
-                "content": { "type": "string", "description": "Новый текст или замена" },
+                "content": { "type": "string", "description": "Новый текст или замена; в режимах findReplace и replaceSection может быть пустым — тогда найденный текст или текст раздела удаляется" },
                 "find": { "type": "string", "description": "Что заменить в режиме findReplace" },
                 "heading": { "type": "string", "description": "Заголовок раздела для режимов underHeading и replaceSection" },
                 "all": { "type": "boolean", "description": "В режиме findReplace заменить все вхождения; по умолчанию нет, и на нескольких вхождениях вернётся ошибка с их числом" },
@@ -222,7 +223,7 @@ pub fn window(text: &str, offset: usize, size: usize) -> Result<(&str, usize), S
 
 fn note_outline(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note_argument(arguments)?;
     let content = read_text(&note).map_err(|error| error.to_string())?;
     let items = headings::headings(&content)
         .iter()
@@ -357,14 +358,8 @@ fn requested_notes(arguments: &Value) -> Result<Vec<(String, String)>, String> {
 fn update_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
-    let edit = Edit {
-        mode: optional_text(arguments, "mode").unwrap_or_else(|| "append".to_owned()),
-        content: content(arguments, "content")?,
-        find: optional_content(arguments, "find"),
-        heading: optional_text(arguments, "heading"),
-        all: flag(arguments, "all", false),
-    };
+    let note = vault.note_argument(arguments)?;
+    let edit = edit_from(arguments)?;
     let version_name = optional_text(arguments, "versionName");
     let (changed, next) = write_retrying(core, &note, Source::Agent, version_name.as_deref(), |current| {
         compose(current, &edit)
@@ -386,6 +381,21 @@ struct Edit {
     find: Option<String>,
     heading: Option<String>,
     all: bool,
+}
+
+fn edit_from(arguments: &Value) -> Result<Edit, String> {
+    let mode = optional_text(arguments, "mode").unwrap_or_else(|| "append".to_owned());
+    let content = match mode.as_str() {
+        "findReplace" | "replaceSection" => content_or_empty(arguments, "content")?,
+        _ => content(arguments, "content")?,
+    };
+    Ok(Edit {
+        mode,
+        content,
+        find: optional_content(arguments, "find"),
+        heading: optional_text(arguments, "heading"),
+        all: flag(arguments, "all", false),
+    })
 }
 
 impl Edit {
@@ -441,9 +451,12 @@ fn write_section(
 
     let mut next = String::with_capacity(current.len() + content.len() + 3);
     next.push_str(&current[..section.start]);
-    next.push('\n');
-    next.push_str(content.trim_matches('\n'));
-    next.push('\n');
+    let body = content.trim_matches('\n');
+    if !body.is_empty() {
+        next.push('\n');
+        next.push_str(body);
+        next.push('\n');
+    }
     if !tail.is_empty() {
         next.push('\n');
         next.push_str(tail);
@@ -454,7 +467,7 @@ fn write_section(
 fn rename_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note_argument(arguments)?;
     let title = text(arguments, "title")?;
     if title.contains(['/', '\\']) {
         return Err("Название не должно содержать разделители пути — используйте move_note".to_owned());
@@ -478,7 +491,7 @@ fn rename_note(core: &Core, arguments: &Value) -> Result<Value, String> {
 fn move_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note_argument(arguments)?;
     let file_name = note
         .file_name()
         .ok_or("Не удалось определить имя файла")?
@@ -545,7 +558,7 @@ fn move_inside_vault(
 fn delete_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note_argument(arguments)?;
     let target = gate::trash(core, &vault.root, &note).map_err(|error| error.to_string())?;
     Ok(json!({
         "deleted": vault.relative(&note),
@@ -564,7 +577,7 @@ fn list_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
     if !folder.is_dir() {
         return Err(format!("Папка не найдена: {}", vault.relative(&folder)));
     }
-    let query = optional_text(arguments, "query").map(|value| value.to_lowercase());
+    let query = optional_text(arguments, "query").map(|value| Matcher::new(&value, IGNORE_CASE));
     let size = limit(arguments, 100, LIST_LIMIT);
     let offset = offset(arguments);
 
@@ -574,7 +587,7 @@ fn list_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
         .filter(|path| {
             query
                 .as_ref()
-                .is_none_or(|needle| Vault::title(path).to_lowercase().contains(needle))
+                .is_none_or(|matcher| matcher.first(&Vault::title(path)).is_some())
         })
         .collect::<Vec<_>>();
     paths.sort();
@@ -624,7 +637,8 @@ fn list_folders(core: &Core, arguments: &Value) -> Result<Value, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{compose, Edit};
+    use super::{compose, edit_from, Edit};
+    use serde_json::json;
 
     const NOTE: &str = "# Заголовок\n\nПервый абзац.\n";
     const SECTIONS: &str = "# Один\n\nтекст\n\n## Два\n\nещё\n\n### Три\n\nглубже\n";
@@ -722,6 +736,16 @@ mod tests {
         let note = "## Два\n\nпервый\n\n## Два\n\nвторой\n";
         let error = compose(note, &under("replaceSection", "Два", "новое")).unwrap_err();
         assert!(error.contains("2"), "в ошибке названо число заголовков: {error}");
+    }
+
+    #[test]
+    fn an_empty_replacement_deletes_the_text_or_empties_the_section() {
+        let deleting = edit_from(&json!({ "mode": "findReplace", "find": " абзац", "content": "" })).unwrap();
+        assert_eq!(compose(NOTE, &deleting).unwrap(), "# Заголовок\n\nПервый.\n");
+        let emptying = edit_from(&json!({ "mode": "replaceSection", "heading": "## Два", "content": "" })).unwrap();
+        assert_eq!(compose(SECTIONS, &emptying).unwrap(), "# Один\n\nтекст\n\n## Два\n");
+        assert!(edit_from(&json!({ "mode": "replace", "content": "" })).is_err(), "пустой replace стёр бы заметку");
+        assert!(edit_from(&json!({ "mode": "findReplace", "find": "x" })).is_err(), "content обязателен");
     }
 
     #[test]

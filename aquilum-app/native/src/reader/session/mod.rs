@@ -1,11 +1,15 @@
 mod layout;
 mod navigate;
 mod select;
+#[cfg(test)]
+mod tests;
 
 use std::collections::HashMap;
 use std::path::Path;
 
+use masonry::core::BrushIndex;
 use masonry::kurbo::Size;
+use masonry::parley::Layout;
 use masonry::peniko::ImageBrush;
 
 use super::cfi::{self, Point};
@@ -48,6 +52,7 @@ pub struct Session {
     scroll: f64,
     anchor: Anchor,
     placed: (usize, f64),
+    layouts: Vec<(usize, Layout<BrushIndex>)>,
     images: HashMap<String, Option<ImageBrush>>,
 }
 
@@ -75,6 +80,7 @@ impl Session {
             scroll: 0.0,
             anchor: Anchor::Start,
             placed: (0, 0.0),
+            layouts: Vec::new(),
             images: HashMap::new(),
         };
         session.go(target);
@@ -115,6 +121,7 @@ impl Session {
         if self.loaded != Some(index) {
             self.loaded = Some(index);
             self.blocks = self.book.document(index).map(flow::blocks).unwrap_or_default();
+            self.layouts.clear();
             self.images.clear();
             self.laid = None;
         }

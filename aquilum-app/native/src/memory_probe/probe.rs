@@ -4,7 +4,8 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use super::counting::{CURRENT, PEAK};
-use super::process::{breakdown, cpu_ms, mb};
+use super::process::{breakdown, cpu_ms};
+use crate::stats::mb;
 use super::script::{Step, parse};
 use super::trace::{TRACE, large_report};
 

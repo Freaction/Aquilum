@@ -1,8 +1,8 @@
 use masonry::core::BrushIndex;
 use masonry::imaging::{PaintSink, Painter};
 use masonry::kurbo::{Rect, RoundedRect, Vec2};
-use masonry::parley::{Affinity, Cursor, Layout, Selection};
-use masonry::peniko::Color;
+use masonry::parley::{Affinity, Cursor, Layout, PositionedLayoutItem, Selection};
+use masonry::peniko::{Brush, Color};
 
 use super::Decor;
 use super::metrics::{INLINE_CODE_PADDING, TAG_PADDING};
@@ -26,8 +26,8 @@ pub fn range_rects(layout: &Layout<BrushIndex>, from: usize, to: usize) -> Vec<(
 fn fill_range(painter: &mut Painter<'_, impl PaintSink + ?Sized>, layout: &Layout<BrushIndex>, range: &std::ops::Range<usize>, origin: Vec2, pad_x: f64, color: Color) {
     for (bounds, _) in range_rects(layout, range.start, range.end) {
         let middle = ((bounds.y0 + bounds.y1) / 2.0) as f32;
-        let Some(m) = layout.lines().map(|l| *l.metrics()).find(|m| m.min_coord <= middle && middle < m.max_coord) else { continue };
-        let (top, bottom) = (f64::from(m.baseline - m.ascent) - CODE_PAD_Y, f64::from(m.baseline + m.descent) + CODE_PAD_Y);
+        let Some(m) = layout.lines().map(|l| *l.metrics()).find(|m| m.block_min_coord <= middle && middle < m.block_max_coord) else { continue };
+        let (top, bottom) = (f64::from(m.content_block_min_coord) - CODE_PAD_Y, f64::from(m.content_block_max_coord) + CODE_PAD_Y);
         let shape = RoundedRect::new(bounds.x0 - pad_x, top, bounds.x1 + pad_x, bottom, CODE_RADIUS) + origin;
         painter.fill(shape, color).draw();
     }
@@ -46,7 +46,7 @@ pub fn tag_chips(layout: &Layout<BrushIndex>, decor: &Decor, origin: Vec2) -> Ve
         .collect()
 }
 
-pub fn paint_inline(painter: &mut Painter<'_, impl PaintSink + ?Sized>, layout: &Layout<BrushIndex>, decor: &Decor, origin: Vec2) {
+pub fn paint_backgrounds(painter: &mut Painter<'_, impl PaintSink + ?Sized>, layout: &Layout<BrushIndex>, decor: &Decor, origin: Vec2) {
     let tm = theme::current();
     for (shape, slot) in tag_chips(layout, decor, origin) {
         let color = match slot.and_then(|slot| palette::color(palette::NAMES[slot], &tm)) {
@@ -60,5 +60,18 @@ pub fn paint_inline(painter: &mut Painter<'_, impl PaintSink + ?Sized>, layout: 
     }
     for code in &decor.codes {
         fill_range(painter, layout, code, origin, CODE_PAD_X, tm.editor_code_bg);
+    }
+}
+
+pub fn paint_formulas(painter: &mut Painter<'_, impl PaintSink + ?Sized>, layout: &Layout<BrushIndex>, decor: &Decor, origin: Vec2, palette: &[Brush]) {
+    if decor.formulas.is_empty() {
+        return;
+    }
+    for item in layout.lines().flat_map(|line| line.items()) {
+        if let PositionedLayoutItem::InlineBox(b) = item
+            && let Some(formula) = decor.formulas.get(b.id as usize)
+        {
+            formula.paint(painter, origin + Vec2::new(f64::from(b.x), f64::from(b.y)), palette);
+        }
     }
 }

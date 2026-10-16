@@ -1,6 +1,5 @@
 use super::*;
 use aquilum_core::markdown::indent::TAB;
-use aquilum_core::markdown::line;
 
 fn outdent_width(line: &str) -> usize {
     if line.starts_with('\t') {
@@ -11,15 +10,15 @@ fn outdent_width(line: &str) -> usize {
 
 impl TextEditor {
     pub(in super::super) fn indent(&mut self, more: bool) -> bool {
-        let text = self.doc.text();
         let range = self.selection();
-        let last = if range.end > range.start && text[..range.end].ends_with('\n') { range.end - 1 } else { range.end };
-        let (start, end) = (line::bounds(text, range.start).start, line::bounds(text, last).end);
-        let several = text[start..end].contains('\n');
+        let last = if range.end > range.start && self.doc.byte(range.end - 1) == b'\n' { range.end - 1 } else { range.end };
+        let (start, end) = (self.doc.line_at(range.start).start, self.doc.line_at(last).end);
+        let lines = self.doc.copy(start..end);
+        let several = lines.contains('\n');
         let deepest = |at: usize| matches!(&self.doc.paragraph(self.doc.at_offset(at)).block, Block::Item(item) if item.deepest());
         let mut edits = Vec::new();
         let mut at = start;
-        for line in text[start..end].split('\n') {
+        for line in lines.split('\n') {
             if !more {
                 edits.push((at..at + outdent_width(line), String::new()));
             } else if !(several && line.trim().is_empty() || deepest(at)) {

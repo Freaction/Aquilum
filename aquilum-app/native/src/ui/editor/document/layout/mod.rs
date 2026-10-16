@@ -22,34 +22,52 @@ impl Document {
         if let Some((unresolved, stamp)) = self.resolver.as_ref().map(|r| r.unresolved())
             && stamp != self.unresolved.1
         {
-            for p in self.paragraphs.iter_mut().filter(|p| p.decor().links.iter().any(|l| l.wiki)) {
-                p.forget();
+            let linked: Vec<usize> = self.laid.iter().filter(|(_, laid)| laid.decor.links.iter().any(|l| l.wiki)).map(|(i, _)| i).collect();
+            for &i in &linked {
+                self.laid.remove(i);
             }
-            self.mark(0..self.paragraphs.len());
+            if let (Some(&first), Some(&last)) = (linked.iter().min(), linked.iter().max()) {
+                self.mark(first..last + 1);
+            }
             self.unresolved = (unresolved, stamp);
+        }
+        if rebreak {
+            self.reguess();
         }
         let mut wanted = Vec::new();
         let mut rebreak = rebreak;
         let pinned = self.pinned();
         let mut dirty = self.dirty.take();
         loop {
-            let window = self.window();
-            let held = pinned.iter().chain(&self.held).map(|&i| i..i + 1);
-            let mut spans: Vec<Range<usize>> = held.chain([window, self.laid.clone()]).chain(dirty.take()).collect();
-            if rebreak {
-                spans = vec![0..self.paragraphs.len()];
+            let stale = dirty.take();
+            let built = pinned.iter().copied().chain(self.laid.iter().map(|(i, _)| i)).map(|i| i..i + 1);
+            let mut spans: Vec<Range<usize>> = built.chain([self.window()]).chain(stale.clone()).collect();
+            if !self.placed {
+                spans = vec![0..self.lines.count()];
             }
             spans.sort_by_key(|r| r.start);
-            let changed = self.measure(fcx, lcx, styles, width, compose, caret, rebreak, &spans, &pinned, &mut wanted) || rebreak;
+            let mut merged: Vec<Range<usize>> = Vec::new();
+            for span in spans {
+                match merged.last_mut() {
+                    Some(last) if span.start <= last.end => last.end = last.end.max(span.end),
+                    _ => merged.push(span),
+                }
+            }
+            let measured = aq_trace::zone("вёрстка: высоты абзацев");
+            let changed = self.measure(fcx, lcx, styles, compose, caret, rebreak, &merged, &pinned, stale.as_ref(), &mut wanted) || rebreak;
+            drop(measured);
             rebreak = false;
-            let (from, until) = (spans.iter().map(|r| r.start).min().unwrap_or(0), spans.iter().map(|r| r.end).max().unwrap_or(0));
-            self.place(from, until, fcx, lcx, styles, width, caret);
-            if !changed {
+            let placed = aq_trace::zone("вёрстка: расстановка");
+            for span in &merged {
+                self.place(span.start, span.end, fcx, lcx, styles, width, caret);
+            }
+            drop(placed);
+            if !(changed | self.aligned()) {
                 break;
             }
         }
         if let Some((at, top)) = self.anchor {
-            let now = self.paragraphs[self.at_offset(at)].top;
+            let now = self.top(self.at_offset(at));
             if (now - top).abs() > 1.0 {
                 self.shift += now - top;
             }

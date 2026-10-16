@@ -57,7 +57,7 @@ impl Widget for DocumentItem {
             ctx.submit_action::<ItemAction>(ItemAction::Menu(at));
         } else if let Some(e) = self.press.click(ctx, event) {
             let m = e.state.modifiers;
-            ctx.submit_action::<ItemAction>(ItemAction::Open { new_tab: m.ctrl() || m.meta() });
+            ctx.submit_action::<ItemAction>(ItemAction::Open { new_tab: crate::ui::keymap::action(m) });
         }
     }
 

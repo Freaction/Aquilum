@@ -8,17 +8,19 @@ pub struct Smart {
     pub dashes: bool,
     pub callouts: bool,
     pub tags: bool,
+    pub matches: bool,
 }
 
 impl Default for Smart {
     fn default() -> Self {
-        Self { links: true, dashes: true, callouts: true, tags: true }
+        Self { links: true, dashes: true, callouts: true, tags: true, matches: false }
     }
 }
 
 impl Smart {
     pub fn from_config(config: &aquilum_core::settings::models::AppConfig) -> Self {
-        Self { links: config.editor.auto_link_title, dashes: config.editor.smart_dashes, callouts: config.editor.list_callouts, tags: config.editor.colored_tags }
+        let editor = &config.editor;
+        Self { links: editor.auto_link_title, dashes: editor.smart_dashes, callouts: editor.list_callouts, tags: editor.colored_tags, matches: editor.selection_matches }
     }
 }
 
@@ -54,7 +56,7 @@ impl TextEditor {
 
     pub(super) fn smart_dash(&mut self, text: &str) -> bool {
         let at = self.focus;
-        let before = &self.doc.text()[..at];
+        let before = self.doc.before(at);
         if !self.smart.dashes || self.doc.markdown.is_none() || text != " " || self.anchor != at || !before.ends_with("--") || before.ends_with("---") {
             return false;
         }
@@ -65,13 +67,13 @@ impl TextEditor {
     pub(super) fn paste_link(&mut self, id: masonry::core::WidgetId, text: &str) -> bool {
         let url = text.trim();
         let range = self.selection();
-        let full = self.doc.text();
-        let before = &full[full.floor_char_boundary(range.start.saturating_sub(64))..range.start];
+        let before = self.doc.before(range.start);
+        let before = &before[before.floor_char_boundary(before.len().saturating_sub(64))..];
         let in_link = before.rfind("](").is_some_and(|i| !before[i..].contains([')', ' ']));
         if !self.smart.links || self.doc.markdown.is_none() || !is_bare_url(url) || crate::images::kind(url) == Some(crate::images::MediaKind::Image) || in_link {
             return false;
         }
-        let selected = full[range].trim().to_owned();
+        let selected = self.doc.copy(range).trim().to_owned();
         if !selected.is_empty() {
             self.insert(&format!("[{}]({url})", escape::label(&selected)), Kind::Other);
             return true;
@@ -86,7 +88,7 @@ impl TextEditor {
     }
 
     pub fn resolve_link_title(this: &mut WidgetMut<'_, Self>, placeholder: &str, title: &str) {
-        let Some(at) = this.widget.doc.text().find(placeholder) else { return };
+        let Some(at) = this.widget.doc.find(placeholder) else { return };
         this.widget.dispatch(vec![(at..at + placeholder.len(), escape::label(title))], None, Kind::Other);
         this.ctx.submit_action::<TextAction>(this.widget.doc.changed());
         this.ctx.request_layout();

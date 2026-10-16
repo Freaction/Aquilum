@@ -1,4 +1,4 @@
-use super::{append, find, format};
+use super::{appended, find, format};
 
 #[test]
 fn formats_like_tauri() {
@@ -30,6 +30,7 @@ fn reads_legacy_forms() {
     let doc = "> старая цитата[[→]](aquilum-reader:cfi=epubcfi%28%2F6%2F2%29)\n> [inline](aquilum-reader:cfi=x)\n> [!quote] без ссылки\n> [!book] [[Книга]]";
     let found = find(doc);
     assert_eq!(found.iter().map(|q| (q.cfi.as_str(), q.label.as_str())).collect::<Vec<_>>(), [("epubcfi(/6/2)", "1"), ("x", "2")]);
-    assert_eq!(append("a", "q\n"), "a\n\nq\n");
-    assert_eq!(append("a\n", "q\n"), "a\n\nq\n");
+    assert_eq!(appended(Some(b'a'), "q\n"), "\n\nq\n");
+    assert_eq!(appended(Some(b'\n'), "q\n"), "\nq\n");
+    assert_eq!(appended(None, "q\n"), "\nq\n");
 }

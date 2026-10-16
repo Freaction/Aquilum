@@ -3,6 +3,8 @@ use std::ops::Range;
 use masonry::core::BrushIndex;
 use masonry::parley::{Cluster, Layout};
 
+use super::super::embed::Formula;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Link {
     pub label: Range<usize>,
@@ -10,7 +12,7 @@ pub struct Link {
     pub wiki: bool,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Default)]
 pub struct Decor {
     pub x: f64,
     pub inset: f64,
@@ -21,6 +23,7 @@ pub struct Decor {
     pub tags: Vec<(Range<usize>, Option<usize>)>,
     pub links: Vec<Link>,
     pub caret: Option<usize>,
+    pub formulas: Vec<Formula>,
 }
 
 impl Decor {

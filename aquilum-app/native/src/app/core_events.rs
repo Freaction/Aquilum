@@ -24,6 +24,8 @@ impl App {
         self.on_graph_results(root);
         self.on_update(root);
         self.on_retention_done(root);
+        self.undo_failed_renames(root);
+        self.poll_find(root);
         let mut links_changed = false;
         let mut history_changed = false;
         let mut changed = Vec::new();
@@ -49,15 +51,7 @@ impl App {
                 }
                 CoreEvent::NotesRelocated(relocation) => {
                     for moved in &relocation.moves {
-                        // Открытая заметка переехала — заголовок и подсветка следуют за ней.
-                        self.interface.move_metadata(Path::new(&moved.from), Path::new(&moved.to));
-                        if let Some(note) = self.note.as_mut().filter(|n| n.is(Path::new(&moved.from))) {
-                            note.path = PathBuf::from(&moved.to);
-                            self.workspace.core.active_note.set(Some(note.path.clone()));
-                            self.tree.set_active(root, Some(note.path.clone()));
-                            self.refresh_note_names(root);
-                        }
-                        self.relocate_tabs(root, Path::new(&moved.from), Path::new(&moved.to));
+                        self.follow_move(root, Path::new(&moved.from), Path::new(&moved.to));
                         changed.push(PathBuf::from(&moved.from));
                         changed.push(PathBuf::from(&moved.to));
                     }
@@ -76,7 +70,7 @@ impl App {
             if let Some(note) = self.note.as_mut().filter(|n| rescan || touched.iter().any(|p| n.is(p)))
                 && let Some(text) = note.reload()
             {
-                self.set_editor_text(root, text);
+                self.set_text(root, text);
             }
         }
         if rescan {

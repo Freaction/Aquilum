@@ -15,7 +15,8 @@ cursor-icon = "1.2.0"
 dpi = "0.1.2"
 imaging = "0.0.1"
 kurbo = "0.13.1"
-parley = { version = "0.8.0", features = ["accesskit"] }
+parley = { version = "0.12.0", features = ["bytemuck"] }
+bytemuck = "1"
 peniko = "0.6.1"
 smallvec = "1.15.1"
 tracing = { version = "0.1.44", default-features = false, features = ["default"] }

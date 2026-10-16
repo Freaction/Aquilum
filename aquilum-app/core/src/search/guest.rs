@@ -170,7 +170,7 @@ mod tests {
 
         fn finds(&self, workspace: &str, word: &str) -> bool {
             self.service
-                .search(workspace, word, Some(10))
+                .search(workspace, &crate::search::query::Request::new(word))
                 .is_ok_and(|response| !response.results.is_empty())
         }
 

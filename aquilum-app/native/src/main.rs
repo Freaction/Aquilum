@@ -16,6 +16,7 @@ mod graph;
 mod reader;
 mod video;
 mod dates;
+mod disk;
 mod file_ops;
 mod fling;
 mod frontmatter;
@@ -39,6 +40,8 @@ mod output;
 mod paths;
 mod pdf;
 mod rank;
+mod rope;
+mod stats;
 mod render;
 #[cfg(not(feature = "installed"))]
 mod replay;

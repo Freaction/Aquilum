@@ -5,9 +5,9 @@ use aquilum_core::markdown::indent::Indent;
 impl TextEditor {
     fn continued(&self, i: usize) -> Option<Item<'_>> {
         let Block::Continuation { level, .. } = self.doc.paragraph(i).block else { return None };
-        let owner = (0..i).rev().map(|j| self.doc.paragraph(j)).find(|p| matches!(&p.block, Block::Item(item) if item.level() == level))?;
-        let item = Item::parse(&self.doc.text()[owner.range()])?;
-        let line = &self.doc.text()[self.doc.paragraph(i).range()];
+        let owner = (0..i).rev().map(|j| self.doc.paragraph(j)).find(|p| matches!(&p.block, Block::Item(item) if item.level() == *level))?;
+        let item = Item::parse(self.doc.slice(owner.range()))?;
+        let line = self.doc.slice(self.doc.paragraph(i).range());
         (Indent::of(line).columns == item.content_column()).then_some(item)
     }
 
@@ -23,7 +23,7 @@ impl TextEditor {
             return false;
         }
         let Range { start, end } = p.range();
-        let line = &self.doc.text()[start..end];
+        let line = self.doc.slice(start..end);
         let item = Item::parse(line);
         if item.as_ref().is_some_and(|item| at < start + item.content()) {
             return false;

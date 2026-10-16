@@ -25,7 +25,7 @@ fn line_spans(layout: &Layout<BrushIndex>, breaks: &[(usize, char)], text: &str,
             let range = line.text_range();
             let (a, b) = words(text, breaks, lo.max(range.start), hi.min(range.end));
             let metrics = line.metrics();
-            (a < b).then(|| (edge(a, Affinity::Downstream), f64::from(metrics.min_coord), edge(b, Affinity::Upstream), f64::from(metrics.max_coord)))
+            (a < b).then(|| (edge(a, Affinity::Downstream), f64::from(metrics.block_min_coord), edge(b, Affinity::Upstream), f64::from(metrics.block_max_coord)))
         })
         .collect()
 }
@@ -52,8 +52,8 @@ impl Session {
             .find(|piece| p.y < y0 + piece.y + (piece.to - piece.from))
             .or_else(|| column.pieces.last())?;
         let spot = |byte| Spot { block: piece.item, byte };
-        match &laid.items[piece.item] {
-            Item::Text { layout, x, breaks, .. } => {
+        match (&laid.items[piece.item], self.layout(piece.item)) {
+            (Item::Text { x, breaks, .. }, Some(layout)) => {
                 let local_x = (p.x - rect.x0 - x) as f32;
                 let local_y = ((p.y - y0 - piece.y).max(0.0) + piece.from).min(piece.to - 0.5) as f32;
                 if word {
@@ -84,7 +84,7 @@ impl Session {
             let first = out.len();
             for piece in &column.pieces {
                 let Some((start, end)) = self.block_range(piece.item, from, to) else { continue };
-                let (Item::Text { layout, x, breaks, .. }, Block::Text { text, .. }) = (&laid.items[piece.item], &self.blocks[piece.item]) else { continue };
+                let (Item::Text { x, breaks, .. }, Block::Text { text, .. }, Some(layout)) = (&laid.items[piece.item], &self.blocks[piece.item], self.layout(piece.item)) else { continue };
                 let dy = y0 + piece.y - piece.from;
                 for (left, top, right, bottom) in line_spans(layout, breaks, text, start, end) {
                     if (piece.from..piece.to).contains(&((top + bottom) / 2.0)) {
