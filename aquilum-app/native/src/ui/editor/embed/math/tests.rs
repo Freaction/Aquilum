@@ -7,7 +7,11 @@ use super::super::View;
 use super::super::drawing::Item;
 use super::math;
 use crate::ui::editor::document::Document;
-use crate::ui::editor::markdown::Fonts;
+use crate::ui::editor::markdown::{Boxed, Decor, Fonts};
+
+fn formulas(decor: &Decor) -> Vec<&super::Formula> {
+    decor.boxes.iter().filter_map(|b| if let Boxed::Formula(f) = b { Some(f) } else { None }).collect()
+}
 
 #[derive(Default)]
 struct Marks {
@@ -101,10 +105,10 @@ fn inline_formulas_replace_their_source_on_the_text_baseline() {
     let text = r"Энергия $E = mc^2$, дробь $\frac{a}{b}$ и строка $$ x^2 + y^2 = z^2 $$ и высокая $\dfrac{\dfrac{a}{b}}{c}$ и $\frac{a$";
     let doc = laid(text, None);
     let p = doc.paragraph(0);
-    assert_eq!(p.decor().formulas.len(), 4, "незакрытая формула должна остаться исходником");
+    assert_eq!(formulas(p.decor()).len(), 4, "незакрытая формула должна остаться исходником");
     let found = boxes(p.layout());
     assert_eq!(found.len(), 4);
-    for ((b, line), formula) in found.iter().zip(&p.decor().formulas) {
+    for ((b, line), formula) in found.iter().zip(formulas(p.decor())) {
         assert!((b.y + formula.ascent - line.baseline).abs() < 0.5, "формула не на базовой линии: {b:?} {line:?}");
         assert!(b.y >= line.block_min_coord - 0.5 && line.baseline + formula.depth <= line.block_max_coord + 0.5, "формула вылезла из строки: {b:?} {line:?}");
         assert!(b.width > 10.0);
@@ -114,5 +118,5 @@ fn inline_formulas_replace_their_source_on_the_text_baseline() {
     assert_eq!(height(r"Буква $x$"), height("Буква x"), "низкая формула раздвинула строку");
     assert!(height(r"Дробь $\dfrac{\dfrac{a}{b}}{c}$") > height("Дробь"), "высокая формула не раздвинула строку");
     let inside = laid(text, Some(text.find("mc^2").expect("формула")));
-    assert_eq!(inside.paragraph(0).decor().formulas.len(), 3, "под кареткой должен быть исходник");
+    assert_eq!(formulas(inside.paragraph(0).decor()).len(), 3, "под кареткой должен быть исходник");
 }

@@ -114,12 +114,13 @@ fn typing_markdown_never_breaks_layout() {
     let styles = StyleSet::new(16.0);
     let fonts = Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 8.0, callouts: true, tags: true };
     let unresolved = HashSet::new();
+    let context = markdown::Context { fonts: &fonts, unresolved: &unresolved, resolver: None };
     for line in TYPED.lines() {
         for end in line.char_indices().map(|(i, _)| i).chain([line.len()]) {
             let text = &line[..end];
             let block = markdown::classify(std::iter::once(text)).remove(0);
             for caret in [None, Some(end)] {
-                let _ = text::build(&mut fcx, &mut lcx, &styles, text, Some(end..end), Some(400.0), Alignment::Start, Some((&fonts, &block, caret, &unresolved)));
+                let _ = text::build(&mut fcx, &mut lcx, &styles, text, Some(end..end), Some(400.0), Alignment::Start, Some((&context, &block, caret)));
             }
         }
     }

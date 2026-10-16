@@ -107,7 +107,7 @@ impl Document {
             (Block::Image, Some(resolver)) => {
                 let mut line = media::parse(source);
                 if let Some((_, width)) = self.resized.filter(|(at, _)| *at == start) {
-                    line.params.width = Some(width);
+                    line.params.resize(width);
                 }
                 let (fetched, stamp) = resolver.media(&line.src, line.wiki);
                 if matches!(fetched, Fetch::Missing(_)) {
@@ -146,13 +146,13 @@ impl Document {
         stamp.hash(&mut hasher);
         self.unresolved.1.hash(&mut hasher);
         let key = hasher.finish();
-        if let Some(embed) = self.embeds.get(first).filter(|e| e.key == key) {
+        let context = self.context(fonts);
+        if let Some(embed) = self.embeds.get(first).filter(|e| e.key == key && !context.resolver.is_some_and(|r| e.view.decors().any(|decor| decor.stale(r)))) {
             return Some(embed.view.height());
         }
-        let unresolved = &self.unresolved.0;
         let view = match fetched {
             Fetched::Table => View::Table(table::parse_with(&lines, editing)?.layout(available, editing, |text, wrap, align, styled| match wrap {
-                Some(w) if styled => text::build(fcx, lcx, styles, text, None, Some(w as f32), align, Some((fonts, &Block::Text, None, unresolved))),
+                Some(w) if styled => text::build(fcx, lcx, styles, text, None, Some(w as f32), align, Some((&context, &Block::Text, None))),
                 Some(w) => (text::spec_layout(fcx, lcx, styles, fonts, &Spec { wrap: Some(w), align, ..Spec::plain(text, Font::Editor, markdown::TEXT) }), markdown::Decor::default()),
                 None => (text::spec_layout(fcx, lcx, styles, fonts, &Spec::plain(text, Font::Mono(LABEL_SIZE), markdown::SYNTAX)), markdown::Decor::default()),
             })),

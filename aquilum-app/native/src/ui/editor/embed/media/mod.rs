@@ -5,7 +5,8 @@ mod paint;
 mod view;
 
 pub use hit::{MediaHit, MediaOverlay};
-pub use markdown::{EmbedLine, format, is_embed, media_line, parse};
+pub use markdown::{EmbedLine, format, is_embed, is_html_image, media_line, parse};
+pub use paint::draw_image;
 pub use view::MediaView;
 
 const BUTTON: f64 = 24.0;

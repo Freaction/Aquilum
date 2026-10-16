@@ -4,8 +4,9 @@ use masonry::kurbo::{Rect, RoundedRect, Vec2};
 use masonry::parley::{Affinity, Cursor, Layout, PositionedLayoutItem, Selection};
 use masonry::peniko::{Brush, Color};
 
-use super::Decor;
+use super::super::embed::media::draw_image;
 use super::metrics::{INLINE_CODE_PADDING, TAG_PADDING};
+use super::{Boxed, Decor};
 use crate::ui::{palette, theme};
 
 const TAG_PAD_X: f64 = TAG_PADDING as f64;
@@ -63,15 +64,19 @@ pub fn paint_backgrounds(painter: &mut Painter<'_, impl PaintSink + ?Sized>, lay
     }
 }
 
-pub fn paint_formulas(painter: &mut Painter<'_, impl PaintSink + ?Sized>, layout: &Layout<BrushIndex>, decor: &Decor, origin: Vec2, palette: &[Brush]) {
-    if decor.formulas.is_empty() {
+pub fn paint_boxes(painter: &mut Painter<'_, impl PaintSink + ?Sized>, layout: &Layout<BrushIndex>, decor: &Decor, origin: Vec2, palette: &[Brush]) {
+    if decor.boxes.is_empty() {
         return;
     }
     for item in layout.lines().flat_map(|line| line.items()) {
         if let PositionedLayoutItem::InlineBox(b) = item
-            && let Some(formula) = decor.formulas.get(b.id as usize)
+            && let Some(boxed) = decor.boxes.get(b.id as usize)
         {
-            formula.paint(painter, origin + Vec2::new(f64::from(b.x), f64::from(b.y)), palette);
+            let at = origin + Vec2::new(f64::from(b.x), f64::from(b.y));
+            match boxed {
+                Boxed::Formula(formula) => formula.paint(painter, at, palette),
+                Boxed::Image { image, crop } => draw_image(painter, image, Rect::from_origin_size(at.to_point(), (f64::from(b.width), f64::from(b.height))), *crop),
+            }
         }
     }
 }

@@ -42,7 +42,7 @@ impl TableView {
                     }
                 }
                 render_text(painter, Affine::translate(o), &cell.layout, palette, true);
-                markdown::paint_formulas(painter, &cell.layout, &cell.decor, o, palette);
+                markdown::paint_boxes(painter, &cell.layout, &cell.decor, o, palette);
             }
             if let Some(range) = overlay.selection {
                 let r = self.range_rect(range, s) + Vec2::new(x, y);

@@ -131,6 +131,7 @@ impl App {
             let _ = root.redraw();
             if let Err(error) = crate::updater::apply(&payload, || self.shutdown()) {
                 report!("обновление не установлено: {error}");
+                self.updater.fail(error);
             }
         }
     }

@@ -61,3 +61,19 @@ fn a_window_inside_a_long_code_block_knows_it_is_code() {
     assert!(code, "окно в середине блока кода разобрано как текст: {:?}", doc.block(0));
     assert!(matches!(doc.block(doc.line_count() - 1), Block::Code { .. } | Block::Text));
 }
+
+#[test]
+fn lines_in_view_stay_laid_when_the_window_starts_below_the_top() {
+    use masonry::parley::{FontContext, LayoutContext};
+    let text = lines(50_000);
+    let mut doc = windowed(&text);
+    let (mut fcx, mut lcx, styles) = (FontContext::default(), LayoutContext::new(), masonry::core::StyleSet::new(16.0));
+    doc.layout(&mut fcx, &mut lcx, &styles, Some(600.0), None, None);
+    doc.include(text.len() / 2);
+    let y = doc.y_of(text.len() / 2);
+    doc.keep = (y - 400.0, y + 400.0);
+    doc.layout(&mut fcx, &mut lcx, &styles, Some(600.0), None, None);
+    let line = doc.at_y(y);
+    assert!(doc.above > 0.0, "окно не ушло от начала заметки");
+    assert!(doc.laid.get(line).is_some(), "видимая строка выброшена из раскладки: keep в координатах заметки, высоты — в координатах окна");
+}

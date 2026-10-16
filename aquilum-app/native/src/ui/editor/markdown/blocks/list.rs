@@ -27,12 +27,12 @@ fn tone(after: &str) -> Option<u8> {
 }
 
 impl Item {
-    pub(super) fn new(found: &grammar::Item, level: usize, line: &str) -> Item {
-        let tone = found.task.is_none().then(|| tone(&line[found.marker.end..])).flatten();
+    pub(super) fn new(found: &grammar::Item, level: usize, line: &str, at: usize) -> Item {
+        let tone = found.task.is_none().then(|| tone(&line[at + found.marker.end..])).flatten();
         let content = if tone.is_some() { found.marker.end + 2 } else { found.content };
         Item {
-            indent: found.indent.bytes as u32,
-            content: content as u32,
+            indent: (at + found.indent.bytes) as u32,
+            content: (at + content) as u32,
             level: level as u16,
             boxed: found.task.as_ref().map_or(0, |task| task.range.len() as u8),
             width: found.marker.len() as u8,

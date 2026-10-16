@@ -41,10 +41,18 @@ pub fn apply(payload: &[u8], before_exit: impl FnOnce()) -> Result<(), String> {
     std::process::exit(0);
 }
 
+fn appimage() -> Option<std::path::PathBuf> {
+    std::env::var_os("APPIMAGE").map(std::path::PathBuf::from)
+}
+
+pub fn supported() -> bool {
+    cfg!(any(target_os = "windows", target_os = "macos")) || cfg!(target_os = "linux") && appimage().is_some()
+}
+
 #[cfg(target_os = "linux")]
 pub fn apply(payload: &[u8], before_exit: impl FnOnce()) -> Result<(), String> {
     use std::os::unix::fs::PermissionsExt;
-    let image = std::env::var_os("APPIMAGE").map(std::path::PathBuf::from).ok_or("обновление поддерживается только для AppImage")?;
+    let image = appimage().ok_or("обновление поддерживается только для AppImage")?;
     let fresh = image.with_extension("update");
     std::fs::write(&fresh, payload).map_err(|e| e.to_string())?;
     std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;

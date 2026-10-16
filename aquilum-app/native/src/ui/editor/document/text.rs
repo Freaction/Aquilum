@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::ops::Range;
 
 use masonry::core::{BrushIndex, StyleSet};
@@ -65,7 +64,7 @@ pub fn build(
     underline: Option<Range<usize>>,
     width: Option<f32>,
     align: Alignment,
-    markdown: Option<(&Fonts, &Block, Option<usize>, &HashSet<String>)>,
+    markdown: Option<(&markdown::Context, &Block, Option<usize>)>,
 ) -> (Layout<BrushIndex>, Decor) {
     let mut builder = lcx.ranged_builder(fcx, text, 1.0, true);
     for prop in styles.inner().values() {
@@ -75,7 +74,7 @@ pub fn build(
         builder.push_default(StyleProperty::OverflowWrap(OverflowWrap::Anywhere));
     }
     let decor = match markdown {
-        Some((fonts, block, caret, unresolved)) => markdown::style(&mut builder, block, text, caret, fonts, unresolved),
+        Some((context, block, caret)) => markdown::style(&mut builder, block, text, caret, context, width),
         None => Decor::default(),
     };
     if let Some(range) = underline {

@@ -34,7 +34,7 @@ pub struct Updater {
 }
 
 pub fn available() -> bool {
-    cfg!(feature = "installed")
+    cfg!(feature = "installed") && apply::supported()
 }
 
 impl Updater {
@@ -107,6 +107,10 @@ impl Updater {
         verify(&data, &release.signature, PUBLIC_KEY)?;
         *self.payload.lock().unwrap_or_else(|e| e.into_inner()) = Some(data);
         Ok(())
+    }
+
+    pub fn fail(&self, error: String) {
+        self.set(Status::Failed(error));
     }
 
     pub fn take_ready(&self) -> Option<Vec<u8>> {

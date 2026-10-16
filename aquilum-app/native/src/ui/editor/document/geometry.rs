@@ -36,6 +36,10 @@ impl Document {
         self.heights.at(y - self.above)
     }
 
+    pub(super) fn kept(&self) -> (f64, f64) {
+        (self.keep.0 - self.above, self.keep.1 - self.above)
+    }
+
     pub fn take_shift(&mut self) -> f64 {
         std::mem::take(&mut self.shift)
     }

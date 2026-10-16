@@ -76,6 +76,9 @@ impl TextEditor {
         if self.doc.track((top, bottom)) {
             ctx.request_layout();
         }
+        if self.doc.growing() {
+            crate::ui::timer::wake(ctx.widget_id(), std::time::Instant::now());
+        }
         self.doc.anchor_at(top.max(0.0));
         let (keep, margin) = (self.doc.keep, bottom - top);
         let cover = margin / 4.0;

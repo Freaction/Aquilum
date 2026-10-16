@@ -34,6 +34,14 @@ impl View {
         }
     }
 
+    pub fn decors(&self) -> impl Iterator<Item = &super::markdown::Decor> {
+        let cells = match self {
+            View::Table(t) => t.cells.as_slice(),
+            _ => &[],
+        };
+        cells.iter().map(|cell| &cell.decor)
+    }
+
     pub fn paint(&self, painter: &mut Painter<'_>, x: f64, y: f64, palette: &[Brush], overlay: &Overlay, media: &MediaOverlay, hover: Option<usize>) {
         match self {
             View::Table(t) => t.paint(painter, x, y, palette, overlay),

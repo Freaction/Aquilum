@@ -15,8 +15,7 @@ impl TextEditor {
     fn task_at(&self, point: Point) -> Option<(Range<usize>, bool)> {
         let i = self.index_at(point)?;
         let p = self.doc.paragraph(i);
-        let Block::Item(item) = &p.block else { return None };
-        let (range, done) = item.task()?;
+        let (range, done) = p.block.item()?.task()?;
         if p.laid().is_none() || matches!(p.fold, Fold::Head | Fold::Member) || p.decor().caret.is_some_and(|c| range.start <= c && c <= range.end) {
             return None;
         }

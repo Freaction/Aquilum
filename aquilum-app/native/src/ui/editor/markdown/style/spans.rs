@@ -1,17 +1,34 @@
-use std::collections::HashSet;
-
 use masonry::core::{BrushIndex, StyleProperty};
 use masonry::parley::{FontStyle, FontWeight, InlineBox, InlineBoxKind, RangedBuilder, VerticalAlign};
 
-use super::super::super::embed::formula;
+use super::super::super::embed::{MediaView, formula, media};
+use super::super::super::resolve::{Fetch, Media, Resolver};
 use super::super::brushes::{ACCENT, LINK, LINK_MISSING, MUTED, SYNTAX, tag_brush};
 use super::super::inline::{Kind, hashtags, inline};
-use super::super::metrics::{Fonts, INLINE_CODE_PADDING, SCRIPT, TAG_PADDING};
-use super::super::{Decor, Link};
+use super::super::metrics::{INLINE_CODE_PADDING, SCRIPT, TAG_PADDING};
+use super::super::{Boxed, Decor, Link};
+use super::Context;
 use super::builder::{hide, push, touches};
 use crate::ui::palette;
 
-pub(super) fn style_spans(builder: &mut RangedBuilder<'_, BrushIndex>, text: &str, content: usize, caret: Option<usize>, fonts: &Fonts, unresolved: &HashSet<String>, decor: &mut Decor) {
+fn picture(builder: &mut RangedBuilder<'_, BrushIndex>, source: &str, at: usize, shown: bool, resolver: &dyn Resolver, room: f64, decor: &mut Decor) {
+    let line = media::parse(source);
+    let (fetched, stamp) = resolver.media(&line.src, line.wiki);
+    decor.pictures.push((line.src.clone(), line.wiki, stamp));
+    let Fetch::Ready(Media { image: Some(image), .. }) = &fetched else { return };
+    if shown {
+        return;
+    }
+    let image = image.clone();
+    let view = MediaView::new(&fetched, line, room, false);
+    let (width, height) = (view.frame.width() as f32, view.frame.height() as f32);
+    hide(builder, at..at + source.len(), 0.0);
+    builder.push_inline_box(InlineBox { id: decor.boxes.len() as u64, kind: InlineBoxKind::InFlow, index: at, width, height, baseline: Some(height), vertical_align: VerticalAlign::BASELINE });
+    decor.boxes.push(Boxed::Image { image, crop: view.crop() });
+}
+
+pub(super) fn style_spans(builder: &mut RangedBuilder<'_, BrushIndex>, text: &str, content: usize, caret: Option<usize>, context: &Context, room: f64, decor: &mut Decor) {
+    let (fonts, unresolved) = (context.fonts, context.unresolved);
     let tags: Vec<_> = hashtags(&text[content..]).into_iter().map(|tag| tag.start + content..tag.end + content).collect();
     for pair in tags.windows(2) {
         let gap = pair[0].end..pair[1].start;
@@ -30,10 +47,19 @@ pub(super) fn style_spans(builder: &mut RangedBuilder<'_, BrushIndex>, text: &st
             decor.tags.push((tag, slot));
         }
     }
-    for span in inline(&text[content..]) {
+    let spans = inline(&text[content..]);
+    let links: Vec<_> = spans.iter().filter(|s| matches!(s.kind, Kind::Link | Kind::Reader)).map(|s| s.whole.start + content..s.whole.end + content).collect();
+    for span in spans {
         let whole = span.whole.start + content..span.whole.end + content;
         let inner = span.inner.start + content..span.inner.end + content;
         let shown = touches(caret, &whole);
+        if span.kind == Kind::Image {
+            let shown = shown || links.iter().any(|link| link.start <= whole.start && whole.end <= link.end && touches(caret, link));
+            if let Some(resolver) = context.resolver {
+                picture(builder, &text[whole.clone()], whole.start, shown, resolver, room, decor);
+            }
+            continue;
+        }
         let reference = inner.start.saturating_sub(1).max(whole.start)..(inner.end + 1).min(whole.end);
         if let Some((target, wiki)) = &span.target {
             let label = if span.kind == Kind::Reader && !shown { reference.clone() } else { inner.clone() };
@@ -43,8 +69,8 @@ pub(super) fn style_spans(builder: &mut RangedBuilder<'_, BrushIndex>, text: &st
             match (!shown).then(|| formula(&text[inner.clone()], f64::from(fonts.size), inner.start - whole.start > 1)).flatten() {
                 Some(formula) => {
                     hide(builder, whole.clone(), 0.0);
-                    builder.push_inline_box(InlineBox { id: decor.formulas.len() as u64, kind: InlineBoxKind::InFlow, index: whole.start, width: formula.width, height: formula.ascent + formula.depth, baseline: Some(formula.ascent), vertical_align: VerticalAlign::BASELINE });
-                    decor.formulas.push(formula);
+                    builder.push_inline_box(InlineBox { id: decor.boxes.len() as u64, kind: InlineBoxKind::InFlow, index: whole.start, width: formula.width, height: formula.ascent + formula.depth, baseline: Some(formula.ascent), vertical_align: VerticalAlign::BASELINE });
+                    decor.boxes.push(Boxed::Formula(formula));
                 }
                 None => {
                     push(builder, StyleProperty::Brush(SYNTAX), whole.start..inner.start);
@@ -77,7 +103,7 @@ pub(super) fn style_spans(builder: &mut RangedBuilder<'_, BrushIndex>, text: &st
             }
             Kind::Sub | Kind::Sup => push(builder, StyleProperty::FontSize(fonts.size * SCRIPT), inner),
             Kind::Underline => push(builder, StyleProperty::Underline(true), inner),
-            Kind::Escape | Kind::Math => {}
+            Kind::Escape | Kind::Math | Kind::Image => {}
             Kind::Highlight => decor.marks.push(inner),
             Kind::Comment => {
                 push(builder, StyleProperty::Brush(MUTED), inner.clone());

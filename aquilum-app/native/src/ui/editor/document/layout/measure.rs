@@ -10,7 +10,7 @@ use super::super::laid::PLAIN;
 impl Document {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn measure(&mut self, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, compose: Option<(usize, &str)>, caret: Option<usize>, rebreak: bool, spans: &[Range<usize>], pinned: &[usize], stale: Option<&Range<usize>>, wanted: &mut Vec<String>) -> bool {
-        let keep = self.keep;
+        let keep = self.kept();
         let mut line = self.line_height();
         let mut changed = false;
         let (len, mut next) = (self.lines.count(), 0);

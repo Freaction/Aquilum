@@ -320,6 +320,7 @@
       "updatesAvailable": "Доступна версия {{version}}.",
       "updatesInstalling": "Устанавливаем версию {{version}}…",
       "updatesUnavailable": "Обновления доступны только в установленной версии, не в сборке для разработки.",
+      "updatesByPackage": "Пакет .deb или .rpm обновляется через менеджер пакетов или скачанным пакетом со страницы релизов. Само себя обновляет только AppImage.",
       "updatesFailed": "Не удалось проверить: {{message}}"
     },
     "templates": {

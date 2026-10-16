@@ -34,7 +34,7 @@ impl MediaView {
         let aspect = if image.is_some() { nw * sw / (nh * sh).max(1.0) } else { 16.0 / 9.0 };
         let natural = if image.is_some() { nw * sw } else { room };
         let w = line.params.width.unwrap_or(if video { room } else { natural }).min(room);
-        let h = w / aspect;
+        let h = line.params.height.zip(line.params.width).map_or(w / aspect, |(height, width)| height * w / width);
         let x = IMAGE_PAD_X
             + match line.params.align {
                 Alignment::Start | Alignment::Left => 0.0,

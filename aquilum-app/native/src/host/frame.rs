@@ -58,10 +58,7 @@ impl Host {
         }
         self.layers = Some(layers);
         self.schedule_live();
-        if !self.shown {
-            self.shown = true;
-            cloak(&*window, false);
-        }
+        self.reveal();
         let present = present_start.elapsed();
         #[cfg(not(feature = "installed"))]
         if let Some(replay) = &mut self.replay {

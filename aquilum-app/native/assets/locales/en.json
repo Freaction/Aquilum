@@ -318,6 +318,7 @@
       "updatesAvailable": "Version {{version}} is available.",
       "updatesInstalling": "Installing version {{version}}…",
       "updatesUnavailable": "Updates are only available in the installed app, not in a development build.",
+      "updatesByPackage": "A .deb or .rpm package is updated through the package manager or with a package downloaded from the releases page. Only the AppImage updates itself.",
       "updatesFailed": "Could not check: {{message}}"
     },
     "templates": {

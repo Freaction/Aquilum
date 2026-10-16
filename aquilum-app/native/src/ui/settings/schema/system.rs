@@ -33,7 +33,7 @@ pub(super) fn system(config: &AppConfig, ctx: &Context) -> Vec<Block> {
             Some(status) => update_row(status),
             None => info(
                 t("settings.system.manualUpdate"),
-                Some(t("settings.system.updatesUnavailable")),
+                Some(t(if cfg!(feature = "installed") { "settings.system.updatesByPackage" } else { "settings.system.updatesUnavailable" })),
                 Control::Buttons(vec![Button::new(t("settings.system.checkUpdates"), Action::CheckUpdates).enabled(false)]),
             ),
         });

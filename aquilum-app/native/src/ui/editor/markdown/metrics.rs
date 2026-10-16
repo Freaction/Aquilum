@@ -1,6 +1,6 @@
 use masonry::parley::FontFamily;
 
-pub(super) const LIST_START: f64 = 12.0;
+pub const LIST_START: f64 = 12.0;
 pub const LIST_LEVEL: f64 = 24.0;
 pub const QUOTE_BAR: f64 = 3.0;
 pub(super) const CODE_PADDING: f64 = 12.0;

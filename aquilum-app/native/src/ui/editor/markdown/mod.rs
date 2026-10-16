@@ -14,13 +14,13 @@ pub use blocks::{Block, Callout, State};
 #[cfg(test)]
 pub use blocks::classify;
 pub use brushes::{ACCENT, DANGER, LINK, MUTED, ON_ACCENT, SECONDARY, SUCCESS, SYNTAX, TEXT, palette, tone};
-pub use decor::{Decor, Link};
+pub use decor::{Boxed, Decor, Link};
 pub use inline::bare_urls;
 #[cfg(test)]
 pub use inline::{Kind as SpanKind, hashtags, inline as inline_spans};
 pub use mark::{Mark, enclosing, word_at};
-pub use metrics::{CHECKBOX, Fonts, LIST_LEVEL, QUOTE_BAR};
-pub use paint::{paint_backgrounds, paint_formulas, range_rects};
+pub use metrics::{CHECKBOX, Fonts, LIST_START, QUOTE_BAR};
+pub use paint::{paint_backgrounds, paint_boxes, range_rects};
 #[cfg(test)]
 pub use paint::tag_chips;
-pub use style::{push, style};
+pub use style::{Context, push, style};

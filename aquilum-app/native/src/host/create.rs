@@ -22,7 +22,6 @@ impl Host {
         let window = event_loop.create_window(attributes).expect("окно");
         self.accessibility = Accessibility::attach(&*window, event_loop.create_proxy());
         cloak(&*window, true);
-        window.set_visible(true);
         if self.args.size.is_none() && self.window_state.maximized() {
             window.set_maximized(true);
         }
@@ -64,8 +63,7 @@ impl Host {
         self.on_wake(event_loop);
         self.redraw();
         if self.output.is_none() {
-            self.shown = true;
-            cloak(self.window(), false);
+            self.reveal();
         }
     }
 }

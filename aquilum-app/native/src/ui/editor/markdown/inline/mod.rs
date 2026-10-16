@@ -28,6 +28,15 @@ pub enum Kind {
     BlockId,
     Link,
     Reader,
+    Image,
+}
+
+fn is_picture(source: &str, wiki: bool) -> bool {
+    use crate::images::{MediaKind, extension, kind};
+    match kind(source) {
+        Some(found) => found == MediaKind::Image,
+        None => !wiki && extension(source).is_none(),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -77,16 +86,26 @@ pub fn inline(text: &str) -> Vec<Span> {
                 links.push((if shown { range } else { 0..0 }, kind, (target, wiki), None));
             }
             Event::Start(Tag::Image { link_type, dest_url, .. }) => {
+                let wiki = matches!(link_type, LinkType::WikiLink { .. });
                 let note = std::path::Path::new(dest_url.as_ref()).extension().is_none_or(|e| e.eq_ignore_ascii_case("md"));
-                let shown = matches!(link_type, LinkType::WikiLink { .. }) && note;
-                links.push((if shown { range } else { 0..0 }, Kind::Link, (dest_url.to_string(), true), None));
+                let kind = if is_picture(&dest_url, wiki) { Kind::Image } else { Kind::Link };
+                let shown = kind == Kind::Image || wiki && note;
+                links.push((if shown { range } else { 0..0 }, kind, (dest_url.to_string(), true), None));
             }
             Event::End(TagEnd::Link | TagEnd::Image) => {
-                if let Some((whole, kind, target, Some(inner))) = links.pop()
+                if let Some((whole, kind, target, inner)) = links.pop()
                     && !whole.is_empty()
                 {
-                    spans.push(Span { kind, whole, inner, target: Some(target) });
+                    match (kind, inner) {
+                        (Kind::Image, inner) => spans.push(Span { kind, inner: inner.unwrap_or(whole.clone()), whole, target: None }),
+                        (_, Some(inner)) => spans.push(Span { kind, whole, inner, target: Some(target) }),
+                        _ => {}
+                    }
                 }
+            }
+            Event::Html(html) | Event::InlineHtml(html) if crate::ui::editor::embed::media::is_html_image(&html) => {
+                let whole = range.start..range.start + html.find('>').map_or(html.len(), |end| end + 1);
+                spans.push(Span { kind: Kind::Image, inner: whole.clone(), whole, target: None });
             }
             _ => {}
         }
@@ -101,7 +120,7 @@ pub fn inline(text: &str) -> Vec<Span> {
             span.whole.end += close + 2;
         }
     }
-    let literal: Vec<Range<usize>> = spans.iter().filter(|s| matches!(s.kind, Kind::Code | Kind::Math | Kind::Link | Kind::Reader)).map(|s| s.whole.clone()).collect();
+    let literal: Vec<Range<usize>> = spans.iter().filter(|s| matches!(s.kind, Kind::Code | Kind::Math | Kind::Link | Kind::Reader | Kind::Image)).map(|s| s.whole.clone()).collect();
     let taken: Vec<Range<usize>> = spans.iter().map(|s| s.whole.clone()).collect();
     spans.extend(bare_urls(text).into_iter().filter(|url| !taken.iter().any(|t| t.start < url.end && url.start < t.end)).map(|url| {
         let shown = &text[url.clone()];

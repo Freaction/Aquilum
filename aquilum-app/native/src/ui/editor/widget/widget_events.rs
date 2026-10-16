@@ -18,6 +18,9 @@ impl TextEditor {
     }
 
     pub(super) fn do_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
+        if self.doc.next_frame() {
+            ctx.request_compose();
+        }
         self.media_tick(ctx, interval);
         let (changed, playing) = self.videos.tick();
         if changed {

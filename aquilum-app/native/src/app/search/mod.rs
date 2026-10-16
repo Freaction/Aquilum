@@ -55,12 +55,13 @@ impl SearchState {
         std::path::PathBuf::from(&self.results[self.selected].path)
     }
 
+    #[cfg(feature = "memory-probe")]
     pub fn generation(&self) -> u64 {
         self.worker.current()
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "memory-probe"))]
 impl Found {
     pub fn generation(&self) -> u64 {
         self.generation

@@ -110,6 +110,13 @@ HTML-сущности: &copy; &amp; &lt; &gt; &quot; &nbsp; &mdash; &hellip; &eu
 >
 > - Список в цитате
 > - Второй пункт
+> - [ ] Задача в цитате
+> - [x] Выполненная задача в цитате
+>   - Вложенный пункт в цитате
+> 1. Нумерованный пункт в цитате
+>
+> > - Пункт во вложенной цитате
+> > - [x] Задача во вложенной цитате
 >
 > ```python
 > print("Код в цитате")
@@ -539,6 +546,34 @@ www.example.com — ссылка без протокола (GFM).
 ![Локальное изображение](./images/local.png)
 
 <img src="https://via.placeholder.com/150x60?text=HTML" width="150" alt="HTML-картинка" />
+
+### Картинки внутри строки
+
+Картинка посреди текста ![|40](https://via.placeholder.com/80x80.png?text=In) и дальше текст абзаца.
+
+Две картинки в одной строке: ![|50](https://via.placeholder.com/100x100.png?text=A) и ![|50](https://via.placeholder.com/100x100.png?text=B).
+
+- Пункт с картинкой в конце ![|48](https://via.placeholder.com/96x96.png?text=End)
+- ![Пункт целиком — картинка|160](https://via.placeholder.com/320x100.png?text=Item)
+	- ![Вложенный пункт|80](https://via.placeholder.com/160x60.png?text=Nested)
+1. ![Нумерованный пункт|100](https://via.placeholder.com/200x60.png?text=1)
+- [ ] Задача с картинкой ![|40](https://via.placeholder.com/80x80.png?text=Task)
+
+> ![Картинка в цитате|200](https://via.placeholder.com/400x120.png?text=Quote)
+> Подпись в той же цитате.
+
+> [!note] Выноска с картинкой
+> ![|150](https://via.placeholder.com/300x100.png?text=Callout)
+
+| Картинка | Описание |
+|---|---|
+| ![60](https://via.placeholder.com/120x60.png?text=Cell) | в ячейке таблицы |
+
+[![Миниатюра-ссылка](https://via.placeholder.com/120x60.png)](https://example.com)
+
+![Ширина и высота|300x80](https://via.placeholder.com/600x200.png?text=WxH)
+
+<img src="https://via.placeholder.com/150x60.png?text=HTML+inline" width="120" alt="HTML-картинка" /> — HTML-картинка в начале строки.
 
 [img1]: https://via.placeholder.com/200x80?text=Ref
 

@@ -1,5 +1,5 @@
 use super::*;
-use markdown::{LIST_LEVEL, QUOTE_BAR};
+use markdown::{LIST_START, QUOTE_BAR};
 use masonry::peniko::Brush;
 
 const BULLET: f64 = 5.0;
@@ -90,11 +90,11 @@ impl TextEditor {
 
     pub(super) fn paint_backdrop(&self, painter: &mut Painter<'_>, i: usize) {
         let p = self.doc.paragraph(i);
-        if let Block::Item(item) = &p.block
+        if let Some(item) = p.block.item()
             && let Some((_, tone)) = item.callout().filter(|_| self.doc.markdown.as_ref().is_some_and(|fonts| fonts.callouts))
         {
             let inner = (self.width - size::CARET_WIDTH * 2.0).max(0.0);
-            let x = self.shift().x + LIST_LEVEL * item.level() as f64;
+            let x = self.shift().x + p.decor().x - LIST_START;
             let shape = RoundedRect::new(x, self.doc.top(i), self.shift().x + inner, self.doc.bottom(i), CALLOUT_RADIUS);
             painter.fill(shape, markdown::tone(&theme::current(), tone).multiply_alpha(CALLOUT_ALPHA)).draw();
         }
@@ -108,40 +108,37 @@ impl TextEditor {
         let origin = self.shift() + self.doc.origin(i);
         let caret = p.decor().caret;
         let touching = |start: usize, end: usize| caret.is_some_and(|c| start <= c && c <= end);
-        match &p.block {
-            Block::Rule if caret.is_none() => {
-                let inner = (self.width - size::CARET_WIDTH * 2.0).max(0.0);
-                let (x, y) = (self.shift().x, (self.doc.top(i) + self.doc.bottom(i)) / 2.0);
-                painter.fill(Rect::new(x, y - RULE / 2.0, x + inner, y + RULE / 2.0), tm.icon_quiet).draw();
-            }
-            Block::Item(item) => {
-                let (marker, task) = (item.marker(), item.task());
-                let middle = origin.y + line_middle(layout);
-                if !item.ordered && !touching(marker.start, marker.end - 1) {
-                    let (x0, x1) = (x_at(layout, marker.start), x_at(layout, marker.start + 1));
-                    painter.fill(Circle::new((origin.x + (x0 + x1) / 2.0, middle), BULLET / 2.0), tm.editor_list_marker_color).draw();
-                }
-                if let Some((range, checked)) = task
-                    && !touching(range.start, range.end)
-                {
-                    let bounds = self.checkbox_rect(i, range.start);
-                    let shape = RoundedRect::from_rect(bounds, CHECKBOX_RADIUS);
-                    if checked {
-                        painter.fill(shape, tm.bg_accent).draw();
-                        let c = bounds.center();
-                        let mut check = BezPath::new();
-                        check.move_to((c.x - 4.5, c.y + 0.5));
-                        check.line_to((c.x - 1.5, c.y + 3.5));
-                        check.line_to((c.x + 4.5, c.y - 3.0));
-                        painter.stroke(&check, &Stroke::new(2.0).with_caps(Cap::Round).with_join(Join::Round), tm.icon_on_accent).draw();
-                    } else {
-                        painter.fill(shape, tm.bg_surface_overlay).draw();
-                    }
-                }
-            }
-            _ => {}
+        if matches!(p.block, Block::Rule) && caret.is_none() {
+            let inner = (self.width - size::CARET_WIDTH * 2.0).max(0.0);
+            let (x, y) = (self.shift().x, (self.doc.top(i) + self.doc.bottom(i)) / 2.0);
+            painter.fill(Rect::new(x, y - RULE / 2.0, x + inner, y + RULE / 2.0), tm.icon_quiet).draw();
         }
-        markdown::paint_formulas(painter, layout, p.decor(), origin, palette);
+        if let Some(item) = p.block.item() {
+            let (marker, task) = (item.marker(), item.task());
+            let middle = origin.y + line_middle(layout);
+            if !item.ordered && !touching(marker.start, marker.end - 1) {
+                let (x0, x1) = (x_at(layout, marker.start), x_at(layout, marker.start + 1));
+                painter.fill(Circle::new((origin.x + (x0 + x1) / 2.0, middle), BULLET / 2.0), tm.editor_list_marker_color).draw();
+            }
+            if let Some((range, checked)) = task
+                && !touching(range.start, range.end)
+            {
+                let bounds = self.checkbox_rect(i, range.start);
+                let shape = RoundedRect::from_rect(bounds, CHECKBOX_RADIUS);
+                if checked {
+                    painter.fill(shape, tm.bg_accent).draw();
+                    let c = bounds.center();
+                    let mut check = BezPath::new();
+                    check.move_to((c.x - 4.5, c.y + 0.5));
+                    check.line_to((c.x - 1.5, c.y + 3.5));
+                    check.line_to((c.x + 4.5, c.y - 3.0));
+                    painter.stroke(&check, &Stroke::new(2.0).with_caps(Cap::Round).with_join(Join::Round), tm.icon_on_accent).draw();
+                } else {
+                    painter.fill(shape, tm.bg_surface_overlay).draw();
+                }
+            }
+        }
+        markdown::paint_boxes(painter, layout, p.decor(), origin, palette);
     }
 
     pub(super) fn checkbox_rect(&self, i: usize, at: usize) -> Rect {

@@ -10,7 +10,7 @@ fn classifies_lines() {
     assert!(matches!(b[2], Block::Item(i) if i.level() == 1 && i.indent() == 1));
     assert!(matches!(b[3], Block::Item(i) if i.level() == 3 && i.indent() == 3));
     assert!(matches!(b[4], Block::Item(i) if i.ordered && i.marker() == (0..3)));
-    assert_eq!(b[5], Block::Quote { marker: 2, depth: 1, callout: None });
+    assert_eq!(b[5], Block::Quote { marker: 2, depth: 1, callout: None, item: None });
     assert_eq!(b[6], Block::Rule);
     assert!(matches!(b[7], Block::Code { first: true, fence: true, lang: Some(_), .. }));
     assert!(matches!(b[8], Block::Code { first: false, last: false, fence: false, .. }));
@@ -32,11 +32,21 @@ fn indented_code_outside_lists() {
 #[test]
 fn nested_quote_markers_are_one_prefix() {
     let b = blocks("> > Второй уровень\n> > > Третий\n>> плотно\n> ### Заголовок в цитате #");
-    assert_eq!(b[0], Block::Quote { marker: 4, depth: 2, callout: None });
-    assert_eq!(b[1], Block::Quote { marker: 6, depth: 3, callout: None });
-    assert_eq!(b[2], Block::Quote { marker: 3, depth: 2, callout: None });
-    assert_eq!(b[3], Block::Quote { marker: 2, depth: 1, callout: None });
+    assert_eq!(b[0], Block::Quote { marker: 4, depth: 2, callout: None, item: None });
+    assert_eq!(b[1], Block::Quote { marker: 6, depth: 3, callout: None, item: None });
+    assert_eq!(b[2], Block::Quote { marker: 3, depth: 2, callout: None, item: None });
+    assert_eq!(b[3], Block::Quote { marker: 2, depth: 1, callout: None, item: None });
     assert_eq!(heading("### Заголовок в цитате #"), Some(Block::Heading { level: 3, marker: 4 }));
+}
+
+#[test]
+fn list_items_inside_quotes_keep_their_marker_and_box_after_the_quote_prefix() {
+    let b = blocks("> - [x] задача\n> > 1. пункт\n> текст");
+    let task = b[0].item().expect("пункт в цитате");
+    assert_eq!((task.marker(), task.task()), (2..4, Some((4..7, true))));
+    let ordered = b[1].item().expect("пункт во вложенной цитате");
+    assert!(ordered.ordered && ordered.marker() == (4..7));
+    assert_eq!(b[2].item(), None);
 }
 
 #[test]
@@ -49,7 +59,7 @@ fn unclosed_fence_ends_at_document_end() {
 fn quote_callouts() {
     let b = blocks("> [!quote] текст\n> дальше\n\n> [!book] [[Книга]]");
     assert!(matches!(b[0], Block::Quote { callout: Some((ref r, Callout::Quote)), .. } if *r == (2..11)));
-    assert_eq!(b[1], Block::Quote { marker: 2, depth: 1, callout: None });
+    assert_eq!(b[1], Block::Quote { marker: 2, depth: 1, callout: None, item: None });
     assert!(matches!(b[3], Block::Quote { callout: Some((_, Callout::Book)), .. }));
 }
 

@@ -16,7 +16,7 @@ const ICON_STROKE: f64 = 1.6;
 const FOCUS: f64 = 1.0;
 const RING: f64 = 4.0;
 
-fn draw_image(painter: &mut Painter<'_>, image: &masonry::peniko::ImageBrush, frame: Rect, crop: [f64; 4]) {
+pub fn draw_image(painter: &mut Painter<'_, impl masonry::imaging::PaintSink + ?Sized>, image: &masonry::peniko::ImageBrush, frame: Rect, crop: [f64; 4]) {
     let [l, t, r, b] = crop;
     let (iw, ih) = (f64::from(image.image.width), f64::from(image.image.height));
     let (w, h) = (iw * (r - l) / 100.0, ih * (b - t) / 100.0);

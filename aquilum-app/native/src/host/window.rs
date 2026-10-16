@@ -26,11 +26,15 @@ mod win {
     }
 
     pub fn cloak(window: &dyn Window, cloaked: bool) {
-        let Some(hwnd) = hwnd(window) else { return };
-        if !cloaked {
-            let _ = unsafe { DwmFlush() };
+        if let Some(hwnd) = hwnd(window) {
+            if !cloaked {
+                let _ = unsafe { DwmFlush() };
+            }
+            set(hwnd, DWMWA_CLOAK, i32::from(cloaked));
         }
-        set(hwnd, DWMWA_CLOAK, i32::from(cloaked));
+        if cloaked {
+            window.set_visible(true);
+        }
     }
 
     pub fn set_background(window: &dyn Window, color: Color) {
@@ -53,7 +57,11 @@ mod win {
 pub(super) use win::{cloak, set_background};
 
 #[cfg(not(target_os = "windows"))]
-pub(super) fn cloak(_window: &dyn winit::window::Window, _cloaked: bool) {}
+pub(super) fn cloak(window: &dyn winit::window::Window, cloaked: bool) {
+    if !cloaked {
+        window.set_visible(true);
+    }
+}
 
 #[cfg(not(target_os = "windows"))]
 pub(super) fn set_background(_window: &dyn winit::window::Window, _color: masonry::peniko::Color) {}

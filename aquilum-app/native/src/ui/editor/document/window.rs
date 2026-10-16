@@ -55,14 +55,24 @@ impl Document {
         if bottom < self.above || top > self.above + self.heights.total() {
             let byte = self.byte_at(top);
             self.load(byte, Some(top));
+            self.grew = true;
             return;
         }
         let (first, last, count) = (self.at_y(top), self.at_y(bottom), self.lines.count());
-        if first < MARGIN / 2 && self.base > 0 || count - 1 - last < MARGIN / 2 && self.end() < self.len() {
+        if !self.grew && (first < MARGIN / 2 && self.base > 0 || count - 1 - last < MARGIN / 2 && self.end() < self.len()) {
             let a = self.back(self.start(first), MARGIN).max(self.back(self.base, JUMP));
             let b = self.forth(self.start(last), MARGIN).min(self.forth(self.end(), JUMP));
             self.reach(a, b);
+            self.grew = true;
         }
+    }
+
+    pub fn growing(&self) -> bool {
+        self.grew
+    }
+
+    pub fn next_frame(&mut self) -> bool {
+        std::mem::take(&mut self.grew)
     }
 
     pub(super) fn load(&mut self, byte: usize, align: Option<f64>) {

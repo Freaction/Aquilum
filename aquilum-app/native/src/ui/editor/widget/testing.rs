@@ -9,6 +9,10 @@ impl TextEditor {
         self.doc.source.is_some()
     }
 
+    pub fn inline_boxes(&self, line: usize) -> usize {
+        self.doc.paragraph(line).decor().boxes.len()
+    }
+
     pub fn brush_at(&self, offset: usize) -> Option<BrushIndex> {
         let (_, local, layout) = self.local(offset);
         layout?.lines().flat_map(|line| line.items().collect::<Vec<_>>()).find_map(|item| match item {

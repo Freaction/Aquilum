@@ -32,7 +32,7 @@ impl Document {
     }
 
     pub(super) fn evict(&mut self, pinned: &[usize]) {
-        let (heights, keep) = (&self.heights, self.keep);
+        let (heights, keep) = (&self.heights, self.kept());
         self.laid.retain(|i| heights.near(i, keep) || pinned.contains(&i));
     }
 

@@ -19,14 +19,14 @@ impl Document {
         let rebreak = self.width != width;
         self.width = width;
         self.rebroke |= rebreak;
-        if let Some((unresolved, stamp)) = self.resolver.as_ref().map(|r| r.unresolved())
-            && stamp != self.unresolved.1
-        {
-            let linked: Vec<usize> = self.laid.iter().filter(|(_, laid)| laid.decor.links.iter().any(|l| l.wiki)).map(|(i, _)| i).collect();
-            for &i in &linked {
+        if let Some(resolver) = self.resolver.clone() {
+            let (unresolved, stamp) = resolver.unresolved();
+            let relink = stamp != self.unresolved.1;
+            let stale: Vec<usize> = self.laid.iter().filter(|(_, laid)| relink && laid.decor.links.iter().any(|l| l.wiki) || laid.decor.stale(&*resolver)).map(|(i, _)| i).collect();
+            for &i in &stale {
                 self.laid.remove(i);
             }
-            if let (Some(&first), Some(&last)) = (linked.iter().min(), linked.iter().max()) {
+            if let (Some(&first), Some(&last)) = (stale.iter().min(), stale.iter().max()) {
                 self.mark(first..last + 1);
             }
             self.unresolved = (unresolved, stamp);

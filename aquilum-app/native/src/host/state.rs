@@ -25,6 +25,14 @@ impl Host {
         masonry::kurbo::Size::new(size.width, size.height)
     }
 
+    pub(super) fn reveal(&mut self) {
+        if !std::mem::replace(&mut self.shown, true) {
+            cloak(self.window(), false);
+            self.full_next = true;
+            self.request_redraw();
+        }
+    }
+
     pub(super) fn request_redraw(&mut self) {
         self.redraw_pending = true;
         if !self.occluded {

@@ -30,7 +30,7 @@ pub enum Block {
     Heading { level: u8, marker: usize },
     Item(Item),
     Continuation { level: usize, lead: usize, width: usize },
-    Quote { marker: usize, depth: u8, callout: Option<(Range<usize>, Callout)> },
+    Quote { marker: usize, depth: u8, callout: Option<(Range<usize>, Callout)>, item: Option<Item> },
     Rule,
     Code { first: bool, last: bool, fence: bool, lang: Option<Lang> },
     Table { first: bool, last: bool },
@@ -50,11 +50,20 @@ impl Block {
         matches!(self, Block::Quote { .. })
     }
 
+    pub fn item(&self) -> Option<&Item> {
+        match self {
+            Block::Item(item) | Block::Quote { item: Some(item), .. } => Some(item),
+            _ => None,
+        }
+    }
+
     pub(super) fn content(&self) -> usize {
+        if let Some(item) = self.item() {
+            return item.content();
+        }
         match self {
             Block::Heading { marker, .. } | Block::Quote { marker, callout: None, .. } | Block::Definition { marker } => *marker,
             Block::Quote { callout: Some((range, _)), .. } => range.end,
-            Block::Item(item) => item.content(),
             Block::Continuation { lead, .. } => *lead,
             _ => 0,
         }
@@ -121,10 +130,16 @@ impl State {
         Some(Block::Comment)
     }
 
-    fn item_line(&mut self, line: &str) -> Option<Block> {
-        let found = grammar::item(line).filter(|found| self.levels.accepts(found.indent.columns))?;
+    fn item_at(&mut self, line: &str, at: usize) -> Option<Item> {
+        let found = grammar::item(&line[at..]).filter(|found| self.levels.accepts(found.indent.columns))?;
         let level = self.levels.enter(found.indent.columns, found.content_column());
-        Some(Block::Item(Item::new(&found, level, line)))
+        Some(Item::new(&found, level, line, at))
+    }
+
+    fn quote_line(&mut self, line: &str) -> Option<Block> {
+        let Block::Quote { marker, depth, callout, .. } = quote(line)? else { return None };
+        let item = if callout.is_none() { self.item_at(line, marker) } else { None };
+        Some(Block::Quote { marker, depth, callout, item })
     }
 
     fn continuation_line(&self, line: &str) -> Option<Block> {
@@ -148,9 +163,9 @@ impl State {
             h
         } else if rule(line) {
             Block::Rule
-        } else if let Some(i) = self.item_line(line) {
-            i
-        } else if let Some(q) = quote(line) {
+        } else if let Some(i) = self.item_at(line, 0) {
+            Block::Item(i)
+        } else if let Some(q) = self.quote_line(line) {
             q
         } else if let Some(c) = self.continuation_line(line) {
             c
@@ -167,11 +182,11 @@ impl State {
 
     pub fn step(&mut self, line: &str, next: Option<&str>) -> Block {
         let block = match self.classify(line, next) {
-            Block::Quote { marker, depth, callout: Some((_, kind)) } if self.quoting && !matches!(kind, Callout::Book) => Block::Quote { marker, depth, callout: None },
+            Block::Quote { marker, depth, callout: Some((_, kind)), .. } if self.quoting && !matches!(kind, Callout::Book) => Block::Quote { marker, depth, callout: None, item: None },
             other => other,
         };
         let blank = line.trim().is_empty();
-        let in_list = matches!(block, Block::Item(_) | Block::Continuation { .. });
+        let in_list = block.item().is_some() || matches!(block, Block::Continuation { .. });
         self.quoting = block.is_quote();
         self.paragraph = matches!(block, Block::Text) && !blank;
         self.indenting = matches!(block, Block::Code { fence: false, lang: None, .. }) && self.open.is_none();

@@ -150,7 +150,7 @@ impl TextEditor {
         if let (Drag::Resize { .. }, Some((_, width))) = (drag, self.doc.resized.take())
             && let Some(mut line) = self.media_view(start).map(|v| v.line.clone())
         {
-            line.params.width = Some(width);
+            line.params.resize(width);
             self.rewrite(start, &line);
             self.changed(ctx);
         }

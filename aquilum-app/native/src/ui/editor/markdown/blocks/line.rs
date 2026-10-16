@@ -57,5 +57,5 @@ pub fn quote(line: &str) -> Option<Block> {
         };
         (c.range, kind)
     });
-    Some(Block::Quote { marker: found.marker, depth: u8::try_from(found.depth).unwrap_or(u8::MAX), callout })
+    Some(Block::Quote { marker: found.marker, depth: u8::try_from(found.depth).unwrap_or(u8::MAX), callout, item: None })
 }
