@@ -6,14 +6,15 @@ use masonry::kurbo::{Affine, Rect, RoundedRect};
 use masonry::peniko::{BlendMode, BrushRef};
 
 use super::Tracker;
-use super::hash::{H, clip_bounds};
+use super::hash::H;
+use super::stack::{clip_bounds, square};
 use crate::render::paint::convert;
 use crate::render::sprite::Sprite;
 
 impl PaintSink for Tracker {
     fn push_clip(&mut self, clip: ClipRef<'_>) {
         let (hash, rect) = clip_bounds(&clip, self.lift(self.top().region));
-        self.push(hash, rect, false);
+        self.push(hash, rect, false, square(&clip));
     }
 
     fn pop_clip(&mut self) {
@@ -27,7 +28,7 @@ impl PaintSink for Tracker {
         h.0.write_u64(hash);
         h.composite(group.composite);
         if group.composite.alpha <= 0.0 {
-            self.push(h.finish(), Rect::ZERO, true);
+            self.push(h.finish(), Rect::ZERO, true, false);
             return;
         }
         if group.mask.is_some() || !group.filters.is_empty() {
@@ -37,7 +38,7 @@ impl PaintSink for Tracker {
                 self.regions[region].blocked = true;
             }
         }
-        self.push(h.finish(), rect, group.composite.alpha < 1.0);
+        self.push(h.finish(), rect, group.composite.alpha < 1.0, false);
     }
 
     fn pop_group(&mut self) {

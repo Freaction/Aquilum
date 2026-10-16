@@ -52,12 +52,14 @@ impl TextEditor {
         }
 
         if let Some(close) = pair_close(c) {
-            let prev_char = self.doc.before(self.focus).chars().next_back();
-            if (c == '\'' || c == '"' || c == '`') && prev_char.is_some_and(char::is_alphanumeric) {
+            let before = self.doc.before(self.focus);
+            if (c == '\'' || c == '"' || c == '`') && before.chars().next_back().is_some_and(char::is_alphanumeric) {
                 return false;
             }
+            let fence = c == '`' && before.strip_suffix("``").is_some_and(|rest| !rest.ends_with(|p: char| p == '`' || p.is_alphanumeric()));
+            let insert = if fence { "````".to_owned() } else { format!("{c}{close}") };
             let inside = self.focus + c.len_utf8();
-            self.replace_and_select(self.focus..self.focus, &format!("{c}{close}"), Kind::Typing, (inside, inside));
+            self.replace_and_select(self.focus..self.focus, &insert, Kind::Typing, (inside, inside));
             return true;
         }
 

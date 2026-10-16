@@ -14,12 +14,26 @@ pub const MIN_SCALE: f64 = 0.7;
 pub const MAX_SCALE: f64 = 1.5;
 pub const SCALE_STEP: f64 = 0.05;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Side {
+    Sidebar,
+    Panel,
+}
+
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(default, rename_all = "camelCase")]
+struct Widths {
+    sidebar: Option<f64>,
+    panel: Option<f64>,
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 struct State {
     scale: f64,
     sidebar_open: bool,
     right_open: bool,
+    widths: Widths,
     panel_mode: Option<String>,
     analysis_method: Option<String>,
     settings_section: Option<String>,
@@ -35,6 +49,7 @@ impl Default for State {
             scale: 1.0,
             sidebar_open: true,
             right_open: true,
+            widths: Widths::default(),
             panel_mode: None,
             analysis_method: None,
             settings_section: None,
@@ -140,6 +155,24 @@ impl Interface {
 
     pub fn set_wide(&mut self, wide: bool) {
         self.state.wide = wide;
+        self.save();
+    }
+
+    pub fn width(&self, side: Side) -> Option<f64> {
+        let widths = &self.state.widths;
+        match side {
+            Side::Sidebar => widths.sidebar,
+            Side::Panel => widths.panel,
+        }
+        .filter(|width| width.is_finite() && *width > 0.0)
+    }
+
+    pub fn set_width(&mut self, side: Side, width: Option<f64>) {
+        let widths = &mut self.state.widths;
+        *match side {
+            Side::Sidebar => &mut widths.sidebar,
+            Side::Panel => &mut widths.panel,
+        } = width;
         self.save();
     }
 

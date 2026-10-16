@@ -26,7 +26,7 @@ pub fn save_error_banner(text: &str) -> (NewWidget<Flex>, SaveErrorIds) {
     let retry = NewWidget::new(TextButton::new(t("editor.saveRetry"), Variant::Primary).size(ButtonSize::Xs));
     let retry_id = retry.id();
 
-    let label = NewWidget::new(super::column::Caption::new(text));
+    let label = NewWidget::new(crate::ui::widgets::Caption::new(text));
     let mut row = Flex::row()
         .cross_axis_alignment(CrossAxisAlignment::Center)
         .main_axis_alignment(MainAxisAlignment::SpaceBetween);
@@ -59,8 +59,8 @@ pub fn open_error_page(path: &Path, error: &str) -> (NewWidget<Flex>, OpenErrorI
     let actions = NewWidget::new(actions).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_8))));
 
     let icon = NewWidget::new(IconButton::new(icons::FILE_X, t("editor.openFailedTitle"))).disabled(true);
-    let title = NewWidget::new(super::column::Caption::new(&t("editor.openFailedTitle")));
-    let desc_w = NewWidget::new(super::column::Caption::new(&desc));
+    let title = NewWidget::new(crate::ui::widgets::Caption::new(&t("editor.openFailedTitle")));
+    let desc_w = NewWidget::new(crate::ui::widgets::Caption::new(&desc));
 
     let content = Flex::column()
         .cross_axis_alignment(CrossAxisAlignment::Center)

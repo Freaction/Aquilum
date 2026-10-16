@@ -46,6 +46,13 @@ impl Collapse {
         }
     }
 
+    pub fn set_width(this: &mut WidgetMut<'_, Self>, width: f64) {
+        if this.widget.width != width {
+            this.widget.width = width;
+            this.ctx.request_layout();
+        }
+    }
+
     fn goal(&self) -> f64 {
         if self.open { 1.0 } else { 0.0 }
     }

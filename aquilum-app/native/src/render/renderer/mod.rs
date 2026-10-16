@@ -62,6 +62,8 @@ pub struct Renderer {
     pub rastered: Vec<(u16, u16, u16, u16)>,
     #[cfg(test)]
     pub moved: Vec<(u16, u16, u16, u16, i32)>,
+    #[cfg(test)]
+    pub causes: Vec<masonry::kurbo::Rect>,
 }
 
 impl Renderer {
@@ -90,6 +92,8 @@ impl Renderer {
             rastered: Vec::new(),
             #[cfg(test)]
             moved: Vec::new(),
+            #[cfg(test)]
+            causes: Vec::new(),
         }
     }
 

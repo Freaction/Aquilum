@@ -1,7 +1,7 @@
 use std::hash::Hasher;
 
 use masonry::imaging::{FillRef, GeometryRef};
-use masonry::kurbo::{Affine, Rect};
+use masonry::kurbo::{Affine, Rect, Vec2};
 use masonry::peniko::BrushRef;
 
 use super::hash::H;
@@ -25,6 +25,7 @@ impl Tracker {
                 false
             }
         };
+        h.cut(bounds + Vec2::new(0.0, self.lift(level.region)), level.cut);
         h.0.write_u64(level.state);
         let region = level.region.map(|r| self.regions[r].id);
         let solid = solid.map(|(mut key, radius)| {

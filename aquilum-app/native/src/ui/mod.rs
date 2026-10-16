@@ -39,7 +39,7 @@ mod snapshot;
 
 use masonry::core::WidgetTag;
 
-pub use header::panel_label;
+pub use header::{controls_width, panel_label};
 pub use rail::{home_widget, sidebar_label};
 pub use shell::{Chrome, RootParts, root};
 

@@ -5,7 +5,7 @@ mod version;
 
 use masonry::core::{NewWidget, PropertySet};
 use masonry::layout::Length;
-use masonry::properties::Padding;
+use masonry::properties::{Gap, Padding};
 use masonry::widgets::Flex;
 
 use super::text::label;
@@ -31,7 +31,7 @@ fn heading_label(text: &str) -> NewWidget<Label> {
 }
 
 fn heading_row(row: Flex) -> NewWidget<Flex> {
-    NewWidget::new(row).with_props(PropertySet::new().with(Padding {
+    NewWidget::new(row).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_8))).with(Padding {
         top: Length::px(size::SPACE_8),
         bottom: Length::px(size::SPACE_4),
         left: Length::px(size::SPACE_6),

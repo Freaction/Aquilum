@@ -42,3 +42,19 @@ fn shortcuts_toggle_bold_italic_and_strike() {
     command_key(&mut root, "b");
     assert_eq!(text(&root), "~~слово~~", "каретка внутри жирного снимает его");
 }
+
+#[test]
+fn three_backticks_open_a_fence_with_its_closing_backticks() {
+    let mut root = markdown_root("");
+    for _ in 0..3 {
+        super::support::typing(&mut root, "`");
+    }
+    assert_eq!(text(&root), "``````");
+    super::support::typing(&mut root, "js");
+    assert_eq!(text(&root), "```js```");
+    let mut root = markdown_root("слово");
+    named(&mut root, NamedKey::End);
+    super::support::typing(&mut root, "``");
+    super::support::typing(&mut root, "`");
+    assert!(!text(&root).ends_with("``````"), "после буквы ограждение не открывается: {}", text(&root));
+}

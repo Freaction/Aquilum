@@ -31,15 +31,25 @@ struct Solid {
 
 impl Solid {
     fn changed(self, old: Solid) -> Vec<Rect> {
-        let span = self.rect.union(old.rect);
+        let (new, was) = (self.rect.intersect(self.clip), old.rect.intersect(old.clip));
+        let span = new.union(was);
         let r = self.radius;
         let band = |a: f64, b: f64| (a != b).then(|| (a.min(b) - r, a.max(b) + r));
-        let columns = [band(old.rect.x0, self.rect.x0), band(old.rect.x1, self.rect.x1)].into_iter().flatten().map(|(x0, x1)| Rect::new(x0, span.y0, x1, span.y1));
-        let rows = [band(old.rect.y0, self.rect.y0), band(old.rect.y1, self.rect.y1)].into_iter().flatten().map(|(y0, y1)| Rect::new(span.x0, y0, span.x1, y1));
-        let edges: Vec<Rect> = columns.chain(rows).map(|rect| rect.intersect(self.clip)).collect();
-        let whole = [self.rect.intersect(self.clip), old.rect.intersect(old.clip)];
+        let columns = [band(was.x0, new.x0), band(was.x1, new.x1)].into_iter().flatten().map(|(x0, x1)| Rect::new(x0, span.y0, x1, span.y1));
+        let rows = [band(was.y0, new.y0), band(was.y1, new.y1)].into_iter().flatten().map(|(y0, y1)| Rect::new(span.x0, y0, span.x1, y1));
+        let edges: Vec<Rect> = columns.chain(rows).map(|rect| rect.intersect(span)).collect();
+        let whole = [new, was];
         let size = |rects: &[Rect]| rects.iter().map(|r| r.width().max(0.0) * r.height().max(0.0)).sum::<f64>();
         if size(&edges) < size(&whole) { edges } else { whole.to_vec() }
+    }
+
+    fn closest(self, gone: &[Draw]) -> Option<usize> {
+        let shared = |old: &Solid| {
+            let common = old.rect.intersect(old.clip).intersect(self.rect.intersect(self.clip));
+            common.width().max(0.0) * common.height().max(0.0)
+        };
+        let found = gone.iter().enumerate().filter_map(|(at, d)| Some((at, shared(&d.solid.filter(|o| o.key == self.key)?))));
+        found.filter(|&(_, area)| area > 0.0).max_by(|a, b| a.1.total_cmp(&b.1)).map(|(at, _)| at)
     }
 }
 
@@ -47,9 +57,12 @@ impl Solid {
 struct Level {
     state: u64,
     clip: Rect,
+    cut: Rect,
     region: Option<usize>,
     faded: bool,
 }
+
+const OPEN: Rect = Rect::new(f64::NEG_INFINITY, f64::NEG_INFINITY, f64::INFINITY, f64::INFINITY);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Move {
@@ -77,11 +90,13 @@ pub struct Tracker {
     pub live: Vec<(u64, Rect, Affine, RoundedRect)>,
     pub sprites: Vec<Sprite>,
     covered: Vec<Rect>,
+    #[cfg(test)]
+    pub causes: Vec<Rect>,
 }
 
 impl Tracker {
     pub fn new() -> Self {
-        Tracker { frame: Rect::ZERO, stack: Vec::new(), draws: Vec::new(), previous: Vec::new(), forced: None, regions: Vec::new(), past: Vec::new(), live: Vec::new(), sprites: Vec::new(), covered: Vec::new() }
+        Tracker { frame: Rect::ZERO, stack: Vec::new(), draws: Vec::new(), previous: Vec::new(), forced: None, regions: Vec::new(), past: Vec::new(), live: Vec::new(), sprites: Vec::new(), covered: Vec::new(), #[cfg(test)] causes: Vec::new() }
     }
 
     pub fn forget(&mut self) {
@@ -92,7 +107,7 @@ impl Tracker {
     pub fn begin(&mut self, width: u16, height: u16, scale: f64) {
         self.frame = Rect::new(0.0, 0.0, f64::from(width), f64::from(height));
         self.stack.clear();
-        self.stack.push(Level { state: 0, clip: self.frame, region: None, faded: false });
+        self.stack.push(Level { state: 0, clip: self.frame, cut: OPEN, region: None, faded: false });
         self.draws.clear();
         self.live.clear();
         self.sprites.clear();
@@ -141,7 +156,7 @@ impl Tracker {
         let calm = shifts.iter().all(Option::is_none);
         let (mut solids, rest): (Vec<Draw>, Vec<Draw>) = gone.into_iter().partition(|d| calm && d.solid.is_some());
         for draw in added {
-            let pair = draw.solid.filter(|_| calm).and_then(|solid| Some((solid, solids.iter().position(|old| old.solid.is_some_and(|o| o.key == solid.key))?)));
+            let pair = draw.solid.filter(|_| calm).and_then(|solid| Some((solid, solid.closest(&solids)?)));
             match pair {
                 Some((solid, at)) => rects.extend(solid.changed(solids.swap_remove(at).solid.expect("заливка с ключом"))),
                 None => rects.push(draw.rect),
@@ -149,6 +164,10 @@ impl Tracker {
         }
         for draw in solids.into_iter().chain(rest) {
             self.vanished(draw, &shifts, &mut rects);
+        }
+        #[cfg(test)]
+        {
+            self.causes = rects.clone();
         }
         let moves = self.moves(&shifts, &mut rects);
         std::mem::swap(&mut self.draws, &mut self.previous);

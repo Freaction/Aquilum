@@ -3,7 +3,7 @@
 
 use masonry::core::{BrushIndex, PaintCtx};
 use masonry::parley::style::StyleProperty;
-use masonry::parley::{FontWeight, Layout, LineHeight};
+use masonry::parley::{FontContext, FontWeight, Layout, LayoutContext, LineHeight};
 
 use super::theme;
 
@@ -23,71 +23,67 @@ impl Style {
     }
 }
 
-/// Раскладка строки `text` шириной не больше `width`; кэшируется до смены текста, ширины
-/// или начертания.
 #[derive(Default)]
 pub struct Line {
-    cached: Option<(Layout<BrushIndex>, f64, String, Option<Style>)>,
+    full: Option<(Layout<BrushIndex>, String, Style)>,
+    ellipsis: Option<f64>,
+    cut: Option<(Layout<BrushIndex>, usize)>,
 }
 
 impl Line {
-    /// Забыть раскладку: изменились шрифты.
     pub fn clear(&mut self) {
-        self.cached = None;
+        *self = Line::default();
     }
 
     pub fn layout(&mut self, ctx: &mut PaintCtx<'_>, text: &str, width: f64, style: Style) -> &Layout<BrushIndex> {
-        let fresh = self.cached.as_ref().is_some_and(|(_, w, t, s)| *w == width && t == text && *s == Some(style));
-        if !fresh {
-            self.cached = Some((build(ctx, text, width, style), width, text.to_owned(), Some(style)));
+        let (font_cx, layout_cx) = ctx.text_contexts();
+        if self.full.as_ref().is_none_or(|(_, t, s)| t != text || *s != style) {
+            *self = Line { full: Some((shape(font_cx, layout_cx, text, style), text.to_owned(), style)), ..Line::default() };
         }
-        &self.cached.as_ref().expect("раскладка построена выше").0
+        let full = &self.full.as_ref().expect("раскладка построена выше").0;
+        if f64::from(full.width()) <= width {
+            return full;
+        }
+        let ellipsis = *self.ellipsis.get_or_insert_with(|| f64::from(shape(font_cx, layout_cx, "…", style).width()));
+        let end = cut(full, width - ellipsis).unwrap_or(text.len());
+        if self.cut.as_ref().is_none_or(|(_, at)| *at != end) {
+            let shown = text[..end].trim_end().to_owned() + "…";
+            self.cut = Some((shape(font_cx, layout_cx, &shown, style), end));
+        }
+        &self.cut.as_ref().expect("обрезка построена выше").0
     }
 }
 
-/// Ширина строки без ограничения — для подбора ширины кнопок и пунктов меню.
+fn cut(layout: &Layout<BrushIndex>, room: f64) -> Option<usize> {
+    let mut x = 0.0;
+    for cluster in layout.lines().flat_map(|line| line.runs()).flat_map(|run| run.clusters()) {
+        x += f64::from(cluster.advance());
+        if x > room {
+            return Some(cluster.text_range().start);
+        }
+    }
+    None
+}
+
 pub fn measure(ctx: &mut masonry::core::MeasureCtx<'_>, text: &str, style: Style) -> f64 {
     let (font_cx, layout_cx) = ctx.text_contexts();
     measure_with(font_cx, layout_cx, text, style)
 }
 
-pub fn measure_with(font_cx: &mut masonry::parley::FontContext, layout_cx: &mut masonry::parley::LayoutContext<BrushIndex>, text: &str, style: Style) -> f64 {
+pub fn measure_with(font_cx: &mut FontContext, layout_cx: &mut LayoutContext<BrushIndex>, text: &str, style: Style) -> f64 {
+    f64::from(shape(font_cx, layout_cx, text, style).width())
+}
+
+fn shape(font_cx: &mut FontContext, layout_cx: &mut LayoutContext<BrushIndex>, text: &str, style: Style) -> Layout<BrushIndex> {
     let family = theme::ui_font_settings().family.clone();
     let mut builder = layout_cx.ranged_builder(font_cx, text, 1.0, true);
     builder.push_default(StyleProperty::FontFamily(theme::ui_font(&family)));
     builder.push_default(StyleProperty::FontSize(style.size));
     builder.push_default(StyleProperty::FontWeight(FontWeight::new(style.weight)));
+    builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(style.line_height as f32)));
     let mut layout = builder.build(text);
     layout.break_all_lines(None);
-    f64::from(layout.width())
-}
-
-fn build(ctx: &mut PaintCtx<'_>, text: &str, width: f64, style: Style) -> Layout<BrushIndex> {
-    let family = theme::ui_font_settings().family.clone();
-    let (font_cx, layout_cx) = ctx.text_contexts();
-    let mut make = |text: &str| {
-        let mut builder = layout_cx.ranged_builder(font_cx, text, 1.0, true);
-        builder.push_default(StyleProperty::FontFamily(theme::ui_font(&family)));
-        builder.push_default(StyleProperty::FontSize(style.size));
-        builder.push_default(StyleProperty::FontWeight(FontWeight::new(style.weight)));
-        builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(style.line_height as f32)));
-        let mut layout = builder.build(text);
-        layout.break_all_lines(None);
-        layout
-    };
-    let layout = make(text);
-    if f64::from(layout.width()) <= width {
-        return layout;
-    }
-    // Самый длинный префикс, который влезает вместе с многоточием.
-    let chars: Vec<char> = text.chars().collect();
-    let truncated = |n: usize| chars[..n].iter().collect::<String>().trim_end().to_owned() + "…";
-    let (mut lo, mut hi) = (0, chars.len());
-    while lo < hi {
-        let mid = (lo + hi).div_ceil(2);
-        if f64::from(make(&truncated(mid)).width()) <= width { lo = mid } else { hi = mid - 1 }
-    }
-    make(&truncated(lo))
+    layout
 }
 
 fn plain(text: &str, paint: super::widgets::Paint, weight: Option<f32>, leading: super::widgets::Leading) -> super::widgets::Label {

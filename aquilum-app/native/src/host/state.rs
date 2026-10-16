@@ -25,9 +25,16 @@ impl Host {
         masonry::kurbo::Size::new(size.width, size.height)
     }
 
+    pub(super) fn restore_maximized(&self, window: &dyn Window) {
+        if self.args.size.is_none() && self.window_state.maximized() {
+            window.set_maximized(true);
+        }
+    }
+
     pub(super) fn reveal(&mut self) {
         if !std::mem::replace(&mut self.shown, true) {
             cloak(self.window(), false);
+            self.restore_maximized(self.window());
             self.full_next = true;
             self.request_redraw();
         }

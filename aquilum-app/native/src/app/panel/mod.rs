@@ -121,6 +121,7 @@ impl App {
             let label = crate::i18n::t(crate::ui::panel_label(open));
             root.edit_widget(chrome.panel_toggle, |mut w| crate::ui::widgets::IconButton::set_label(&mut w.downcast(), &label));
         }
+        self.apply_widths(root);
         self.request_panel(root);
     }
 
@@ -173,10 +174,12 @@ impl App {
         root.add_layer(widget, Point::new(window.width - size::TITLEBAR_CONTROLS_INSET, 0.0));
         self.controls = Some((layer, maximize));
         self.window = window;
+        self.apply_widths(root);
     }
 
     pub fn window_resized(&mut self, root: &mut RenderRoot, window: Size) {
         self.window = window;
+        self.apply_widths(root);
         if let Some((layer, _)) = self.controls {
             root.reposition_layer(layer, Point::new(window.width - size::TITLEBAR_CONTROLS_INSET, 0.0));
         }

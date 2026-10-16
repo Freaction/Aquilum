@@ -4,7 +4,7 @@ use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{Gap, Padding};
 use masonry::widgets::{Flex, SizedBox};
 
-use super::column::{Caption, EditorColumn};
+use super::column::EditorColumn;
 use super::metadata::metadata_widget;
 use super::title::TitleField;
 use crate::i18n::t;
@@ -14,7 +14,7 @@ use crate::ui::icons;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::style;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{ButtonSize, IconButton, Slot, TextButton, Variant, Visible};
+use crate::ui::widgets::{ButtonSize, Caption, IconButton, Slot, TextButton, Variant, Visible};
 
 pub struct NoteView<'a> {
     pub file_name: &'a str,

@@ -58,6 +58,7 @@ impl Renderer {
             self.shifts += damage.moves.len();
             self.rastered = damage.areas.clone();
             self.moved = damage.moves.iter().map(|m| (m.x, m.y, m.w, m.h, m.dy)).collect();
+            self.causes = std::mem::take(&mut self.tracker.causes);
         }
         let dirty: Vec<Area> = damage.areas.iter().copied().chain(damage.moves.iter().map(|m| (m.x, m.y, m.w, m.h))).map(area).collect();
         let touched: Vec<Area> = dirty.iter().copied().chain(self.due_areas(seconds)).collect();

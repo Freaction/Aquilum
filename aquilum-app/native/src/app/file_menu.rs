@@ -89,11 +89,7 @@ impl App {
 
     fn pick_tab(&mut self, root: &mut RenderRoot, index: usize) -> Outcome {
         let Some(id) = self.tabs.tabs().get(index).map(|tab| tab.id) else { return Outcome::default() };
-        let outcome = self.on_titlebar(root, &crate::ui::titlebar::TitlebarAction::Select(id), self.window);
-        if let Some(chrome) = &self.chrome {
-            chrome.tab_strip.edit(root, |mut strip| crate::ui::titlebar::TabStrip::reveal(&mut strip, index));
-        }
-        outcome
+        self.on_titlebar(root, &crate::ui::titlebar::TitlebarAction::Select(id), self.window)
     }
 
     pub(super) fn on_popup_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Outcome {

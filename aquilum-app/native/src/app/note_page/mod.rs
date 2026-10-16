@@ -16,8 +16,8 @@ use masonry::widgets::SizedBox;
 use super::App;
 use crate::frontmatter;
 use crate::ui::editor::TextEditor;
-use crate::ui::note::{self, Caption, NoteView, TitleField};
-use crate::ui::widgets::Slot;
+use crate::ui::note::{self, NoteView, TitleField};
+use crate::ui::widgets::{Caption, Slot};
 
 impl App {
     pub(in crate::app) fn metadata_state(&self) -> Option<bool> {

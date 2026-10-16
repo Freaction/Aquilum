@@ -29,6 +29,7 @@ pub struct Chrome {
     pub workspaces: WidgetId,
     pub open_vault: WidgetId,
     pub sidebar: Handle<Collapse>,
+    pub sidebar_sash: WidgetId,
     pub note_page: Handle<Slot>,
     pub rail: Handle<Collapse>,
     pub rail_settings: WidgetId,
@@ -46,7 +47,10 @@ pub struct RootParts<'a> {
     pub note: NewWidget<dyn Widget>,
     pub sidebar_open: bool,
     pub sidebar_from: bool,
+    pub sidebar_width: f64,
+    pub panel_width: f64,
     pub tabs: Vec<NewWidget<dyn Widget>>,
+    pub active_tab: usize,
     pub empty_tab: bool,
     pub vault_open: bool,
     pub vault_error: Option<&'a str>,
@@ -61,16 +65,16 @@ pub struct RootParts<'a> {
 }
 
 pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<impl Widget>, Chrome) {
-    let RootParts { workspace_name, note, sidebar_open, sidebar_from, tabs, empty_tab, vault_open, vault_error, panel_open, panel_from, panel_mode, has_analysis, focus_mode, home, graph, graph_active } = parts;
+    let RootParts { workspace_name, note, sidebar_open, sidebar_from, sidebar_width, panel_width, tabs, active_tab, empty_tab, vault_open, vault_error, panel_open, panel_from, panel_mode, has_analysis, focus_mode, home, graph, graph_active } = parts;
 
     let rail = rail(sidebar_open, home, focus_mode);
-    let sidebar = sidebar(tree, workspace_name, sidebar_open && !focus_mode, sidebar_from);
+    let sidebar = sidebar(tree, workspace_name, sidebar_width, sidebar_open && !focus_mode, sidebar_from);
 
     let note_page = Slot::new(note);
     let note_handle = Handle::of(&note_page);
-    let titlebar = titlebar(tabs, panel_open, panel_from, focus_mode);
+    let titlebar = titlebar(tabs, active_tab, panel_open, panel_from, focus_mode);
     let focus_hidden = vec![titlebar.toggle_shown];
-    let (panel, panel_handle, panel_parts) = backlinks::panel(panel_mode, has_analysis, panel_open, panel_from);
+    let (panel, panel_handle, panel_parts) = backlinks::panel(panel_mode, has_analysis, panel_width, panel_open, panel_from);
     let (empty, create_note, open_file, close_tab) = new_tab_view();
     let version_page = Slot::new(NewWidget::new(Flex::column()).erased());
     let version_handle = Handle::of(&version_page);
@@ -116,6 +120,7 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
         workspaces: sidebar.workspaces,
         open_vault,
         sidebar: sidebar.handle,
+        sidebar_sash: sidebar.sash,
         note_page: note_handle,
         rail: rail.handle,
         rail_settings: titlebar.settings,

@@ -25,6 +25,7 @@ impl App {
             }
             ids.focus_button.edit(root, |mut b| TextButton::set_pressed(&mut b, focus));
         }
+        self.apply_widths(root);
         if panel {
             self.request_panel(root);
         }

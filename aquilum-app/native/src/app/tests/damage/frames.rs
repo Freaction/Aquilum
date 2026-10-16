@@ -16,6 +16,7 @@ pub(super) struct Report {
     pub(super) shown: Vec<Area>,
     pub(super) time: std::time::Duration,
     pub(super) differ: usize,
+    pub(super) causes: Vec<Rect>,
 }
 
 impl Report {
@@ -31,6 +32,9 @@ impl Report {
             self.shown.iter().map(|a| (a.x, a.y, a.w, a.h)).collect::<Vec<_>>(),
             self.time.as_secs_f64() * 1000.0
         );
+        let mut causes = self.causes.clone();
+        causes.sort_by(|a, b| b.area().total_cmp(&a.area()));
+        eprintln!("  крупнейшие изменения до слияния: {:?}", causes.iter().take(8).map(|r| (r.x0.round(), r.y0.round(), r.x1.round(), r.y1.round())).collect::<Vec<_>>());
     }
 
     pub(super) fn above(&self, y: f64) -> bool {
@@ -64,7 +68,7 @@ impl Frames {
         };
         let rects = self.partial.rastered.clone();
         let raster = rects.iter().map(|r| u64::from(r.2) * u64::from(r.3)).sum();
-        Report { raster, rects, moved: self.partial.moved.clone(), shown, time, differ }
+        Report { raster, rects, moved: self.partial.moved.clone(), shown, time, differ, causes: std::mem::take(&mut self.partial.causes) }
     }
 }
 

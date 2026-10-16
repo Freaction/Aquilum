@@ -22,6 +22,7 @@ mod search;
 mod settings;
 mod tabs;
 mod templates;
+mod widths;
 mod workspaces;
 #[cfg(test)]
 mod tests;
@@ -128,6 +129,7 @@ pub struct App {
     retention_done: Arc<std::sync::atomic::AtomicBool>,
     controls: Option<(WidgetId, Handle<WindowButton>)>,
     window: Size,
+    resizing: Option<(crate::interface::Side, f64, f64)>,
     history: Option<history::HistoryState>,
     history_body: Option<HistoryBody>,
     opened_versions: HashMap<Uuid, crate::history::Version>,

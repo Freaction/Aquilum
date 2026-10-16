@@ -175,6 +175,7 @@ fn paint_widget(
 
     state.paint_layer_mode = PaintLayerMode::Inline;
     if (state.request_pre_paint || state.request_paint || state.request_post_paint) && !is_stashed {
+        let _zone = aq_trace::zone_of("paint", widget.short_type_name());
         if trace {
             trace!("Painting widget '{}' {}", widget.short_type_name(), id);
         }

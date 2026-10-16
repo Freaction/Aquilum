@@ -57,40 +57,20 @@ impl TabStrip {
         ctx.request_layout();
     }
 
-    pub(super) fn clamp(&mut self) {
-        self.offset = self.offset.clamp(0.0, (self.content - self.width).max(0.0));
-    }
-
-    pub(super) fn scroll(&mut self, ctx: &mut EventCtx<'_>, delta: &ScrollDelta) {
-        let d = match *delta {
-            ScrollDelta::LineDelta(x, y) => -f64::from(if x != 0.0 { x } else { y }) * crate::ui::scroll::LINE,
-            ScrollDelta::PixelDelta(p) => -(if p.x != 0.0 { p.x } else { p.y }) / ctx.scale_factor(),
-            ScrollDelta::PageDelta(x, y) => -f64::from(if x != 0.0 { x } else { y }) * self.width,
-        };
-        let before = self.offset;
-        self.offset += d;
-        self.clamp();
-        if self.offset != before {
-            ctx.request_layout();
-            ctx.set_handled();
-        }
-    }
-
     pub(super) fn drag_move(&mut self, ctx: &mut EventCtx<'_>, x: f64) {
         let Some(reorder) = &self.reorder else { return };
-        if !reorder.dragging && (x + self.offset - reorder.start).abs() < DRAG_THRESHOLD {
+        if !reorder.dragging && (x + self.pan.offset - reorder.start).abs() < DRAG_THRESHOLD {
             return;
         }
         if x < EDGE {
-            self.offset -= EDGE_STEP;
-        } else if x > self.width - EDGE {
-            self.offset += EDGE_STEP;
+            self.pan.shift(-EDGE_STEP);
+        } else if x > self.pan.width() - EDGE {
+            self.pan.shift(EDGE_STEP);
         }
-        self.clamp();
         let Some(reorder) = &mut self.reorder else { return };
         reorder.dragging = true;
         let from = reorder.from;
-        let (target, shift) = reorder_layout(&self.boxes, from, x + self.offset - reorder.start);
+        let (target, shift) = reorder_layout(&self.boxes, from, x + self.pan.offset - reorder.start);
         reorder.target = target;
         self.slide_to(ctx, &shift, Some(from));
     }

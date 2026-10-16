@@ -1,39 +1,42 @@
 mod reorder;
 
 use super::*;
+use crate::ui::scroll::Pan;
 use crate::ui::widgets::{EASE_OUT, FAST, Tween};
 
 use reorder::{Reorder, slide};
 
 pub struct TabStrip {
     tabs: Vec<WidgetPod<dyn Widget>>,
-    offset: f64,
-    content: f64,
-    width: f64,
+    pan: Pan,
     boxes: Vec<(f64, f64)>,
     reorder: Option<Reorder>,
     shift: Vec<Tween>,
     settle: Option<(usize, f64)>,
+    active: usize,
+    follow: bool,
 }
 
 impl TabStrip {
-    pub fn new(tabs: Vec<NewWidget<dyn Widget>>) -> NewWidget<Self> {
+    pub fn new(tabs: Vec<NewWidget<dyn Widget>>, active: usize) -> NewWidget<Self> {
         NewWidget::new(TabStrip {
             tabs: tabs.into_iter().map(NewWidget::to_pod).collect(),
-            offset: 0.0,
-            content: 0.0,
-            width: 0.0,
+            pan: Pan::default(),
             boxes: Vec::new(),
             reorder: None,
             shift: Vec::new(),
             settle: None,
+            active,
+            follow: true,
         })
     }
 
-    pub fn set_tabs(this: &mut WidgetMut<'_, Self>, tabs: Vec<NewWidget<dyn Widget>>) {
+    pub fn set_tabs(this: &mut WidgetMut<'_, Self>, tabs: Vec<NewWidget<dyn Widget>>, active: usize) {
         for old in std::mem::take(&mut this.widget.tabs) {
             this.ctx.remove_child(old);
         }
+        this.widget.follow |= this.widget.active != active;
+        this.widget.active = active;
         this.widget.tabs = tabs.into_iter().map(NewWidget::to_pod).collect();
         this.widget.reorder = None;
         this.widget.shift = this.widget.tabs.iter().map(|_| slide()).collect();
@@ -46,14 +49,6 @@ impl TabStrip {
         }
         this.ctx.children_changed();
     }
-
-    pub fn reveal(this: &mut WidgetMut<'_, Self>, index: usize) {
-        let strip = &mut this.widget;
-        let Some(&(left, width)) = strip.boxes.get(index) else { return };
-        strip.offset = strip.offset.max(left + width - strip.width).min(left);
-        strip.clamp();
-        this.ctx.request_layout();
-    }
 }
 
 impl Widget for TabStrip {
@@ -61,9 +56,9 @@ impl Widget for TabStrip {
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         match event {
-            PointerEvent::Scroll(PointerScrollEvent { delta, .. }) => self.scroll(ctx, delta),
+            PointerEvent::Scroll(PointerScrollEvent { delta, .. }) => self.pan.wheel(ctx, delta),
             PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
-                let x = ctx.local_position(e.state.position).x + self.offset;
+                let x = ctx.local_position(e.state.position).x + self.pan.offset;
                 match self.boxes.iter().position(|&(left, width)| x >= left && x < left + width) {
                     Some(from) => self.reorder = Some(Reorder::new(from, x)),
                     None => drag_or_maximize(ctx, event),
@@ -110,17 +105,15 @@ impl Widget for TabStrip {
             let width = ctx.compute_length(tab, LenReq::MaxContent.into(), context, Axis::Horizontal, Some(Length::px(size_.height))).get();
             widths.push(width);
         }
-        self.content = widths.iter().sum();
-        self.width = size_.width;
-        self.clamp();
-        self.boxes.clear();
-        let mut x = 0.0;
-        for (index, (tab, width)) in self.tabs.iter_mut().zip(widths).enumerate() {
-            self.boxes.push((x, width));
+        self.follow |= self.pan.resize(widths.iter().sum(), size_.width);
+        self.boxes = widths.iter().scan(0.0, |x, &width| Some((std::mem::replace(x, *x + width), width))).collect();
+        if let Some(&(left, width)) = self.boxes.get(self.active).filter(|_| std::mem::take(&mut self.follow)) {
+            self.pan.reveal(left, width);
+        }
+        for (index, (tab, &(x, width))) in self.tabs.iter_mut().zip(&self.boxes).enumerate() {
             ctx.run_layout(tab, Size::new(width, size_.height));
             let moved = self.shift.get(index).map_or(0.0, Tween::value);
-            ctx.place_child(tab, Point::new(x - self.offset + moved, 0.0));
-            x += width;
+            ctx.place_child(tab, Point::new(x - self.pan.offset + moved, 0.0));
         }
         ctx.set_clip_path(Rect::new(0.0, 0.0, size_.width, size_.height + size::BORDER_1));
     }

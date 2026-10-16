@@ -1,11 +1,9 @@
 use std::hash::{BuildHasher, Hasher};
 
 use foldhash::fast::FixedState;
-use masonry::imaging::{ClipRef, Composite, GeometryRef};
+use masonry::imaging::{Composite, GeometryRef};
 use masonry::kurbo::{Affine, PathEl, Point, Rect, Stroke};
 use masonry::peniko::{BlendMode, BrushRef, Fill, Gradient, GradientKind, Style};
-
-use crate::render::paint::convert;
 
 #[derive(Clone)]
 pub(super) struct H(pub(super) foldhash::fast::FoldHasher<'static>);
@@ -172,27 +170,14 @@ impl H {
         }
     }
 
+    pub(super) fn cut(&mut self, draw: Rect, cut: Rect) {
+        let (outer, inner) = (draw.expand(), Rect::new(cut.x0.ceil(), cut.y0.ceil(), cut.x1.floor(), cut.y1.floor()));
+        for (crosses, edge) in [(outer.x0 < inner.x0, cut.x0), (outer.y0 < inner.y0, cut.y0), (outer.x1 > inner.x1, cut.x1), (outer.y1 > inner.y1, cut.y1)] {
+            self.f64(if crosses { edge } else { f64::INFINITY });
+        }
+    }
+
     pub(super) fn finish(self) -> u64 {
         self.0.finish()
     }
-}
-
-pub(super) fn clip_bounds(clip: &ClipRef<'_>, shift: f64) -> (u64, Rect) {
-    let mut h = H::new(10);
-    let rect = match clip {
-        ClipRef::Fill { transform, shape, fill_rule } => {
-            h.affine(Affine::translate((0.0, shift)) * *transform);
-            h.geometry(shape);
-            h.fill_rule(*fill_rule);
-            transform.transform_rect_bbox(convert::shape_bounds(shape))
-        }
-        ClipRef::Stroke { transform, shape, stroke } => {
-            h.affine(Affine::translate((0.0, shift)) * *transform);
-            h.geometry(shape);
-            h.stroke(stroke);
-            let w = stroke.width.max(1.0) * stroke.miter_limit.max(1.0);
-            transform.transform_rect_bbox(convert::shape_bounds(shape).inflate(w, w))
-        }
-    };
-    (h.finish(), rect)
 }

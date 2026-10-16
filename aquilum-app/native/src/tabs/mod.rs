@@ -53,8 +53,12 @@ impl Tabs {
         self.active
     }
 
+    pub fn active_index(&self) -> usize {
+        self.tabs.iter().position(|t| t.id == self.active).unwrap_or(0)
+    }
+
     pub fn active(&self) -> &Tab {
-        self.tabs.iter().find(|t| t.id == self.active).unwrap_or(&self.tabs[0])
+        &self.tabs[self.active_index()]
     }
 
     pub fn tab_mut(&mut self, id: Uuid) -> Option<&mut Tab> {

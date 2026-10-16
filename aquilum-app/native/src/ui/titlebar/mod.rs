@@ -1,7 +1,7 @@
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
     AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerButton,
-    PointerEvent, PointerScrollEvent, PropertiesMut, PropertiesRef, RegisterCtx, ScrollDelta, Update,
+    PointerEvent, PointerScrollEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update,
     UpdateCtx, Widget, WidgetMut, WidgetPod, render_text,
 };
 use masonry::imaging::Painter;

@@ -22,9 +22,7 @@ impl Host {
         let window = event_loop.create_window(attributes).expect("окно");
         self.accessibility = Accessibility::attach(&*window, event_loop.create_proxy());
         cloak(&*window, true);
-        if self.args.size.is_none() && self.window_state.maximized() {
-            window.set_maximized(true);
-        }
+        self.restore_maximized(&*window);
         self.metrics.window_created(self.started, window.scale_factor());
         let widget = self.app.root_widget(window.theme() == Some(winit::window::Theme::Dark));
         let options = RenderRootOptions {

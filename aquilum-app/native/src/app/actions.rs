@@ -7,7 +7,7 @@ impl App {
             root.remove_layer(id);
             return Outcome::default();
         }
-        if self.on_suggest_pick(root, id, &action) || self.on_find_action(root, id, &action) {
+        if self.on_suggest_pick(root, id, &action) || self.on_find_action(root, id, &action) || self.on_sash(root, id, &action) {
             return Outcome::default();
         }
         if matches!(self.popup, Some(Popup::Settings { .. })) {
@@ -163,6 +163,7 @@ impl App {
             chrome.sidebar.edit(root, |mut sidebar| crate::ui::widgets::Collapse::set_open(&mut sidebar, open));
             root.edit_widget(id, |mut w| crate::ui::widgets::IconButton::set_label(&mut w.downcast(), &crate::i18n::t(crate::ui::sidebar_label(open))));
             self.shown = Some(self.visible_panels());
+            self.apply_widths(root);
         } else if (id == chrome.settings || id == chrome.rail_settings) && action.downcast_ref::<Pressed>().is_some() {
             self.open_settings(root);
         } else if id == chrome.search_button && action.downcast_ref::<Pressed>().is_some() {

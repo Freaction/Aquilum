@@ -28,13 +28,16 @@ pub fn panel_label(open: bool) -> &'static str {
     if open { "titlebar.hideRightSidebar" } else { "titlebar.showRightSidebar" }
 }
 
-fn controls_inset(panel_open: bool, panel_from: bool) -> NewWidget<Collapse> {
-    let width = if cfg!(target_os = "macos") { 0.0 } else { size::TITLEBAR_CONTROLS_INSET };
-    Collapse::new(NewWidget::new(SizedBox::empty()).erased(), width, !panel_open, !panel_from, on_header)
+pub fn controls_width() -> f64 {
+    if cfg!(target_os = "macos") { 0.0 } else { size::TITLEBAR_CONTROLS_INSET }
 }
 
-pub(super) fn titlebar(tabs: Vec<NewWidget<dyn Widget>>, panel_open: bool, panel_from: bool, focus_mode: bool) -> Titlebar {
-    let strip = TabStrip::new(tabs);
+fn controls_inset(panel_open: bool, panel_from: bool) -> NewWidget<Collapse> {
+    Collapse::new(NewWidget::new(SizedBox::empty()).erased(), controls_width(), !panel_open, !panel_from, on_header)
+}
+
+pub(super) fn titlebar(tabs: Vec<NewWidget<dyn Widget>>, active: usize, panel_open: bool, panel_from: bool, focus_mode: bool) -> Titlebar {
+    let strip = TabStrip::new(tabs, active);
     let strip_handle = Handle::of(&strip);
     let plus = NewWidget::new(IconButton::new(icons::PLUS, i18n::t("tabs.newTab")));
     let plus_id = plus.id();

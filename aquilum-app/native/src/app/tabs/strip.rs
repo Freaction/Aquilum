@@ -35,7 +35,8 @@ impl App {
         }
         let widgets = self.tab_widgets();
         if let Some(chrome) = &self.chrome {
-            chrome.tab_strip.edit(root, |mut strip| TabStrip::set_tabs(&mut strip, widgets));
+            let active = self.tabs.active_index();
+            chrome.tab_strip.edit(root, |mut strip| TabStrip::set_tabs(&mut strip, widgets, active));
         }
         if let Some(field) = self.rename_field {
             field.edit(root, |mut field| {

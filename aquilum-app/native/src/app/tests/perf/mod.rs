@@ -10,6 +10,7 @@ mod cost;
 mod frames;
 #[cfg(feature = "memory-probe")]
 mod open_memory;
+mod sash;
 #[cfg(feature = "memory-probe")]
 mod search;
 mod timing;

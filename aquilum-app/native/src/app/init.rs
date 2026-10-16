@@ -43,6 +43,7 @@ impl App {
             retention_done: Arc::default(),
             controls: None,
             window: Size::ZERO,
+            resizing: None,
             history: None,
             history_body: None,
             opened_versions: HashMap::new(),
