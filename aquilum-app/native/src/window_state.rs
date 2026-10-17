@@ -4,7 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
-use aquilum_core::files::document::write_file_atomic_impl;
+use aquilum_core::files::document::write_content_atomic;
 use serde::{Deserialize, Serialize};
 use winit::dpi::{LogicalSize, PhysicalPosition};
 use winit::window::Window;
@@ -86,7 +86,7 @@ impl WindowState {
         self.observe(window);
         let Some(state) = self.state else { return };
         let Ok(json) = serde_json::to_string(&state) else { return };
-        if let Err(error) = write_file_atomic_impl(&self.path, &json, None) {
+        if let Err(error) = write_content_atomic(&self.path, &json, None) {
             report!("размер окна не сохранён: {error}");
         }
     }

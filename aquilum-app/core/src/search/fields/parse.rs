@@ -31,12 +31,9 @@ fn note_fields_from_yaml(yaml: &str) -> Vec<Field> {
             continue;
         }
         let value = value.trim();
-        found.push(if is_block_marker(value) {
-            Field::scalar(key.to_owned(), block_scalar(&mut lines))
-        } else if let Some(items) = inline_list(value) {
-            Field::list(key.to_owned(), items)
-        } else {
-            Field::scalar(key.to_owned(), frontmatter_unquote(value))
+        found.push(match is_block_marker(value) {
+            true => Field::scalar(key.to_owned(), block_scalar(&mut lines)),
+            false => scalar_or_list(key.to_owned(), value),
         });
     }
     found

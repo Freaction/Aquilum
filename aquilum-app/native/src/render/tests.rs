@@ -1,10 +1,8 @@
 use std::sync::Arc;
 
-use masonry::app::{RenderRoot, RenderRootOptions, WindowSizePolicy};
+use masonry::app::RenderRoot;
 use masonry::core::{NewWidget, WidgetTag};
-use masonry::dpi::PhysicalSize;
 use masonry::peniko::Color;
-use masonry::theme::default_property_set;
 use masonry::widgets::TextArea;
 
 use super::*;
@@ -15,14 +13,7 @@ const BG: Color = Color::from_rgb8(0x1f, 0x1f, 0x22);
 const TAG: WidgetTag<TextArea<true>> = WidgetTag::named("t");
 
 fn root(text: &str, scale: f64) -> RenderRoot {
-    let options = RenderRootOptions {
-        default_properties: Arc::new(default_property_set()),
-        use_system_fonts: true,
-        size_policy: WindowSizePolicy::User,
-        size: PhysicalSize::new(u32::from(W), u32::from(H)),
-        scale_factor: scale,
-        test_font: None,
-    };
+    let options = crate::test_dir::options(u32::from(W), u32::from(H), scale);
     let area = TextArea::new_editable(text);
     RenderRoot::new(NewWidget::new(area).with_tag(TAG).erased(), |_| (), options)
 }
@@ -86,14 +77,7 @@ fn big_image_frame_cost() {
         height: h,
     };
     let image = masonry::widgets::Image::new(masonry::peniko::ImageBrush::new(data));
-    let options = RenderRootOptions {
-        default_properties: Arc::new(default_property_set()),
-        use_system_fonts: true,
-        size_policy: WindowSizePolicy::User,
-        size: PhysicalSize::new(1200, 800),
-        scale_factor: 1.0,
-        test_font: None,
-    };
+    let options = crate::test_dir::options(1200, 800, 1.0);
     let mut root = RenderRoot::new(NewWidget::new(image).erased(), |_| (), options);
     let mut renderer = Renderer::new(2);
     let frames = 20;

@@ -15,8 +15,6 @@ use std::time::{Duration, Instant};
 use crate::app_core::{Core, CoreEvent};
 use std::sync::Weak;
 
-const MIN_DELAY_MS: u64 = 100;
-const MAX_DELAY_MS: u64 = 5_000;
 
 #[derive(Debug)]
 pub enum HubError {
@@ -405,8 +403,7 @@ impl DocumentHub {
     }
 
     fn save_delay(&self, core: &Core) -> Duration {
-        let configured = core.settings.get_config().editor.save_debounce_ms as u64;
-        Duration::from_millis(configured.clamp(MIN_DELAY_MS, MAX_DELAY_MS))
+        Duration::from_millis(u64::from(core.settings.get_config().editor.save_debounce_ms))
     }
 
     fn schedule(&self, key: &str, delay: Duration) {

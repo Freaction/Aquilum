@@ -75,7 +75,7 @@ impl ExpandedStore {
     fn save(&self) {
         let file = StoreFile { workspaces: self.workspaces.clone(), sorts: self.sorts.clone(), colors: self.colors.clone() };
         let Ok(json) = serde_json::to_string(&file) else { return };
-        if let Err(e) = aquilum_core::files::document::write_file_atomic_impl(&self.path, &json, None) {
+        if let Err(e) = aquilum_core::files::document::write_content_atomic(&self.path, &json, None) {
             report!("раскрытые папки не сохранены: {e}");
         }
     }

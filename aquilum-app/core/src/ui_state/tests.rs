@@ -41,6 +41,18 @@ fn lists_known_workspaces_most_recently_seen_first() {
     assert_eq!(paths, ["C:/archive", "C:/drafts", "C:/notes"]);
 }
 
+#[cfg(windows)]
+#[test]
+fn one_folder_written_in_different_forms_is_one_workspace() {
+    let (mut database, workspace_id, _document_id, _epoch) = setup();
+    let older = "INSERT INTO workspaces(id, path, last_seen_ms) VALUES(?1, ?2, 0)";
+    database.connection.execute(older, rusqlite::params![Uuid::new_v4().to_string(), r"\\?\C:\Notes"]).unwrap();
+    assert_eq!(database.resolve_workspace(r"C:\notes", 7).unwrap(), workspace_id);
+    database.set_home_page(r"\\?\c:\notes", "a").unwrap();
+    let known = database.list_workspaces().unwrap();
+    assert_eq!((known.len(), known[0].id, known[0].home_page.as_str()), (1, workspace_id, "a"));
+}
+
 #[test]
 fn forgetting_a_workspace_removes_it_from_the_list() {
     let (mut database, workspace_id, _document_id, _epoch) = setup();

@@ -145,7 +145,7 @@ impl TextEditor {
             TextEvent::Ime(ime) => self.ime(ctx, ime),
             TextEvent::ClipboardPaste(text) if self.table_text(ctx, text) => {}
             TextEvent::ClipboardPaste(text) => {
-                let text = text.replace("\r\n", "\n").replace('\r', "\n");
+                let text = aquilum_core::files::document::normalize_line_endings(text.clone());
                 let separated = paste::separate_pasted_frontmatter(&text);
                 if !self.paste_link(ctx.widget_id(), &separated) {
                     self.insert(&separated, Kind::Other);

@@ -1,33 +1,23 @@
 use super::document::{
-    hash_bytes, normalize_line_endings, read_file_snapshot_impl, read_file_stat_impl, write_file_atomic_impl,
+    hash_bytes, normalize_line_endings, read_file_snapshot_impl, write_content_atomic,
 };
-use super::entries::{create_file_impl, rename_file_impl};
+use super::entries::{create_content_file, rename_file_impl};
 use super::error::FileCommandError;
 use super::models::FileItemType;
 use super::workspace::read_directory_impl;
 use std::fs;
 
 #[test]
-fn stat_returns_byte_length_without_reading_content() {
-    let directory = tempfile::tempdir().expect("temp directory");
-    let path = directory.path().join("book.epub");
-    fs::write(&path, b"0123456789abcdef").expect("fixture");
-
-    let stat = read_file_stat_impl(&path).expect("stat");
-
-    assert_eq!(stat.byte_length, 16);
-}
-
-#[test]
 fn snapshot_contains_content_and_hash() {
     let directory = tempfile::tempdir().expect("temp directory");
     let path = directory.path().join("note.md");
-    fs::write(&path, "Привет, Aquilum!").expect("fixture");
+    fs::write(&path, "Привет,\nAquilum!").expect("fixture");
 
     let snapshot = read_file_snapshot_impl(&path).expect("snapshot");
 
-    assert_eq!(snapshot.content, "Привет, Aquilum!");
+    assert_eq!(snapshot.content, "Привет,\nAquilum!");
     assert_eq!(snapshot.hash, hash_bytes(snapshot.content.as_bytes()));
+    assert_eq!(snapshot.hash, snapshot.text_hash);
 }
 
 #[test]
@@ -36,7 +26,7 @@ fn atomic_write_replaces_the_complete_file() {
     let path = directory.path().join("note.md");
     fs::write(&path, "before").expect("fixture");
 
-    let result = write_file_atomic_impl(&path, "after", None).expect("write");
+    let result = write_content_atomic(&path, &"after", None).expect("write");
 
     assert_eq!(fs::read_to_string(&path).expect("result"), "after");
     assert_eq!(result.hash, hash_bytes(b"after"));
@@ -48,7 +38,7 @@ fn expected_hash_prevents_overwrite() {
     let path = directory.path().join("note.md");
     fs::write(&path, "external change").expect("fixture");
 
-    let error = write_file_atomic_impl(&path, "aquilum change", Some("stale-hash"))
+    let error = write_content_atomic(&path, &"aquilum change", Some("stale-hash"))
         .expect_err("conflict expected");
 
     assert!(matches!(error, FileCommandError::Conflict { .. }));
@@ -64,7 +54,7 @@ fn create_file_never_overwrites_an_existing_note() {
     let path = directory.path().join("note.md");
     fs::write(&path, "keep me").expect("fixture");
 
-    let error = create_file_impl(&path, "replacement").expect_err("already exists");
+    let error = create_content_file(&path, &"replacement").expect_err("already exists");
 
     assert!(matches!(error, FileCommandError::AlreadyExists { .. }));
     assert_eq!(fs::read_to_string(&path).expect("result"), "keep me");
@@ -182,20 +172,20 @@ fn a_snapshot_normalises_crlf_but_keeps_the_hash_of_the_bytes_on_disk() {
 }
 
 #[test]
-fn a_snapshot_of_an_lf_file_reports_the_same_hash_twice() {
-    let directory = tempfile::tempdir().expect("workspace");
-    let path = directory.path().join("Заметка.md");
-    fs::write(&path, "первая\nвторая").expect("fixture");
-
-    let snapshot = read_file_snapshot_impl(&path).expect("snapshot");
-
-    assert_eq!(snapshot.content, "первая\nвторая");
-    assert_eq!(snapshot.hash, snapshot.text_hash);
-}
-
-#[test]
 fn a_lone_carriage_return_is_normalised_too() {
     assert_eq!(normalize_line_endings("одна\rдве".to_owned()), "одна\nдве");
     assert_eq!(normalize_line_endings("без переносов".to_owned()), "без переносов");
     assert_eq!(normalize_line_endings("\r\rа\r\nб\r\r\nв\n\r".to_owned()), "\n\nа\nб\n\nв\n\n");
+}
+
+#[test]
+fn spliced_write_streams_the_normalized_text_with_replacements() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("Source.md");
+    fs::write(&path, "[[note]] и [[note|подпись]]\r\n").unwrap();
+    let changes = vec![(2..6, "Note".to_owned()), (14..18, "Note".to_owned())];
+    let written = super::document::write_spliced_atomic(&path, &changes, None).unwrap();
+    let text = fs::read_to_string(&path).unwrap();
+    assert_eq!(text, "[[Note]] и [[Note|подпись]]\n");
+    assert_eq!(written.hash, hash_bytes(text.as_bytes()));
 }

@@ -28,7 +28,7 @@ pub(super) fn walk(text: &crop::Rope, from: usize, mut state: State, front: usiz
 }
 
 pub(super) fn scan(rope: crop::Rope, from: usize, state: State, tx: Sender<Vec<(usize, State)>>) {
-    let front = if from == 0 { crate::frontmatter::end_of(&rope).map_or(0, |end| end + 1) } else { 0 };
+    let front = if from == 0 { crate::frontmatter::bounds_of(&crate::rope::Text(&rope)).map_or(0, |found| found.body) } else { 0 };
     let (mut batch, mut lines) = (Vec::new(), 0usize);
     walk(&rope, from, state, front, |start, state| {
         if lines % EVERY == 0 {

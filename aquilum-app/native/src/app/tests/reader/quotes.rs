@@ -94,7 +94,7 @@ fn the_quote_you_came_from_is_brightest_and_hovering_deepens_the_others() {
     let mut h = Harness::new();
     two_quotes(&mut h);
     h.escape();
-    let found = crate::reader::quotes::find(&h.app.text.to_string());
+    let found = crate::reader::quotes::find(&crate::rope::Text(&h.app.text));
     let url = format!("aquilum-reader:cfi={}", found[1].cfi.replace('(', "%28").replace(')', "%29"));
     h.app.open_target(&mut h.root, crate::links::Target::Url(url), false);
     h.deliver();

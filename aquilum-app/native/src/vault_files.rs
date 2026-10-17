@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use aquilum_core::Core;
-use aquilum_core::files::document::ensure_directory_impl;
 use aquilum_core::files::gate;
 use aquilum_core::files::error::FileCommandError;
 
@@ -34,7 +33,7 @@ pub enum Source<'a> {
 
 pub fn import(core: &Core, workspace: &Path, source: Source<'_>, fallback_name: &str, fallback_ext: &str) -> Result<String, FileCommandError> {
     let folder = normalize_folder(&core.settings.get_config().files.folder);
-    ensure_directory_impl(&workspace.join(&folder))?;
+    std::fs::create_dir_all(workspace.join(&folder))?;
     let original = match &source {
         Source::Path(path) => path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
         Source::Bytes(_, name) => (*name).to_owned(),

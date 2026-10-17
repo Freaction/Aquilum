@@ -1,6 +1,6 @@
 use super::super::vault::Vault;
 use super::workspace::requested_vault;
-use super::{limit, offset, require_write, text, tool, workspace_property};
+use super::{limit, listing, offset, require_write, text, tool, workspace_property};
 use crate::files::gate;
 use crate::files::trash::{empty_trash_impl, list_trash_impl, trash_page_impl, trash_path, TRASH_FOLDER};
 use serde_json::{json, Value};
@@ -53,25 +53,12 @@ fn list_trash(core: &Core, arguments: &Value) -> Result<Value, String> {
     let size = limit(arguments, 100, LIST_LIMIT);
     let offset = offset(arguments);
     let trash = trash_page_impl(&vault.root, offset, size).map_err(|error| error.to_string())?;
-    let total = trash.total;
     let page = trash
         .files
         .iter()
-        .map(|item| {
-            json!({
-                "path": vault.relative(Path::new(&item.path)),
-                "original": item.original,
-                "deletedAtMs": item.deleted_at_ms,
-                "bytes": item.bytes,
-            })
-        })
-        .collect::<Vec<_>>();
-    let end = offset.saturating_add(page.len());
-    Ok(json!({
-        "total": total,
-        "notes": page,
-        "nextOffset": (end < total).then_some(end),
-    }))
+        .map(|item| json!({ "path": vault.relative(Path::new(&item.path)), "original": item.original, "deletedAtMs": item.deleted_at_ms, "bytes": item.bytes }))
+        .collect();
+    Ok(listing("notes", trash.total, offset, page))
 }
 
 fn restore_note(core: &Core, arguments: &Value) -> Result<Value, String> {

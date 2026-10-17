@@ -117,9 +117,9 @@ pub(super) fn editor(config: &AppConfig) -> Vec<Block> {
             title: t("settings.editor.saving"),
             rows: vec![row(
                 t("settings.editor.saveDebounce"),
-                None,
-                Control::Number(Number::new(f64::from(e.save_debounce_ms), 250.0, 10_000.0, 250.0)),
-                |c, v| c.editor.save_debounce_ms = number(v) as u32,
+                Some(t("settings.editor.saveDebounceHint")),
+                Control::Dropdown { options: SAVE_INTERVALS.map(interval).to_vec(), selected: position(&SAVE_INTERVALS, &e.save_debounce_ms) },
+                |c, v| c.editor.save_debounce_ms = SAVE_INTERVALS[index(v).min(SAVE_INTERVALS.len() - 1)],
             )],
         },
     ]

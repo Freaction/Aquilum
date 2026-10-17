@@ -19,6 +19,7 @@ impl App {
     }
 
     pub(in crate::app) fn rename_file(&mut self, root: &mut RenderRoot, from: PathBuf, to: PathBuf) {
+        self.commit_note();
         self.follow_move(root, &from, &to);
         let (failed, wake) = (self.failed_renames.0.clone(), std::sync::Arc::clone(&self.workspace.wake));
         file_ops::rename(&self.workspace.core, from.clone(), to.clone(), move || {

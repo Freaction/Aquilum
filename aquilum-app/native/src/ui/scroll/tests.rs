@@ -2,8 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use masonry::app::{RenderRoot, RenderRootOptions, WindowSizePolicy};
-use masonry::core::keyboard::Modifiers;
-use masonry::core::{NewWidget, PointerEvent, PointerId, PointerInfo, PointerScrollEvent, PointerState, PointerType, ScrollDelta, WidgetTag, WindowEvent};
+use masonry::core::{NewWidget, PointerEvent, PointerScrollEvent, ScrollDelta, WidgetTag, WindowEvent};
 use masonry::dpi::{PhysicalPosition, PhysicalSize};
 use masonry::layout::Length;
 use masonry::theme::default_property_set;
@@ -12,7 +11,7 @@ use masonry::widgets::SizedBox;
 use super::ScrollArea;
 
 const TAG: WidgetTag<ScrollArea<SizedBox>> = WidgetTag::named("прокрутка");
-const MOUSE: PointerInfo = PointerInfo { pointer_id: Some(PointerId::PRIMARY), persistent_device_id: None, pointer_type: PointerType::Mouse };
+use crate::test_dir::{MOUSE, pointer_at};
 
 fn root() -> RenderRoot {
     let content = NewWidget::new(SizedBox::empty().height(Length::px(5000.0)));
@@ -34,7 +33,7 @@ fn offset(root: &RenderRoot) -> f64 {
 }
 
 fn scroll(root: &mut RenderRoot, delta: ScrollDelta) {
-    let state = PointerState { position: PhysicalPosition::new(200.0, 150.0), modifiers: Modifiers::empty(), count: 1, scale_factor: 1.0, ..PointerState::default() };
+    let state = pointer_at(200.0, 150.0, 1.0);
     root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta, state }));
 }
 

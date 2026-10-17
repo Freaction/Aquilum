@@ -3,13 +3,15 @@ use crate::markdown::{fence, list};
 use super::parse::{note_fields, scalar_or_list};
 use super::value::Field;
 
-pub fn indexed_fields(text: &str) -> Vec<Field> {
-    let mut found = note_fields(text);
-    for (key, value) in inline_pairs(text) {
-        if found.iter().any(|field| field.key.eq_ignore_ascii_case(&key)) {
-            continue;
+pub fn page_fields(text: &str, first: bool) -> Vec<Field> {
+    let (mut found, body) = match first {
+        true => (note_fields(text), frontmatter_body(text)),
+        false => (Vec::new(), text),
+    };
+    for (key, value) in inline_pairs(body) {
+        if !found.iter().any(|field| field.key.eq_ignore_ascii_case(&key)) {
+            found.push(scalar_or_list(key, &value));
         }
-        found.push(scalar_or_list(key, &value));
     }
     found
 }
@@ -20,14 +22,16 @@ const SEPARATOR: &str = "::";
 
 fn inline_pairs(text: &str) -> Vec<(String, String)> {
     let mut found = Vec::new();
-    for (_, line) in fence::outside(frontmatter_body(text)) {
+    if !text.contains(SEPARATOR) {
+        return found;
+    }
+    for (_, line) in fence::outside(text) {
         let line = strip_code_spans(line);
         let content = strip_markers(&line);
-        if let Some(pair) = whole_line(content) {
-            found.push(pair);
-            continue;
+        match split_pair(content) {
+            Some(pair) => found.push(pair),
+            None => found.extend(bracketed(content)),
         }
-        found.extend(bracketed(content));
     }
     found
 }
@@ -61,11 +65,6 @@ fn strip_markers(line: &str) -> &str {
     }
 }
 
-fn whole_line(content: &str) -> Option<(String, String)> {
-    let (key, value) = split_pair(content)?;
-    Some((key, value.trim().to_owned()))
-}
-
 fn bracketed(content: &str) -> Vec<(String, String)> {
     let mut found = Vec::new();
     for (open, close) in [('[', ']'), ('(', ')')] {
@@ -73,9 +72,7 @@ fn bracketed(content: &str) -> Vec<(String, String)> {
         while let Some(start) = rest.find(open) {
             let after = &rest[start + open.len_utf8()..];
             let Some(end) = after.find(close) else { break };
-            if let Some((key, value)) = split_pair(&after[..end]) {
-                found.push((key, value.trim().to_owned()));
-            }
+            found.extend(split_pair(&after[..end]));
             rest = &after[end + close.len_utf8()..];
         }
     }
@@ -95,16 +92,16 @@ fn split_pair(content: &str) -> Option<(String, String)> {
     if key.contains(SEPARATOR) || key.contains(['[', ']', '(', ')', '|', '#', ':']) {
         return None;
     }
-    Some((key.to_owned(), value.to_owned()))
+    Some((key.to_owned(), value.trim().to_owned()))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{indexed_fields, inline_pairs};
+    use super::{inline_pairs, page_fields};
     use crate::search::fields::value::FieldKind;
 
     fn pairs(text: &str) -> Vec<(String, String)> {
-        inline_pairs(text)
+        inline_pairs(crate::search::analyzer::frontmatter_body(text))
     }
 
     #[test]
@@ -163,7 +160,7 @@ mod tests {
     #[test]
     fn frontmatter_is_not_read_twice_and_wins_over_the_body() {
         let text = "---\nОценка: 5\n---\nОценка:: 9\nАвтор:: Лем";
-        let found = indexed_fields(text);
+        let found = page_fields(text, true);
         assert_eq!(found.len(), 2);
         assert_eq!(found[0].key, "Оценка");
         assert_eq!(found[0].text, "5", "шапка важнее строки в тексте");
@@ -172,7 +169,7 @@ mod tests {
 
     #[test]
     fn an_inline_field_keeps_its_type() {
-        let found = indexed_fields("Оценка:: 8\nТеги:: [книги, фантастика]");
+        let found = page_fields("Оценка:: 8\nТеги:: [книги, фантастика]", true);
         assert_eq!(found[0].kind, FieldKind::Number);
         assert_eq!(found[1].kind, FieldKind::List);
         assert_eq!(found[1].items, vec!["книги", "фантастика"]);

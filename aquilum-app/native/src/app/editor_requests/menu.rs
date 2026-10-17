@@ -24,10 +24,7 @@ impl App {
         let entries: Vec<Entry<'_>> = commands.iter().zip(&labels).map(|((c, enabled), label)| Entry { label, icon: Some(c.icon()), disabled: !enabled }).collect();
         let menu = Menu::entries(&t("editor.table.menuAria"), &entries);
         let commands: Vec<TableCommand> = commands.into_iter().map(|(c, _)| c).collect();
-        let layer = menu.id();
-        root.add_layer(menu, Menu::context_origin(at, entries.len(), self.window));
-        root.focus_on(Some(layer));
-        self.popup = Some(Popup::TableMenu { layer, commands });
+        self.show_layer(root, menu, Menu::context_origin(at, entries.len(), self.window), |layer| Popup::TableMenu { layer, commands });
     }
 
     pub(in crate::app) fn on_table_menu(&mut self, root: &mut RenderRoot, layer: WidgetId, commands: Vec<TableCommand>, action: &ErasedAction) {
@@ -46,7 +43,7 @@ impl App {
     }
 
     pub(in crate::app) fn open_editor_context_menu(&mut self, root: &mut RenderRoot, at: Point, has_selection: bool) {
-        let has_frontmatter = frontmatter::end_of(&self.text).is_some();
+        let has_frontmatter = self.has_frontmatter();
         let commands = vec![
             EditorCommand::Copy,
             EditorCommand::Paste,
@@ -62,10 +59,7 @@ impl App {
             Entry { label: &t("editor.insertFrontmatter"), icon: Some(icons::TAG), disabled: has_frontmatter },
         ];
         let menu = Menu::entries(&t("editor.actions"), &entries);
-        let layer = menu.id();
-        root.add_layer(menu, Menu::context_origin(at, entries.len(), self.window));
-        root.focus_on(Some(layer));
-        self.popup = Some(Popup::EditorMenu { layer, commands });
+        self.show_layer(root, menu, Menu::context_origin(at, entries.len(), self.window), |layer| Popup::EditorMenu { layer, commands });
     }
 
     pub(in crate::app) fn on_editor_menu(&mut self, root: &mut RenderRoot, layer: WidgetId, commands: Vec<EditorCommand>, action: &ErasedAction) {
@@ -102,7 +96,7 @@ impl App {
                 body.edit(root, |mut e| TextEditor::insert_table(&mut e, 2, 2));
             }
             EditorCommand::InsertFrontmatter => {
-                if frontmatter::end_of(&self.text).is_none() {
+                if !self.has_frontmatter() {
                     let mut text = self.text.clone();
                     text.insert(0, frontmatter::template(&[(frontmatter::TAGS, "[]")]));
                     self.commit_text(root, text);

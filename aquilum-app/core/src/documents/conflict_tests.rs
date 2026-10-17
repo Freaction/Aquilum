@@ -1,4 +1,5 @@
 use super::*;
+use crate::text::content::collect;
 
 const MOSCOW: i64 = 3 * 3600;
 const AUGUST_17_0530_UTC: i64 = 1_786_944_600 * 1_000_000_000;
@@ -29,13 +30,13 @@ fn names_the_copy_with_a_readable_stamp() {
 
 #[test]
 fn creates_nothing_for_text_that_carries_nothing() {
-    assert!(copy_content("D:/База/Идея.md", "Идея", &report(ConflictCause::Diverged), &moment(), "   \n\n").is_none());
+    assert!(copy_content("D:/База/Идея.md", "Идея", &report(ConflictCause::Diverged), &moment(), &"   \n\n").is_none());
 }
 
 #[test]
 fn keeps_the_text_and_ends_it_with_exactly_one_newline() {
-    let with = copy_content("p", "Идея", &report(ConflictCause::Diverged), &moment(), "строка\n").expect("copy");
-    let without = copy_content("p", "Идея", &report(ConflictCause::Diverged), &moment(), "мой текст").expect("copy");
+    let with = collect(&copy_content("p", "Идея", &report(ConflictCause::Diverged), &moment(), &"строка\n").expect("copy"));
+    let without = collect(&copy_content("p", "Идея", &report(ConflictCause::Diverged), &moment(), &"мой текст").expect("copy"));
     assert_eq!(body(&with), "строка\n");
     assert_eq!(body(&without), "мой текст\n");
 }
@@ -43,7 +44,7 @@ fn keeps_the_text_and_ends_it_with_exactly_one_newline() {
 #[test]
 fn names_the_note_the_moment_and_the_reason() {
     let content =
-        copy_content("D:/База/Идея.md", "Идея", &report(ConflictCause::Diverged), &moment(), "текст").expect("copy");
+        collect(&copy_content("D:/База/Идея.md", "Идея", &report(ConflictCause::Diverged), &moment(), &"текст").expect("copy"));
     for expected in [
         "конфликт: 2026-08-17 08:30",
         "заметка: \"Идея\"",
@@ -58,7 +59,7 @@ fn names_the_note_the_moment_and_the_reason() {
 
 #[test]
 fn explains_each_cause_in_its_own_words() {
-    let render = |cause| copy_content("p", "Идея", &report(cause), &moment(), "текст").expect("copy");
+    let render = |cause| collect(&copy_content("p", "Идея", &report(cause), &moment(), &"текст").expect("copy"));
     let unavailable = render(ConflictCause::NoSyncPoint);
     assert!(unavailable.contains("точка сверки недоступна") && unavailable.contains("не ответило"));
     let displaced = render(ConflictCause::Displaced);
@@ -71,6 +72,6 @@ fn explains_each_cause_in_its_own_words() {
 #[test]
 fn leaves_out_a_fingerprint_it_was_not_given() {
     let bare = ConflictReport { cause: ConflictCause::Diverged, disk_hash: None, synced_hash: None };
-    let content = copy_content("p", "Идея", &bare, &moment(), "текст").expect("copy");
+    let content = collect(&copy_content("p", "Идея", &bare, &moment(), &"текст").expect("copy"));
     assert!(!content.contains("Отпечаток"));
 }

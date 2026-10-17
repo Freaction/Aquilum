@@ -1,4 +1,4 @@
-use super::bm25f::source::title;
+use crate::search::paths::title;
 use super::models::AnalysisResult;
 use super::MAX_REASONS;
 use crate::search::paths::identity;

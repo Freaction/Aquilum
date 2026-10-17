@@ -1,7 +1,13 @@
-use super::plan_for_rename;
-use crate::search::wiki::{index_document, open_schema};
-use rusqlite::Connection;
+use super::{plan_for_rename, LinkRewrite};
 use std::fs;
+
+fn content(rewrite: &LinkRewrite) -> String {
+    let mut text = crate::files::document::read_text(&rewrite.path).unwrap();
+    for (range, replacement) in rewrite.changes.iter().rev() {
+        text.replace_range(range.clone(), replacement);
+    }
+    text
+}
 
 #[test]
 fn preserves_aliases_when_a_target_is_renamed() {
@@ -12,11 +18,10 @@ fn preserves_aliases_when_a_target_is_renamed() {
     let source_path = root.join("Source.md");
     fs::write(&old_path, "target").unwrap();
     fs::write(&source_path, "[[Old]] and [[Old|visible]]").unwrap();
-    let mut connection = Connection::open_in_memory().unwrap();
-    open_schema(&connection).unwrap();
+    let mut connection = crate::search::metadata::memory();
     let transaction = connection.transaction().unwrap();
-    index_document(&transaction, root, &old_path, "target").unwrap();
-    index_document(
+    crate::search::index_document::index_text(&transaction, root, &old_path, "target").unwrap();
+    crate::search::index_document::index_text(
         &transaction,
         root,
         &source_path,
@@ -35,7 +40,7 @@ fn preserves_aliases_when_a_target_is_renamed() {
     )
     .unwrap();
 
-    assert_eq!(plan[0].content, "[[New]] and [[New|visible]]");
+    assert_eq!(content(&plan[0]), "[[New]] and [[New|visible]]");
 }
 
 #[test]
@@ -48,18 +53,17 @@ fn rename_keeps_anchors_labels_and_ignores_attachments() {
     let text = "[[Old#Раздел]] [[Old#^abc|метка]] [[Old | пробелы ]] ![[Old.png|200]] [[#Раздел]]";
     fs::write(&old_path, "target").unwrap();
     fs::write(&source_path, text).unwrap();
-    let mut connection = Connection::open_in_memory().unwrap();
-    open_schema(&connection).unwrap();
+    let mut connection = crate::search::metadata::memory();
     let transaction = connection.transaction().unwrap();
-    index_document(&transaction, root, &old_path, "target").unwrap();
-    index_document(&transaction, root, &source_path, text).unwrap();
+    crate::search::index_document::index_text(&transaction, root, &old_path, "target").unwrap();
+    crate::search::index_document::index_text(&transaction, root, &source_path, text).unwrap();
     transaction.commit().unwrap();
 
     let plan = plan_for_rename(&connection, root, &old_path, &new_path, vec![source_path], None)
         .unwrap();
 
     assert_eq!(
-        plan[0].content,
+        content(&plan[0]),
         "[[New#Раздел]] [[New#^abc|метка]] [[New | пробелы ]] ![[Old.png|200]] [[#Раздел]]"
     );
 }
@@ -74,17 +78,15 @@ fn rewrites_links_in_a_crlf_note_and_keeps_the_hash_of_its_bytes() {
     let raw = "# Title\r\n\r\nsee [[Old]]\r\n";
     fs::write(&old_path, "target").unwrap();
     fs::write(&source_path, raw).unwrap();
-    let mut connection = Connection::open_in_memory().unwrap();
-    open_schema(&connection).unwrap();
+    let mut connection = crate::search::metadata::memory();
     let transaction = connection.transaction().unwrap();
-    index_document(&transaction, root, &old_path, "target").unwrap();
-    index_document(&transaction, root, &source_path, "# Title\n\nsee [[Old]]\n").unwrap();
+    crate::search::index_document::index_text(&transaction, root, &old_path, "target").unwrap();
+    crate::search::index_document::index_text(&transaction, root, &source_path, "# Title\n\nsee [[Old]]\n").unwrap();
     transaction.commit().unwrap();
 
     let plan = plan_for_rename(&connection, root, &old_path, &new_path, vec![source_path], None)
         .unwrap();
 
-    assert_eq!(plan[0].content, "# Title\n\nsee [[New]]\n");
-    assert_eq!(plan[0].original, raw);
+    assert_eq!(content(&plan[0]), "# Title\n\nsee [[New]]\n");
     assert_eq!(plan[0].original_hash, blake3::hash(raw.as_bytes()).to_hex().to_string());
 }

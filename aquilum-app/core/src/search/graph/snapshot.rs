@@ -180,27 +180,12 @@ fn days(nanos: i64) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::{paths_at, RenderSnapshot};
-    use crate::search::wiki;
     use rusqlite::Connection;
     use std::path::Path;
 
     fn vault() -> (Connection, &'static Path) {
         let root = Path::new("C:/vault");
-        let mut connection = Connection::open_in_memory().expect("database");
-        connection
-            .execute_batch(
-                "CREATE TABLE documents (
-                   path TEXT PRIMARY KEY,
-                   modified_ns INTEGER NOT NULL,
-                   size INTEGER NOT NULL,
-                   content_hash BLOB NOT NULL,
-                   analyzer_version INTEGER NOT NULL DEFAULT 0,
-                   created_ns INTEGER NOT NULL DEFAULT 0,
-                   created_source INTEGER NOT NULL DEFAULT 0
-                 ) WITHOUT ROWID",
-            )
-            .expect("documents table");
-        wiki::open_schema(&connection).expect("wiki schema");
+        let mut connection = crate::search::metadata::memory();
         let transaction = connection.transaction().expect("transaction");
         for (name, body) in [
             ("Hub", "[[Leaf]] and [[Other]]"),
@@ -209,11 +194,10 @@ mod tests {
             ("Lonely", "no links at all"),
         ] {
             let path = root.join(format!("{name}.md"));
-            wiki::index_document(&transaction, root, &path, body).expect("wiki row");
+            crate::search::index_document::index_text(&transaction, root, &path, body).expect("wiki row");
             transaction
                 .execute(
-                    "INSERT INTO documents(path, modified_ns, size, content_hash, created_ns)
-                     VALUES(?1, 200, 10, x'00', 100)",
+                    "INSERT INTO documents(path, modified_ns, size, created_ns) VALUES(?1, 200, 10, 100)",
                     [path.to_string_lossy().as_ref()],
                 )
                 .expect("document row");
@@ -295,17 +279,7 @@ mod tests {
 
     #[test]
     fn an_unindexed_workspace_yields_an_empty_snapshot() {
-        let connection = Connection::open_in_memory().expect("database");
-        connection
-            .execute_batch(
-                "CREATE TABLE documents (path TEXT PRIMARY KEY, modified_ns INTEGER NOT NULL,
-                   size INTEGER NOT NULL, content_hash BLOB NOT NULL,
-                   analyzer_version INTEGER NOT NULL DEFAULT 0,
-                   created_ns INTEGER NOT NULL DEFAULT 0,
-                   created_source INTEGER NOT NULL DEFAULT 0) WITHOUT ROWID",
-            )
-            .expect("documents table");
-        wiki::open_schema(&connection).expect("wiki schema");
+        let connection = crate::search::metadata::memory();
 
         let snapshot =
             RenderSnapshot::build(&connection, Path::new("C:/vault")).expect("snapshot");

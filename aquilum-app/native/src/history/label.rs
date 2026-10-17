@@ -5,8 +5,8 @@ use super::Version;
 use crate::dates;
 use crate::i18n::{t, t_with};
 
-fn source_key(source: &Source) -> &'static str {
-    match source {
+fn source_name(source: &Source) -> String {
+    let key = match source {
         Source::Me => "me",
         Source::Agent => "agent",
         Source::External => "external",
@@ -14,16 +14,17 @@ fn source_key(source: &Source) -> &'static str {
         Source::Start | Source::Reading => "start",
         Source::Restore(_) => "restore",
         Source::Revert(_) => "revert",
-    }
+    };
+    t(&format!("history.sources.{key}"))
 }
 
 pub fn label(version: &Version) -> String {
-    version.name.clone().unwrap_or_else(|| t(&format!("history.sources.{}", source_key(&version.source))))
+    version.name.clone().unwrap_or_else(|| source_name(&version.source))
 }
 
 fn title(version: &Version) -> String {
     match version.from_ms {
-        None => t(&format!("history.sources.{}", source_key(&version.source))),
+        None => source_name(&version.source),
         Some(from) => {
             let key = if matches!(version.source, Source::Revert(_)) { "history.revertedFrom" } else { "history.restoredFrom" };
             t_with(key, &[("date", &dates::date_time(from))])

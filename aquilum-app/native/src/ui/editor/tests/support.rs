@@ -1,12 +1,9 @@
-use std::sync::Arc;
+use masonry::app::RenderRoot;
+use masonry::core::keyboard::{Key, Modifiers, NamedKey};
+use masonry::core::{NewWidget, PointerButton, PointerEvent, PointerScrollEvent, PointerState, ScrollDelta, TextEvent, Widget, WidgetId, WidgetTag};
 
-use masonry::app::{RenderRoot, RenderRootOptions, WindowSizePolicy};
-use masonry::core::keyboard::{Code, Key, KeyState, KeyboardEvent, Location, Modifiers, NamedKey};
-use masonry::core::{
-    NewWidget, PointerButton, PointerButtonEvent, PointerEvent, PointerId, PointerInfo, PointerScrollEvent, PointerState, PointerType, PointerUpdate, ScrollDelta, TextEvent, Widget, WidgetId, WidgetTag,
-};
-use masonry::dpi::{PhysicalPosition, PhysicalSize};
-use masonry::theme::default_property_set;
+use crate::test_dir::{MOUSE, moved, pointer_at, primary};
+use masonry::dpi::PhysicalPosition;
 
 use crate::test_dir::command;
 use crate::ui::editor::TextEditor;
@@ -16,14 +13,7 @@ pub(super) const TAG: WidgetTag<TextEditor> = WidgetTag::named("редактор
 pub(super) const PAGE: WidgetTag<ScrollArea<TextEditor>> = WidgetTag::named("страница");
 
 fn mount(widget: NewWidget<impl Widget + ?Sized>, width: u32, height: u32) -> RenderRoot {
-    let options = RenderRootOptions {
-        default_properties: Arc::new(default_property_set()),
-        use_system_fonts: true,
-        size_policy: WindowSizePolicy::User,
-        size: PhysicalSize::new(width, height),
-        scale_factor: 1.0,
-        test_font: None,
-    };
+    let options = crate::test_dir::options(width, height, 1.0);
     let mut root = RenderRoot::new(widget, |_| {}, options);
     let _ = root.redraw();
     root
@@ -66,10 +56,7 @@ pub(super) fn selected(root: &RenderRoot) -> String {
 }
 
 pub(super) fn press(root: &mut RenderRoot, key: Key, modifiers: Modifiers) {
-    for state in [KeyState::Down, KeyState::Up] {
-        let event = KeyboardEvent { state, key: key.clone(), code: Code::Unidentified, location: Location::Standard, modifiers, repeat: false, is_composing: false };
-        root.handle_text_event(TextEvent::Keyboard(event));
-    }
+    crate::test_dir::key(root, key, modifiers);
     let _ = root.redraw();
 }
 
@@ -92,28 +79,20 @@ pub(super) fn paste(root: &mut RenderRoot, s: &str) {
     let _ = root.redraw();
 }
 
-fn mouse() -> PointerInfo {
-    PointerInfo { pointer_id: Some(PointerId::PRIMARY), persistent_device_id: None, pointer_type: PointerType::Mouse }
-}
-
-fn pointer_state(at: (f64, f64), count: u8) -> PointerState {
-    PointerState { position: PhysicalPosition::new(at.0, at.1), count, scale_factor: 1.0, ..PointerState::default() }
-}
-
 fn pointer_move(root: &mut RenderRoot, state: &PointerState) {
-    root.handle_pointer_event(PointerEvent::Move(PointerUpdate { pointer: mouse(), current: state.clone(), coalesced: vec![], predicted: vec![] }));
+    root.handle_pointer_event(moved(state.clone()));
     let _ = root.redraw();
 }
 
 fn gesture(root: &mut RenderRoot, from: (f64, f64), to: (f64, f64), count: u8) {
-    let mut state = pointer_state(from, count);
+    let mut state = PointerState { count, ..pointer_at(from.0, from.1, 1.0) };
     pointer_move(root, &state);
     state.buttons.insert(PointerButton::Primary);
-    root.handle_pointer_event(PointerEvent::Down(PointerButtonEvent { pointer: mouse(), button: Some(PointerButton::Primary), state: state.clone() }));
+    root.handle_pointer_event(PointerEvent::Down(primary(state.clone())));
     state.position = PhysicalPosition::new(to.0, to.1);
     pointer_move(root, &state);
     state.buttons.remove(PointerButton::Primary);
-    root.handle_pointer_event(PointerEvent::Up(PointerButtonEvent { pointer: mouse(), button: Some(PointerButton::Primary), state }));
+    root.handle_pointer_event(PointerEvent::Up(primary(state)));
     let _ = root.redraw();
 }
 
@@ -130,7 +109,7 @@ pub(super) fn tap(root: &mut RenderRoot, x: f64, y: f64, count: u8, jitter: f64)
 }
 
 pub(super) fn wheel(root: &mut RenderRoot, at: (f64, f64), delta: (f64, f64)) {
-    let event = PointerScrollEvent { pointer: mouse(), delta: ScrollDelta::PixelDelta(PhysicalPosition::new(delta.0, delta.1)), state: pointer_state(at, 1) };
+    let event = PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(delta.0, delta.1)), state: pointer_at(at.0, at.1, 1.0) };
     root.handle_pointer_event(PointerEvent::Scroll(event));
     let _ = root.redraw();
 }

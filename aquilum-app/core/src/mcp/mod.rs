@@ -86,6 +86,7 @@ impl McpServer {
             let weak = Arc::downgrade(core);
             let caller: server::SharedToolCaller = Arc::new(move |name: &str, arguments: &serde_json::Value| {
                 let core = weak.upgrade().ok_or_else(|| "Приложение завершается".to_owned())?;
+                core.settle();
                 tools::call(&core, name, arguments)
             });
             match RunningServer::start(settings.port, token, caller) {

@@ -36,7 +36,7 @@ fn workspace_dialog_switches_and_forgets_vaults() {
     let back = h.workspace_rows().into_iter().find(|(_, p)| same_path(p, &first)).unwrap().0;
     h.act(back, RowAction::Open);
     assert!(same_path(h.app.tree.root().unwrap(), &first));
-    assert!(h.app.note.as_ref().is_some_and(|n| n.is(&first.join("a.md"))));
+    assert!(h.app.shows(&first.join("a.md")));
 
     h.act(h.app.chrome.as_ref().unwrap().workspaces, Pressed);
     let other = h.workspace_rows().into_iter().find(|(_, p)| same_path(p, second.path())).unwrap().0;

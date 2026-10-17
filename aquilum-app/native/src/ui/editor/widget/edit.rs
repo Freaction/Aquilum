@@ -5,11 +5,7 @@ use crate::ui::editor::history::Step;
 impl TextEditor {
     pub(super) fn replace(&mut self, range: Range<usize>, text: &str, kind: Kind) {
         let end = range.start + text.len();
-        self.replace_and_select(range, text, kind, (end, end));
-    }
-
-    pub(super) fn replace_and_select(&mut self, range: Range<usize>, text: &str, kind: Kind, selection: (usize, usize)) {
-        self.dispatch(vec![(range, text.to_owned())], Some(selection), kind);
+        self.dispatch(vec![(range, text.to_owned())], Some((end, end)), kind);
     }
 
     pub(super) fn dispatch(&mut self, mut edits: Vec<(Range<usize>, String)>, selection: Option<(usize, usize)>, kind: Kind) {
@@ -26,11 +22,15 @@ impl TextEditor {
                 changes.push(change);
             }
         }
+        self.place(selection, &changes);
+        self.history.record(Step { changes, before, after: selection, kind, time: std::time::Instant::now() });
+    }
+
+    fn place(&mut self, selection: (usize, usize), changes: &[Change]) {
         (self.anchor, self.focus) = selection;
         self.affinity = Affinity::Downstream;
         self.column = None;
-        self.refind(&changes);
-        self.history.record(Step { changes, before, after: selection, kind, time: std::time::Instant::now() });
+        self.refind(changes);
         self.reveal_edited_image();
     }
 
@@ -92,18 +92,13 @@ impl TextEditor {
 
     pub(super) fn undo(&mut self, redo: bool) -> bool {
         self.leave_table();
-        let step = if redo { self.history.redo() } else { self.history.undo() };
-        let Some(step) = step else { return false };
+        let Some(step) = self.history.take(redo) else { return false };
         let applied: Vec<Change> = if redo {
             step.changes.into_iter().map(|c| self.splice(c.at..c.at + c.removed.len(), c.inserted)).collect()
         } else {
             step.changes.into_iter().rev().map(|c| self.splice(c.at..c.at + c.inserted.len(), c.removed)).collect()
         };
-        (self.anchor, self.focus) = if redo { step.after } else { step.before };
-        self.affinity = Affinity::Downstream;
-        self.column = None;
-        self.reveal_edited_image();
-        self.refind(&applied);
+        self.place(if redo { step.after } else { step.before }, &applied);
         true
     }
 }

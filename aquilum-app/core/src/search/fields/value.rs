@@ -115,10 +115,6 @@ fn starts_like_number(trimmed: &str) -> bool {
         .is_some_and(|first| first.is_ascii_digit() || first == '-' || first == '+')
 }
 
-pub fn key_lower(key: &str) -> String {
-    key.trim().to_lowercase()
-}
-
-pub fn value_lower(value: &str) -> String {
-    value.trim().to_lowercase()
+pub fn lower(text: &str) -> String {
+    text.trim().to_lowercase()
 }

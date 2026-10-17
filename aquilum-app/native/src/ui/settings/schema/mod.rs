@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use aquilum_core::files::deletions::{TrashedDeletion, deletion_page_impl};
 use aquilum_core::files::trash::trash_state_impl;
 use aquilum_core::mcp::McpStatus;
-use aquilum_core::settings::models::AppConfig;
+use aquilum_core::settings::models::{AppConfig, SAVE_INTERVALS};
 
 use crate::i18n::{self, plural, t, t_with};
 use crate::interface::{MAX_SCALE, MIN_SCALE, SCALE_STEP};

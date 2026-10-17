@@ -28,7 +28,7 @@ impl Document {
 
     pub fn report(&mut self, range: Range<usize>, insert: &str) {
         if let Some(edits) = self.edits.as_mut() {
-            edits.push(Edit { range, insert: insert.to_owned() });
+            edits.push(Edit { range, inserted: insert.len() });
         }
     }
 

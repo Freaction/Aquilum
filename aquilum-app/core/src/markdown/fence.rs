@@ -28,6 +28,14 @@ impl Fence {
         line[self.info..].trim()
     }
 
+    pub fn step(open: Option<Fence>, line: &str, max_columns: usize) -> Option<Fence> {
+        match open {
+            Some(fence) if fence.closes(line) => None,
+            Some(fence) => Some(fence),
+            None => Fence::open(line, max_columns),
+        }
+    }
+
     pub fn closes(&self, line: &str) -> bool {
         let rest = line.trim_start_matches([' ', '\t']);
         let run = rest.bytes().take_while(|b| *b == self.symbol).count();
@@ -37,17 +45,10 @@ impl Fence {
 
 pub fn outside(text: &str) -> impl Iterator<Item = (usize, &str)> {
     let mut inside: Option<Fence> = None;
-    text.lines().enumerate().filter(move |(_, line)| match inside {
-        Some(fence) => {
-            if fence.closes(line) {
-                inside = None;
-            }
-            false
-        }
-        None => {
-            inside = Fence::open(line, usize::MAX);
-            inside.is_none()
-        }
+    text.lines().enumerate().filter(move |(_, line)| {
+        let was = inside.is_some();
+        inside = Fence::step(inside, line, usize::MAX);
+        !was && inside.is_none()
     })
 }
 

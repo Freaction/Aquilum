@@ -1,9 +1,10 @@
 use crate::app_core::Core;
-use crate::files::document::read_text;
 use crate::markdown::line::bounds;
 use crate::mcp::tools::workspace::indexed_vault;
 use crate::mcp::tools::shorten;
-use crate::search::headings::heading_at;
+use crate::search::headings::find_spot;
+use crate::search::pages::Pages;
+use crate::text::cancel::Cancel;
 use crate::text::utf16::utf16_byte;
 use serde_json::{json, Value};
 use std::path::Path;
@@ -67,11 +68,18 @@ fn mentions<T>(items: &[T], same: impl Fn(&T, &T) -> bool) -> Vec<(usize, usize)
 }
 
 fn link_context(path: &Path, offset_utf16: usize) -> (Option<String>, Option<String>) {
-    let Ok(text) = read_text(path) else {
+    let spot = Pages::open(path).and_then(|mut pages| {
+        find_spot(&mut pages, &Cancel::never(), |page| {
+            let local = offset_utf16.checked_sub(page.start_utf16)?;
+            let at = utf16_byte(&page.text, local);
+            (at < page.text.len()).then_some(at)
+        })
+    });
+    let Ok(Some(spot)) = spot else {
         return (None, None);
     };
-    let at = utf16_byte(&text, offset_utf16);
-    (heading_at(&text, at), Some(shorten(text[bounds(&text, at)].trim(), CONTEXT_LIMIT)))
+    let line = shorten(spot.page.text[bounds(&spot.page.text, spot.at)].trim(), CONTEXT_LIMIT);
+    (spot.heading, Some(line))
 }
 
 #[cfg(test)]

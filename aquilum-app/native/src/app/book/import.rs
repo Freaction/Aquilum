@@ -24,12 +24,12 @@ pub(in crate::app) fn synthetic_pages(existing: Option<&str>, bytes: u64) -> Str
     let current = existing
         .and_then(frontmatter::parse_pages)
         .map_or(0, |(current, known)| ((f64::from(current) / f64::from(known)).clamp(0.0, 1.0) * f64::from(total)).round() as u32);
-    frontmatter::format_pages(current, total)
+    format!("{current}/{total}")
 }
 
 impl App {
     pub(super) fn book_pressed(&mut self, root: &mut RenderRoot) {
-        let fields = frontmatter::parse(&self.head());
+        let fields = self.fields();
         let file = fields.as_ref().and_then(|f| f.text(BOOK_FILE).map(str::to_owned));
         if let Some(file) = file {
             if let Some(path) = vault_files::resolve(self.tree.root(), &file)
@@ -64,7 +64,7 @@ impl App {
         match vault_files::import(&self.workspace.core, &workspace, Source::Path(file), "book", "epub") {
             Ok(relative) => {
                 let bytes = std::fs::metadata(file).map_or(0, |m| m.len());
-                let existing = frontmatter::parse(&self.head()).and_then(|f| f.text(PAGES).map(str::to_owned));
+                let existing = self.fields().and_then(|f| f.text(PAGES).map(str::to_owned));
                 self.set_fields(root, &[(BOOK_FILE, relative), (PAGES, synthetic_pages(existing.as_deref(), bytes))]);
             }
             Err(error) => report!("книга не загружена: {error:?}"),
@@ -87,7 +87,7 @@ impl App {
     }
 
     pub(in crate::app) fn on_picked(&mut self, root: &mut RenderRoot, picked: Picked) -> bool {
-        let current = |note: &PathBuf| self.note.as_ref().is_some_and(|n| n.is(note));
+        let current = |note: &PathBuf| self.shows(note);
         match picked {
             Picked::Workspace(path) => return self.switch_workspace(root, path).title,
             Picked::PageCover(note, file) if current(&note) => {

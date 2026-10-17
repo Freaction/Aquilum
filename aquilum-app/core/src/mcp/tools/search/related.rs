@@ -3,7 +3,7 @@ use crate::app_core::Core;
 use crate::mcp::tools::workspace::{indexed_vault, requested_vault};
 use crate::mcp::tools::{limit, shorten};
 use crate::search::analysis::models::AnalysisMethod;
-use crate::search::analysis::window::read_window;
+use crate::files::document::read_head;
 use crate::wikixiv::models::SearchRequest;
 use serde_json::{json, Value};
 use std::path::Path;
@@ -42,7 +42,7 @@ pub fn analyze(core: &Core, arguments: &Value, method: AnalysisMethod) -> Result
 pub fn wiki_sources(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
     let note = vault.note_argument(arguments)?;
-    let content = read_window(&note).map_err(|error| error.to_string())?;
+    let content = read_head(&note).map_err(|error| error.to_string())?;
     let enabled = core
         .settings
         .get_config()

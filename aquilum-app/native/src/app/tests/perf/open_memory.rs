@@ -2,7 +2,6 @@ use super::*;
 
 use std::time::{Duration, Instant};
 
-use aquilum_core::search::models::SearchIndexState;
 
 use crate::memory_probe::{heap, peak, report, reset_peak, trace};
 use crate::stats::mb;
@@ -10,17 +9,11 @@ use crate::stats::mb;
 #[test]
 #[ignore]
 fn big_note_open_memory() {
-    let source = std::path::PathBuf::from(std::env::var("AQ_NOTE").expect("AQ_NOTE"));
     let mut b = Bench::start(None);
-    let note = b.h.vault.path().join("заметка.md");
-    std::fs::copy(&source, &note).unwrap();
+    let note = b.h.copy_note();
     let (core, workspace) = (std::sync::Arc::clone(&b.h.app.workspace.core), b.h.vault.path().to_string_lossy().into_owned());
     core.search.prepare(&workspace).unwrap();
-    let ready = super::super::support::wait_until(6000, 50, || {
-        let status = core.search.status(Some(&workspace));
-        status.state == SearchIndexState::Ready && !status.updating
-    });
-    assert!(ready, "индекс не готов");
+    assert!(wait_index(&core, &workspace), "индекс не готов");
     std::thread::sleep(Duration::from_secs(2));
     trace(true);
     let base = heap();

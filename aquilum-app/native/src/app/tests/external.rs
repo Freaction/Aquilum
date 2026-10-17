@@ -67,7 +67,7 @@ fn a_note_or_text_file_removed_outside_closes_its_tab() {
         let path = h.write_note(name, "текст");
         h.app.tree.paths_changed(&mut h.root, std::slice::from_ref(&path));
         assert!(h.app.open(&mut h.root, path.clone()));
-        assert!(h.app.note.as_ref().is_some_and(|note| note.is(&path)));
+        assert!(h.app.shows(&path));
         std::fs::remove_file(&path).unwrap();
         assert!(
             wait_until(250, 20, || {

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use aquilum_core::files::document::read_text;
+use aquilum_core::files::document::read_head;
 use aquilum_core::search::paths::strip_markdown_extension;
 
 use super::media::locate;
@@ -39,7 +39,7 @@ fn load(inner: &Inner, target: &str, path: Option<PathBuf>) -> Fetch<Book> {
     let Some(path) = path else {
         return Fetch::Ready(Book { title, linked: false, author: String::new(), cover: None, pages: None, file: None, page: None });
     };
-    let text = read_text(&path).unwrap_or_default();
+    let text = read_head(&path).unwrap_or_default();
     let fields = frontmatter::parse(&text).unwrap_or_default();
     let cover = fields.text(BOOK_COVER).and_then(|c| locate(inner, c)).and_then(|p| crate::images::load(&p));
     Fetch::Ready(Book {

@@ -2,25 +2,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use aquilum_core::Core;
+pub use aquilum_core::files::entries::first_free;
 use aquilum_core::files::error::FileCommandError;
 use aquilum_core::files::gate;
 use aquilum_core::history::Source;
 use aquilum_core::search::paths::is_markdown;
 
-const FREE_NAME_ATTEMPTS: usize = 1000;
 const UNTITLED_NOTE: &str = "Без названия";
-
-pub fn first_free<T>(candidate: impl Fn(usize) -> PathBuf, mut op: impl FnMut(&Path) -> Result<T, FileCommandError>) -> Result<PathBuf, FileCommandError> {
-    for index in 0..FREE_NAME_ATTEMPTS {
-        let path = candidate(index);
-        match op(&path) {
-            Ok(_) => return Ok(path),
-            Err(FileCommandError::AlreadyExists { .. }) => continue,
-            Err(error) => return Err(error),
-        }
-    }
-    Err(FileCommandError::AlreadyExists { path: candidate(0).to_string_lossy().into_owned() })
-}
 
 fn numbered(path: &Path, index: usize) -> PathBuf {
     if index == 0 {
@@ -105,7 +93,7 @@ pub fn move_all(core: &Arc<Core>, sources: Vec<PathBuf>, target: PathBuf) {
 pub fn create_note(core: &Core, workspace: &Path, title: Option<&str>) -> Result<PathBuf, FileCommandError> {
     let sanitized = title.map(sanitize_file_name).filter(|t| !t.is_empty());
     let base = sanitized.as_deref().unwrap_or(UNTITLED_NOTE);
-    first_free(|i| workspace.join(if i == 0 { format!("{base}.md") } else { format!("{base} {i}.md") }), |path| gate::create(core, path, "", Source::Me, None))
+    first_free(|i| workspace.join(if i == 0 { format!("{base}.md") } else { format!("{base} {i}.md") }), |path| gate::create(core, path, &"", Source::Me, None))
 }
 
 pub fn create_folder(parent: &Path) -> Result<PathBuf, FileCommandError> {

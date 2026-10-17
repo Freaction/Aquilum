@@ -65,7 +65,7 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
     assert!(results[0].raw_score > 1.0);
     let title_match = results
         .iter()
-        .find(|result| result.title == "aquilum architecture")
+        .find(|result| result.title == "title")
         .unwrap();
     let short = results.iter().find(|result| result.title == "short").unwrap();
     let long = results.iter().find(|result| result.title == "long").unwrap();

@@ -11,7 +11,7 @@ fn tokens(text: &str) -> Vec<String> {
 
 #[test]
 fn analyzer_version_tracks_morphology_pipeline() {
-    assert_eq!(ANALYZER_VERSION, 11);
+    assert_eq!(ANALYZER_VERSION, 13);
 }
 
 #[test]

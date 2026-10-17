@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 
 use aquilum_core::files::gate;
 use aquilum_core::history::Source;
-use aquilum_core::search::wiki::anchor::anchor_offset;
 use aquilum_core::search::wiki::target::split;
 use masonry::app::RenderRoot;
 
@@ -28,7 +27,7 @@ impl App {
 
     fn open_wiki(&mut self, root: &mut RenderRoot, raw: &str, new_tab: bool) -> bool {
         let Some(path) = self.wiki_note(root, raw) else { return false };
-        let offset = split(raw).anchor.and_then(|anchor| anchor_offset(&self.note_text(&path)?, anchor));
+        let offset = split(raw).anchor.and_then(|anchor| self.anchor_offset(&path, anchor));
         self.open_in_with_offset(root, path, new_tab, offset)
     }
 
@@ -55,7 +54,7 @@ impl App {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        if let Err(error) = gate::create(&self.workspace.core, path, "", Source::Me, None) {
+        if let Err(error) = gate::create(&self.workspace.core, path, &"", Source::Me, None) {
             report!("{} не создана: {error:?}", path.display());
             return false;
         }

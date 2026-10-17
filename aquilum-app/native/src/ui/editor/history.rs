@@ -65,20 +65,10 @@ impl History {
         self.undo.push(step);
     }
 
-    pub fn undo(&mut self) -> Option<Step> {
-        let step = self.undo.pop()?;
-        self.redo.push(step.clone());
+    pub fn take(&mut self, redo: bool) -> Option<Step> {
+        let (from, to) = if redo { (&mut self.redo, &mut self.undo) } else { (&mut self.undo, &mut self.redo) };
+        let step = from.pop()?;
+        to.push(step.clone());
         Some(step)
-    }
-
-    pub fn redo(&mut self) -> Option<Step> {
-        let step = self.redo.pop()?;
-        self.undo.push(step.clone());
-        Some(step)
-    }
-
-    pub fn clear(&mut self) {
-        self.undo.clear();
-        self.redo.clear();
     }
 }

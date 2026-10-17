@@ -1,12 +1,11 @@
-use super::inline::indexed_fields;
-use super::value::{key_lower, value_lower, FieldKind};
+use super::value::Field;
+use super::value::{lower, FieldKind};
 use crate::search::error::SearchError;
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{params, Transaction};
 use std::path::Path;
 
-pub fn open_schema(connection: &Connection) -> Result<(), SearchError> {
-    connection.execute_batch(
-        "CREATE TABLE IF NOT EXISTS note_fields (
+pub const FIELDS_DDL: &str = "CREATE TABLE IF NOT EXISTS note_fields (
+           page INTEGER NOT NULL REFERENCES note_pages(id) ON DELETE CASCADE,
            path TEXT NOT NULL,
            ordinal INTEGER NOT NULL,
            key TEXT NOT NULL,
@@ -15,56 +14,26 @@ pub fn open_schema(connection: &Connection) -> Result<(), SearchError> {
            text TEXT NOT NULL,
            text_lower TEXT NOT NULL,
            items TEXT,
-           PRIMARY KEY(path, ordinal)
+           PRIMARY KEY(page, ordinal)
          ) WITHOUT ROWID;
-         CREATE INDEX IF NOT EXISTS note_fields_lookup ON note_fields(key_lower, text_lower);",
-    )?;
-    Ok(())
-}
+         CREATE INDEX IF NOT EXISTS note_fields_path ON note_fields(path);
+         CREATE INDEX IF NOT EXISTS note_fields_lookup ON note_fields(key_lower, text_lower)";
 
-pub fn index_document(
-    transaction: &Transaction<'_>,
-    path: &Path,
-    body: &str,
-) -> Result<(), SearchError> {
-    remove_document(transaction, path)?;
-    let found = indexed_fields(body);
-    if found.is_empty() {
-        return Ok(());
-    }
+pub fn store(transaction: &Transaction<'_>, page: i64, path: &Path, found: &[Field]) -> Result<(), SearchError> {
     let path_text = path.to_string_lossy();
-    let mut statement = transaction.prepare(
-        "INSERT INTO note_fields(path, ordinal, key, key_lower, kind, text, text_lower, items)
-         VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+    let mut statement = transaction.prepare_cached(
+        "INSERT INTO note_fields(page, path, ordinal, key, key_lower, kind, text, text_lower, items)
+         VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
     )?;
     for (ordinal, field) in found.iter().enumerate() {
-        let items = (field.kind == FieldKind::List)
-            .then(|| serde_json::to_string(&field.items).unwrap_or_else(|_| "[]".to_owned()));
-        statement.execute(params![
-            path_text,
-            ordinal as i64,
-            field.key,
-            key_lower(&field.key),
-            field.kind.stored(),
-            field.text,
-            value_lower(&field.text),
-            items,
-        ])?;
+        let items = (field.kind == FieldKind::List).then(|| serde_json::to_string(&field.items).unwrap_or_else(|_| "[]".to_owned()));
+        statement.execute(params![page, path_text, ordinal as i64, field.key, lower(&field.key), field.kind.stored(), field.text, lower(&field.text), items])?;
     }
-    Ok(())
-}
-
-pub fn remove_document(transaction: &Transaction<'_>, path: &Path) -> Result<(), SearchError> {
-    transaction.execute(
-        "DELETE FROM note_fields WHERE path=?1",
-        [path.to_string_lossy().as_ref()],
-    )?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{index_document, open_schema, remove_document};
     use crate::search::fields::query;
     use rusqlite::Connection;
     use std::path::Path;
@@ -79,43 +48,40 @@ mod tests {
 
     #[test]
     fn reindexing_replaces_fields_and_removal_clears_them() {
-        let mut connection = Connection::open_in_memory().unwrap();
-        open_schema(&connection).unwrap();
+        let mut connection = crate::search::metadata::memory();
         let path = Path::new("C:/vault/Книга.md");
 
         let transaction = connection.transaction().unwrap();
-        index_document(&transaction, path, BOOK).unwrap();
+        crate::search::index_document::index_text(&transaction, std::path::Path::new("C:/vault"), path, BOOK).unwrap();
         transaction.commit().unwrap();
         assert_eq!(count(&connection), 3);
 
         let transaction = connection.transaction().unwrap();
-        index_document(&transaction, path, "---\ntype: note\n---\n").unwrap();
+        crate::search::index_document::index_text(&transaction, std::path::Path::new("C:/vault"), path, "---\ntype: note\n---\n").unwrap();
         transaction.commit().unwrap();
         assert_eq!(count(&connection), 1, "поля прежней версии заметки удалены");
 
         let transaction = connection.transaction().unwrap();
-        remove_document(&transaction, path).unwrap();
+        crate::search::pages::remove(&transaction, &path.to_string_lossy()).unwrap();
         transaction.commit().unwrap();
         assert_eq!(count(&connection), 0);
     }
 
     #[test]
     fn a_note_without_frontmatter_leaves_no_rows() {
-        let mut connection = Connection::open_in_memory().unwrap();
-        open_schema(&connection).unwrap();
+        let mut connection = crate::search::metadata::memory();
         let transaction = connection.transaction().unwrap();
-        index_document(&transaction, Path::new("C:/vault/Заметка.md"), "просто текст").unwrap();
+        crate::search::index_document::index_text(&transaction, std::path::Path::new("C:/vault"), Path::new("C:/vault/Заметка.md"), "просто текст").unwrap();
         transaction.commit().unwrap();
         assert_eq!(count(&connection), 0);
     }
 
     #[test]
     fn stored_fields_come_back_with_their_type_and_list_items() {
-        let mut connection = Connection::open_in_memory().unwrap();
-        open_schema(&connection).unwrap();
+        let mut connection = crate::search::metadata::memory();
         let path = "C:/vault/Книга.md".to_owned();
         let transaction = connection.transaction().unwrap();
-        index_document(&transaction, Path::new(&path), BOOK).unwrap();
+        crate::search::index_document::index_text(&transaction, std::path::Path::new("C:/vault"), Path::new(&path), BOOK).unwrap();
         transaction.commit().unwrap();
 
         let read = query::read(&connection, std::slice::from_ref(&path)).unwrap();
@@ -128,12 +94,12 @@ mod tests {
 
     #[test]
     fn lookup_narrows_by_key_and_value_ignoring_case() {
-        let mut connection = Connection::open_in_memory().unwrap();
-        open_schema(&connection).unwrap();
+        let mut connection = crate::search::metadata::memory();
         let transaction = connection.transaction().unwrap();
-        index_document(&transaction, Path::new("C:/vault/Книга.md"), BOOK).unwrap();
-        index_document(
+        crate::search::index_document::index_text(&transaction, std::path::Path::new("C:/vault"), Path::new("C:/vault/Книга.md"), BOOK).unwrap();
+        crate::search::index_document::index_text(
             &transaction,
+            Path::new("C:/vault"),
             Path::new("C:/vault/Статья.md"),
             "---\ntype: article\nauthor: \n---\n",
         )

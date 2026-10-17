@@ -1,4 +1,6 @@
 use crate::search::note_date::to_civil_at;
+use crate::text::content::{find_byte, read_bytes, Content};
+use crate::text::pieces::Pieces;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConflictCause {
@@ -81,16 +83,15 @@ pub fn copy_stem(stem: &str, moment: &LocalMinute) -> String {
     format!("{stem} (конфликт {} {})", moment.date, moment.time.replace(':', "-"))
 }
 
-pub fn copy_content(
+pub fn copy_content<'a>(
     note_path: &str,
     stem: &str,
     report: &ConflictReport,
     moment: &LocalMinute,
-    body: &str,
-) -> Option<String> {
-    if body.trim().is_empty() {
-        return None;
-    }
+    body: &'a dyn Content,
+) -> Option<Pieces<Box<dyn Content + 'a>>> {
+    let len = body.byte_len();
+    find_byte(body, 0..len, false, |byte| !byte.is_ascii_whitespace()).ok()??;
     let explanation = explanation(report.cause);
     let stamp = format!("{} {}", moment.date, moment.time);
     let mut lines = vec![
@@ -114,12 +115,14 @@ pub fn copy_content(
         lines.push(format!("> **Отпечаток последней сверки.** `{}`", one_line(hash)));
     }
     lines.extend([String::new(), "## Текст, который не попал в заметку".to_owned(), String::new()]);
-    let mut content = lines.join("\n");
-    content.push_str(body);
-    if !body.ends_with('\n') {
-        content.push('\n');
-    }
-    Some(content)
+    let head = lines.join("\n");
+    let ends = read_bytes(body, len - 1..len).ok()? == b"\n";
+    let (head_len, tail) = (head.len(), if ends { "" } else { "\n" });
+    let mut copy: Pieces<Box<dyn Content + 'a>> = Pieces::new(vec![Box::new(head), Box::new(body), Box::new(tail)]);
+    copy.push(0, 0..head_len);
+    copy.push(1, 0..len);
+    copy.push(2, 0..tail.len());
+    Some(copy)
 }
 
 #[cfg(test)]

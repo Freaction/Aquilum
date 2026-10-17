@@ -1,13 +1,12 @@
-use super::{announce, paths_changed, record, NoteMove, Relocation};
+use super::{announce, edit, paths_changed, NoteMove, Relocation};
 use crate::app_core::Core;
 use crate::files::entries::rename_file_impl;
 use crate::files::error::FileCommandError;
 use crate::files::models::FileRenameResult;
 use crate::files::rename::rename_with_links;
-use crate::history::{NoteWrite, Source};
+use crate::history::Source;
 use crate::search::paths::is_note;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 use walkdir::WalkDir;
 
 pub fn rename(
@@ -19,24 +18,22 @@ pub fn rename(
 }
 
 fn rename_now(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, FileCommandError> {
-    let (renamed, relocation) = relocating(core, from, to, || rename_with_links(&core.search, from, to))?;
-    for rewrite in &renamed.rewritten {
-        let write = NoteWrite {
-            disk_before: Some((rewrite.before.clone(), SystemTime::now())),
-            text: &rewrite.after,
-            hash: &rewrite.hash,
-            source: Source::Links,
-            name: None,
-        };
-        record(core, &rewrite.path, write);
-    }
-    let rewritten: Vec<PathBuf> = renamed.result.updated_paths.iter().map(PathBuf::from).collect();
+    let (rewrites, relocation) = relocating(core, from, to, || rename_with_links(&core.search, from, to))?;
+    let rewritten: Vec<PathBuf> = rewrites
+        .into_iter()
+        .filter(|rewrite| {
+            edit(core, &rewrite.path, &rewrite.changes, Some(&rewrite.original_hash), Source::Links, None)
+                .map_err(|error| eprintln!("[aquilum:files] ссылки в {} не переписаны: {error}", rewrite.path.display()))
+                .is_ok()
+        })
+        .map(|rewrite| rewrite.path)
+        .collect();
     let mut changed = vec![from.to_path_buf(), to.to_path_buf()];
     changed.extend(rewritten.iter().cloned());
     announce(core, relocation);
     paths_changed(core, changed);
     core.documents.reconcile_paths(core, &rewritten);
-    Ok(renamed.result)
+    Ok(FileRenameResult { updated_paths: rewritten })
 }
 
 pub fn move_across(core: &Core, from: &Path, to: &Path) -> Result<(), FileCommandError> {

@@ -39,7 +39,7 @@ impl App {
             self.show_page(root, if self.tree.root().is_some() { 1 } else { 3 });
             return;
         };
-        if self.note.as_ref().is_some_and(|n| n.is(&path)) {
+        if self.shows(&path) {
             self.reveal_pending(root);
             self.show_page(root, 0);
             return;
@@ -96,9 +96,8 @@ impl App {
         self.flush_view();
         self.view = None;
         self.restore = None;
-        if let Some(note) = self.note.take() {
-            note.leave(&self.workspace.core, &self.text);
-        }
+        self.commit_note();
+        self.note = None;
     }
 
     pub(in crate::app) fn show_page(&self, root: &mut RenderRoot, index: usize) {

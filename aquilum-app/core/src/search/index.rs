@@ -16,6 +16,7 @@ pub struct SearchFields {
     pub path: Field,
     pub title: Field,
     pub body: Field,
+    pub page: Field,
 }
 
 pub struct SearchIndex {

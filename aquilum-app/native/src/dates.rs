@@ -11,6 +11,10 @@ pub fn now_ms() -> i64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or_default()
 }
 
+pub fn offset_seconds() -> i64 {
+    i64::from(Local::now().offset().local_minus_utc())
+}
+
 pub fn local(epoch_ms: u64) -> Option<DateTime<Local>> {
     Local.timestamp_millis_opt(epoch_ms as i64).single()
 }

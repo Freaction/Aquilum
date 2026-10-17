@@ -12,6 +12,7 @@ pub fn build() -> Schema {
     builder.add_text_field("path", text_options(false));
     builder.add_text_field("title", text_options(true));
     builder.add_text_field("body", text_options(false));
+    builder.add_text_field("page", STRING);
     builder.build()
 }
 
@@ -46,6 +47,7 @@ pub fn fields(schema: &Schema) -> Result<SearchFields, SearchError> {
         path: field(schema, "path")?,
         title: field(schema, "title")?,
         body: field(schema, "body")?,
+        page: field(schema, "page")?,
     })
 }
 

@@ -1,7 +1,6 @@
 use super::*;
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::links::{Method, Mode, Request};
@@ -11,41 +10,6 @@ use crate::ui::editor::TextEditor;
 const STRESS: &str = "Полный тест Markdown.md";
 const REGULAR: [&str; 3] = ["Base/📖 Путеводитель по бессмертию.md", "Идеи для игры с зомби.md", "markdown-test.md"];
 const TERMS: [&str; 3] = ["текст", "Пункт", "формула"];
-
-fn copy_notes(from: &Path, to: &Path) {
-    for entry in std::fs::read_dir(from).unwrap().flatten() {
-        let (path, name) = (entry.path(), entry.file_name());
-        if name.to_string_lossy().starts_with('.') {
-            continue;
-        }
-        if path.is_dir() {
-            std::fs::create_dir_all(to.join(&name)).unwrap();
-            copy_notes(&path, &to.join(&name));
-        } else if path.extension().is_some_and(|e| e == "md") {
-            std::fs::copy(&path, to.join(&name)).unwrap();
-        }
-    }
-}
-
-fn measured<T>(work: impl FnOnce() -> T) -> (T, f64, f64) {
-    let base = crate::memory_probe::heap();
-    let (stop, peak) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicUsize::new(base)));
-    let sampler = {
-        let (stop, peak) = (Arc::clone(&stop), Arc::clone(&peak));
-        std::thread::spawn(move || {
-            while !stop.load(Ordering::Relaxed) {
-                peak.fetch_max(crate::memory_probe::heap(), Ordering::Relaxed);
-                std::thread::sleep(Duration::from_micros(200));
-            }
-        })
-    };
-    let t = Instant::now();
-    let out = work();
-    let ms = t.elapsed().as_secs_f64() * 1000.0;
-    stop.store(true, Ordering::Relaxed);
-    sampler.join().unwrap();
-    (out, ms, mb(peak.load(Ordering::Relaxed).saturating_sub(base)))
-}
 
 fn request(vault: &Path, note: &Path, method: Method) -> Request {
     Request { generation: 1, workspace: vault.to_path_buf(), document: note.to_path_buf(), mode: Mode::Analysis, method, text: String::new() }
@@ -60,21 +24,12 @@ fn analysis(core: &aquilum_core::Core, vault: &Path, note: &Path) {
         let reasons = listing.items.iter().map(|i| i.reasons.len()).max().unwrap_or(0);
         eprintln!("{name}: {method:?} {ms:.1} мс, пик кучи +{peak:.1} МБ, осталось +{held:.1} МБ, найдено {}, причин до {reasons}", listing.items.len());
     }
-    let full = aquilum_core::files::document::read_text(note).unwrap();
-    let text = aquilum_core::search::analysis::window::window(&full);
+    let head = aquilum_core::files::document::read_head(note).unwrap();
+    let text = head.as_str();
     let path = note.to_string_lossy();
     let (extracted, ms, peak) = measured(|| aquilum_core::wikixiv::extract::extract_queries(text, Some(&path)));
     let (_, hash_ms, _) = measured(|| aquilum_core::wikixiv::cache::content_hash(Some(&path), text));
     eprintln!("{name}: Wikixiv извлечение {ms:.1} мс, пик кучи +{peak:.1} МБ, хеш {hash_ms:.1} мс, запросы {:?} {:?}", extracted.body_terms, extracted.embedded_titles.len());
-}
-
-fn wait_index(core: &aquilum_core::Core, vault: &Path) {
-    let workspace = vault.to_string_lossy().into_owned();
-    let ready = wait_until(6000, 50, || {
-        let status = core.search.status(Some(&workspace));
-        status.state == aquilum_core::search::models::SearchIndexState::Ready && !status.updating
-    });
-    assert!(ready, "индекс не готов");
 }
 
 fn timed_frames(b: &mut Bench, n: usize, mut step: impl FnMut(&mut Bench, usize)) -> String {
@@ -152,7 +107,7 @@ fn analysis_big_note() {
     let mut b = Bench::start(Some(vault.path()));
     let core = Arc::clone(&b.h.app.workspace.core);
     let t = Instant::now();
-    wait_index(&core, vault.path());
+    assert!(wait_index(&core, &vault.path().to_string_lossy()), "индекс не готов");
     eprintln!("индекс готов за {:?}", t.elapsed());
     for name in [STRESS].iter().chain(&REGULAR) {
         analysis(&core, vault.path(), &vault.path().join(name));

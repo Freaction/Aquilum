@@ -1,3 +1,4 @@
+use crate::search::pages::Pages;
 use crate::search::headings::{headings, matching};
 use crate::text::utf16::utf16_len;
 
@@ -8,6 +9,15 @@ pub fn anchor_offset(text: &str, anchor: &str) -> Option<usize> {
         None => heading_start(text, anchor)?,
     };
     Some(utf16_len(&text[..start]))
+}
+
+pub fn anchor_offset_in(pages: &mut Pages<'_>, anchor: &str) -> std::io::Result<Option<usize>> {
+    while let Some(page) = pages.next()? {
+        if let Some(local) = anchor_offset(&page.text, anchor) {
+            return Ok(Some(page.start_utf16 + local));
+        }
+    }
+    Ok(None)
 }
 
 fn heading_start(text: &str, anchor: &str) -> Option<usize> {

@@ -50,10 +50,7 @@ impl Vault {
     }
 
     fn similar_titles(&self, input: &str) -> Vec<String> {
-        let name = Path::new(input.trim())
-            .file_stem()
-            .map(|stem| stem.to_string_lossy().to_lowercase())
-            .unwrap_or_default();
+        let name = crate::search::paths::title(input.trim()).to_lowercase();
         let words = name
             .split(|symbol: char| !symbol.is_alphanumeric())
             .filter(|word| word.chars().count() >= 3)
@@ -64,7 +61,7 @@ impl Vault {
         let mut scored = self
             .markdown_files()
             .filter_map(|path| {
-                let title = Self::title(&path).to_lowercase();
+                let title = crate::search::paths::title(&path).to_lowercase();
                 let score = words.iter().filter(|word| title.contains(*word)).count();
                 (score > 0).then(|| (score, self.relative(&path)))
             })
@@ -94,12 +91,6 @@ impl Vault {
 
     pub fn relative(&self, path: &Path) -> String {
         relative_slash_path(&self.root, path)
-    }
-
-    pub fn title(path: &Path) -> String {
-        path.file_stem()
-            .map(|value| value.to_string_lossy().into_owned())
-            .unwrap_or_default()
     }
 
     pub fn markdown_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
@@ -149,7 +140,7 @@ impl Vault {
             return Vec::new();
         }
         self.markdown_files()
-            .filter(|path| Self::title(path).to_lowercase() == needle)
+            .filter(|path| crate::search::paths::title(path).to_lowercase() == needle)
             .collect()
     }
 }
@@ -217,7 +208,7 @@ mod tests {
             .root
             .parent()
             .unwrap()
-            .join(format!("{}-private", Vault::title(&vault.root)));
+            .join(format!("{}-private", crate::search::paths::title(&vault.root)));
         fs::create_dir_all(&sibling).unwrap();
         fs::write(sibling.join("secrets.md"), "чужое").unwrap();
         assert!(vault
@@ -268,6 +259,6 @@ mod tests {
         fs::write(trash.join("Удалённая.md"), "мусор").unwrap();
         assert!(!vault
             .markdown_files()
-            .any(|path| Vault::title(&path) == "Удалённая"));
+            .any(|path| crate::search::paths::title(&path) == "Удалённая"));
     }
 }

@@ -1,7 +1,6 @@
 use super::store::Candidate;
 use crate::search::models::NoteSuggestion;
 use crate::text::matcher::{Matcher, Mode, Options, EXACT};
-use std::path::Path;
 
 const WORD_START: Options = Options { mode: Mode::WordPrefix, ..EXACT };
 
@@ -29,11 +28,7 @@ fn tier(matcher: &Matcher, title_key: &str) -> u8 {
 
 fn suggestion(raw: &str) -> NoteSuggestion {
     NoteSuggestion {
-        title: Path::new(raw)
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned(),
+        title: crate::search::paths::title(raw),
         path: raw.to_owned(),
     }
 }
@@ -47,11 +42,7 @@ mod tests {
     fn candidate(path: &str) -> Candidate {
         Candidate {
             path: path.to_owned(),
-            title_key: Path::new(path)
-                .file_stem()
-                .unwrap()
-                .to_string_lossy()
-                .to_lowercase(),
+            title_key: crate::search::wiki::target::title_key(Path::new(path)),
         }
     }
 

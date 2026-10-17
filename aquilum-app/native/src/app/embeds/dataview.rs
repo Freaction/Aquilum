@@ -27,7 +27,7 @@ fn grid(output: QueryOutput) -> Grid {
 }
 
 pub(super) fn run(inner: &Inner, query: &str) -> (Fetch<Grid>, Option<u32>) {
-    let offset = i64::from(chrono::Local::now().offset().local_minus_utc() / 60);
+    let offset = crate::dates::offset_seconds() / 60;
     let (workspace, document) = (inner.workspace(), inner.source());
     match indexed(|| inner.core.search.run_dataview_query(&workspace, &document, query, offset)) {
         Ok(output) => {

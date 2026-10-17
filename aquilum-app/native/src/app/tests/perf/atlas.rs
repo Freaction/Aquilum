@@ -10,10 +10,8 @@ fn summary(b: &Bench) -> String {
 #[test]
 #[ignore]
 fn editor_scroll_frames() {
-    let note = std::path::PathBuf::from(std::env::var("AQ_NOTE").expect("AQ_NOTE"));
     let mut b = Bench::start(None);
-    let copy = b.h.vault.path().join("заметка.md");
-    std::fs::copy(&note, &copy).unwrap();
+    let copy = b.h.copy_note();
     b.h.app.open_in(&mut b.h.root, copy, true);
     for _ in 0..40 {
         b.h.app.on_core_events(&mut b.h.root);

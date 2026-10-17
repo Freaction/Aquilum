@@ -1,5 +1,5 @@
 pub fn utf16_len(text: &str) -> usize {
-    text.chars().count() + text.bytes().filter(|&b| b >= 0xF0).count()
+    text.chars().count() + text.as_bytes().iter().map(|&byte| usize::from(byte >= 0xF0)).sum::<usize>()
 }
 
 pub fn utf16_seek(text: &str, (mut byte, mut seen): (usize, usize), units: usize) -> (usize, usize) {

@@ -2,19 +2,19 @@ use super::error::FileCommandError;
 use super::models::{FileSnapshot, FileWriteResult};
 use atomic_write_file::AtomicWriteFile;
 use std::fs;
-use std::io::{ErrorKind, Write};
+use super::content::FileContent;
+use crate::text::content::{self, Content, HashedWriter};
+use crate::search::pages::Pages;
+use std::io::ErrorKind;
+use std::ops::Range;
 use std::path::Path;
 
 pub fn hash_bytes(bytes: &[u8]) -> String {
     blake3::hash(bytes).to_hex().to_string()
 }
 
-fn read_hash_if_exists(path: &Path) -> Result<Option<String>, FileCommandError> {
-    match fs::read(path) {
-        Ok(bytes) => Ok(Some(hash_bytes(&bytes))),
-        Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(error.into()),
-    }
+pub fn hash_file(path: &Path) -> std::io::Result<String> {
+    content::hash(&FileContent::open(path)?)
 }
 
 pub fn normalize_line_endings_in_place(bytes: &mut [u8]) -> usize {
@@ -34,6 +34,13 @@ pub fn normalize_line_endings_in_place(bytes: &mut [u8]) -> usize {
     write
 }
 
+pub fn normalize_tail(buf: &mut Vec<u8>, from: usize, ended: bool) -> usize {
+    let end = buf.len() - usize::from(!ended && buf.last() == Some(&b'\r'));
+    let kept = normalize_line_endings_in_place(&mut buf[from..end]);
+    buf.drain(from + kept..end);
+    from + kept
+}
+
 pub fn text_from_bytes(mut bytes: Vec<u8>) -> std::io::Result<String> {
     let kept = normalize_line_endings_in_place(&mut bytes);
     bytes.truncate(kept);
@@ -42,6 +49,28 @@ pub fn text_from_bytes(mut bytes: Vec<u8>) -> std::io::Result<String> {
 
 pub fn normalize_line_endings(content: String) -> String {
     text_from_bytes(content.into_bytes()).expect("line endings are ASCII, so the text stays UTF-8")
+}
+
+pub const HEAD_LIMIT: usize = 64 * 1024;
+
+pub fn head(text: &dyn Content) -> std::io::Result<String> {
+    let mut bytes = content::read_bytes(text, 0..text.byte_len().min(HEAD_LIMIT + 1))?;
+    bytes.truncate(head_len(&bytes));
+    text_from_bytes(bytes)
+}
+
+pub fn read_head(path: &Path) -> std::io::Result<String> {
+    head(&FileContent::open(path)?)
+}
+
+fn head_len(bytes: &[u8]) -> usize {
+    if bytes.len() <= HEAD_LIMIT {
+        return bytes.len();
+    }
+    match memchr::memrchr(b'\n', &bytes[..HEAD_LIMIT]) {
+        Some(newline) => newline + 1,
+        None => content::char_floor(bytes, HEAD_LIMIT),
+    }
 }
 
 pub fn read_text(path: &Path) -> std::io::Result<String> {
@@ -66,54 +95,59 @@ pub fn read_file_snapshot_impl(path: &Path) -> Result<FileSnapshot, FileCommandE
     snapshot_of(fs::read(path)?)
 }
 
-pub fn read_file_hash_impl(path: &Path) -> Result<String, FileCommandError> {
-    Ok(hash_bytes(&fs::read(path)?))
-}
-
-pub fn read_file_stat_impl(
-    path: &Path,
-) -> Result<super::models::FileStat, FileCommandError> {
-    let meta = fs::metadata(path)?;
-    if !meta.is_file() {
-        return Err(FileCommandError::Io {
-            message: format!("not a file: {}", path.display()),
-        });
-    }
-    Ok(super::models::FileStat {
-        byte_length: meta.len(),
-    })
-}
-
-fn check_expected_hash(path: &Path, expected_hash: &str) -> Result<(), FileCommandError> {
-    let actual_hash = read_hash_if_exists(path)?;
-    if actual_hash.as_deref() != Some(expected_hash) {
-        return Err(FileCommandError::Conflict {
-            expected_hash: expected_hash.to_owned(),
-            actual_hash,
-        });
-    }
-    Ok(())
-}
-
-pub fn write_file_atomic_impl(
-    path: &Path,
-    content: &str,
-    expected_hash: Option<&str>,
-) -> Result<FileWriteResult, FileCommandError> {
-    let bytes = content.as_bytes();
-    let hash = hash_bytes(bytes);
+pub fn atomic(path: &Path, expected_hash: Option<&str>, fill: impl FnOnce(&mut HashedWriter<&mut AtomicWriteFile>) -> std::io::Result<()>) -> Result<FileWriteResult, FileCommandError> {
     let mut file = AtomicWriteFile::open(path)?;
-    file.write_all(bytes)?;
-
-    if let Some(expected_hash) = expected_hash {
-        check_expected_hash(path, expected_hash)?;
+    let mut out = HashedWriter::new(&mut file);
+    fill(&mut out)?;
+    let hash = out.finish()?;
+    if let Some(expected) = expected_hash {
+        let actual = match hash_file(path) {
+            Ok(hash) => Some(hash),
+            Err(error) if error.kind() == ErrorKind::NotFound => None,
+            Err(error) => return Err(error.into()),
+        };
+        if actual.as_deref() != Some(expected) {
+            return Err(FileCommandError::Conflict { expected_hash: expected.to_owned(), actual_hash: actual });
+        }
     }
-
     file.commit()?;
     Ok(FileWriteResult { hash })
 }
 
-pub fn ensure_directory_impl(path: &Path) -> Result<(), FileCommandError> {
-    fs::create_dir_all(path)?;
-    Ok(())
+pub fn write_content_atomic(path: &Path, content: &dyn Content, expected_hash: Option<&str>) -> Result<FileWriteResult, FileCommandError> {
+    atomic(path, expected_hash, |out| out.put(content))
+}
+
+pub fn write_spliced_atomic(path: &Path, changes: &[(Range<usize>, String)], expected_hash: Option<&str>) -> Result<FileWriteResult, FileCommandError> {
+    let mut pages = Pages::open(path)?;
+    atomic(path, expected_hash, |out| {
+        let mut changes = changes.iter().peekable();
+        while let Some(page) = pages.next()? {
+            let end = page.start + page.text.len();
+            let mut cursor = 0;
+            while let Some((range, replacement)) = changes.next_if(|(range, _)| range.start < end) {
+                out.put_range(&page.text, cursor..range.start - page.start)?;
+                out.put(replacement)?;
+                cursor = range.end - page.start;
+            }
+            out.put_range(&page.text, cursor..page.text.len())?;
+        }
+        Ok(())
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{head, HEAD_LIMIT};
+
+    #[test]
+    fn the_head_ends_at_the_last_whole_line_or_char() {
+        assert_eq!(head(&"одна строка\r\nвторая").unwrap(), "одна строка\nвторая");
+        let line = "строка из слов\n";
+        let lines = line.repeat(HEAD_LIMIT / line.len() + 10);
+        let taken = head(&lines.as_str()).unwrap();
+        assert!(taken.len() <= HEAD_LIMIT && HEAD_LIMIT - taken.len() < line.len() && taken.ends_with('\n'));
+        let taken = head(&"ж".repeat(HEAD_LIMIT)).unwrap();
+        assert!(taken.len() <= HEAD_LIMIT && taken.len() > HEAD_LIMIT - 2);
+    }
 }

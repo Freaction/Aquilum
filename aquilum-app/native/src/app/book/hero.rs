@@ -2,7 +2,7 @@ use masonry::app::RenderRoot;
 
 use super::super::App;
 use crate::cover;
-use crate::frontmatter::{self, BOOK_COVER, BOOK_FILE, PAGE_COVER, PAGE_COVER_POSITION};
+use crate::frontmatter::{BOOK_COVER, BOOK_FILE, PAGE_COVER, PAGE_COVER_POSITION};
 use crate::i18n::t;
 use crate::images;
 use crate::ui::book::{BookView, HeroView, PageCover, Visual};
@@ -27,35 +27,26 @@ fn format_position(y: f64) -> String {
 
 impl App {
     pub(in crate::app) fn hero_view(&self) -> Option<HeroView> {
-        let fields = frontmatter::parse(&self.head())?;
+        let fields = self.fields()?;
         let (has_cover, is_book) = (fields.has_page_cover(), fields.is_book());
         if !has_cover && !is_book {
             return None;
         }
         let root = self.tree.root();
-        let cover = has_cover.then(|| {
-            let value = fields.text(PAGE_COVER);
-            match cover::pattern_id(value) {
-                Some(id) => Visual::Pattern(id),
-                None => value
-                    .and_then(|v| vault_files::resolve(root, v))
-                    .and_then(|path| images::load(&path))
-                    .map_or(Visual::Pattern(cover::DEFAULT_PATTERN), Visual::Image),
-            }
+        let image = |key| fields.text(key).and_then(|v| vault_files::resolve(root, v)).and_then(|path| images::load(&path));
+        let cover = has_cover.then(|| match cover::pattern_id(fields.text(PAGE_COVER)) {
+            Some(id) => Visual::Pattern(id),
+            None => image(PAGE_COVER).map_or(Visual::Pattern(cover::DEFAULT_PATTERN), Visual::Image),
         });
         let book = is_book.then(|| BookView {
-            cover: fields
-                .text(BOOK_COVER)
-                .and_then(|v| vault_files::resolve(root, v))
-                .and_then(|path| images::load(&path))
-                .unwrap_or_else(images::default_book_cover),
+            cover: image(BOOK_COVER).unwrap_or_else(images::default_book_cover),
             has_file: fields.text(BOOK_FILE).is_some(),
         });
         Some(HeroView { cover, position: parse_position(fields.text(PAGE_COVER_POSITION)), book, viewport: self.window.height })
     }
 
     pub(in crate::app) fn hero_key(&self) -> Option<Vec<String>> {
-        let fields = frontmatter::parse(&self.head())?;
+        let fields = self.fields()?;
         if !fields.has_page_cover() && !fields.is_book() {
             return None;
         }
@@ -83,13 +74,14 @@ impl App {
         column.edit(root, |mut column| crate::ui::note::EditorColumn::set_inset(&mut column, parts.inset));
     }
 
-    pub(in crate::app) fn refresh_covers(&mut self, root: &mut RenderRoot) {
+    pub(in crate::app) fn refresh_covers(&mut self, root: &mut RenderRoot) -> bool {
         if !cover::take_finished() {
-            return;
+            return false;
         }
         if let Some(cover) = self.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()).and_then(|(_, ids)| ids.cover) {
             cover.edit(root, |mut cover| PageCover::refresh(&mut cover));
         }
+        true
     }
 
     pub(super) fn toggle_reposition(&mut self, root: &mut RenderRoot) {
@@ -104,7 +96,7 @@ impl App {
             });
             return;
         }
-        let stored = frontmatter::parse(&self.head()).and_then(|f| f.text(PAGE_COVER_POSITION).map(str::to_owned));
+        let stored = self.fields().and_then(|f| f.text(PAGE_COVER_POSITION).map(str::to_owned));
         let formatted = format_position(position);
         if format_position(parse_position(stored.as_deref())) == formatted {
             cover.edit(root, |mut cover| PageCover::set_repositioning(&mut cover, false, None));

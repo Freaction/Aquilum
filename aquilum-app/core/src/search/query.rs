@@ -57,13 +57,23 @@ pub fn search(index: &SearchIndex, request: &Request) -> Result<Found, SearchErr
     if let Some(folder) = request.folder {
         clauses.push((Occur::Must, Box::new(folder_query(&searcher, index.fields.id, folder)?)));
     }
-    let top = searcher.search(&BooleanQuery::new(clauses), &TopDocs::with_limit(limit + 1).order_by_score())?;
-    if request.cancel.is_cancelled() {
-        return Err(SearchError::Cancelled);
-    }
-    let has_more = top.len() > limit;
-    let addresses = top.into_iter().take(limit).map(|(_, address)| address).collect::<Vec<_>>();
-    let results = hits::results(&searcher, index.fields, &terms, &addresses, &request.cancel)?;
+    let query = BooleanQuery::new(clauses);
+    let mut wanted = limit + 1;
+    let mut notes = loop {
+        let top = searcher.search(&query, &TopDocs::with_limit(wanted).order_by_score())?;
+        if request.cancel.is_cancelled() {
+            return Err(SearchError::Cancelled);
+        }
+        let found = top.len();
+        let notes = hits::group(&searcher, index.fields, top.into_iter().map(|(_, address)| address))?;
+        if notes.len() > limit || found < wanted {
+            break notes;
+        }
+        wanted *= 4;
+    };
+    let has_more = notes.len() > limit;
+    notes.truncate(limit);
+    let results = hits::results(&searcher, index.fields, &terms, &notes, &request.cancel)?;
     Ok(Found { terms, results, has_more })
 }
 

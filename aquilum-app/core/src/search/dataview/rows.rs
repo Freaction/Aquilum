@@ -19,14 +19,11 @@ pub struct Row {
 
 impl Row {
     pub fn field(&self, name: &str) -> Option<&Field> {
-        let wanted = name.trim().to_lowercase();
-        self.fields
-            .iter()
-            .find(|field| field.key.trim().to_lowercase() == wanted)
+        self.fields.iter().find(|field| crate::search::analyzer::frontmatter::same_key(&field.key, name))
     }
 }
 
-use super::constants::CHUNK_PATHS as CHUNK;
+use crate::search::metadata::for_paths;
 
 pub fn load(
     connection: &Connection,
@@ -39,37 +36,22 @@ pub fn load(
     let mut fields = read_fields(connection, paths)?;
     let mut rows = Vec::with_capacity(paths.len());
 
-    for chunk in paths.chunks(CHUNK) {
-        let placeholders = vec!["?"; chunk.len()].join(",");
-        let mut statement = connection.prepare(&format!(
-            "SELECT path, created_ns, modified_ns, size FROM documents
-             WHERE path IN ({placeholders})"
-        ))?;
-        let found = statement.query_map(rusqlite::params_from_iter(chunk), |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, i64>(1)?,
-                row.get::<_, i64>(2)?,
-                row.get::<_, i64>(3)?,
-            ))
-        })?;
-        for entry in found {
-            let (path, created, modified, size) = entry?;
-            let relative = relative_slash_path(root, Path::new(&path));
-            rows.push(Row {
-                source: path.clone(),
-                name: note_name(&relative),
-                folder: folder_of(&relative),
-                fields: fields.remove(&path).unwrap_or_default(),
-                tasks: Vec::new(),
-                relative,
-                created,
-                modified,
-                size,
-            });
-        }
-    }
-
+    let sql = |list: &str| format!("SELECT path, created_ns, modified_ns, size FROM documents WHERE path IN ({list})");
+    let row = |row: &rusqlite::Row<'_>| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?, row.get::<_, i64>(3)?));
+    for_paths(connection, paths, sql, row, |(path, created, modified, size)| {
+        let relative = relative_slash_path(root, Path::new(&path));
+        rows.push(Row {
+            source: path.clone(),
+            name: note_name(&relative),
+            folder: folder_of(&relative),
+            fields: fields.remove(&path).unwrap_or_default(),
+            tasks: Vec::new(),
+            relative,
+            created,
+            modified,
+            size,
+        });
+    })?;
     Ok(rows)
 }
 

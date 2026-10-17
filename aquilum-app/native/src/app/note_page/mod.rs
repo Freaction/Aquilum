@@ -21,13 +21,13 @@ use crate::ui::widgets::{Caption, Slot};
 
 impl App {
     pub(in crate::app) fn metadata_state(&self) -> Option<bool> {
-        frontmatter::end_of(&self.text)?;
+        frontmatter::bounds_of(&crate::rope::Text(&self.text))?;
         Some(self.note.as_ref().is_some_and(|n| self.interface.metadata_expanded(&n.path)))
     }
 
     pub(in crate::app) fn hidden_len(&self) -> usize {
         match self.metadata_state() {
-            Some(false) => frontmatter::hidden_of(&self.text),
+            Some(false) => frontmatter::bounds_of(&crate::rope::Text(&self.text)).map_or(0, |found| found.body),
             _ => 0,
         }
     }
@@ -99,7 +99,7 @@ impl App {
 
     pub(in crate::app) fn retry_save(&mut self, root: &mut RenderRoot) {
         let Some(note) = &mut self.note else { return };
-        note.retry();
+        note.edit(std::time::Duration::ZERO);
         self.refresh_save_error(root);
     }
 
@@ -117,12 +117,11 @@ impl App {
         let visible = self.body();
         ids.body.edit(root, |mut body| {
             let prev = body.widget.rope();
-            let prefix = crate::rope::common_prefix(&prev, &visible);
-            if prefix < prev.byte_len().max(visible.byte_len()) {
+            let change = crate::rope::changed(&prev, &visible);
+            if change.removed + change.inserted > 0 {
                 crate::ui::editor::TextEditor::reset_rope(&mut body, visible.clone());
                 if reveal && visible.byte_len() > prev.byte_len() {
-                    let inserted_len = visible.byte_len() - prev.byte_len();
-                    crate::ui::editor::TextEditor::reveal_external_insert(&mut body, prefix..prefix + inserted_len);
+                    crate::ui::editor::TextEditor::reveal_external_insert(&mut body, change.at..change.at + change.inserted);
                 }
             }
         });

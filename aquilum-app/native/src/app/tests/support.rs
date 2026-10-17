@@ -84,46 +84,37 @@ impl Harness {
     }
 
     pub(super) fn scroll(&mut self, at: (f64, f64), scale: f64, delta: (f64, f64)) {
-        let state = PointerState { position: PhysicalPosition::new(at.0, at.1), count: 1, scale_factor: scale, ..PointerState::default() };
+        let state = pointer_at(at.0, at.1, scale);
         self.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(delta.0, delta.1)), state }));
     }
 
     pub(super) fn pointer_move(&mut self, x: f64, y: f64) {
-        let state = PointerState { position: PhysicalPosition::new(x, y), count: 1, scale_factor: 1.0, ..PointerState::default() };
-        self.root.handle_pointer_event(PointerEvent::Move(PointerUpdate { pointer: MOUSE, current: state, coalesced: vec![], predicted: vec![] }));
+        self.root.handle_pointer_event(moved(pointer_at(x, y, 1.0)));
     }
 
     pub(super) fn drag(&mut self, from: (f64, f64), to: (f64, f64)) -> Outcome {
         let state = |x: f64, y: f64, pressed: bool| {
-            let mut state = PointerState { position: PhysicalPosition::new(x, y), count: 1, scale_factor: 1.0, ..PointerState::default() };
+            let mut state = pointer_at(x, y, 1.0);
             if pressed {
                 state.buttons.insert(PointerButton::Primary);
             }
             state
         };
-        let moved = |s: PointerState| PointerEvent::Move(PointerUpdate { pointer: MOUSE, current: s, coalesced: vec![], predicted: vec![] });
         self.root.handle_pointer_event(moved(state(from.0, from.1, false)));
-        self.root.handle_pointer_event(PointerEvent::Down(PointerButtonEvent {
-            pointer: MOUSE,
-            button: Some(PointerButton::Primary),
-            state: state(from.0, from.1, true),
-        }));
+        self.root.handle_pointer_event(PointerEvent::Down(primary(state(from.0, from.1, true))));
         for step in 1..=10 {
             let k = f64::from(step) / 10.0;
             self.root.handle_pointer_event(moved(state(from.0 + (to.0 - from.0) * k, from.1 + (to.1 - from.1) * k, true)));
         }
-        self.root.handle_pointer_event(PointerEvent::Up(PointerButtonEvent {
-            pointer: MOUSE,
-            button: Some(PointerButton::Primary),
-            state: state(to.0, to.1, false),
-        }));
+        self.root.handle_pointer_event(PointerEvent::Up(primary(state(to.0, to.1, false))));
         self.deliver()
     }
 
     pub(super) fn replace_body(&mut self, text: &str) {
-        let body = self.app.note_ids.as_ref().unwrap().body.id();
+        let body = self.app.note_ids.as_ref().unwrap().body;
         let range = 0..self.app.text.byte_len() - self.app.hidden;
-        self.act(body, crate::ui::editor::TextAction::Edited(vec![crate::ui::editor::Edit { range, insert: text.to_owned() }]));
+        body.edit(&mut self.root, |mut editor| crate::ui::editor::TextEditor::apply_external(&mut editor, range.clone(), text));
+        self.act(body.id(), crate::ui::editor::TextAction::Edited(vec![crate::ui::editor::Edit { range, inserted: text.len() }]));
     }
 
     pub(super) fn save_now(&mut self) {
@@ -184,13 +175,7 @@ impl Harness {
 
     pub(super) fn wait_cover(&mut self, wait: bool) {
         for _ in 0..500 {
-            if crate::cover::take_finished() {
-                if let Some(cover) = self.app.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()).and_then(|(_, ids)| ids.cover) {
-                    cover.edit(&mut self.root, |mut c| crate::ui::book::PageCover::refresh(&mut c));
-                }
-                return;
-            }
-            if !wait {
+            if self.app.refresh_covers(&mut self.root) || !wait {
                 return;
             }
             let _ = self.root.redraw();

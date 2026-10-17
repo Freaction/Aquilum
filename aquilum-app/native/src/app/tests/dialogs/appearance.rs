@@ -77,14 +77,13 @@ fn color_picker_previews_live_and_saves_on_close() {
     let accent = theme::current().bg_accent;
     let picker = h.root.focused_widget().expect("фокус в колорпикере");
     let area = h.root.get_widget(picker).unwrap().ctx().bounding_box();
-    let state = |x: f64, y: f64| PointerState { position: PhysicalPosition::new(x, y), count: 1, scale_factor: 1.0, ..PointerState::default() };
-    let mut s = state(area.x0 + 30.0, area.y0 + 70.0);
+    let mut s = pointer_at(area.x0 + 30.0, area.y0 + 70.0, 1.0);
     s.buttons.insert(PointerButton::Primary);
-    h.root.handle_pointer_event(PointerEvent::Down(PointerButtonEvent { pointer: MOUSE, button: Some(PointerButton::Primary), state: s.clone() }));
+    h.root.handle_pointer_event(PointerEvent::Down(primary(s.clone())));
     s.position = PhysicalPosition::new(area.x0 + 150.0, area.y0 + 100.0);
-    h.root.handle_pointer_event(PointerEvent::Move(PointerUpdate { pointer: MOUSE, current: s.clone(), coalesced: vec![], predicted: vec![] }));
+    h.root.handle_pointer_event(moved(s.clone()));
     s.buttons.remove(PointerButton::Primary);
-    h.root.handle_pointer_event(PointerEvent::Up(PointerButtonEvent { pointer: MOUSE, button: Some(PointerButton::Primary), state: s }));
+    h.root.handle_pointer_event(PointerEvent::Up(primary(s)));
     h.deliver();
     assert_ne!(theme::current().bg_accent, accent, "цвет не применился вживую");
     assert_eq!(h.config().ui.primary_color, before, "настройки записаны раньше закрытия");

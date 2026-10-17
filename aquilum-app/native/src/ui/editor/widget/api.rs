@@ -38,12 +38,12 @@ impl TextEditor {
         self.laid_out().then(|| self.doc.y_of(offset.min(self.doc.len())))
     }
 
-    fn repaint(this: &mut WidgetMut<'_, Self>) {
+    pub(super) fn repaint(this: &mut WidgetMut<'_, Self>) {
         this.ctx.request_layout();
         this.ctx.request_render();
     }
 
-    fn edited(this: &mut WidgetMut<'_, Self>) {
+    pub(super) fn edited(this: &mut WidgetMut<'_, Self>) {
         this.ctx.submit_action::<TextAction>(this.widget.doc.changed());
         Self::repaint(this);
     }
@@ -62,7 +62,7 @@ impl TextEditor {
         let widget = &mut *this.widget;
         widget.videos.stop();
         widget.doc.set_rope(text);
-        widget.history.clear();
+        widget.history = Default::default();
         widget.refind(&[]);
         widget.table_scrolls.clear();
         widget.compose = None;

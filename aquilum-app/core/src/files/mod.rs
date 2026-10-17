@@ -1,5 +1,6 @@
 pub mod attachments;
 pub mod deletions;
+pub mod content;
 pub mod document;
 pub mod entries;
 pub mod error;

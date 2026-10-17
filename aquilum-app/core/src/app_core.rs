@@ -10,13 +10,11 @@ use crate::search::{ChangeNotifier, IndexNotifier, IndexRevision, SearchService}
 use crate::settings::SettingsManager;
 use crate::ui_state::UiStateService;
 use crate::wikixiv::WikixivService;
-use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
 
 /// What the core tells its host.
-#[derive(Clone, Serialize)]
-#[serde(untagged)]
+#[derive(Clone)]
 pub enum CoreEvent {
     DocumentChanged(DocumentEvent),
     DocumentSaved(DocumentEvent),
@@ -29,24 +27,7 @@ pub enum CoreEvent {
     WorkspaceRescanned,
     LinksChanged(IndexRevision),
     Navigate(Navigation),
-}
-
-impl CoreEvent {
-    pub fn name(&self) -> &'static str {
-        match self {
-            Self::DocumentChanged(_) => "document-changed",
-            Self::DocumentSaved(_) => "document-saved",
-            Self::DocumentMissing(_) => "document-missing",
-            Self::DocumentSaveFailed(_) => "document-save-failed",
-            Self::NotesRelocated(_) => "notes-relocated",
-            Self::NoteHistoryChanged(_) => "note-history-changed",
-            Self::WorkspaceChanged(_) => "workspace-changed",
-            Self::ContentChanged(_) => "content-changed",
-            Self::WorkspaceRescanned => "workspace-rescanned",
-            Self::LinksChanged(_) => "links-changed",
-            Self::Navigate(_) => "mcp-navigate",
-        }
-    }
+    Settle(std::sync::mpsc::SyncSender<()>),
 }
 
 /// Receives core events. Implementations must not block and must not call back into the core
@@ -123,6 +104,12 @@ impl Core {
 
     pub fn emit(&self, event: CoreEvent) {
         self.events.emit(event);
+    }
+
+    pub fn settle(&self) {
+        let (done, settled) = std::sync::mpsc::sync_channel(1);
+        self.emit(CoreEvent::Settle(done));
+        let _ = settled.recv_timeout(std::time::Duration::from_secs(2));
     }
 
     /// Starts, restarts or stops the MCP server to match the saved settings.

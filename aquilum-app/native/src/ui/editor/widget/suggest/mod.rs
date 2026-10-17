@@ -110,9 +110,7 @@ impl TextEditor {
 
     pub fn accept_suggestion(this: &mut WidgetMut<'_, Self>, index: usize) {
         if this.widget.accept_suggest(index) {
-            this.ctx.submit_action::<TextAction>(this.widget.doc.changed());
-            this.ctx.request_layout();
-            this.ctx.request_render();
+            Self::edited(this);
         }
     }
 
@@ -155,7 +153,7 @@ impl TextEditor {
         };
         let skip = matches!(s.source, Source::Link { close: false, .. }) && self.doc.after(s.to).starts_with(CLOSE);
         let caret = s.from + insert.len() + if skip { CLOSE.len() } else { 0 };
-        self.replace_and_select(s.from..s.to, &insert, Kind::Other, (caret, caret));
+        self.dispatch(vec![(s.from..s.to, insert)], Some((caret, caret)), Kind::Other);
         self.close_suggest();
         true
     }

@@ -1,4 +1,3 @@
-use crate::search::paths::is_markdown;
 use super::attachments::MEDIA_EXTENSIONS;
 use super::error::FileCommandError;
 use super::models::{FileItem, FileItemType};
@@ -79,14 +78,4 @@ pub fn read_directory_impl(path: &Path) -> Result<Vec<FileItem>, FileCommandErro
     });
 
     Ok(items)
-}
-
-pub fn existing_files_impl(paths: Vec<String>) -> Vec<String> {
-    paths
-        .into_iter()
-        .filter(|value| {
-            let path = Path::new(value);
-            path.is_file() && is_markdown(path)
-        })
-        .collect()
 }

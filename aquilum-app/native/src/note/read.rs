@@ -2,14 +2,26 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use aquilum_core::files::document::normalize_line_endings_in_place as normalize;
+use aquilum_core::files::document::normalize_tail;
 use aquilum_core::files::error::FileCommandError;
 
 const BLOCK: usize = 8 << 20;
 
+pub type Stamp = (u64, std::time::SystemTime);
+
 pub struct Loaded {
     pub text: crop::Rope,
     pub hash: String,
+    pub stamp: Option<Stamp>,
+}
+
+fn stamp_of(metadata: std::io::Result<std::fs::Metadata>) -> Option<Stamp> {
+    let metadata = metadata.ok()?;
+    Some((metadata.len(), metadata.modified().ok()?))
+}
+
+pub fn stamp(path: &Path) -> Option<Stamp> {
+    stamp_of(std::fs::metadata(path))
 }
 
 fn fill(file: &mut File, buf: &mut Vec<u8>) -> std::io::Result<usize> {
@@ -28,16 +40,13 @@ fn fill(file: &mut File, buf: &mut Vec<u8>) -> std::io::Result<usize> {
 
 pub fn read(path: &Path) -> Result<Loaded, FileCommandError> {
     let mut file = File::open(path)?;
+    let stamp = stamp_of(file.metadata());
     let (mut hasher, mut builder, mut buf) = (blake3::Hasher::new(), crop::RopeBuilder::new(), Vec::with_capacity(BLOCK + 8));
     loop {
         let start = buf.len();
         let eof = fill(&mut file, &mut buf)? < BLOCK;
         hasher.update_rayon(&buf[start..]);
-        let held = usize::from(!eof && buf.last() == Some(&b'\r'));
-        let len = buf.len() - held;
-        let kept = normalize(&mut buf[..len]);
-        buf.copy_within(len.., kept);
-        buf.truncate(kept + held);
+        let kept = normalize_tail(&mut buf, 0, eof);
         let invalid = |error: std::str::Utf8Error| FileCommandError::InvalidUtf8 { message: error.to_string() };
         let valid = match std::str::from_utf8(&buf[..kept]) {
             Ok(text) => {
@@ -55,7 +64,7 @@ pub fn read(path: &Path) -> Result<Loaded, FileCommandError> {
             break;
         }
     }
-    Ok(Loaded { text: builder.build(), hash: hasher.finalize().to_hex().to_string() })
+    Ok(Loaded { text: builder.build(), hash: hasher.finalize().to_hex().to_string(), stamp })
 }
 
 #[cfg(test)]

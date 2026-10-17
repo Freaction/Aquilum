@@ -1,5 +1,6 @@
 mod moves;
 mod trash;
+mod versions;
 mod write;
 
 #[cfg(test)]
@@ -7,7 +8,8 @@ mod tests;
 
 pub use moves::{move_across, rename};
 pub use trash::{restore, restore_deletion, trash};
-pub use write::{copy, create, create_binary, name_version, write};
+pub use versions::{restore_version, retrying, revert_version};
+pub use write::{copy, create, create_binary, edit, name_version, save, write, Saving};
 
 use super::attachments::forget_attachments_if_touched;
 use crate::app_core::{Core, CoreEvent};

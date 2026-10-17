@@ -5,7 +5,7 @@ mod tests;
 
 use std::path::{Path, PathBuf};
 
-use aquilum_core::files::document::write_file_atomic_impl;
+use aquilum_core::files::document::write_content_atomic;
 use serde::{Deserialize, Serialize};
 
 pub use graph::GraphPrefs;
@@ -178,7 +178,7 @@ impl Interface {
 
     fn save(&self) {
         let Ok(json) = serde_json::to_string(&self.state) else { return };
-        if let Err(e) = write_file_atomic_impl(&self.path, &json, None) {
+        if let Err(e) = write_content_atomic(&self.path, &json, None) {
             report!("состояние интерфейса не сохранено: {e}");
         }
     }

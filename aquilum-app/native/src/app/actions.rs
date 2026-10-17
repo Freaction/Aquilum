@@ -147,6 +147,7 @@ impl App {
                 return false;
             }
             Some(TreeAction::Move { sources, target }) => {
+                self.commit_note();
                 file_ops::move_all(&self.workspace.core, sources, target);
                 return false;
             }

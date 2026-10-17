@@ -1,8 +1,9 @@
 mod fields;
 
-use std::ops::Range;
+use aquilum_core::search::analyzer::frontmatter::bounds;
+use aquilum_core::text::content::Content;
 
-pub use fields::{parse, set_fields};
+pub use fields::{Fields, parse, set};
 
 pub const BOOK_COVER: &str = "Book_cover";
 pub const PAGE_COVER: &str = "Page_cover";
@@ -56,65 +57,23 @@ pub fn suggest_keys(query: &str) -> Vec<String> {
 }
 
 pub fn is_key(found: &str, key: &str) -> bool {
-    let found = found.trim().to_lowercase();
-    names(key).any(|name| name == found)
+    names(key).any(|name| aquilum_core::search::analyzer::frontmatter::same_key(found, &name))
 }
 
-pub fn fence(line: &str) -> bool {
-    line.trim_end_matches([' ', '\t']) == "---"
+pub use aquilum_core::search::analyzer::frontmatter::{Bounds, fence};
+
+pub fn bounds_of(text: &dyn Content) -> Option<Bounds> {
+    bounds(&aquilum_core::files::document::head(text).ok()?)
 }
 
-pub fn end_of(text: &crop::Rope) -> Option<usize> {
-    let (mut at, mut end, mut first) = (0, None, true);
-    crate::rope::each_line(text.byte_slice(..), |line| {
-        let start = at;
-        at += line.len() + 1;
-        if std::mem::take(&mut first) {
-            return fence(line);
-        }
-        if fence(line) {
-            end = Some(start + line.len());
-            return false;
-        }
-        true
-    });
-    end
-}
-
-pub fn hidden_of(text: &crop::Rope) -> usize {
-    end_of(text).map_or(0, |end| end + usize::from(end < text.byte_len() && text.byte(end) == b'\n'))
-}
-
-pub fn head(text: &crop::Rope) -> String {
-    text.byte_slice(..hidden_of(text)).to_string()
-}
-
-struct Block {
-    body: Range<usize>,
-    end: usize,
-}
-
-fn block(text: &str) -> Option<Block> {
-    let first = text.find('\n')?;
-    if !fence(&text[..first]) {
-        return None;
-    }
-    let start = first + 1;
-    let mut line = start;
-    loop {
-        let stop = text[line..].find('\n').map_or(text.len(), |at| line + at);
-        if fence(&text[line..stop]) {
-            return Some(Block { body: start..line.saturating_sub(1).max(start), end: stop });
-        }
-        if stop == text.len() {
-            return None;
-        }
-        line = stop + 1;
-    }
+pub fn head(text: &dyn Content) -> String {
+    let mut head = aquilum_core::files::document::head(text).unwrap_or_default();
+    head.truncate(bounds(&head).map_or(0, |found| found.body));
+    head
 }
 
 pub fn end(text: &str) -> Option<usize> {
-    block(text).map(|block| block.end)
+    bounds(text).map(|found| found.end)
 }
 
 pub fn template(fields: &[(&str, &str)]) -> String {
@@ -126,10 +85,6 @@ pub fn parse_pages(value: &str) -> Option<(u32, u32)> {
     let (current, total) = value.split_once('/')?;
     let (current, total) = (current.trim().parse().ok()?, total.trim().parse::<u32>().ok()?);
     (total > 0).then_some((current, total))
-}
-
-pub fn format_pages(current: u32, total: u32) -> String {
-    format!("{current}/{total}")
 }
 
 #[cfg(test)]
@@ -144,12 +99,12 @@ mod tests {
         assert_eq!(end("текст\n---\nkey: 1\n---"), None);
         assert_eq!(end("---\r\nkey: 1\r\n---"), None);
         assert_eq!(end("---\nkey: 1"), None);
-        let hidden = |text: &str| hidden_of(&crop::Rope::from(text));
+        let hidden = |text: &str| bounds_of(&text).map_or(0, |found| found.body);
         assert_eq!(hidden("---\nkey: 1\n---\nтекст"), 15);
         assert_eq!(hidden("---\nkey: 1\n---"), 14);
         assert_eq!(hidden("текст"), 0);
-        assert_eq!(end_of(&crop::Rope::from("---\nkey: 1\n---\nтекст")), Some(14));
-        assert_eq!(end_of(&crop::Rope::from("---\nkey: 1")), None);
+        assert_eq!(bounds_of(&"---\nkey: 1\n---\nтекст").map(|found| found.end), Some(14));
+        assert!(bounds_of(&"---\nkey: 1").is_none());
     }
 
     #[test]
@@ -172,7 +127,6 @@ mod tests {
         assert_eq!(parse_pages("1/0"), None);
         assert_eq!(parse_pages("abc"), None);
         assert_eq!(parse_pages("1.5/10"), None);
-        assert_eq!(format_pages(3, 10), "3/10");
     }
 
     #[test]

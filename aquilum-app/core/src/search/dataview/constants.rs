@@ -20,7 +20,6 @@ pub const DURATION_UNITS: [(i64, [&str; 3]); 6] = [
 pub const OWN_SECONDS: u32 = 1;
 pub const OVER_NOTES_SECONDS: u32 = 60;
 pub const MAX_OUTPUT_ROWS: usize = 500;
-pub const CHUNK_PATHS: usize = 400;
 
 pub const NOTE_COLUMN: &str = "Заметка";
 pub const ROWS_IDENTIFIER: &str = "rows";

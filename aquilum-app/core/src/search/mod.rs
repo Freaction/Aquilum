@@ -17,6 +17,7 @@ mod benches;
 pub mod metadata;
 pub mod models;
 pub mod note_date;
+pub mod pages;
 pub mod paths;
 pub mod progress;
 pub mod query;

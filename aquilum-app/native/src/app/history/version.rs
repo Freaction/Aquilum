@@ -3,7 +3,8 @@ use masonry::app::RenderRoot;
 use super::{App, VersionCommand};
 use crate::history::{self, Version};
 use crate::i18n::t;
-use crate::ui::backlinks::{self, VersionView};
+use aquilum_core::history::service::VersionView;
+use crate::ui::backlinks;
 use crate::ui::widgets::Slot;
 
 impl App {
@@ -17,13 +18,14 @@ impl App {
     pub(in crate::app) fn show_version(&mut self, root: &mut RenderRoot) -> bool {
         let Some(version) = self.opened_versions.get(&self.tabs.active_id()).cloned() else { return false };
         let Some(path) = self.tabs.active().path.clone() else { return false };
-        let texts = history::texts(&self.workspace.core, &path, &version.id);
-        let (lines, notice, previous) = match &texts {
-            Some(texts) => (history::diff(texts.previous.as_deref(), &texts.text), self.version_notice.clone(), texts.previous.is_some()),
+        let shown = history::view(&self.workspace.core, &path, &version.id);
+        let (lines, notice, previous) = match &shown {
+            Some(VersionView::Full(texts)) => (history::diff(texts.previous.as_deref(), &texts.text), self.version_notice.clone(), texts.previous.is_some()),
+            Some(VersionView::Changes { hunks, previous }) => (history::hunk_lines(hunks), self.version_notice.clone(), *previous),
             None => (Vec::new(), Some(t("history.missing")), false),
         };
-        let can_restore = texts.is_some() && !version.is_current;
-        let (view, ids): (_, VersionView) =
+        let can_restore = shown.is_some() && !version.is_current;
+        let (view, ids): (_, backlinks::VersionView) =
             backlinks::version_view(&history::heading(&version), previous, can_restore, &lines, notice.as_deref());
         let Some(chrome) = &self.chrome else { return false };
         chrome.version_page.edit(root, |mut slot| Slot::set_child(&mut slot, view));

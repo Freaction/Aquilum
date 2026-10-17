@@ -75,7 +75,8 @@ impl UiStateService {
     }
 
     pub fn resolve_workspace(&self, path: &str, now_ms: i64) -> Result<Uuid, UiStateError> {
-        self.with_database(|database| database.resolve_workspace(path, now_ms))
+        let path = canonical_path(Path::new(path));
+        self.with_database(|database| database.resolve_workspace(&path.to_string_lossy(), now_ms))
     }
 
     pub fn set_home_page(&self, path: &str, home_page: &str) -> Result<(), UiStateError> {

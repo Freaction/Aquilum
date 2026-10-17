@@ -1,10 +1,7 @@
 use super::{Core, CoreEvent, EventSink};
 use crate::documents::session::SYSTEM_CLIENT;
-use crate::documents::DocumentEvent;
 use crate::files::gate;
 use crate::history::Source;
-use crate::mcp::bridge::{Disposition, Navigation};
-use serde_json::json;
 use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -20,11 +17,25 @@ impl EventSink for Recording {
 
 impl Recording {
     fn names(&self) -> Vec<&'static str> {
-        self.0.lock().unwrap().iter().map(CoreEvent::name).collect()
+        self.0.lock().unwrap().iter().map(name).collect()
     }
 
     fn clear(&self) {
         self.0.lock().unwrap().clear();
+    }
+}
+
+fn name(event: &CoreEvent) -> &'static str {
+    match event {
+        CoreEvent::DocumentChanged(_) => "document-changed",
+        CoreEvent::DocumentSaved(_) => "document-saved",
+        CoreEvent::DocumentMissing(_) => "document-missing",
+        CoreEvent::NotesRelocated(_) => "notes-relocated",
+        CoreEvent::NoteHistoryChanged(_) => "note-history-changed",
+        CoreEvent::WorkspaceChanged(_) => "workspace-changed",
+        CoreEvent::ContentChanged(_) => "content-changed",
+        CoreEvent::WorkspaceRescanned => "workspace-rescanned",
+        _ => "other",
     }
 }
 
@@ -33,26 +44,6 @@ fn open_core() -> (tempfile::TempDir, Arc<Core>, Arc<Recording>) {
     let events = Arc::new(Recording::default());
     let core = Core::open(&directory.path().join("data"), Arc::clone(&events) as Arc<dyn EventSink>);
     (directory, core, events)
-}
-
-#[test]
-fn the_frontend_receives_the_same_event_names_and_payloads_as_before() {
-    let saved = CoreEvent::DocumentSaved(DocumentEvent { path: "a.md".into(), version: 3 });
-    assert_eq!(saved.name(), "document-saved");
-    assert_eq!(serde_json::to_value(&saved).unwrap(), json!({ "path": "a.md", "version": 3 }));
-
-    let note = CoreEvent::Navigate(Navigation::Note { path: "a.md".into(), disposition: Disposition::NewTab });
-    assert_eq!(note.name(), "mcp-navigate");
-    assert_eq!(
-        serde_json::to_value(&note).unwrap(),
-        json!({ "kind": "note", "path": "a.md", "disposition": "new-tab" })
-    );
-    let workspace = CoreEvent::Navigate(Navigation::Workspace { path: "base".into() });
-    assert_eq!(serde_json::to_value(&workspace).unwrap(), json!({ "kind": "workspace", "path": "base" }));
-
-    let changed = CoreEvent::WorkspaceChanged(vec!["a.md".into()]);
-    assert_eq!(changed.name(), "workspace-changed");
-    assert_eq!(serde_json::to_value(&changed).unwrap(), json!(["a.md"]));
 }
 
 #[test]

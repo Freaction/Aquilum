@@ -84,19 +84,12 @@ pub fn relative_key(root: &Path, path: &Path) -> String {
 }
 
 pub fn title_key(path: &Path) -> String {
-    path.file_stem()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_lowercase()
+    crate::search::paths::title(path).to_lowercase()
 }
 
 pub fn relative_target(root: &Path, path: &Path, path_style: bool) -> String {
     if !path_style {
-        return path
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned();
+        return crate::search::paths::title(path);
     }
     strip_markdown_extension(&relative_slash_path(root, path)).to_owned()
 }

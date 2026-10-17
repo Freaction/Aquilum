@@ -7,7 +7,6 @@ pub mod sanitize;
 pub mod surface;
 
 pub use frontmatter::{body as frontmatter_body, field as frontmatter_field};
-pub use frontmatter::set as frontmatter_set;
 pub use frontmatter::{unquote as frontmatter_unquote, yaml_block as frontmatter_yaml};
 pub use surface::stem_surface_labels;
 

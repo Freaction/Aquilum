@@ -1,8 +1,10 @@
+use crate::text::content::Content;
 use super::conflict::{copy_content, copy_stem, ConflictReport, LocalMinute};
 use super::resolve::{SyncPoint, SyncPointLookup};
 use super::session::{DiskError, DiskSnapshot, SessionIo};
 use super::store::DocumentStore;
-use crate::files::document::{hash_bytes, read_file_hash_impl, read_file_snapshot_impl};
+use crate::files::document::{hash_bytes, hash_file, read_file_snapshot_impl};
+use crate::files::entries::first_free;
 use crate::files::error::FileCommandError;
 use crate::files::gate;
 use crate::history::Source;
@@ -11,7 +13,6 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::app_core::Core;
 
-const MAX_COPY_ATTEMPTS: u32 = 10_000;
 
 pub struct HubIo<'a> {
     pub core: &'a Core,
@@ -35,30 +36,20 @@ fn now_nanos() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |since| since.as_nanos() as i64)
 }
 
-fn copy_path(note: &Path, label: &str, attempt: u32) -> PathBuf {
+fn copy_path(note: &Path, label: &str, attempt: usize) -> PathBuf {
     let name = if attempt == 0 { format!("{label}.md") } else { format!("{label} {}.md", attempt + 1) };
     note.with_file_name(name)
 }
 
-pub fn preserve_copy(core: &Core, path: &Path, body: &str, report: ConflictReport, offset_seconds: i64) -> Option<PathBuf> {
-    let stem = path.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default();
+pub fn preserve_copy(core: &Core, path: &Path, body: &dyn Content, report: ConflictReport, offset_seconds: i64) -> Option<PathBuf> {
+    let stem = crate::search::paths::title(path);
     let moment = LocalMinute::at(now_nanos(), offset_seconds);
     let note = path.to_string_lossy();
     let content = copy_content(&note, &stem, &report, &moment, body)?;
     let label = copy_stem(&stem, &moment);
-    for attempt in 0..MAX_COPY_ATTEMPTS {
-        let target = copy_path(path, &label, attempt);
-        match gate::create(core, &target, &content, Source::Me, None) {
-            Ok(_) => return Some(target),
-            Err(FileCommandError::AlreadyExists { .. }) => continue,
-            Err(error) => {
-                eprintln!("[aquilum:documents] копия-конфликт не записана: {error}");
-                return None;
-            }
-        }
-    }
-    eprintln!("[aquilum:documents] не нашлось свободного имени для копии-конфликта {label}");
-    None
+    first_free(|attempt| copy_path(path, &label, attempt), |target| gate::create(core, target, &content, Source::Me, None))
+        .map_err(|error| eprintln!("[aquilum:documents] копия-конфликт {label} не записана: {error}"))
+        .ok()
 }
 
 impl HubIo<'_> {
@@ -75,7 +66,7 @@ impl SessionIo for HubIo<'_> {
     }
 
     fn hash(&self) -> Result<String, DiskError> {
-        read_file_hash_impl(self.path).map_err(|error| disk_error(self.path, error))
+        hash_file(self.path).map_err(|error| disk_error(self.path, error.into()))
     }
 
     fn write(&self, content: &str, expected_hash: &str) -> Result<String, DiskError> {
@@ -89,7 +80,7 @@ impl SessionIo for HubIo<'_> {
     }
 
     fn preserve(&self, body: &str, report: ConflictReport) {
-        preserve_copy(self.core, self.path, body, report, self.offset_seconds);
+        preserve_copy(self.core, self.path, &body, report, self.offset_seconds);
     }
 
     fn append(&self, update: &[u8]) {

@@ -49,8 +49,7 @@ impl TextEditor {
         if this.widget.smart != smart {
             this.widget.smart = smart;
             this.widget.doc.set_flavors(smart.callouts, smart.tags);
-            this.ctx.request_layout();
-            this.ctx.request_render();
+            Self::repaint(this);
         }
     }
 
@@ -90,9 +89,7 @@ impl TextEditor {
     pub fn resolve_link_title(this: &mut WidgetMut<'_, Self>, placeholder: &str, title: &str) {
         let Some(at) = this.widget.doc.find(placeholder) else { return };
         this.widget.dispatch(vec![(at..at + placeholder.len(), escape::label(title))], None, Kind::Other);
-        this.ctx.submit_action::<TextAction>(this.widget.doc.changed());
-        this.ctx.request_layout();
-        this.ctx.request_render();
+        Self::edited(this);
     }
 }
 

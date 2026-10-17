@@ -20,7 +20,7 @@ fn tabs_open_new_select_and_close() {
     let strip = h.app.chrome.as_ref().unwrap().tab_strip.id();
     h.send(strip, TitlebarAction::Select(first));
     assert_eq!(h.app.tabs.active_id(), first);
-    assert!(h.app.note.as_ref().is_some_and(|n| n.is(&note)));
+    assert!(h.app.shows(&note));
 
     let second = h.app.tabs.tabs()[1].id;
     h.send(strip, TitlebarAction::Close(second));

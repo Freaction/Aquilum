@@ -231,8 +231,10 @@
       "minChars": "Minimum characters",
       "minCharsHint": "How many letters bring up the list",
       "saving": "Saving",
-      "saveDebounce": "Autosave, ms",
-      "saveDebounceAria": "Autosave"
+      "saveDebounce": "Autosave",
+      "saveDebounceHint": "How long after the last edit the note is written to disk",
+      "seconds": "{{count}} s",
+      "minutes": "{{count}} min"
     },
     "reader": {
       "lineHeight": "Line height",

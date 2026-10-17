@@ -2,7 +2,6 @@ pub mod char_edits;
 pub mod line_diff;
 pub mod merge;
 
-pub use crate::text::utf16::{utf16_byte, utf16_len};
 pub use char_edits::{apply_edits, TextEdit};
 pub use merge::merge_external_change;
 

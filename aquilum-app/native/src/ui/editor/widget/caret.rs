@@ -164,8 +164,7 @@ impl TextEditor {
         };
         editor.move_to(target, extend);
         editor.skip_tables(down);
-        this.ctx.request_layout();
-        this.ctx.request_render();
+        Self::repaint(this);
     }
 
     pub(super) fn line_edge(&self, end: bool) -> (usize, Affinity) {

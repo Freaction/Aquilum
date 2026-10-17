@@ -1,52 +1,53 @@
-use super::document::hash_bytes;
 use super::error::FileCommandError;
 use super::models::FileWriteResult;
 use crate::search::paths::same_path;
 use std::fs;
-use std::io::{ErrorKind, Write};
-use std::path::Path;
+use crate::text::content::{Content, HashedWriter};
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
 
-pub fn create_binary_file_impl(
-    path: &Path,
-    bytes: &[u8],
-) -> Result<FileWriteResult, FileCommandError> {
-    let mut file = match fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
-    {
-        Ok(file) => file,
-        Err(error) if error.kind() == ErrorKind::AlreadyExists => {
-            return Err(FileCommandError::AlreadyExists {
-                path: path.to_string_lossy().into_owned(),
-            });
+const FREE_NAME_ATTEMPTS: usize = 1000;
+
+pub fn first_free<T>(candidate: impl Fn(usize) -> PathBuf, mut op: impl FnMut(&Path) -> Result<T, FileCommandError>) -> Result<PathBuf, FileCommandError> {
+    for index in 0..FREE_NAME_ATTEMPTS {
+        let path = candidate(index);
+        match op(&path) {
+            Ok(_) => return Ok(path),
+            Err(FileCommandError::AlreadyExists { .. }) => continue,
+            Err(error) => return Err(error),
         }
-        Err(error) => return Err(error.into()),
-    };
-
-    if let Err(error) = file.write_all(bytes).and_then(|_| file.sync_all()) {
-        drop(file);
-        let _ = fs::remove_file(path);
-        return Err(error.into());
     }
+    Err(taken(&candidate(0)))
+}
 
-    Ok(FileWriteResult {
-        hash: hash_bytes(bytes),
+fn taken(path: &Path) -> FileCommandError {
+    FileCommandError::AlreadyExists { path: path.to_string_lossy().into_owned() }
+}
+
+fn create_new(path: &Path) -> Result<fs::File, FileCommandError> {
+    fs::OpenOptions::new().write(true).create_new(true).open(path).map_err(|error| match error.kind() {
+        ErrorKind::AlreadyExists => taken(path),
+        _ => error.into(),
     })
 }
 
-pub fn create_file_impl(
-    path: &Path,
-    content: &str,
-) -> Result<FileWriteResult, FileCommandError> {
-    create_binary_file_impl(path, content.as_bytes())
+pub fn create_content_file(path: &Path, content: &dyn Content) -> Result<FileWriteResult, FileCommandError> {
+    let file = create_new(path)?;
+    let mut out = HashedWriter::new(&file);
+    let written = out.put(content).and_then(|()| out.finish());
+    match written.and_then(|hash| file.sync_all().map(|()| hash)) {
+        Ok(hash) => Ok(FileWriteResult { hash }),
+        Err(error) => {
+            drop(file);
+            let _ = fs::remove_file(path);
+            Err(error.into())
+        }
+    }
 }
 
 pub fn copy_file_impl(from: &Path, to: &Path) -> Result<(), FileCommandError> {
     if to.exists() {
-        return Err(FileCommandError::AlreadyExists {
-            path: to.to_string_lossy().into_owned(),
-        });
+        return Err(taken(to));
     }
     if from.is_dir() {
         return copy_directory_impl(from, to);
@@ -81,9 +82,7 @@ pub fn rename_file_impl(old_path: &Path, new_path: &Path) -> Result<(), FileComm
 
     if old_path.is_dir() {
         if new_path.exists() {
-            return Err(FileCommandError::AlreadyExists {
-                path: new_path.to_string_lossy().into_owned(),
-            });
+            return Err(taken(new_path));
         }
         fs::rename(old_path, new_path)?;
         return Ok(());
@@ -91,28 +90,12 @@ pub fn rename_file_impl(old_path: &Path, new_path: &Path) -> Result<(), FileComm
 
     match fs::hard_link(old_path, new_path) {
         Ok(()) => return remove_renamed_source(old_path, new_path),
-        Err(error) if error.kind() == ErrorKind::AlreadyExists => {
-            return Err(FileCommandError::AlreadyExists {
-                path: new_path.to_string_lossy().into_owned(),
-            });
-        }
+        Err(error) if error.kind() == ErrorKind::AlreadyExists => return Err(taken(new_path)),
         Err(_) => {}
     }
 
     let mut source = fs::File::open(old_path)?;
-    let mut destination = match fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(new_path)
-    {
-        Ok(file) => file,
-        Err(error) if error.kind() == ErrorKind::AlreadyExists => {
-            return Err(FileCommandError::AlreadyExists {
-                path: new_path.to_string_lossy().into_owned(),
-            });
-        }
-        Err(error) => return Err(error.into()),
-    };
+    let mut destination = create_new(new_path)?;
 
     if let Err(error) = std::io::copy(&mut source, &mut destination)
         .and_then(|_| destination.sync_all())

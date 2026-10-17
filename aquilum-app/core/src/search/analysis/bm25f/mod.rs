@@ -6,7 +6,8 @@ pub mod terms;
 mod tests;
 
 use self::score::{Candidate, SegmentTerms};
-use self::source::{load_source, title};
+use self::source::load_source;
+use crate::search::paths::title;
 use self::terms::{candidate_query, select_terms, QueryTerm};
 use super::models::AnalysisResult;
 use crate::search::paths::identity;
@@ -130,12 +131,9 @@ fn fetch(
         if path.is_empty() || candidate_identity == source_identity || !seen.insert(candidate_identity) {
             continue;
         }
-        let candidate_title = stored_text(&candidate, index.fields.title)
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| title(&path));
         results.push(AnalysisResult {
+            title: title(&path),
             path,
-            title: candidate_title,
             raw_score,
             similarity: None,
             confidence: None,

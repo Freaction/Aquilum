@@ -35,6 +35,12 @@ impl App {
         for event in self.workspace.drain_events() {
             match event {
                 CoreEvent::Navigate(navigation) => navigations.push(navigation),
+                CoreEvent::Settle(done) => {
+                    if let Some(note) = &mut self.note {
+                        note.flush(&self.workspace.core, &self.text);
+                    }
+                    let _ = done.send(());
+                }
                 CoreEvent::WorkspaceRescanned => rescan = true,
                 CoreEvent::WorkspaceChanged(paths) => changed.extend(paths.into_iter().map(PathBuf::from)),
                 CoreEvent::ContentChanged(paths) => edited.extend(paths.into_iter().map(PathBuf::from)),

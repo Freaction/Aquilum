@@ -19,11 +19,12 @@ pub fn backlinks(
     let relative = relative_key(root, document);
     let candidates = select_candidates(connection, &title)?;
     let mut statement = connection.prepare(
-        "SELECT source_path, target_kind, byte_offset, offset_utf16 FROM wiki_links
-         WHERE ((target_kind='name' AND target_key=?1)
-            OR (target_kind='path' AND target_key=?2))
-           AND (source_path > ?3 OR (source_path = ?3 AND byte_offset > ?4))
-         ORDER BY source_path, byte_offset LIMIT ?5",
+        "SELECT * FROM (
+           SELECT link.source_path, link.target_kind, page.start + link.byte_offset AS at, page.start_utf16 + link.offset_utf16
+           FROM wiki_links link JOIN note_pages page ON page.id = link.page
+           WHERE (link.target_kind='name' AND link.target_key=?1) OR (link.target_kind='path' AND link.target_key=?2))
+         WHERE source_path > ?3 OR (source_path = ?3 AND at > ?4)
+         ORDER BY source_path, at LIMIT ?5",
     )?;
     let mut cursor_path = String::new();
     let mut cursor_offset = -1;
@@ -49,11 +50,7 @@ pub fn backlinks(
             }
             items.push(Backlink {
                 path: source,
-                title: source_path
-                    .file_stem()
-                    .and_then(|value| value.to_str())
-                    .unwrap_or_default()
-                    .to_owned(),
+                title: crate::search::paths::title(&source_path),
                 offset: offset_utf16.max(0) as usize,
             });
             if items.len() == LINK_LIST_LIMIT {

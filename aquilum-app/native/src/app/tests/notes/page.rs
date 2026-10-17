@@ -27,14 +27,14 @@ fn note_page_hides_frontmatter_renames_and_navigates() {
     let renamed = h.vault.path().join("Книга.md");
     wait_until(1500, 20, || {
         h.app.on_core_events(&mut h.root);
-        h.app.note.as_ref().is_some_and(|n| n.is(&renamed))
+        h.app.shows(&renamed)
     });
-    assert!(h.app.note.as_ref().is_some_and(|n| n.is(&renamed)));
+    assert!(h.app.shows(&renamed));
     assert!(h.app.interface.metadata_expanded(&renamed) == h.app.interface.metadata_expanded(&note));
 
     let outcome = h.act(back, crate::ui::widgets::Pressed);
     assert!(outcome.title);
-    assert!(h.app.note.as_ref().is_some_and(|n| n.is(&h.vault.path().join("a.md"))));
+    assert!(h.app.shows(&h.vault.path().join("a.md")));
     assert!(h.app.navigation.can_forward());
 
     h.app.toggle_focus_mode(&mut h.root);
@@ -55,7 +55,7 @@ fn a_new_note_renamed_from_its_title_stays_open_with_the_caret_in_the_body() {
     let renamed = h.vault.path().join("Новая.md");
     wait_until(100, 20, || {
         h.app.on_core_events(&mut h.root);
-        h.app.note.as_ref().is_some_and(|n| n.is(&renamed))
+        h.app.shows(&renamed)
     });
     for _ in 0..10 {
         std::thread::sleep(std::time::Duration::from_millis(30));
@@ -63,7 +63,7 @@ fn a_new_note_renamed_from_its_title_stays_open_with_the_caret_in_the_body() {
     }
     assert_eq!(h.app.tabs.tabs().len(), tabs, "вкладка закрылась");
     assert_eq!(h.app.tabs.active().path.as_deref(), Some(renamed.as_path()));
-    assert!(h.app.note.as_ref().is_some_and(|n| n.is(&renamed)));
+    assert!(h.app.shows(&renamed));
     assert_eq!(h.root.focused_widget(), Some(body), "каретка не в тексте заметки");
 }
 
@@ -81,7 +81,7 @@ fn home_button_appears_only_for_resolved_home_page() {
     assert!(h.app.home.as_ref().is_some_and(|p| p.ends_with("a.md")));
     let button = h.app.chrome.as_ref().unwrap().home_button.expect("кнопка главной");
     h.act(button, crate::ui::widgets::Pressed);
-    assert!(h.app.note.as_ref().is_some_and(|n| n.is(&h.vault.path().join("a.md"))));
+    assert!(h.app.shows(&h.vault.path().join("a.md")));
 }
 
 #[test]

@@ -8,12 +8,7 @@ use std::path::Path;
 
 pub fn search_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = indexed_vault(core, arguments)?;
-    let folder = optional_text(arguments, "folder")
-        .map(|value| vault.folder(&value))
-        .transpose()?;
-    if let Some(folder) = folder.as_ref().filter(|folder| !folder.is_dir()) {
-        return Err(format!("Папка не найдена: {}", vault.relative(folder)));
-    }
+    let folder = optional_text(arguments, "folder").map(|_| vault.folder_argument(arguments)).transpose()?;
     let query = text(arguments, "query")?;
     let request = Request {
         folder: folder.as_deref(),

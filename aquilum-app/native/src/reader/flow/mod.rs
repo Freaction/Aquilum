@@ -61,5 +61,5 @@ pub fn byte(text: &str, origins: &[Origin], node: NodeId, utf16: u32) -> Option<
     let index = origins.iter().rposition(|o| o.node == node && o.utf16 <= utf16)?;
     let origin = origins[index];
     let limit = origins.get(index + 1).map_or(text.len(), |o| o.byte);
-    Some(origin.byte + aquilum_core::documents::merge::utf16_byte(&text[origin.byte..limit], (utf16 - origin.utf16) as usize))
+    Some(origin.byte + aquilum_core::text::utf16::utf16_byte(&text[origin.byte..limit], (utf16 - origin.utf16) as usize))
 }

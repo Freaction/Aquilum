@@ -233,8 +233,10 @@
       "minChars": "Минимум символов",
       "minCharsHint": "Со скольких букв появляется список",
       "saving": "Сохранение",
-      "saveDebounce": "Автосохранение, мс",
-      "saveDebounceAria": "Автосохранение"
+      "saveDebounce": "Автосохранение",
+      "saveDebounceHint": "Через сколько после последней правки заметка записывается на диск",
+      "seconds": "{{count}} с",
+      "minutes": "{{count}} мин"
     },
     "reader": {
       "lineHeight": "Межстрочный интервал",

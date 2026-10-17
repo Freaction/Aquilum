@@ -1,6 +1,6 @@
 [package]
 name = "aquilum-native"
-version = "0.3.9"
+version = "0.3.10"
 description = "Aquilum native UI (Masonry on winit + vello_cpu), no WebView"
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"
@@ -38,7 +38,7 @@ masonry = { git = "https://github.com/linebender/xilem", rev = "271a27a6d4a930f7
 winit = "=0.31.0-beta.3"
 vello_cpu = { path = "vendor/vello_cpu", features = ["multithreading"] }
 rayon = "1.12"
-arboard = { version = "3", default-features = false, features = ["image-data"] }
+arboard = { version = "3", default-features = false, features = ["image-data", "wayland-data-control"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1.23.5", features = ["v4"] }

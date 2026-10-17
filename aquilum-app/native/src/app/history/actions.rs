@@ -81,10 +81,8 @@ impl App {
         commands.push((VersionCommand::Rename, t("common.rename")));
         let labels: Vec<&str> = commands.iter().map(|(_, label)| label.as_str()).collect();
         let menu = Menu::new(&t("history.versionActions"), &labels);
-        let layer = menu.id();
-        root.add_layer(menu, Menu::context_origin(at, labels.len(), self.window));
-        root.focus_on(Some(layer));
-        self.popup = Some(Popup::VersionMenu { layer, index, commands: commands.into_iter().map(|(c, _)| c).collect() });
+        let origin = Menu::context_origin(at, labels.len(), self.window);
+        self.show_layer(root, menu, origin, |layer| Popup::VersionMenu { layer, index, commands: commands.into_iter().map(|(c, _)| c).collect() });
     }
 
     pub(in crate::app) fn on_version_menu(&mut self, root: &mut RenderRoot, layer: WidgetId, index: usize, commands: Vec<VersionCommand>, action: &ErasedAction) {
@@ -112,7 +110,7 @@ impl App {
         if let (Some(name), Some(version)) = (name, state.versions.get(index)) {
             let label = history::label(version);
             if name.trim() != label && Some(name.trim()) != version.name.as_deref() {
-                history::rename(&self.workspace.core, &state.path, version, &name);
+                aquilum_core::files::gate::name_version(&self.workspace.core, &state.path, Some(&version.id), name.trim());
             }
         }
         self.load_history(root);

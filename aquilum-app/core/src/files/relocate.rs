@@ -126,10 +126,7 @@ fn free_workspace_path(wanted: &Path) -> PathBuf {
         return wanted.to_path_buf();
     }
     let parent = wanted.parent().unwrap_or_else(|| Path::new(""));
-    let stem = wanted
-        .file_stem()
-        .map(|value| value.to_string_lossy().into_owned())
-        .unwrap_or_default();
+    let stem = crate::search::paths::title(wanted);
     let suffix = wanted
         .extension()
         .map(|value| format!(".{}", value.to_string_lossy()))

@@ -10,6 +10,32 @@ use super::script::{Step, parse};
 use super::trace::{TRACE, large_report};
 
 const PAUSE: Duration = Duration::from_millis(3000);
+const PEAK_STEP: usize = 64 << 20;
+const HEAP_EVERY: Duration = Duration::from_millis(250);
+
+fn watch_peaks(output: &std::path::Path) {
+    let (peaks, series) = (output.with_extension("peak.txt"), output.with_extension("heap.txt"));
+    std::thread::spawn(move || {
+        let started = Instant::now();
+        let (mut top, mut logged) = (CURRENT.load(Ordering::Relaxed), Duration::ZERO);
+        let mut log = std::fs::File::create(&series).ok();
+        loop {
+            let heap = CURRENT.load(Ordering::Relaxed);
+            if heap > top + PEAK_STEP {
+                top = heap;
+                let text = format!("## пик rust-кучи {:.0} МБ через {:.1} с\n{}{}", mb(heap), started.elapsed().as_secs_f64(), breakdown(), large_report());
+                let _ = std::fs::write(&peaks, text);
+            }
+            if started.elapsed() >= logged + HEAP_EVERY {
+                logged = started.elapsed();
+                if let Some(log) = &mut log {
+                    let _ = writeln!(log, "{:.2} с\t{:.0} МБ", logged.as_secs_f64(), mb(heap));
+                }
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    });
+}
 
 pub struct Probe {
     output: PathBuf,
@@ -25,6 +51,9 @@ impl Probe {
     pub fn new(output: PathBuf, notes: Vec<PathBuf>) -> Self {
         let _ = std::fs::write(&output, "");
         super::trace::configure();
+        if std::env::var_os("AQ_PROBE_PEAK").is_some() {
+            watch_peaks(&output);
+        }
         if let Some(script) = std::env::var_os("AQ_PROBE_SCRIPT") {
             let text = std::fs::read_to_string(script).unwrap_or_default();
             let (steps, pauses) = text.lines().filter_map(parse).unzip();

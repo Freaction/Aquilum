@@ -49,7 +49,7 @@ pub use launch::run;
 use crash::install_crash_log;
 use window::{cloak, set_background, window_icon};
 
-const PRIMARY_MOUSE: PointerInfo = PointerInfo {
+pub(crate) const PRIMARY_MOUSE: PointerInfo = PointerInfo {
     pointer_id: Some(PointerId::PRIMARY),
     persistent_device_id: None,
     pointer_type: PointerType::Mouse,

@@ -157,13 +157,13 @@ fn note_snapshot() {
         }
         if let Some(dy) = std::env::var("AQ_SCROLL").ok().and_then(|v| v.parse::<f64>().ok()).filter(|_| i > 0) {
             use masonry::core::{PointerScrollEvent, ScrollDelta};
-            let state = PointerState { position: PhysicalPosition::new(f64::from(w) / 2.0, f64::from(hh) / 2.0), count: 1, scale_factor: scale, ..PointerState::default() };
+            let state = pointer_at(f64::from(w) / 2.0, f64::from(hh) / 2.0, scale);
             h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, -dy)), state }));
             h.deliver();
         }
         if let Some((x, y)) = std::env::var("AQ_HOVER").ok().and_then(|v| v.split_once(',').map(|(x, y)| (x.parse::<f64>().unwrap(), y.parse::<f64>().unwrap()))) {
-            let state = PointerState { position: PhysicalPosition::new(x, y), count: 1, scale_factor: scale, ..PointerState::default() };
-            h.root.handle_pointer_event(PointerEvent::Move(PointerUpdate { pointer: MOUSE, current: state, coalesced: vec![], predicted: vec![] }));
+            let state = pointer_at(x, y, scale);
+            h.root.handle_pointer_event(moved(state));
         }
         let (layers, _) = h.root.redraw();
         let mut r = crate::render::Renderer::new(2);

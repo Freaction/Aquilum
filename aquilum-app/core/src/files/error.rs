@@ -48,3 +48,5 @@ impl std::fmt::Display for FileCommandError {
         }
     }
 }
+
+impl std::error::Error for FileCommandError {}

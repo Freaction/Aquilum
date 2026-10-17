@@ -1,4 +1,30 @@
+use aquilum_core::text::content::{splice, Splice};
 use crop::{Rope, RopeSlice};
+
+pub struct Text<'a>(pub &'a Rope);
+
+impl aquilum_core::text::content::Content for Text<'_> {
+    fn byte_len(&self) -> usize {
+        self.0.byte_len()
+    }
+
+    fn read(&self, range: std::ops::Range<usize>, visit: &mut dyn FnMut(&[u8]) -> std::io::Result<()>) -> std::io::Result<()> {
+        let text = self.0;
+        let mut high = range.end;
+        while high < text.byte_len() && !text.is_char_boundary(high) {
+            high += 1;
+        }
+        let mut at = floor(text, range.start);
+        for chunk in text.byte_slice(at..high).chunks() {
+            let (from, to) = (range.start.max(at) - at, range.end.min(at + chunk.len()).saturating_sub(at));
+            if from < to {
+                visit(&chunk.as_bytes()[from..to])?;
+            }
+            at += chunk.len();
+        }
+        Ok(())
+    }
+}
 
 pub fn floor(text: &Rope, at: usize) -> usize {
     let mut at = at.min(text.byte_len());
@@ -6,10 +32,6 @@ pub fn floor(text: &Rope, at: usize) -> usize {
         at -= 1;
     }
     at
-}
-
-pub fn prefix(text: &Rope, len: usize) -> String {
-    text.byte_slice(..floor(text, len)).to_string()
 }
 
 pub fn each_line(text: RopeSlice<'_>, mut line: impl FnMut(&str) -> bool) {
@@ -35,48 +57,32 @@ pub fn each_line(text: RopeSlice<'_>, mut line: impl FnMut(&str) -> bool) {
     line(&part);
 }
 
-pub fn common_prefix(a: &Rope, b: &Rope) -> usize {
-    let (mut left, mut right) = (a.chunks().map(str::as_bytes), b.chunks().map(str::as_bytes));
-    let (mut x, mut y): (&[u8], &[u8]) = (&[], &[]);
-    let mut same = 0;
-    loop {
-        if x.is_empty() {
-            match left.next() {
-                Some(chunk) => x = chunk,
-                None => return same,
-            }
-            continue;
-        }
-        if y.is_empty() {
-            match right.next() {
-                Some(chunk) => y = chunk,
-                None => return same,
-            }
-            continue;
-        }
-        let n = x.len().min(y.len());
-        let equal = x[..n].iter().zip(&y[..n]).take_while(|(p, q)| p == q).count();
-        same += equal;
-        if equal < n {
-            return same;
-        }
-        (x, y) = (&x[n..], &y[n..]);
-    }
+pub fn changed(old: &Rope, new: &Rope) -> Splice {
+    splice(&Text(old), &Text(new)).unwrap_or(Splice { at: 0, removed: old.byte_len(), inserted: new.byte_len() })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{common_prefix, each_line};
+    use super::{changed, each_line, Text};
+    use aquilum_core::text::content::{read_bytes, Splice};
     use crop::Rope;
 
     #[test]
-    fn common_prefix_crosses_chunks() {
+    fn text_reads_any_byte_range() {
+        let source: String = (0..3000).map(|i| format!("правка {i}\n")).collect();
+        let rope = Rope::from(source.as_str());
+        for (start, end) in [(1, 2), (9, 4000), (5, source.len()), (source.len() - 3, source.len())] {
+            assert_eq!(read_bytes(&Text(&rope), start..end).unwrap(), &source.as_bytes()[start..end]);
+        }
+    }
+
+    #[test]
+    fn the_changed_part_is_found_across_chunks() {
         let text: String = (0..5000).map(|i| format!("строка {i}\n")).collect();
         let (a, mut b) = (Rope::from(text.as_str()), Rope::from(text.as_str()));
-        assert_eq!(common_prefix(&a, &b), text.len());
+        assert_eq!(changed(&a, &b), Splice { at: text.len(), removed: 0, inserted: 0 });
         b.insert(30_000, "x");
-        assert_eq!(common_prefix(&a, &b), 30_000);
-        assert_eq!(common_prefix(&a, &Rope::new()), 0);
+        assert_eq!(changed(&a, &b), Splice { at: 30_000, removed: 0, inserted: 1 });
     }
 
     #[test]

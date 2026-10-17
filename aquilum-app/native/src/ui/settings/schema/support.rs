@@ -1,7 +1,7 @@
 use aquilum_core::settings::models::{AppConfig, FontSettings};
 
 use super::{Control, Number, Row, Setter, Value};
-use crate::i18n::t;
+use crate::i18n::{t, t_with};
 
 pub(super) const THEMES: [&str; 3] = ["system", "light", "dark"];
 pub(super) const LANGUAGES: [&str; 2] = ["ru", "en"];
@@ -53,6 +53,13 @@ pub(super) fn text(value: &Value) -> String {
     match value {
         Value::Text(s) => s.clone(),
         _ => String::new(),
+    }
+}
+
+pub(super) fn interval(ms: u32) -> String {
+    match ms / 1000 {
+        seconds if seconds < 60 => t_with("settings.editor.seconds", &[("count", &seconds.to_string())]),
+        seconds => t_with("settings.editor.minutes", &[("count", &(seconds / 60).to_string())]),
     }
 }
 

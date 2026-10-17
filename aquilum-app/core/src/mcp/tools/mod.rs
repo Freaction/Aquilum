@@ -5,17 +5,15 @@ mod search;
 mod trash;
 mod workspace;
 mod workspace_locator;
+mod arguments;
+
+pub use arguments::*;
 
 use super::vault::Vault;
-use crate::files::document::read_file_snapshot_impl;
-use crate::files::error::FileCommandError;
-use crate::files::gate;
-use crate::history::Source;
 use std::path::Path;
 use serde_json::{json, Value};
 use crate::app_core::Core;
 
-const WRITE_CONFLICT_RETRIES: usize = 1;
 
 pub const INSTRUCTIONS: &str = concat!(
     "Aquilum — локальная база знаний из markdown-файлов. ",
@@ -72,30 +70,6 @@ pub fn version_name_property() -> Value {
     json!({ "type": "string", "description": "Название версии, которую создаст эта правка: в истории заметки она сразу будет под этим именем" })
 }
 
-pub fn write_retrying(
-    core: &Core,
-    note: &Path,
-    source: Source,
-    version_name: Option<&str>,
-    next: impl Fn(&str) -> Result<String, String>,
-) -> Result<(bool, String), String> {
-    let mut conflicts = 0;
-    loop {
-        let snapshot = read_file_snapshot_impl(note).map_err(|error| error.to_string())?;
-        let content = next(&snapshot.content)?;
-        if content == snapshot.content {
-            return Ok((false, content));
-        }
-        match gate::write(core, note, &content, Some(&snapshot.hash), source, version_name) {
-            Ok(_) => return Ok((true, content)),
-            Err(FileCommandError::Conflict { .. }) if conflicts < WRITE_CONFLICT_RETRIES => {
-                conflicts += 1;
-            }
-            Err(error) => return Err(error.to_string()),
-        }
-    }
-}
-
 pub fn open_after_write(core: &Core, vault: &Vault, note: &Path, arguments: &Value) {
     if vault.visible && flag(arguments, "open", true) && !core.active_note.is(note) {
         super::bridge::open_note_after_write(core, note);
@@ -110,106 +84,14 @@ impl super::vault::Vault {
     pub fn note_argument(&self, arguments: &Value) -> Result<std::path::PathBuf, String> {
         self.note(&text(arguments, "note")?)
     }
-}
 
-pub fn text(arguments: &Value, key: &str) -> Result<String, String> {
-    optional_text(arguments, key)
-        .or_else(|| alias(key).and_then(|other| optional_text(arguments, other)))
-        .ok_or_else(|| missing(arguments, key))
-}
-
-fn alias(key: &str) -> Option<&'static str> {
-    match key {
-        "note" => Some("path"),
-        "path" => Some("note"),
-        _ => None,
+    pub fn folder_argument(&self, arguments: &Value) -> Result<std::path::PathBuf, String> {
+        let folder = self.folder(&optional_text(arguments, "folder").unwrap_or_default())?;
+        match folder.is_dir() {
+            true => Ok(folder),
+            false => Err(format!("Папка не найдена: {}", self.relative(&folder))),
+        }
     }
-}
-
-pub fn optional_text(arguments: &Value, key: &str) -> Option<String> {
-    arguments
-        .get(key)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_owned)
-}
-
-pub fn content(arguments: &Value, key: &str) -> Result<String, String> {
-    optional_content(arguments, key).ok_or_else(|| missing(arguments, key))
-}
-
-pub fn content_or_empty(arguments: &Value, key: &str) -> Result<String, String> {
-    arguments.get(key).and_then(Value::as_str).map(str::to_owned).ok_or_else(|| missing(arguments, key))
-}
-
-pub fn optional_content(arguments: &Value, key: &str) -> Option<String> {
-    arguments
-        .get(key)
-        .and_then(Value::as_str)
-        .filter(|value| !value.is_empty())
-        .map(str::to_owned)
-}
-
-fn missing(arguments: &Value, key: &str) -> String {
-    let given = arguments
-        .as_object()
-        .map(|fields| fields.keys().cloned().collect::<Vec<_>>())
-        .unwrap_or_default();
-    if given.is_empty() {
-        return format!("Не заполнен аргумент «{key}»: аргументов не передано вовсе");
-    }
-    format!(
-        "Не заполнен аргумент «{key}»; переданы: {}",
-        given.join(", ")
-    )
-}
-
-pub fn optional_names(
-    arguments: &Value,
-    key: &str,
-) -> Result<Option<Vec<String>>, String> {
-    let Some(value) = arguments.get(key) else {
-        return Ok(None);
-    };
-    if value.is_null() {
-        return Ok(None);
-    }
-    let list = value
-        .as_array()
-        .ok_or_else(|| format!("Аргумент «{key}» должен быть списком строк"))?;
-    if list.is_empty() {
-        return Err(format!("Список «{key}» пуст"));
-    }
-    list.iter()
-        .map(|item| {
-            item.as_str()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(str::to_owned)
-                .ok_or_else(|| format!("Аргумент «{key}»: строки списка не могут быть пустыми"))
-        })
-        .collect::<Result<Vec<_>, _>>()
-        .map(Some)
-}
-
-pub fn flag(arguments: &Value, key: &str, fallback: bool) -> bool {
-    arguments.get(key).and_then(Value::as_bool).unwrap_or(fallback)
-}
-
-pub fn offset(arguments: &Value) -> usize {
-    arguments
-        .get("offset")
-        .and_then(Value::as_u64)
-        .map_or(0, |value| usize::try_from(value).unwrap_or(usize::MAX))
-}
-
-pub fn limit(arguments: &Value, fallback: usize, maximum: usize) -> usize {
-    arguments
-        .get("limit")
-        .and_then(Value::as_u64)
-        .map_or(fallback, |value| value as usize)
-        .clamp(1, maximum)
 }
 
 pub fn shorten(value: &str, maximum: usize) -> String {

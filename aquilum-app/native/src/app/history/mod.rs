@@ -34,7 +34,8 @@ impl App {
             return;
         };
         let limit = self.history.as_ref().filter(|h| h.path == path).map_or(history::PAGE_SIZE, |h| h.limit);
-        let page = history::page(&self.workspace.core, &path, limit);
+        let current = self.note.as_ref().filter(|note| note.is(&path)).map(crate::note::Note::hash);
+        let page = history::page(&self.workspace.core, &path, current.as_deref(), limit);
         self.history = Some(HistoryState { path, versions: page.versions, total: page.total, limit, renaming: None });
         self.render_history(root);
     }

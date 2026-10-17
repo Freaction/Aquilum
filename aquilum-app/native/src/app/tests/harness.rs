@@ -96,53 +96,22 @@ impl Harness {
 
     pub(super) fn click_with(&mut self, x: f64, y: f64, modifiers: Modifiers) -> Outcome {
         self.settle();
-        let mut state =
-            PointerState { position: PhysicalPosition::new(x, y), count: 1, scale_factor: 1.0, modifiers, ..PointerState::default() };
-        self.root.handle_pointer_event(PointerEvent::Move(PointerUpdate {
-            pointer: MOUSE,
-            current: state.clone(),
-            coalesced: vec![],
-            predicted: vec![],
-        }));
+        let mut state = PointerState { modifiers, ..pointer_at(x, y, 1.0) };
+        self.root.handle_pointer_event(moved(state.clone()));
         state.buttons.insert(PointerButton::Primary);
-        let down = PointerButtonEvent { pointer: MOUSE, button: Some(PointerButton::Primary), state: state.clone() };
-        self.root.handle_pointer_event(PointerEvent::Down(down));
+        self.root.handle_pointer_event(PointerEvent::Down(primary(state.clone())));
         state.buttons.remove(PointerButton::Primary);
-        let up = PointerButtonEvent { pointer: MOUSE, button: Some(PointerButton::Primary), state };
-        self.root.handle_pointer_event(PointerEvent::Up(up));
+        self.root.handle_pointer_event(PointerEvent::Up(primary(state)));
         self.deliver()
     }
 
     pub(super) fn key(&mut self, key: Key, modifiers: Modifiers) -> Outcome {
-        for state in [KeyState::Down, KeyState::Up] {
-            let event = KeyboardEvent {
-                state,
-                key: key.clone(),
-                code: Code::Unidentified,
-                location: Location::Standard,
-                modifiers,
-                repeat: false,
-                is_composing: false,
-            };
-            self.root.handle_text_event(TextEvent::Keyboard(event));
-        }
+        crate::test_dir::key(&mut self.root, key, modifiers);
         self.deliver()
     }
 
     pub(super) fn escape(&mut self) -> Outcome {
-        for state in [KeyState::Down, KeyState::Up] {
-            let event = KeyboardEvent {
-                state,
-                key: Key::Named(NamedKey::Escape),
-                code: Code::Escape,
-                location: Location::Standard,
-                modifiers: Modifiers::empty(),
-                repeat: false,
-                is_composing: false,
-            };
-            self.root.handle_text_event(TextEvent::Keyboard(event));
-        }
-        self.deliver()
+        self.key(Key::Named(NamedKey::Escape), Modifiers::empty())
     }
 
     pub(super) fn config(&self) -> AppConfig {

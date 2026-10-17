@@ -11,7 +11,7 @@ fn note_reopens_at_saved_scroll_position() {
     std::fs::write(&other, "текст").unwrap();
     h.app.open(&mut h.root, long.clone());
     let _ = h.root.redraw();
-    let state = PointerState { position: PhysicalPosition::new(600.0, 300.0), count: 1, scale_factor: 1.0, ..PointerState::default() };
+    let state = pointer_at(600.0, 300.0, 1.0);
     h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, -2500.0)), state }));
     h.deliver();
     let saved = note_offset(&h);
@@ -146,8 +146,8 @@ fn books_snapshot() {
     }
     let size = h.root.size();
     for (x, y) in [(1034.0, 457.0), (1034.0, 625.0)] {
-        let state = PointerState { position: PhysicalPosition::new(x, y), count: 1, scale_factor: scale, ..PointerState::default() };
-        h.root.handle_pointer_event(PointerEvent::Move(PointerUpdate { pointer: MOUSE, current: state, coalesced: vec![], predicted: vec![] }));
+        let state = pointer_at(x, y, scale);
+        h.root.handle_pointer_event(moved(state));
         let (layers, _) = h.root.redraw();
         let mut r = crate::render::Renderer::new(2);
         r.render(&layers, size.width as u16, size.height as u16, scale, theme::background()).unwrap();
@@ -197,7 +197,7 @@ pages: 50/100
 ---
 ", Some(&snapshot.hash), aquilum_core::history::Source::Me, None).unwrap();
     assert!(wait(&mut h, &|h| embeds(h).cached_book("📖 Книга").is_some_and(|b| b.pages == Some((50, 100)) && b.author == "Второй")), "виджет книги не обновился");
-    aquilum_core::files::gate::create(&core, &vault.join("новая.md"), "[[📖 Книга]]", aquilum_core::history::Source::Me, None).unwrap();
+    aquilum_core::files::gate::create(&core, &vault.join("новая.md"), &"[[📖 Книга]]", aquilum_core::history::Source::Me, None).unwrap();
     assert!(wait(&mut h, &|h| embeds(h).cached_rows(query) == Some(3)), "новая ссылка не попала в таблицу");
 }
 
@@ -268,7 +268,7 @@ fn a_restarted_app_reopens_a_long_note_at_the_place_it_was_left() {
     let long = long_note(&h);
     h.app.open(&mut h.root, long);
     let _ = h.root.redraw();
-    let state = PointerState { position: PhysicalPosition::new(600.0, 300.0), count: 1, scale_factor: 1.0, ..PointerState::default() };
+    let state = pointer_at(600.0, 300.0, 1.0);
     h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, -9000.0)), state }));
     h.settle();
     h.deliver();

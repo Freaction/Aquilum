@@ -42,22 +42,22 @@ fn rect_of(h: &Harness, id: WidgetId, scale: f64) -> Rect {
 }
 
 fn pointer(h: &mut Harness, x: f64, y: f64, scale: f64, pressed: bool) -> PointerState {
-    let mut state = PointerState { position: PhysicalPosition::new(x, y), count: 1, scale_factor: scale, ..PointerState::default() };
+    let mut state = pointer_at(x, y, scale);
     if pressed {
         state.buttons.insert(PointerButton::Primary);
     }
-    h.root.handle_pointer_event(PointerEvent::Move(PointerUpdate { pointer: MOUSE, current: state.clone(), coalesced: vec![], predicted: vec![] }));
+    h.root.handle_pointer_event(moved(state.clone()));
     state
 }
 
 fn press(h: &mut Harness, x: f64, y: f64, scale: f64) {
     let state = pointer(h, x, y, scale, true);
-    h.root.handle_pointer_event(PointerEvent::Down(PointerButtonEvent { pointer: MOUSE, button: Some(PointerButton::Primary), state }));
+    h.root.handle_pointer_event(PointerEvent::Down(primary(state)));
 }
 
 fn release(h: &mut Harness, x: f64, y: f64, scale: f64) {
-    let state = PointerState { position: PhysicalPosition::new(x, y), count: 1, scale_factor: scale, ..PointerState::default() };
-    h.root.handle_pointer_event(PointerEvent::Up(PointerButtonEvent { pointer: MOUSE, button: Some(PointerButton::Primary), state }));
+    let state = pointer_at(x, y, scale);
+    h.root.handle_pointer_event(PointerEvent::Up(primary(state)));
 }
 
 fn click_at(h: &mut Harness, (x, y): (f64, f64), scale: f64) {

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use aquilum_core::files::document::write_file_atomic_impl;
+use aquilum_core::files::document::write_content_atomic;
 use serde::{Deserialize, Serialize};
 
 use crate::paths::relative;
@@ -74,7 +74,7 @@ impl Navigation {
         let entries = self.entries.iter().filter_map(|p| relative(root, p)).collect();
         all.insert(comparable(root), Stored { entries, index: self.index.map_or(-1, |i| i as i64) });
         let Ok(json) = serde_json::to_string(&all) else { return };
-        if let Err(e) = write_file_atomic_impl(&self.file, &json, None) {
+        if let Err(e) = write_content_atomic(&self.file, &json, None) {
             report!("история переходов не сохранена: {e}");
         }
     }

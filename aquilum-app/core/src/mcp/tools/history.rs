@@ -1,11 +1,11 @@
-use super::notes::window;
 use super::workspace::requested_vault;
-use super::{offset, 
+use super::{listing, offset, text_window,
     limit, open_after_write, optional_text, require_write, text, tool, version_name_property,
-    workspace_property, write_retrying,
+    workspace_property,
 };
 use crate::files::gate;
 use crate::history::{version_at, Source};
+use crate::search::pages::Pages;
 use serde_json::{json, Value};
 use crate::app_core::Core;
 
@@ -81,37 +81,21 @@ fn note_history(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
     let note = vault.note_argument(arguments)?;
     let offset = offset(arguments);
-    let history = &core.history;
-    let page = history.page(&|| core.known_roots(), &note, offset, limit(arguments, 50, LIST_LIMIT));
-    let end = offset.saturating_add(page.versions.len());
-    Ok(json!({
-        "path": vault.relative(&note),
-        "total": page.total,
-        "versions": page.versions,
-        "nextOffset": (end < page.total).then_some(end),
-    }))
+    let page = core.history.page(&|| core.known_roots(), &note, None, offset, limit(arguments, 50, LIST_LIMIT));
+    let mut listing = listing("versions", page.total, offset, page.versions);
+    listing["path"] = json!(vault.relative(&note));
+    Ok(listing)
 }
 
 fn read_version(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
     let note = vault.note_argument(arguments)?;
     let id = text(arguments, "version")?;
-    let history = &core.history;
-    let texts = history
-        .version(&|| core.known_roots(), &note, Some(&id))
-        .ok_or_else(|| missing_version(&id))?;
-    let offset = offset(arguments);
-    let size = limit(arguments, READ_LIMIT, 40_000);
-    let (body, total) = window(&texts.text, offset, size)?;
-    let end = offset.saturating_add(size.min(total.saturating_sub(offset)));
-    Ok(json!({
-        "path": vault.relative(&note),
-        "version": id,
-        "content": body,
-        "totalChars": total,
-        "truncated": end < total,
-        "nextOffset": (end < total).then_some(end),
-    }))
+    let version = core.history.content(&|| core.known_roots(), &note, &id).ok_or_else(|| missing_version(&id))?;
+    let mut window = text_window(&mut Pages::of(&version), 0..usize::MAX, arguments, limit(arguments, READ_LIMIT, 40_000))?;
+    window["path"] = json!(vault.relative(&note));
+    window["version"] = json!(id);
+    Ok(window)
 }
 
 fn restore_version(core: &Core, arguments: &Value) -> Result<Value, String> {
@@ -120,14 +104,8 @@ fn restore_version(core: &Core, arguments: &Value) -> Result<Value, String> {
     let note = vault.note_argument(arguments)?;
     let id = text(arguments, "version")?;
     let from_ms = version_at(&id).ok_or_else(|| missing_version(&id))?;
-    let history = &core.history;
-    let texts = history
-        .version(&|| core.known_roots(), &note, Some(&id))
-        .ok_or_else(|| missing_version(&id))?;
     let version_name = optional_text(arguments, "versionName");
-    let (changed, _) = write_retrying(core, &note, Source::Restore(from_ms), version_name.as_deref(), |_| {
-        Ok(texts.text.clone())
-    })?;
+    let changed = gate::restore_version(core, &note, &id, Source::Restore(from_ms), version_name.as_deref()).map_err(|error| error.to_string())?;
     if changed {
         open_after_write(core, &vault, &note, arguments);
     }

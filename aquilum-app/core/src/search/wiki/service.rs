@@ -6,7 +6,7 @@ use super::{
 use crate::search::error::SearchError;
 use crate::search::paths::markdown_files;
 use crate::search::models::{Backlink, OutgoingLink, WikiLinkResolution};
-use crate::search::paths::canonical_path;
+use crate::search::paths::{canonical_path, inside};
 use crate::search::service::SearchService;
 use rusqlite::Connection;
 use std::collections::HashSet;
@@ -15,10 +15,7 @@ use std::path::{Path, PathBuf};
 impl SearchService {
     pub fn backlinks(&self, workspace: &str, document: &str) -> Result<Vec<Backlink>, SearchError> {
         let (root, metadata_path) = self.index_paths(workspace)?;
-        let document = canonical_path(Path::new(document));
-        if !document.starts_with(&root) {
-            return Err(SearchError::invalid_workspace("Document is outside workspace"));
-        }
+        let document = inside(&root, document)?;
         backlinks(&Connection::open(metadata_path)?, &root, &document)
     }
 
@@ -51,10 +48,7 @@ impl SearchService {
         document: &str,
     ) -> Result<Vec<OutgoingLink>, SearchError> {
         let (root, metadata_path) = self.index_paths(workspace)?;
-        let document = canonical_path(Path::new(document));
-        if !document.starts_with(&root) {
-            return Err(SearchError::invalid_workspace("Document is outside workspace"));
-        }
+        let document = inside(&root, document)?;
         outgoing_links(&Connection::open(metadata_path)?, &root, &document)
     }
 
@@ -71,10 +65,7 @@ impl SearchService {
                 !open.progress.snapshot().updating,
             ))
         })?;
-        let source = canonical_path(Path::new(source));
-        if !source.starts_with(&root) {
-            return Err(SearchError::invalid_workspace("Source is outside workspace"));
-        }
+        let source = inside(&root, source)?;
         Ok(WikiLinkResolution {
             paths: resolve_many(&Connection::open(metadata_path)?, &root, &source, targets)?
                 .into_iter()

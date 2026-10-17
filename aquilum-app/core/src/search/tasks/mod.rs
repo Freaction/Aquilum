@@ -1,5 +1,5 @@
 pub mod parse;
 pub mod repository;
 
-pub use parse::Task;
-pub use repository::{index_document, open_schema, read as read_tasks, remove_document};
+pub use parse::{note_tasks, Task};
+pub use repository::{insert, read as read_tasks, TASKS_DDL};

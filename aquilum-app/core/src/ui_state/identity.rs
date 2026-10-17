@@ -2,7 +2,10 @@ use super::database::UiStateDatabase;
 use super::error::UiStateError;
 use super::models::KnownWorkspace;
 use super::paths::display_workspace;
+use crate::search::paths::{identity, same_path};
 use rusqlite::{params, OptionalExtension};
+use std::collections::HashSet;
+use std::path::Path;
 use uuid::Uuid;
 
 fn parse_uuid(value: String) -> Result<Uuid, UiStateError> {
@@ -27,24 +30,25 @@ impl UiStateDatabase {
                 row.get::<_, String>(3)?,
             ))
         })?;
-        let mut workspaces = Vec::new();
+        let (mut workspaces, mut seen) = (Vec::new(), HashSet::new());
         for row in rows {
             let (id, path, last_seen_ms, home_page) = row?;
-            workspaces.push(KnownWorkspace {
-                id: parse_uuid(id)?,
-                path: display_workspace(&path),
-                last_seen_ms,
-                home_page,
-            });
+            let path = display_workspace(&path);
+            if seen.insert(identity(Path::new(&path))) {
+                workspaces.push(KnownWorkspace { id: parse_uuid(id)?, path, last_seen_ms, home_page });
+            }
         }
         Ok(workspaces)
     }
 
+    fn find_workspace(&self, path: &str) -> Result<Option<Uuid>, UiStateError> {
+        Ok(self.list_workspaces()?.into_iter().find(|known| same_path(Path::new(&known.path), Path::new(path))).map(|known| known.id))
+    }
+
     pub fn set_home_page(&mut self, path: &str, home_page: &str) -> Result<(), UiStateError> {
-        self.connection.execute(
-            "UPDATE workspaces SET home_page = ?2 WHERE path = ?1",
-            params![path, home_page],
-        )?;
+        if let Some(id) = self.find_workspace(path)? {
+            self.connection.execute("UPDATE workspaces SET home_page = ?2 WHERE id = ?1", params![id.to_string(), home_page])?;
+        }
         Ok(())
     }
 
@@ -57,19 +61,10 @@ impl UiStateDatabase {
     }
 
     pub fn resolve_workspace(&mut self, path: &str, now_ms: i64) -> Result<Uuid, UiStateError> {
-        let existing = self
-            .connection
-            .query_row("SELECT id FROM workspaces WHERE path = ?1", [path], |row| {
-                row.get::<_, String>(0)
-            })
-            .optional()?;
-        let id = match existing {
-            Some(value) => parse_uuid(value)?,
-            None => Uuid::new_v4(),
-        };
+        let id = self.find_workspace(path)?.unwrap_or_else(Uuid::new_v4);
         self.connection.execute(
             "INSERT INTO workspaces(id, path, last_seen_ms) VALUES(?1, ?2, ?3)
-             ON CONFLICT(path) DO UPDATE SET last_seen_ms = excluded.last_seen_ms",
+             ON CONFLICT(id) DO UPDATE SET last_seen_ms = excluded.last_seen_ms",
             params![id.to_string(), path, now_ms],
         )?;
         Ok(id)

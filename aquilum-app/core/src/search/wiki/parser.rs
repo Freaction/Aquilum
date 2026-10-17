@@ -10,18 +10,14 @@ pub struct WikiLink {
     pub offset_utf16: usize,
 }
 
-struct Found {
-    start: usize,
-    note_range: Range<usize>,
-    target: String,
-}
-
 pub fn extract(source: &str) -> Vec<WikiLink> {
+    if !source.contains("[[") {
+        return Vec::new();
+    }
     let excluded = excluded_ranges(source);
     let bytes = source.as_bytes();
     let mut found = Vec::new();
-    let mut cursor = 0;
-    let mut excluded_at = 0;
+    let (mut cursor, mut excluded_at, mut prior, mut offset_utf16) = (0, 0, 0, 0);
     while cursor + 3 < bytes.len() {
         if bytes[cursor] != b'[' || bytes[cursor + 1] != b'[' || escaped(bytes, cursor) {
             cursor += 1;
@@ -45,41 +41,26 @@ pub fn extract(source: &str) -> Vec<WikiLink> {
         let skipped = inside_code || note.is_empty() || (embed && is_attachment(note));
         if !skipped {
             let target_end = split.anchor.as_ref().map_or(split.note.end, |anchor| anchor.end);
-            found.push(Found {
-                start: cursor,
-                note_range: cursor + 2 + split.note.start..cursor + 2 + split.note.end,
+            offset_utf16 += utf16_len(&source[prior..cursor]);
+            prior = cursor;
+            found.push(WikiLink {
                 target: inner[split.note.start..target_end].to_owned(),
+                note_range: cursor + 2 + split.note.start..cursor + 2 + split.note.end,
+                offset_utf16,
             });
         }
         cursor = end + 2;
     }
-    let mut prior = 0;
-    let mut offset_utf16 = 0;
     found
-        .into_iter()
-        .map(|link| {
-            offset_utf16 += utf16_len(&source[prior..link.start]);
-            prior = link.start;
-            WikiLink {
-                target: link.target,
-                note_range: link.note_range,
-                offset_utf16,
-            }
-        })
-        .collect()
 }
+
 fn excluded_ranges(source: &str) -> Vec<Range<usize>> {
-    let mut ranges = Vec::new();
-    let mut block_start = None;
+    let (mut ranges, mut block) = (Vec::new(), None);
     for (event, range) in Parser::new_ext(source, Options::all()).into_offset_iter() {
         match event {
+            Event::Start(Tag::CodeBlock(_)) => block = Some(range.start),
+            Event::End(TagEnd::CodeBlock) => ranges.extend(block.take().map(|start| start..range.end)),
             Event::Code(_) | Event::Html(_) | Event::InlineHtml(_) => ranges.push(range),
-            Event::Start(Tag::CodeBlock(_)) => block_start = Some(range.start),
-            Event::End(TagEnd::CodeBlock) => {
-                if let Some(start) = block_start.take() {
-                    ranges.push(start..range.end);
-                }
-            }
             _ => {}
         }
     }

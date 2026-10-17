@@ -63,10 +63,8 @@ fn typing(b: &mut Bench, at: (f64, f64)) {
 #[ignore]
 fn big_note_audit() {
     aq_trace::start();
-    let source = std::path::PathBuf::from(std::env::var("AQ_NOTE").expect("AQ_NOTE"));
     let mut b = Bench::start(None);
-    let note = b.h.vault.path().join("заметка.md");
-    std::fs::copy(&source, &note).unwrap();
+    let note = b.h.copy_note();
     let heap = crate::memory_probe::heap();
     let t = Instant::now();
     b.h.app.open(&mut b.h.root, note);
@@ -84,7 +82,7 @@ fn big_note_audit() {
     let doc = b.h.app.text.byte_len();
     eprintln!("заметка {:.0} МБ: открытие {opened:?}, первая сцена {scene:?}, первый кадр {shown:?}, вставки готовы {settled:?}", mb(doc));
     eprintln!("куча после открытия +{:.0} МБ", mb(crate::memory_probe::heap().saturating_sub(heap)));
-    let before: std::collections::HashMap<u32, f64> = crate::memory_probe::threads().into_iter().map(|(id, _, ms)| (id, ms)).collect();
+    let before = Threads::now();
     let threads = std::thread::available_parallelism().map_or(1, std::num::NonZero::get) as f64;
     let mut windows = Vec::new();
     for _ in 0..12 {
@@ -97,9 +95,7 @@ fn big_note_audit() {
     }
     eprintln!("простой по 5 с, % от всех {threads} потоков: {}", windows.join(" "));
     eprintln!("куча после простоя +{:.0} МБ", mb(crate::memory_probe::heap().saturating_sub(heap)));
-    let mut busy: Vec<(String, f64)> = crate::memory_probe::threads().into_iter().map(|(id, name, ms)| (format!("{id} {name}"), ms - before.get(&id).copied().unwrap_or(0.0))).filter(|(_, ms)| *ms > 50.0).collect();
-    busy.sort_by(|a, b| b.1.total_cmp(&a.1));
-    eprintln!("потоки в простое: {}", busy.iter().map(|(name, ms)| format!("{name}: {ms:.0} мс")).collect::<Vec<_>>().join("; "));
+    eprintln!("потоки в простое: {}", before.busy(50.0));
     let at = (f64::from(b.w) / 2.0, f64::from(b.hh) / 2.0);
     let scroll = b.h.app.note_ids.as_ref().unwrap().scroll.clone();
     for fraction in [0.0, 0.5, 0.95] {

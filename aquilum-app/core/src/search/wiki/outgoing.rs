@@ -4,6 +4,7 @@ use super::parser::extract;
 use super::resolver::resolve_many;
 use super::target::split;
 use super::LINK_LIST_LIMIT;
+use crate::search::pages::Pages;
 use crate::search::paths::strip_markdown_extension;
 use rusqlite::Connection;
 use std::path::Path;
@@ -13,12 +14,7 @@ pub fn outgoing_links(
     root: &Path,
     document: &Path,
 ) -> Result<Vec<OutgoingLink>, SearchError> {
-    let body = crate::files::document::read_text(document)?;
-    let targets = extract(&body)
-        .into_iter()
-        .take(LINK_LIST_LIMIT)
-        .map(|link| link.target)
-        .collect::<Vec<_>>();
+    let targets = first_targets(document, LINK_LIST_LIMIT)?;
     let paths = resolve_many(connection, root, document, &targets)?;
     let items = targets
         .into_iter()
@@ -38,6 +34,17 @@ pub fn outgoing_links(
     Ok(items)
 }
 
+fn first_targets(document: &Path, limit: usize) -> Result<Vec<String>, SearchError> {
+    let mut pages = Pages::open(document)?;
+    let mut targets = Vec::new();
+    while targets.len() < limit {
+        let Some(page) = pages.next()? else { break };
+        let room = limit - targets.len();
+        targets.extend(extract(&page.text).into_iter().take(room).map(|link| link.target));
+    }
+    Ok(targets)
+}
+
 fn target_title(target: &str) -> String {
     let note = split(target).note;
     let filename = note.rsplit(['/', '\\']).next().unwrap_or_default();
@@ -47,8 +54,7 @@ fn target_title(target: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::outgoing_links;
-    use crate::search::wiki::{index_document, open_schema, resolve_many};
-    use rusqlite::Connection;
+    use crate::search::wiki::resolve_many;
     use std::fs;
 
     #[test]
@@ -65,17 +71,16 @@ mod tests {
         .unwrap();
         fs::write(&target, "target").unwrap();
 
-        let mut connection = Connection::open_in_memory().unwrap();
-        open_schema(&connection).unwrap();
+        let mut connection = crate::search::metadata::memory();
         let transaction = connection.transaction().unwrap();
-        index_document(
+        crate::search::index_document::index_text(
             &transaction,
             root,
             &source,
             "[[Folder/Target|alias]] and [[Missing Note]] and [[Research.v2]]",
         )
         .unwrap();
-        index_document(&transaction, root, &target, "target").unwrap();
+        crate::search::index_document::index_text(&transaction, root, &target, "target").unwrap();
         transaction.commit().unwrap();
 
         let links = outgoing_links(&connection, root, &source).unwrap();
@@ -96,11 +101,10 @@ mod tests {
         let body = "[[#Раздел]] ![[pic.png|10]] ![[document.pdf#page=3]] ![[Target]] [[Target#h|x]] [[Missing#h]]";
         fs::write(&source, body).unwrap();
         fs::write(&target, "target").unwrap();
-        let mut connection = Connection::open_in_memory().unwrap();
-        open_schema(&connection).unwrap();
+        let mut connection = crate::search::metadata::memory();
         let transaction = connection.transaction().unwrap();
-        index_document(&transaction, root, &source, body).unwrap();
-        index_document(&transaction, root, &target, "target").unwrap();
+        crate::search::index_document::index_text(&transaction, root, &source, body).unwrap();
+        crate::search::index_document::index_text(&transaction, root, &target, "target").unwrap();
         transaction.commit().unwrap();
 
         let links = outgoing_links(&connection, root, &source).unwrap();

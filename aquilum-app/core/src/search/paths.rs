@@ -4,6 +4,10 @@ use std::path::{Component, Path, PathBuf};
 use unicode_normalization::UnicodeNormalization;
 use walkdir::{DirEntry, WalkDir};
 
+pub fn title(path: impl AsRef<Path>) -> String {
+    path.as_ref().file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default()
+}
+
 pub fn identity(path: &Path) -> String {
     let normalized: String = slash_path(path).nfc().collect();
     let normalized = normalized
@@ -59,6 +63,14 @@ pub fn strip_markdown_extension(value: &str) -> &str {
                 .is_some_and(|end| end.eq_ignore_ascii_case(".md"))
         })
         .unwrap_or(value)
+}
+
+pub fn inside(root: &Path, path: &str) -> Result<PathBuf, SearchError> {
+    let path = canonical_path(Path::new(path));
+    match path.starts_with(root) {
+        true => Ok(path),
+        false => Err(SearchError::invalid_workspace("Document is outside workspace")),
+    }
 }
 
 pub fn canonical_path(path: &Path) -> PathBuf {

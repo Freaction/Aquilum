@@ -1,6 +1,8 @@
 use std::ops::Range;
 
 use aquilum_core::markdown::fence::Fence;
+use aquilum_core::search::pages::Pages;
+use aquilum_core::text::content::Content;
 use aquilum_core::markdown::quote as syntax;
 
 use super::Quote;
@@ -62,43 +64,45 @@ fn is_book_header(line: &str) -> bool {
     callout_end(line, "book").is_some()
 }
 
-pub fn find(doc: &str) -> Vec<Quote> {
-    let mut lines = Vec::new();
-    let mut at = 0;
-    for line in doc.split('\n') {
-        lines.push((at, line));
-        at += line.len() + 1;
-    }
-    let mut quotes = Vec::new();
-    let mut inside: Option<Fence> = None;
-    let mut i = 0;
-    while i < lines.len() {
-        let (start, line) = lines[i];
-        if let Some(open) = inside {
-            if open.closes(line) {
-                inside = None;
+#[derive(Default)]
+struct Scanner {
+    quotes: Vec<Quote>,
+    inside: Option<Fence>,
+    skipping: bool,
+}
+
+impl Scanner {
+    fn line(&mut self, start: usize, line: &str) {
+        if self.skipping {
+            if syntax::quote(line).is_some() && header_len(line.trim_end()).is_none() && !is_book_header(line) {
+                return;
             }
-            i += 1;
-            continue;
+            self.skipping = false;
         }
-        if let Some(open) = Fence::open(line, usize::MAX) {
-            inside = Some(open);
-            i += 1;
-            continue;
+        let was = self.inside.is_some();
+        self.inside = Fence::step(self.inside, line, usize::MAX);
+        if was || self.inside.is_some() {
+            return;
         }
-        let header = header_len(line.trim_end()).is_some();
         if let Some((text, href, label)) = parse_line(line, start)
             && let Some((cfi, book)) = parse_href(&href)
         {
-            let label = label.unwrap_or_else(|| (quotes.len() + 1).to_string());
-            quotes.push(Quote { line: start..start + line.len(), text, cfi, book, label });
+            let label = label.unwrap_or_else(|| (self.quotes.len() + 1).to_string());
+            self.quotes.push(Quote { line: start..start + line.len(), text, cfi, book, label });
         }
-        i += 1;
-        if header {
-            while i < lines.len() && syntax::quote(lines[i].1).is_some() && header_len(lines[i].1.trim_end()).is_none() && !is_book_header(lines[i].1) {
-                i += 1;
-            }
+        self.skipping = header_len(line.trim_end()).is_some();
+    }
+}
+
+pub fn find(text: &dyn Content) -> Vec<Quote> {
+    let mut scanner = Scanner::default();
+    let mut pages = Pages::of(text);
+    while let Ok(Some(page)) = pages.next() {
+        let mut at = page.start;
+        for line in page.text.split_inclusive('\n') {
+            scanner.line(at, line.strip_suffix('\n').unwrap_or(line));
+            at += line.len();
         }
     }
-    quotes
+    scanner.quotes
 }

@@ -7,7 +7,7 @@ pub fn is_meta(line: &str) -> bool {
 }
 
 pub(super) fn cells(line: &str) -> Option<Vec<String>> {
-    if is_meta(line) {
+    if is_meta(line) || !line.contains('|') {
         return None;
     }
     let line = line.trim();

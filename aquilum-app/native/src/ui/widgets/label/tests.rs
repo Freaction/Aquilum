@@ -1,12 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
 
-use masonry::app::{RenderRoot, RenderRootOptions, RenderRootSignal, WindowSizePolicy};
-use masonry::core::keyboard::{Code, Key, KeyState, KeyboardEvent, Location};
-use masonry::core::{NewWidget, PointerButton, PointerButtonEvent, PointerEvent, PointerId, PointerInfo, PointerState, PointerType, PointerUpdate, TextEvent};
-use masonry::dpi::{PhysicalPosition, PhysicalSize};
-use masonry::theme::default_property_set;
+use masonry::app::{RenderRoot, RenderRootSignal};
+use masonry::core::keyboard::Key;
+use masonry::core::{NewWidget, PointerButton, PointerEvent, PointerState};
+use masonry::dpi::PhysicalPosition;
 
 use super::Label;
 use crate::test_dir::command;
@@ -20,14 +18,7 @@ type Signals = Rc<RefCell<Vec<RenderRootSignal>>>;
 fn mount(label: Label) -> (RenderRoot, Signals) {
     let signals = Signals::default();
     let sink = signals.clone();
-    let options = RenderRootOptions {
-        default_properties: Arc::new(default_property_set()),
-        use_system_fonts: true,
-        size_policy: WindowSizePolicy::User,
-        size: PhysicalSize::new(WIDTH, HEIGHT),
-        scale_factor: 1.0,
-        test_font: None,
-    };
+    let options = crate::test_dir::options(WIDTH, HEIGHT, 1.0);
     let mut root = RenderRoot::new(NewWidget::new(label).erased(), move |signal| sink.borrow_mut().push(signal), options);
     let _ = root.redraw();
     (root, signals)
@@ -38,28 +29,18 @@ fn label() -> Label {
 }
 
 fn gesture(root: &mut RenderRoot, from: (f64, f64), to: (f64, f64), count: u8) {
-    let mouse = PointerInfo { pointer_id: Some(PointerId::PRIMARY), persistent_device_id: None, pointer_type: PointerType::Mouse };
-    let mut state = PointerState { position: PhysicalPosition::new(from.0, from.1), count, scale_factor: 1.0, ..PointerState::default() };
+    let mut state = PointerState { count, ..crate::test_dir::pointer_at(from.0, from.1, 1.0) };
     state.buttons.insert(PointerButton::Primary);
-    root.handle_pointer_event(PointerEvent::Down(PointerButtonEvent { pointer: mouse, button: Some(PointerButton::Primary), state: state.clone() }));
+    root.handle_pointer_event(PointerEvent::Down(crate::test_dir::primary(state.clone())));
     state.position = PhysicalPosition::new(to.0, to.1);
-    root.handle_pointer_event(PointerEvent::Move(PointerUpdate { pointer: mouse, current: state.clone(), coalesced: vec![], predicted: vec![] }));
+    root.handle_pointer_event(crate::test_dir::moved(state.clone()));
     state.buttons.remove(PointerButton::Primary);
-    root.handle_pointer_event(PointerEvent::Up(PointerButtonEvent { pointer: mouse, button: Some(PointerButton::Primary), state }));
+    root.handle_pointer_event(PointerEvent::Up(crate::test_dir::primary(state)));
     let _ = root.redraw();
 }
 
 fn command_key(root: &mut RenderRoot, letter: &str) {
-    let event = KeyboardEvent {
-        state: KeyState::Down,
-        key: Key::Character(letter.into()),
-        code: Code::Unidentified,
-        location: Location::Standard,
-        modifiers: command(),
-        repeat: false,
-        is_composing: false,
-    };
-    root.handle_text_event(TextEvent::Keyboard(event));
+    crate::test_dir::key(root, Key::Character(letter.into()), command());
     let _ = root.redraw();
 }
 

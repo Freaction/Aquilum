@@ -3,7 +3,6 @@ use super::graph::GraphSnapshot;
 use super::models::{AnalysisMethod, AnalysisResult};
 use crate::search::error::SearchError;
 use crate::search::models::SearchIndexState;
-use crate::search::paths::canonical_path;
 use crate::search::service::{CachedGraph, SearchService};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
@@ -47,10 +46,7 @@ impl SearchService {
                     open.is_visible(),
                 ))
             })?;
-        let document = canonical_path(&PathBuf::from(document));
-        if !document.starts_with(&root) {
-            return Err(SearchError::invalid_workspace("Document is outside workspace"));
-        }
+        let document = crate::search::paths::inside(&root, document)?;
         let limit = limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
         match method {
             AnalysisMethod::Bm25f if !config.analysis.enable_bm25f => {

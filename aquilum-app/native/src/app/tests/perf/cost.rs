@@ -3,9 +3,7 @@ use super::*;
 use std::time::{Duration, Instant};
 
 fn open_env_note(h: &mut Harness) {
-    let source = std::path::PathBuf::from(std::env::var("AQ_NOTE").unwrap());
-    let note = h.vault.path().join("заметка.md");
-    std::fs::copy(&source, &note).unwrap();
+    let note = h.copy_note();
     h.app.open(&mut h.root, note);
     let _ = h.root.redraw();
 }

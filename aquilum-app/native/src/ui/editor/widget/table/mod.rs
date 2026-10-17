@@ -103,9 +103,7 @@ impl TextEditor {
             _ => {}
         }
         widget.sync_editing();
-        this.ctx.submit_action::<TextAction>(widget.doc.changed());
-        this.ctx.request_layout();
-        this.ctx.request_render();
+        Self::edited(this);
     }
 
     pub fn insert_table(this: &mut WidgetMut<'_, Self>, cols: usize, rows: usize) {

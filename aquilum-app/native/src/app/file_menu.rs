@@ -34,10 +34,7 @@ impl App {
         let swatches: Vec<Swatch<'_>> = names.iter().zip(std::iter::once(None).chain(palette::NAMES.iter().map(|name| palette::color(name, &theme)))).map(|(label, color)| Swatch { label, color }).collect();
         let current = self.tree.color(&clicked).and_then(|name| palette::NAMES.iter().position(|known| *known == name)).map_or(0, |at| at + 1);
         let menu = if colored { Menu::with_submenu(&label, &items, &Submenu { at: MENU_COLOR, items: &swatches, checked: current }) } else { Menu::entries(&label, &items) };
-        let layer = menu.id();
-        root.add_layer(menu, Menu::context_origin(at, items.len(), window));
-        root.focus_on(Some(layer));
-        self.popup = Some(Popup::FileMenu { layer, targets, clicked, tab });
+        self.show_layer(root, menu, Menu::context_origin(at, items.len(), window), |layer| Popup::FileMenu { layer, targets, clicked, tab });
     }
 
     pub(super) fn open_sort_menu(&mut self, root: &mut RenderRoot, button: WidgetId) {
@@ -47,11 +44,8 @@ impl App {
         let checked = crate::ui::file_tree::Sort::ALL.iter().position(|s| *s == self.tree.sort()).unwrap_or(0);
         let origin = Menu::list_origin(trigger, items.len(), self.window);
         let menu = Menu::list(&t("fileTree.sort"), &items, checked, trigger);
-        let layer = menu.id();
-        root.add_layer(menu, origin);
         root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), true));
-        root.focus_on(Some(layer));
-        self.popup = Some(Popup::SortMenu { layer, button });
+        self.show_layer(root, menu, origin, |layer| Popup::SortMenu { layer, button });
     }
 
     pub(super) fn open_tabs_menu(&mut self, root: &mut RenderRoot, button: WidgetId) {
@@ -62,11 +56,8 @@ impl App {
         let width = crate::ui::tokens::size::TAB_LIST_WIDTH;
         let origin = Menu::dropdown_origin(trigger, self.window, width);
         let menu = Menu::dropdown(&t("tabs.list"), &items, checked, trigger, self.window, width);
-        let layer = menu.id();
-        root.add_layer(menu, origin);
         root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), true));
-        root.focus_on(Some(layer));
-        self.popup = Some(Popup::TabsMenu { layer, button });
+        self.show_layer(root, menu, origin, |layer| Popup::TabsMenu { layer, button });
     }
 
     fn dropdown_answer(&mut self, root: &mut RenderRoot, layer: WidgetId, button: WidgetId, id: WidgetId, action: &ErasedAction) -> Option<Option<usize>> {
@@ -130,6 +121,7 @@ impl App {
                     if answer == DialogAnswer::Confirm
                         && let Some(workspace) = self.tree.root().map(Path::to_path_buf)
                     {
+                        self.commit_note();
                         file_ops::trash_all(&self.workspace.core, workspace, targets);
                         self.tree.clear_selection(root);
                     }

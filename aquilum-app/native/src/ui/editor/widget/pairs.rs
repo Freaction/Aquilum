@@ -59,7 +59,7 @@ impl TextEditor {
             let fence = c == '`' && before.strip_suffix("``").is_some_and(|rest| !rest.ends_with(|p: char| p == '`' || p.is_alphanumeric()));
             let insert = if fence { "````".to_owned() } else { format!("{c}{close}") };
             let inside = self.focus + c.len_utf8();
-            self.replace_and_select(self.focus..self.focus, &insert, Kind::Typing, (inside, inside));
+            self.dispatch(vec![(self.focus..self.focus, insert)], Some((inside, inside)), Kind::Typing);
             return true;
         }
 

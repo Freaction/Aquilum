@@ -30,12 +30,7 @@ fn graph_tab_loads_opens_notes_and_unloads() {
     let mut opened = false;
     'scan: for y in (area.y0 as i32..area.y1 as i32).step_by(6) {
         for x in (area.x0 as i32..(area.x1 - 260.0) as i32).step_by(6) {
-            h.root.handle_pointer_event(PointerEvent::Move(PointerUpdate {
-                pointer: MOUSE,
-                current: PointerState { position: PhysicalPosition::new(f64::from(x), f64::from(y)), count: 1, scale_factor: 1.0, ..PointerState::default() },
-                coalesced: vec![],
-                predicted: vec![],
-            }));
+            h.root.handle_pointer_event(moved(pointer_at(f64::from(x), f64::from(y), 1.0)));
             if h.root.cursor_icon() == masonry::core::CursorIcon::Pointer {
                 h.click(f64::from(x), f64::from(y));
                 opened = true;
@@ -126,12 +121,11 @@ fn graph_snapshot() {
     shot(&mut h, "graph-fit");
     let center = PhysicalPosition::new(f64::from(size.width) * 0.4, f64::from(size.height) * 0.5);
     for _ in 0..12 {
-        let state = PointerState { position: center, count: 1, scale_factor: scale, ..PointerState::default() };
+        let state = pointer_at(center.x, center.y, scale);
         h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::LineDelta(0.0, 1.0), state }));
     }
     shot(&mut h, "graph-zoom");
-    let state = PointerState { position: center, count: 1, scale_factor: scale, ..PointerState::default() };
-    h.root.handle_pointer_event(PointerEvent::Move(PointerUpdate { pointer: MOUSE, current: state, coalesced: vec![], predicted: vec![] }));
+    h.root.handle_pointer_event(moved(pointer_at(center.x, center.y, scale)));
     shot(&mut h, "graph-hover");
 }
 

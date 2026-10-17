@@ -1,11 +1,9 @@
 use super::*;
 
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use aquilum_core::search::hits::query_matcher;
-use aquilum_core::search::models::SearchIndexState;
 use aquilum_core::search::query::{Request, analyzed_query_terms};
 use aquilum_core::text::matcher::{IGNORE_CASE, Matcher};
 
@@ -14,45 +12,6 @@ use crate::stats::mb;
 use crate::ui::editor::TextAction;
 
 const STRESS: &str = "Полный тест Markdown";
-
-fn copy_notes(from: &Path, to: &Path) {
-    for entry in std::fs::read_dir(from).unwrap().flatten() {
-        let (path, name) = (entry.path(), entry.file_name());
-        if name.to_string_lossy().starts_with('.') {
-            continue;
-        }
-        if path.is_dir() {
-            std::fs::create_dir_all(to.join(&name)).unwrap();
-            copy_notes(&path, &to.join(&name));
-        } else if path.extension().is_some_and(|e| e == "md") {
-            std::fs::copy(&path, to.join(&name)).unwrap();
-        }
-    }
-}
-
-fn measured<T>(work: impl FnOnce() -> T) -> (T, f64, f64) {
-    let base = heap();
-    let (stop, peak) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicUsize::new(base)));
-    let sampler = {
-        let (stop, peak) = (Arc::clone(&stop), Arc::clone(&peak));
-        std::thread::spawn(move || {
-            while !stop.load(Ordering::Relaxed) {
-                peak.fetch_max(heap(), Ordering::Relaxed);
-                std::thread::sleep(Duration::from_micros(200));
-            }
-        })
-    };
-    let (out, ms) = clock(work);
-    stop.store(true, Ordering::Relaxed);
-    sampler.join().unwrap();
-    (out, ms, mb(peak.load(Ordering::Relaxed).saturating_sub(base)))
-}
-
-fn clock<T>(work: impl FnOnce() -> T) -> (T, f64) {
-    let t = Instant::now();
-    let out = work();
-    (out, t.elapsed().as_secs_f64() * 1000.0)
-}
 
 fn core_query(core: &aquilum_core::Core, workspace: &str, query: &str) {
     for pass in ["холодный", "повтор"] {
@@ -205,8 +164,7 @@ fn search_big_vault() {
     let mut b = Bench::start(Some(vault.path()));
     let core = Arc::clone(&b.h.app.workspace.core);
     let workspace = vault.path().to_string_lossy().into_owned();
-    let ready = |status: aquilum_core::search::models::SearchIndexStatus| status.state == SearchIndexState::Ready && !status.updating;
-    let (built, ms) = clock(|| wait_until(6000, 50, || ready(core.search.status(Some(&workspace)))));
+    let (built, ms) = clock(|| wait_index(&core, &workspace));
     assert!(built, "индекс не готов");
     eprintln!("индекс готов за {ms:.0} мс");
     index_size(&core, &workspace);

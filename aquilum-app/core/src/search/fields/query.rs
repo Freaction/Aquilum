@@ -1,40 +1,25 @@
-use super::value::{key_lower, value_lower, Field, FieldKind};
+use super::value::{lower, Field, FieldKind};
 use crate::search::error::SearchError;
+use crate::search::metadata::for_paths;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 
-const CHUNK: usize = 400;
-
-pub fn read(
-    connection: &Connection,
-    paths: &[String],
-) -> Result<HashMap<String, Vec<Field>>, SearchError> {
+pub fn read(connection: &Connection, paths: &[String]) -> Result<HashMap<String, Vec<Field>>, SearchError> {
     let mut found: HashMap<String, Vec<Field>> = HashMap::new();
-    for chunk in paths.chunks(CHUNK) {
-        let placeholders = vec!["?"; chunk.len()].join(",");
-        let mut statement = connection.prepare(&format!(
-            "SELECT path, key, kind, text, items FROM note_fields
-             WHERE path IN ({placeholders}) ORDER BY path, ordinal"
-        ))?;
-        let rows = statement.query_map(rusqlite::params_from_iter(chunk), |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, Option<String>>(4)?,
-            ))
-        })?;
-        for row in rows {
-            let (path, key, kind, text, items) = row?;
-            found.entry(path).or_default().push(Field::stored(
-                key,
-                FieldKind::from_stored(kind),
-                text,
-                items,
-            ));
+    let sql = |list: &str| {
+        format!(
+            "SELECT field.path, field.key, field.kind, field.text, field.items
+             FROM note_fields field JOIN note_pages page ON page.id = field.page
+             WHERE field.path IN ({list}) ORDER BY field.path, page.ordinal, field.ordinal"
+        )
+    };
+    let row = |row: &rusqlite::Row<'_>| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?, row.get::<_, String>(3)?, row.get::<_, Option<String>>(4)?));
+    for_paths(connection, paths, sql, row, |(path, key, kind, text, items)| {
+        let fields = found.entry(path).or_default();
+        if !fields.iter().any(|field| field.key.eq_ignore_ascii_case(&key)) {
+            fields.push(Field::stored(key, FieldKind::from_stored(kind), text, items));
         }
-    }
+    })?;
     Ok(found)
 }
 
@@ -48,7 +33,7 @@ pub fn candidates(
         let found = lookup(
             connection,
             "SELECT DISTINCT path FROM note_fields WHERE key_lower=?1 AND text_lower=?2",
-            &[key_lower(key), value_lower(value)],
+            &[lower(key), lower(value)],
         )?;
         narrowed = Some(intersect(narrowed, found));
     }
@@ -56,7 +41,7 @@ pub fn candidates(
         let found = lookup(
             connection,
             "SELECT DISTINCT path FROM note_fields WHERE key_lower=?1 AND text_lower<>''",
-            &[key_lower(key)],
+            &[lower(key)],
         )?;
         narrowed = Some(intersect(narrowed, found));
     }
@@ -71,7 +56,7 @@ pub fn candidates(
 }
 
 pub fn paths_with_tag(connection: &Connection, tag: &str) -> Result<HashSet<String>, SearchError> {
-    let wanted = value_lower(tag.trim_start_matches('#'));
+    let wanted = lower(tag.trim_start_matches('#'));
     let nested = format!("{wanted}/");
     let mut statement =
         connection.prepare("SELECT path, text_lower, items FROM note_fields WHERE key_lower='tags'")?;
@@ -86,7 +71,7 @@ pub fn paths_with_tag(connection: &Connection, tag: &str) -> Result<HashSet<Stri
     for row in rows {
         let (path, text, items) = row?;
         let carries = |value: &str| {
-            let value = value_lower(value);
+            let value = lower(value);
             value == wanted || value.starts_with(&nested)
         };
         let matched = match items {

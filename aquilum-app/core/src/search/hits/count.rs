@@ -9,11 +9,11 @@ pub fn body_counts(
     field: Field,
     terms: &[String],
     addresses: &[DocAddress],
-) -> Result<Vec<Vec<u32>>, SearchError> {
-    let mut counts = vec![vec![0u32; terms.len()]; addresses.len()];
-    let mut by_segment = BTreeMap::<u32, Vec<(DocId, usize)>>::new();
-    for (position, address) in addresses.iter().enumerate() {
-        by_segment.entry(address.segment_ord).or_default().push((address.doc_id, position));
+) -> Result<Vec<u32>, SearchError> {
+    let mut counts = vec![0u32; terms.len()];
+    let mut by_segment = BTreeMap::<u32, Vec<DocId>>::new();
+    for address in addresses {
+        by_segment.entry(address.segment_ord).or_default().push(address.doc_id);
     }
     for (segment, mut documents) in by_segment {
         documents.sort_unstable();
@@ -22,12 +22,12 @@ pub fn body_counts(
             let mut stream = inverted.terms().range().ge(prefix.as_bytes()).into_stream()?;
             while stream.advance() && stream.key().starts_with(prefix.as_bytes()) {
                 let mut postings = inverted.read_postings_from_terminfo(stream.value(), IndexRecordOption::WithFreqs)?;
-                for &(document, position) in &documents {
+                for &document in &documents {
                     if postings.doc() == TERMINATED {
                         break;
                     }
                     if postings.doc() <= document && postings.seek(document) == document {
-                        counts[position][term] += postings.term_freq();
+                        counts[term] += postings.term_freq();
                     }
                 }
             }
