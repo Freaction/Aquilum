@@ -43,8 +43,9 @@ pub fn history_dir(base: &Path, relative: &Path) -> PathBuf {
 }
 
 pub fn version_path(dir: &Path, device: &str, source: Source, at: SystemTime, extension: &str) -> PathBuf {
-    let label = source.file_label();
-    free_name(dir, millis(at), |at| format!("{at:013}_{device}_{label}{extension}"))
+    let taken = versions(dir).into_iter().filter(|version| version.device == device).map(|version| version.at_ms).collect::<std::collections::HashSet<_>>();
+    let at = (millis(at)..).find(|at| !taken.contains(at)).unwrap_or_default();
+    dir.join(format!("{at:013}_{device}_{}{extension}", source.file_label()))
 }
 
 pub fn write_version(

@@ -1,6 +1,6 @@
 use super::legacy::adopt_quantum_history;
 use super::retention::DAY;
-use super::{history_dir, history_root, names, remove_expired, versions, write_name, write_version};
+use super::{history_dir, history_root, names, remove_expired, version_path, versions, write_name, write_version};
 use crate::history::milestone::Source;
 use std::fs;
 use std::path::Path;
@@ -31,6 +31,18 @@ fn history_kept_under_the_quantum_name_moves_to_aquilum_without_overwriting() {
     assert_eq!(fs::read_to_string(current.join("2_dev_me.md")).unwrap(), "уже в aquilum");
     assert!(legacy.join("2_dev_me.md").exists());
     assert!(!legacy.join("1_dev_me.md").exists());
+}
+
+#[test]
+fn versions_written_in_one_millisecond_keep_their_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let at = UNIX_EPOCH + Duration::from_millis(5);
+    let first = version_path(dir.path(), "dev", Source::Agent, at, ".md");
+    fs::write(&first, "первая").unwrap();
+    let second = version_path(dir.path(), "dev", Source::Agent, at, ".delta");
+    fs::write(&second, "вторая").unwrap();
+    let ids = versions(dir.path()).into_iter().map(|version| version.id).collect::<Vec<_>>();
+    assert_eq!(ids, [first, second].map(|path| path.file_name().unwrap().to_string_lossy().into_owned()));
 }
 
 #[test]
