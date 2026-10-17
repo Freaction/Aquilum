@@ -22,10 +22,7 @@ const SEPARATOR: &str = "::";
 
 fn inline_pairs(text: &str) -> Vec<(String, String)> {
     let mut found = Vec::new();
-    if !text.contains(SEPARATOR) {
-        return found;
-    }
-    for (_, line) in fence::outside(text) {
+    for (_, line) in fence::outside(text).filter(|(_, line)| line.contains(SEPARATOR)) {
         let line = strip_code_spans(line);
         let content = strip_markers(&line);
         match split_pair(content) {
@@ -102,6 +99,14 @@ mod tests {
 
     fn pairs(text: &str) -> Vec<(String, String)> {
         inline_pairs(crate::search::analyzer::frontmatter_body(text))
+    }
+
+    #[test]
+    fn only_a_literal_separator_outside_code_makes_a_field() {
+        assert!(pairs("Обычный текст заметки\n> - пункт списка\nЕщё один абзац").is_empty());
+        assert!(pairs("`Оценка:: 9` — код, а не поле").is_empty());
+        assert!(pairs("Статус:`код`: готово").is_empty());
+        assert_eq!(pairs("Автор:: Лем и `Value:: Text`"), vec![("Автор".to_owned(), "Лем и".to_owned())]);
     }
 
     #[test]
