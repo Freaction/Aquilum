@@ -47,7 +47,7 @@ fn shortcuts_toggle_bold_italic_and_strike() {
 fn three_backticks_open_a_fence_in_its_quote_or_list_and_enter_stays_inside() {
     for (source, fenced) in [("", "```\n\nкод\n```"), ("> ", "> ```\n> \n> код\n> ```"), ("- пункт\n  ", "- пункт\n  ```\n  \n  код\n  ```")] {
         let mut root = markdown_root(source);
-        press(&mut root, Key::Named(NamedKey::End), Modifiers::CONTROL);
+        press(&mut root, Key::Named(NamedKey::End), crate::test_dir::command());
         for _ in 0..3 {
             super::support::typing(&mut root, "`");
         }
