@@ -44,14 +44,17 @@ fn shortcuts_toggle_bold_italic_and_strike() {
 }
 
 #[test]
-fn three_backticks_open_a_fence_with_its_closing_backticks() {
-    let mut root = markdown_root("");
-    for _ in 0..3 {
-        super::support::typing(&mut root, "`");
+fn three_backticks_open_a_fence_in_its_quote_or_list_and_enter_stays_inside() {
+    for (source, fenced) in [("", "```\n\nкод\n```"), ("> ", "> ```\n> \n> код\n> ```"), ("- пункт\n  ", "- пункт\n  ```\n  \n  код\n  ```")] {
+        let mut root = markdown_root(source);
+        press(&mut root, Key::Named(NamedKey::End), Modifiers::CONTROL);
+        for _ in 0..3 {
+            super::support::typing(&mut root, "`");
+        }
+        named(&mut root, NamedKey::Enter);
+        super::support::typing(&mut root, "код");
+        assert_eq!(text(&root), fenced);
     }
-    assert_eq!(text(&root), "``````");
-    super::support::typing(&mut root, "js");
-    assert_eq!(text(&root), "```js```");
     let mut root = markdown_root("слово");
     named(&mut root, NamedKey::End);
     super::support::typing(&mut root, "``");

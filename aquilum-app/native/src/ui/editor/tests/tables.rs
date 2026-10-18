@@ -26,6 +26,16 @@ fn table_cells_are_edited_in_place() {
 }
 
 #[test]
+fn a_table_inside_a_quote_or_a_list_item_keeps_its_prefix_on_every_line() {
+    for (source, edited) in [("> | a | b |\n> | --- | --- |\n> | 1 | 2 |", "> | aZ | b |\n> | --- | --- |\n> | 1 | 2 |"), ("- пункт\n  | a | b |\n  | --- | --- |\n  | 1 | 2 |", "- пункт\n  | aZ | b |\n  | --- | --- |\n  | 1 | 2 |")] {
+        let mut root = markdown_root(source);
+        click(&mut root, 90.0, if source.starts_with('>') { 50.0 } else { 70.0 });
+        typing(&mut root, "Z");
+        assert_eq!(text(&root), edited);
+    }
+}
+
+#[test]
 fn table_cells_take_spaces_and_pipes_while_typing() {
     let mut root = markdown_root("| a | b |\n| --- | --- |\n| 1 | 2 |\nпосле");
     click(&mut root, 60.0, 50.0);

@@ -455,6 +455,7 @@ impl<'a, 'b, Glyphs: Iterator<Item = Glyph> + Clone> GlyphRunRenderer<'a, 'b, Gl
             font_embolden,
             normalized_coords,
             hinting_instance,
+            snap_y,
             ..
         } = self.prepared_run;
 
@@ -492,7 +493,7 @@ impl<'a, 'b, Glyphs: Iterator<Item = Glyph> + Clone> GlyphRunRenderer<'a, 'b, Gl
             // color_glyphs.get() / bitmaps.glyph_for_size() font-table lookups.
             // On a miss we keep both for reuse in the outline branch below.
             let outline_transform =
-                calculate_outline_transform(glyph, draw_props, hinting_instance);
+                calculate_outline_transform(glyph, draw_props, snap_y);
             let outline_draw_transform = outline_transform.pre_scale(scale_props.draw_scale);
 
             // We assume that the backend calculates the absolute paint transform
@@ -1277,14 +1278,14 @@ impl GlyphScaleProperties {
 fn calculate_outline_transform(
     glyph: Glyph,
     draw_props: DrawProps,
-    hinting_instance: Option<&HintingInstance>,
+    snap_y: bool,
 ) -> Affine {
     let mut final_transform = draw_props
         .positioned_transform(glyph)
         .pre_scale_non_uniform(1.0, -1.0)
         .as_coeffs();
 
-    if hinting_instance.is_some() {
+    if snap_y {
         final_transform[5] = final_transform[5].round();
     }
 
@@ -1599,6 +1600,7 @@ struct PreparedGlyphRun<'a> {
     scene_paint_transform: Affine,
     normalized_coords: &'a [skrifa::instance::NormalizedCoord],
     hinting_instance: Option<&'a HintingInstance>,
+    snap_y: bool,
 }
 
 /// Properties for easily calculating the transform of a positioned glyph.
@@ -1761,13 +1763,14 @@ fn prepare_glyph_run<'a>(run: GlyphRun<'a>, hint_cache: &'a mut HintCache) -> Pr
         scene_paint_transform: run.scene_paint_transform,
         normalized_coords: run.normalized_coords,
         hinting_instance,
+        snap_y: matches!(mode, PreparedGlyphRunMode::AbsorbScaleHinted),
     }
 }
 
 // TODO: Although these are sane defaults, we might want to make them
 // configurable.
 const HINTING_OPTIONS: HintingOptions = HintingOptions {
-    engine: skrifa::outline::Engine::AutoFallback,
+    engine: skrifa::outline::Engine::Interpreter,
     target: skrifa::outline::Target::Smooth {
         mode: skrifa::outline::SmoothMode::Lcd,
         symmetric_rendering: false,
@@ -2201,6 +2204,9 @@ impl Debug for HintCache {
 impl HintCache {
     /// Gets a hinting instance for the given key.
     pub fn get(&mut self, key: &HintKey<'_>) -> Option<&HintingInstance> {
+        if !key.outlines.prefer_interpreter() {
+            return None;
+        }
         let entries = match key.outlines.format()? {
             OutlineGlyphFormat::Glyf => &mut self.glyf_entries,
             OutlineGlyphFormat::Cff | OutlineGlyphFormat::Cff2 => &mut self.cff_entries,

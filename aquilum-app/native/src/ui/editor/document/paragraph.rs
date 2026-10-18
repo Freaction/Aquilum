@@ -4,7 +4,7 @@ use masonry::core::BrushIndex;
 use masonry::kurbo::Vec2;
 use masonry::parley::Layout;
 
-use super::super::markdown::{Block, Decor};
+use super::super::markdown::{Block, Decor, Frame};
 use super::laid::{Laid, PLAIN};
 use super::{Document, Embed, Fold};
 
@@ -12,9 +12,11 @@ pub struct Paragraph<'a> {
     pub start: usize,
     pub len: u32,
     pub block: &'a Block,
+    pub frame: &'a Frame,
     pub fold: Fold,
     pub embed: Option<&'a Embed>,
     lift: f64,
+    scroll: f64,
     laid: Option<&'a Laid>,
 }
 
@@ -41,7 +43,7 @@ impl<'a> Paragraph<'a> {
 
     pub fn origin(&self, top: f64) -> Vec2 {
         let decor = self.decor();
-        Vec2::new(decor.x, top + self.lift + decor.pad.0)
+        Vec2::new(decor.x - self.scroll, top + self.lift + decor.pad.0)
     }
 }
 
@@ -52,19 +54,26 @@ impl Document {
 
     pub fn paragraph(&self, line: usize) -> Paragraph<'_> {
         let range = self.span(line);
+        let (frame, block) = self.blocks.get(line);
         Paragraph {
             start: range.start,
             len: range.len() as u32,
-            block: self.blocks.get(line),
+            block,
+            frame,
             fold: self.heights.fold(line),
             embed: self.embeds.get(line),
             lift: self.heights.lift(line),
+            scroll: if matches!(block, Block::Code { fence: false, .. }) { self.scroll_of(range.start) } else { 0.0 },
             laid: self.laid.get(line),
         }
     }
 
     pub fn block(&self, line: usize) -> &Block {
-        self.blocks.get(line)
+        &self.blocks.get(line).1
+    }
+
+    pub fn frame(&self, line: usize) -> &Frame {
+        &self.blocks.get(line).0
     }
 
     pub fn folded_end(&self, head: usize) -> usize {

@@ -25,6 +25,7 @@ pub struct Decor {
     pub inset: f64,
     pub pad: (f64, f64),
     pub hang: Option<usize>,
+    pub nowrap: bool,
     pub codes: Vec<Range<usize>>,
     pub marks: Vec<Range<usize>>,
     pub tags: Vec<(Range<usize>, Option<usize>)>,
@@ -35,6 +36,10 @@ pub struct Decor {
 }
 
 impl Decor {
+    pub fn wrap(&self, width: Option<f32>) -> Option<f32> {
+        width.filter(|_| !self.nowrap).map(|w| (w - self.inset as f32).max(0.0))
+    }
+
     pub fn stale(&self, resolver: &dyn Resolver) -> bool {
         self.pictures.iter().any(|(source, wiki, stamp)| resolver.media(source, *wiki).1 != *stamp)
     }

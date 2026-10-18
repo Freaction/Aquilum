@@ -4,11 +4,13 @@ use masonry::core::BrushIndex;
 use masonry::kurbo::{Point, Rect};
 use masonry::parley::Layout;
 
-use super::super::markdown::{DANGER, SECONDARY, TEXT};
+use super::super::markdown::{DANGER, MUTED, SECONDARY, TEXT};
 use super::super::resolve::{Fetch, Grid, Part, Shape};
 use super::super::table::fit_columns;
-use super::metrics::{BAR_HEIGHT, BAR_MIN, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, PAD, PENDING};
+use super::metrics::{BAR_HEIGHT, BAR_MIN, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, PENDING};
+use super::panel::PAD;
 use super::{Action, Drawing, Font, Item, Spec, Tone, card, link_hits};
+use crate::i18n::t;
 
 fn cell_text(parts: &[Part]) -> (String, Vec<(Range<usize>, String)>) {
     let mut text = String::new();
@@ -37,22 +39,24 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
     let inner = (available - PAD * 2.0).max(1.0);
     let mut items = Vec::new();
     let grid = match grid {
-        Fetch::Ready(grid) => grid,
+        Fetch::Ready(grid) if !grid.rows.is_empty() => grid,
         Fetch::Pending => {
             items.extend(card(available, PENDING));
             return Drawing::new(PENDING, items);
         }
-        Fetch::Missing(message) => {
-            let layout = make(&Spec { wrap: Some(inner), ..Spec::plain(message, Font::Editor, DANGER) });
+        other => {
+            let (message, brush) = if let Fetch::Missing(message) = other { (message.clone(), DANGER) } else { (t("search.noResults"), MUTED) };
+            let layout = make(&Spec { wrap: Some(inner), ..Spec::plain(&message, Font::Editor, brush) });
             let height = f64::from(layout.height()) + PAD * 2.0;
             items.extend(card(available, height));
-            items.push(Item::Text(Point::new(PAD, PAD), layout, message.clone()));
+            items.push(Item::Text(Point::new(PAD, PAD), layout, message));
             return Drawing::new(height, items);
         }
     };
-    let widths = (grid.shape == Shape::Table).then(|| column_widths(grid, inner, make));
+    let side = if grid.shape == Shape::Table { PAD - CELL_X } else { PAD };
+    let widths = (grid.shape == Shape::Table).then(|| column_widths(grid, available - side * 2.0, make));
     let mut span = widths.as_ref().map_or(inner, |widths| widths.iter().sum());
-    let mut y = PAD;
+    let mut y = PAD - CELL_Y;
     let mut body = Vec::new();
     let mut hits = Vec::new();
     if let Some(title) = &grid.title {
@@ -61,14 +65,14 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
         let h = f64::from(layout.height()) + CELL_Y * 2.0;
         body.push(Item::Text(Point::new(PAD, y + CELL_Y), layout, title.clone()));
         y += h;
-        body.push(Item::Fill(Rect::new(PAD, y - 1.0, PAD + span, y).to_rounded_rect(0.0), Tone::Divider));
+        body.push(Item::Fill(Rect::new(side, y - 1.0, side + span, y).to_rounded_rect(0.0), Tone::Divider));
     }
     match widths {
         Some(widths) => {
             let m = widths.len();
-            let mut xs = vec![PAD];
+            let mut xs = vec![side];
             for w in &widths {
-                xs.push(xs.last().copied().unwrap_or(PAD) + w);
+                xs.push(xs.last().copied().unwrap_or(side) + w);
             }
             let mut rows: Vec<Vec<Vec<Part>>> = Vec::new();
             if !grid.columns.is_empty() {
@@ -119,7 +123,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
                 }
                 y += height;
                 if r + 1 < count {
-                    body.push(Item::Fill(Rect::new(PAD, y - 1.0, PAD + span, y).to_rounded_rect(0.0), Tone::Divider));
+                    body.push(Item::Fill(Rect::new(side, y - 1.0, side + span, y).to_rounded_rect(0.0), Tone::Divider));
                 }
             }
         }
@@ -147,8 +151,8 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
             }
         }
     }
-    let height = y + PAD;
-    items.extend(card(span + PAD * 2.0, height));
+    let height = y + PAD - CELL_Y;
+    items.extend(card(span + side * 2.0, height));
     items.extend(body);
     Drawing { height, items, hits }
 }
@@ -180,5 +184,7 @@ mod tests {
         let drawing = dataview(&Fetch::Ready(grid), 800.0, &mut |_| Layout::default());
         let card = drawing.items.iter().find_map(|item| if let Item::Fill(shape, _) = item { Some(shape.rect().width()) } else { None });
         assert_eq!(card, Some(800.0));
+        let empty = dataview(&Fetch::Ready(Grid { shape: Shape::List, title: None, columns: Vec::new(), rows: Vec::new() }), 800.0, &mut |_| Layout::default());
+        assert!(empty.items.iter().any(|item| matches!(item, Item::Text(_, _, text) if *text == t("search.noResults"))), "пустой результат подписан");
     }
 }

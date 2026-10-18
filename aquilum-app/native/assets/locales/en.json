@@ -41,6 +41,7 @@
     "insertFrontmatter": "Insert metadata",
     "table": {
       "menuAria": "Table actions",
+      "copy": "Copy table",
       "merge": "Merge cells",
       "unmerge": "Unmerge cells",
       "alignLeft": "Align left",

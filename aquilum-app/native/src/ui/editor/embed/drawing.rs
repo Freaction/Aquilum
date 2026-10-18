@@ -8,17 +8,16 @@ use masonry::parley::Layout;
 use masonry::peniko::{BlendMode, Brush, BrushRef, Color, Fill, FontData, ImageBrush, Style};
 
 use super::super::markdown;
-use super::metrics::{COVER_RADIUS, RADIUS};
+use super::metrics::COVER_RADIUS;
+use super::panel;
 use crate::ui::theme;
-use crate::ui::tokens::size;
 
 const UNDERLINE: f64 = 1.0;
 const UNDERLINE_GAP: f64 = 2.0;
 
 #[derive(Clone, Copy)]
 pub(super) enum Tone {
-    BlockBg,
-    BlockBorder,
+    Panel,
     Divider,
     Accent,
     AccentSubtle,
@@ -28,7 +27,6 @@ pub(super) enum Tone {
 pub(super) enum Item {
     Text(Point, Layout<BrushIndex>, String),
     Fill(RoundedRect, Tone),
-    Stroke(RoundedRect, Tone),
     Image(RoundedRect, ImageBrush, [f64; 4]),
     Check(Rect, bool),
     Bullet(Point),
@@ -77,7 +75,7 @@ impl Drawing {
         }
     }
 
-    pub(super) fn paint(&self, painter: &mut Painter<'_>, x: f64, y: f64, palette: &[Brush], hover: Option<usize>, search: Option<&crate::ui::editor::Search>) {
+    pub fn paint(&self, painter: &mut Painter<'_>, x: f64, y: f64, palette: &[Brush], hover: Option<usize>, search: Option<&crate::ui::editor::Search>) {
         let at = Affine::translate((x, y));
         let hover = hover.and_then(|i| self.hits.get(i)).map(|(r, ..)| *r);
         let mut seen = 0;
@@ -109,16 +107,14 @@ pub(super) fn link_hits(layout: &Layout<BrushIndex>, at: Point, links: &[(Range<
     out
 }
 
-pub(super) fn card(width: f64, height: f64) -> [Item; 2] {
-    let shape = Rect::new(0.0, 0.0, width, height).to_rounded_rect(RADIUS);
-    [Item::Fill(shape, Tone::BlockBg), Item::Stroke(shape, Tone::BlockBorder)]
+pub(super) fn card(width: f64, height: f64) -> [Item; 1] {
+    [Item::Fill(Rect::new(0.0, 0.0, width, height).to_rounded_rect(panel::RADIUS), Tone::Panel)]
 }
 
 fn color(tone: Tone) -> Color {
     let tm = theme::current();
     match tone {
-        Tone::BlockBg => tm.block_bg,
-        Tone::BlockBorder => tm.block_border,
+        Tone::Panel => panel::Tone::Surface.fill(),
         Tone::Divider => tm.block_divider,
         Tone::Accent => tm.bg_accent,
         Tone::AccentSubtle => tm.bg_accent_subtle,
@@ -134,10 +130,6 @@ pub(super) fn paint_item<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, it
     match item {
         Item::Text(p, layout, _) => render_text(painter, at * Affine::translate(p.to_vec2()), layout, palette, true),
         Item::Fill(shape, tone) => painter.fill(at.transform_rect_bbox(shape.rect()).to_rounded_rect(shape.radii()), color(*tone)).draw(),
-        Item::Stroke(shape, tone) => {
-            let r = at.transform_rect_bbox(shape.rect());
-            painter.stroke(Rect::new(r.x0 + 0.5, r.y0 + 0.5, r.x1 - 0.5, r.y1 - 0.5).to_rounded_rect(shape.radii()), &Stroke::new(size::BORDER_1), color(*tone)).draw();
-        }
         Item::Image(shape, image, [l, t, cr, cb]) => {
             let r = at.transform_rect_bbox(shape.rect());
             let (w, h) = (f64::from(image.image.width) * (cr - l) / 100.0, f64::from(image.image.height) * (cb - t) / 100.0);

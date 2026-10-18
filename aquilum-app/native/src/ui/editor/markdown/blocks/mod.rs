@@ -1,18 +1,22 @@
+mod code;
+mod frame;
 mod line;
 mod list;
 
 use std::ops::Range;
 
-use aquilum_core::markdown::fence::{Fence, INDENT_LIMIT};
 use aquilum_core::markdown::indent::Indent;
 use aquilum_core::markdown::list as grammar;
+use aquilum_core::markdown::quote as syntax;
 
 use super::super::embed;
 use super::super::highlight::Lang;
 use super::super::table;
-use line::{definition, indented, quote, rule, underline};
+use code::Open;
+use line::{callout, definition, indented, rule, underline};
 use list::Levels;
 
+pub use frame::{Frame, Nest};
 pub(super) use line::heading;
 pub use list::Item;
 
@@ -20,7 +24,7 @@ pub use list::Item;
 pub enum Callout {
     Quote,
     Book,
-    Other,
+    Typed(u8),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -29,8 +33,7 @@ pub enum Block {
     Text,
     Heading { level: u8, marker: usize },
     Item(Item),
-    Continuation { level: usize, lead: usize, width: usize },
-    Quote { marker: usize, depth: u8, callout: Option<(Range<usize>, Callout)>, item: Option<Item> },
+    Callout { range: Range<usize>, kind: Callout },
     Rule,
     Code { first: bool, last: bool, fence: bool, lang: Option<Lang> },
     Table { first: bool, last: bool },
@@ -46,26 +49,19 @@ impl Block {
         matches!(self, Block::Code { .. })
     }
 
-    pub fn is_quote(&self) -> bool {
-        matches!(self, Block::Quote { .. })
-    }
-
     pub fn item(&self) -> Option<&Item> {
         match self {
-            Block::Item(item) | Block::Quote { item: Some(item), .. } => Some(item),
+            Block::Item(item) => Some(item),
             _ => None,
         }
     }
 
-    pub(super) fn content(&self) -> usize {
-        if let Some(item) = self.item() {
-            return item.content();
-        }
+    pub fn content(&self, frame: &Frame) -> usize {
         match self {
-            Block::Heading { marker, .. } | Block::Quote { marker, callout: None, .. } | Block::Definition { marker } => *marker,
-            Block::Quote { callout: Some((range, _)), .. } => range.end,
-            Block::Continuation { lead, .. } => *lead,
-            _ => 0,
+            Block::Item(item) => item.content(),
+            Block::Heading { marker, .. } | Block::Definition { marker } => frame.lead + marker,
+            Block::Callout { range, .. } => range.end,
+            _ => frame.lead,
         }
     }
 }
@@ -73,10 +69,11 @@ impl Block {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct State {
     table: bool,
-    open: Option<(Fence, Levels)>,
+    open: Option<Open>,
     levels: Levels,
-    lang: Option<Lang>,
-    quoting: bool,
+    quoted: u8,
+    stack: [u8; 8],
+    panels: u8,
     paragraph: bool,
     indenting: bool,
     math: bool,
@@ -88,40 +85,11 @@ pub struct State {
 impl State {
     fn table_line(&mut self, line: &str, next: Option<&str>) -> Option<Block> {
         let row = table::is_row;
-        let starts = !self.table && self.open.is_none() && !self.math && row(line) && next.is_some_and(table::is_separator);
+        let starts = !self.table && !self.math && row(line) && next.is_some_and(table::is_separator);
         let closes = self.table && table::is_meta(line);
         let continues = self.table && row(line);
         self.table = starts || continues;
         (starts || continues || closes).then(|| Block::Table { first: starts, last: closes || !next.is_some_and(|n| row(n) || table::is_meta(n)) })
-    }
-
-    fn code_line(&mut self, line: &str, next: Option<&str>) -> Option<Block> {
-        if let Some((fence, saved)) = self.open {
-            let close = fence.closes(line);
-            if close {
-                self.open = None;
-                self.levels = saved;
-            }
-            return Some(Block::Code { first: false, last: close || next.is_none(), fence: close, lang: self.lang });
-        }
-        if self.math || self.commenting {
-            return None;
-        }
-        let limit = if self.levels.is_empty() { INDENT_LIMIT } else { usize::MAX };
-        let fence = Fence::open(line, limit)?;
-        self.open = Some((fence, self.levels));
-        self.lang = Lang::from_info(fence.info(line));
-        Some(Block::Code { first: true, last: next.is_none(), fence: true, lang: self.lang })
-    }
-
-    fn math_line(&mut self, line: &str, next: Option<&str>) -> Option<Block> {
-        let marker = line.trim() == "$$";
-        if self.commenting || !self.math && !marker {
-            return None;
-        }
-        let (first, close) = (!self.math, self.math && marker);
-        self.math = !close;
-        Some(Block::Code { first, last: close || next.is_none(), fence: first || close, lang: Some(Lang::Math) })
     }
 
     fn comment_line(&mut self, line: &str) -> Option<Block> {
@@ -136,71 +104,92 @@ impl State {
         Some(Item::new(&found, level, line, at))
     }
 
-    fn quote_line(&mut self, line: &str) -> Option<Block> {
-        let Block::Quote { marker, depth, callout, .. } = quote(line)? else { return None };
-        let item = if callout.is_none() { self.item_at(line, marker) } else { None };
-        Some(Block::Quote { marker, depth, callout, item })
-    }
-
-    fn continuation_line(&self, line: &str) -> Option<Block> {
-        if line.trim().is_empty() {
-            return None;
+    fn frame(&self, line: &str) -> Frame {
+        if !line.starts_with([' ', '\t', '>']) {
+            return Frame::default();
         }
         let indent = Indent::of(line);
-        let level = self.levels.owner(indent.columns)?;
-        Some(Block::Continuation { level, lead: indent.bytes, width: self.levels.width(level) })
+        let list = self.levels.owner(indent.columns).filter(|_| indent.bytes < line.len()).map(|level| Nest { level, width: self.levels.width(level) });
+        let inset = if list.is_some() { indent.bytes } else { 0 };
+        let (marker, depth) = syntax::markers(&line[inset..], usize::MAX);
+        Frame { list, quote: u8::try_from(depth).unwrap_or(u8::MAX), inset, marker: inset + marker, lead: inset + marker, ..Frame::default() }
     }
 
-    fn classify(&mut self, line: &str, next: Option<&str>) -> Block {
-        if let Some(block) = self.table_line(line, next).or_else(|| self.code_line(line, next)).or_else(|| self.math_line(line, next)).or_else(|| self.comment_line(line)) {
-            return block;
+    fn classify(&mut self, line: &str, next: Option<&str>) -> (Frame, Block) {
+        if let Some(found) = self.fenced(line, next) {
+            return found;
         }
-        if self.setext && underline(line).is_some() {
+        let frame = self.frame(line);
+        let rest = &line[frame.lead..];
+        let after = next.and_then(|next| frame.follow(next).map(|follow| &next[follow.lead..]));
+        if let Some(block) = self.table_line(rest, after) {
+            return (frame, block);
+        }
+        if let Some(found) = self.fence(line, frame, next) {
+            return found;
+        }
+        if let Some(block) = self.math_line(rest, after).or_else(|| self.comment_line(rest)) {
+            return (frame, block);
+        }
+        if !rule(line) && let Some(item) = self.item_at(line, 0) {
+            return (Frame::default(), Block::Item(item));
+        }
+        let block = if self.setext && underline(rest).is_some() {
             Block::Underline
-        } else if embed::media::is_embed(line) {
+        } else if embed::media::is_embed(rest) {
             Block::Image
-        } else if let Some(h) = heading(line) {
+        } else if let Some(h) = heading(rest) {
             h
-        } else if rule(line) {
+        } else if rule(rest) {
             Block::Rule
-        } else if let Some(i) = self.item_at(line, 0) {
-            Block::Item(i)
-        } else if let Some(q) = self.quote_line(line) {
-            q
-        } else if let Some(c) = self.continuation_line(line) {
+        } else if frame.quote > 0 && let Some(item) = self.item_at(line, frame.lead) {
+            Block::Item(item)
+        } else if frame.quote > 0 && let Some(c) = callout(line, frame.lead) {
             c
-        } else if let Some(d) = definition(line).filter(|_| self.paragraph || self.defining) {
+        } else if let Some(d) = definition(rest).filter(|_| self.paragraph || self.defining) {
             d
         } else if self.levels.is_empty() && !self.paragraph && indented(line) {
-            Block::Code { first: !self.indenting, last: !next.is_some_and(indented), fence: false, lang: None }
-        } else if let Some(level) = next.and_then(underline).filter(|_| self.levels.is_empty() && !line.trim().is_empty()) {
+            Block::Code { first: !self.indenting, last: !after.is_some_and(indented), fence: false, lang: None }
+        } else if let Some(level) = after.and_then(underline).filter(|_| self.levels.is_empty() && !rest.trim().is_empty()) {
             Block::Heading { level, marker: 0 }
         } else {
             Block::Text
-        }
+        };
+        (frame, block)
     }
 
-    pub fn step(&mut self, line: &str, next: Option<&str>) -> Block {
-        let block = match self.classify(line, next) {
-            Block::Quote { marker, depth, callout: Some((_, kind)), .. } if self.quoting && !matches!(kind, Callout::Book) => Block::Quote { marker, depth, callout: None, item: None },
+    pub fn step(&mut self, line: &str, next: Option<&str>) -> (Frame, Block) {
+        let (frame, block) = match self.classify(line, next) {
+            (frame, Block::Callout { kind, .. }) if self.quoted >= frame.quote && kind != Callout::Book => (frame, Block::Text),
             other => other,
         };
-        let blank = line.trim().is_empty();
-        let in_list = block.item().is_some() || matches!(block, Block::Continuation { .. });
-        self.quoting = block.is_quote();
+        let typed = matches!(block, Block::Callout { kind: Callout::Typed(_), .. });
+        let mut panels = self.stack[..usize::from(self.panels)].iter().take_while(|&&depth| depth < frame.quote || depth == frame.quote && !typed).count();
+        if typed && panels < self.stack.len() {
+            self.stack[panels] = frame.quote;
+            panels += 1;
+        }
+        self.stack[panels..].fill(0);
+        self.panels = panels as u8;
+        let stack = &self.stack[..panels];
+        let after = next.filter(|_| panels > 0).map_or(0, |next| syntax::markers(&next[Indent::of(next).bytes.min(frame.inset)..], usize::MAX).1);
+        let closes = stack.iter().filter(|&&depth| usize::from(depth) > after).count() as u8;
+        let frame = Frame { panels: self.panels, panel: stack.last().copied().unwrap_or(0), outer: stack.first().copied().unwrap_or(0), closes, ..frame };
+        let blank = line[frame.lead..].trim().is_empty();
+        self.quoted = frame.quote;
         self.paragraph = matches!(block, Block::Text) && !blank;
         self.indenting = matches!(block, Block::Code { fence: false, lang: None, .. }) && self.open.is_none();
         self.setext = matches!(block, Block::Heading { marker: 0, .. });
         self.defining = matches!(block, Block::Definition { .. });
-        if !(in_list || matches!(block, Block::Text) && blank || self.open.is_some() || matches!(block, Block::Code { fence: true, .. })) {
+        if !(matches!(block, Block::Item(_)) || frame.list.is_some() || matches!(block, Block::Text) && blank || self.open.is_some() || matches!(block, Block::Code { fence: true, .. })) {
             self.levels = Levels::default();
         }
-        block
+        (frame, block)
     }
 }
 
 #[cfg(test)]
-pub fn classify<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<Block> {
+pub fn classify<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<(Frame, Block)> {
     let mut lines = lines.peekable();
     let mut state = State::default();
     let mut out = Vec::new();

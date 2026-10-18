@@ -9,7 +9,7 @@ const CORPUS: &str = include_str!("../../../../testdata/markdown-test.md");
 
 fn corpus() -> Document {
     let mut doc = Document::new(CORPUS);
-    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags: true }));
+    doc.set_markdown(Some(Fonts::new(16.0, true, true)));
     doc
 }
 
@@ -19,6 +19,11 @@ fn at(doc: &Document, line: &str) -> usize {
 
 fn block<'a>(doc: &'a Document, line: &str) -> &'a Block {
     doc.block(at(doc, line))
+}
+
+fn framed<'a>(doc: &'a Document, line: &str) -> (&'a Block, u8, Option<usize>, usize) {
+    let frame = doc.frame(at(doc, line));
+    (block(doc, line), frame.quote, frame.list.map(|nest| nest.level), frame.lead)
 }
 
 fn item_level(doc: &Document, line: &str) -> Option<usize> {
@@ -56,7 +61,7 @@ fn headings_atx_setext_and_non_headings() {
 #[test]
 fn property_fences_are_rules_and_the_lines_between_are_meta() {
     let mut doc = Document::new("---\nтег: один\nдата: 2026\n---\nтекст");
-    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags: true }));
+    doc.set_markdown(Some(Fonts::new(16.0, true, true)));
     let blocks: Vec<&Block> = (0..doc.line_count()).map(|i| doc.block(i)).collect();
     assert!(matches!(blocks[..], [Block::Rule, Block::Meta, Block::Meta, Block::Rule, _]), "{blocks:?}");
     assert!(!matches!(blocks[4], Block::Rule | Block::Meta));
@@ -65,13 +70,13 @@ fn property_fences_are_rules_and_the_lines_between_are_meta() {
 #[test]
 fn quotes_nest_and_callouts_keep_their_kind() {
     let doc = corpus();
-    assert_eq!(block(&doc, "> Простая цитата в одну строку."), &Block::Quote { marker: 2, depth: 1, callout: None, item: None });
-    assert_eq!(block(&doc, "> > > Третий уровень"), &Block::Quote { marker: 6, depth: 3, callout: None, item: None });
-    assert!(matches!(block(&doc, "> [!quote] Цитата"), Block::Quote { callout: Some((_, Callout::Quote)), .. }));
-    assert!(matches!(block(&doc, "> [!NOTE]"), Block::Quote { callout: Some((_, Callout::Other)), .. }));
-    assert!(matches!(block(&doc, "> [!note]+ Раскрытая по умолчанию"), Block::Quote { callout: Some((range, Callout::Other)), .. } if range.end == 11));
-    assert!(matches!(block(&doc, "> [!custom-type] Пользовательский тип"), Block::Quote { callout: Some((_, Callout::Other)), .. }));
-    assert_eq!(block(&doc, "> Цитата"), &Block::Quote { marker: 2, depth: 1, callout: None, item: None });
+    assert_eq!(framed(&doc, "> Простая цитата в одну строку."), (&Block::Text, 1, None, 2));
+    assert_eq!(framed(&doc, "> > > Третий уровень"), (&Block::Text, 3, None, 6));
+    assert!(matches!(block(&doc, "> [!quote] Цитата"), Block::Callout { kind: Callout::Quote, .. }));
+    assert!(matches!(block(&doc, "> [!NOTE]"), Block::Callout { kind: Callout::Typed(_), .. }));
+    assert!(matches!(block(&doc, "> [!note]+ Раскрытая по умолчанию"), Block::Callout { range, kind: Callout::Typed(_) } if range.end == 11));
+    assert!(matches!(block(&doc, "> [!custom-type] Пользовательский тип"), Block::Callout { kind: Callout::Typed(_), .. }));
+    assert_eq!(framed(&doc, "> Цитата"), (&Block::Text, 1, None, 2));
 }
 
 #[test]
@@ -111,7 +116,7 @@ fn tasks_have_boxes_at_every_level() {
 #[test]
 fn list_items_keep_paragraphs_code_and_definitions() {
     let doc = corpus();
-    assert!(matches!(block(&doc, "   Второй абзац внутри пункта (отступ 3 пробела)."), Block::Continuation { level: 0, lead: 3, .. }));
+    assert_eq!(framed(&doc, "   Второй абзац внутри пункта (отступ 3 пробела)."), (&Block::Text, 0, Some(0), 3));
     assert!(matches!(block(&doc, "   ```bash"), Block::Code { first: true, fence: true, lang: Some(_), .. }));
     assert!(matches!(block(&doc, "   echo \"Код внутри пункта списка\""), Block::Code { fence: false, .. }));
     assert_eq!(block(&doc, "Термин 1"), &Block::Text);
@@ -134,6 +139,22 @@ fn code_blocks_fences_and_indentation() {
     assert!(matches!(block(&doc, "graph TD"), Block::Code { fence: false, .. }));
     assert_eq!(block(&doc, "Текст сразу после кода."), &Block::Text);
     assert!(matches!(block(&doc, "console.log(\"код внутри details\");"), Block::Code { fence: false, lang: Some(_), .. }));
+}
+
+#[test]
+fn code_sits_inside_its_quote_or_list_item() {
+    let doc = corpus();
+    let code = |line: &str| match framed(&doc, line) {
+        (Block::Code { .. }, quote, list, lead) => Some((quote, list, lead)),
+        _ => None,
+    };
+    assert_eq!(code("> print(\"Код в цитате\")"), Some((1, None, 2)));
+    assert_eq!(code("> > Код во вложенной цитате"), Some((2, None, 4)));
+    assert_eq!(code("> console.log(\"код в выноске\");"), Some((1, None, 2)));
+    assert!(matches!(block(&doc, "> Незакрытое ограждение кончается вместе с цитатой"), Block::Code { last: true, .. }));
+    assert_eq!(block(&doc, "Строка без «>» — уже обычный абзац, не код."), &Block::Text);
+    assert_eq!(code("  echo \"код в пункте\""), Some((0, Some(0), 2)));
+    assert_eq!(code("    print(\"код во вложенном пункте\")"), Some((0, Some(1), 4)));
 }
 
 #[test]

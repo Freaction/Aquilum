@@ -72,7 +72,7 @@ fn text_outside_katex_fonts_uses_the_bundled_fonts() {
 
 fn laid(text: &str, caret: Option<usize>) -> Document {
     let mut doc = Document::new(text);
-    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags: true }));
+    doc.set_markdown(Some(Fonts::new(16.0, true, true)));
     doc.keep = (0.0, 10_000.0);
     let mut styles = StyleSet::new(16.0);
     for property in crate::ui::style::editor_text() {

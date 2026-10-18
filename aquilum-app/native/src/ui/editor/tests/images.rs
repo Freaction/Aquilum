@@ -50,6 +50,9 @@ fn images_are_selected_resized_and_deleted() {
     click(&mut root, 300.0, 100.0);
     named(&mut root, NamedKey::Delete);
     assert_eq!(text(&root), "текст");
+    let mut root = unfocused(editor_with_images("> ![](a.png)\nтекст"), 600, 400);
+    drag(&mut root, (447.0, 188.0), (497.0, 188.0));
+    assert!(text(&root).starts_with("> ![") && text(&root) != "> ![](a.png)\nтекст", "ресайз в цитате сохраняет «> »: {}", text(&root));
 }
 
 #[test]
@@ -87,7 +90,7 @@ fn caret_moves_and_selects_inside_image_source() {
 fn laid(text: &str, caret: Option<usize>) -> crate::ui::editor::document::Document {
     use masonry::parley::{FontContext, LayoutContext};
     let mut doc = crate::ui::editor::document::Document::new(text);
-    doc.set_markdown(Some(crate::ui::editor::markdown::Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags: true }));
+    doc.set_markdown(Some(crate::ui::editor::markdown::Fonts::new(16.0, true, true)));
     doc.resolver = Some(Arc::new(FakeMedia));
     doc.keep = (0.0, 10_000.0);
     doc.layout(&mut FontContext::default(), &mut LayoutContext::new(), &masonry::core::StyleSet::new(16.0), Some(600.0), None, caret);
@@ -105,7 +108,7 @@ fn widths(doc: &crate::ui::editor::document::Document) -> Vec<f32> {
 
 #[test]
 fn an_image_inside_a_line_is_drawn_in_place_of_its_source() {
-    let cases = [("- ![[a.png|120]]", 120.0), ("> ![](a.png)", 300.0), ("текст ![|40](a.png) и дальше", 40.0), ("<img src=\"a.png\" width=\"150\" />", 150.0), ("[![ссылка](a.png)](https://example.com)", 300.0), ("1. ![alt](https://example.com/picture)", 300.0)];
+    let cases = [("- ![[a.png|120]]", 120.0), ("> текст ![](a.png)", 300.0), ("текст ![|40](a.png) и дальше", 40.0), ("<img src=\"a.png\" width=\"150\" />", 150.0), ("[![ссылка](a.png)](https://example.com)", 300.0), ("1. ![alt](https://example.com/picture)", 300.0)];
     for (text, width) in cases {
         let doc = laid(text, None);
         assert_eq!((pictures(doc.paragraph(0).decor()), widths(&doc)), (1, vec![width]), "{text}");
@@ -115,6 +118,7 @@ fn an_image_inside_a_line_is_drawn_in_place_of_its_source() {
     let table = laid("| a | b |\n|---|---|\n| ![x](a.png) | t |", None);
     let cells = table.paragraphs().find_map(|p| p.embed).map(|e| e.view.decors().map(pictures).sum::<usize>());
     assert_eq!(cells, Some(1), "картинка в ячейке таблицы");
+    assert!(laid("> ![](a.png)", None).paragraph(0).embed.is_some_and(|embed| embed.x > 0.0), "картинка в цитате встаёт правее полосы");
     assert_eq!(pictures(laid("![[Заметка]] и ![[clip.mp4]]", None).paragraph(0).decor()), 0);
 }
 

@@ -31,7 +31,7 @@ impl TextEditor {
         let palette = markdown::palette(&tm, color);
         let markdown = self.doc.markdown.is_some();
         if markdown {
-            self.paint_blocks(painter, first, last);
+            self.clips = self.paint_blocks(painter, first, last, &palette);
             for &i in &texts {
                 self.paint_backdrop(painter, i);
             }
@@ -59,7 +59,7 @@ impl TextEditor {
             let media = self.media_overlay(p.start);
             if media.video.is_none() {
                 let hover = self.hovered_link.filter(|(start, _)| *start == p.start).map(|(_, hit)| hit);
-                embed.view.paint(painter, self.shift().x, top, &palette, &overlay, &media, hover);
+                embed.view.paint(painter, self.embed_x(i), top, &palette, &overlay, &media, hover);
             }
             self.paint_link_hover(painter, i);
         }
@@ -67,7 +67,7 @@ impl TextEditor {
             if markdown {
                 self.paint_marks(painter, i, &palette);
             }
-            render_text(painter, Affine::translate(self.shift() + self.doc.origin(i)), self.doc.paragraph(i).layout(), &palette, true);
+            self.clipped(painter, i, |painter| render_text(painter, Affine::translate(self.shift() + self.doc.origin(i)), self.doc.paragraph(i).layout(), &palette, true));
         }
     }
 
@@ -92,20 +92,33 @@ impl TextEditor {
     pub(super) fn paint_range(&self, painter: &mut Painter<'_>, shown: RangeInclusive<usize>, range: Range<usize>, color: masonry::peniko::Color) {
         for i in shown {
             let p = self.doc.paragraph(i);
-            if !(matches!(p.fold, Fold::None | Fold::Above) && p.laid().is_some() && p.start <= range.end && p.end() >= range.start) {
+            if matches!(p.fold, Fold::Head | Fold::Member) || p.laid().is_none() || p.start > range.end || p.end() < range.start {
                 continue;
             }
             let origin = self.doc.origin(i);
             let layout = p.layout();
             let a = range.start.max(p.start) - p.start;
             let b = range.end.min(p.end()) - p.start;
-            for (bounds, _) in markdown::range_rects(layout, a, b) {
-                painter.fill(super::rect(BoundingBox::new(bounds.x0, bounds.y0, bounds.x1, bounds.y1), 0.0) + origin + self.shift(), color).draw();
-            }
+            self.clipped(painter, i, |painter| {
+                for (bounds, _) in markdown::range_rects(layout, a, b) {
+                    painter.fill(super::rect(BoundingBox::new(bounds.x0, bounds.y0, bounds.x1, bounds.y1), 0.0) + origin + self.shift(), color).draw();
+                }
+            });
             if range.end > p.end() && b == p.len as usize {
                 let end = Cursor::from_byte_index(layout, p.len as usize, Affinity::Upstream).geometry(layout, 1.0);
                 painter.fill(super::rect(BoundingBox::new(end.x0, end.y0, end.x0 + 8.0, end.y1), 0.0) + origin + self.shift(), color).draw();
             }
+        }
+    }
+
+    pub(super) fn clipped(&self, painter: &mut Painter<'_>, i: usize, paint: impl FnOnce(&mut Painter<'_>)) {
+        let clip = self.clips.iter().find(|(lines, _)| lines.contains(&i)).map(|(_, clip)| *clip);
+        if let Some(clip) = clip {
+            painter.push_fill_clip(clip);
+        }
+        paint(painter);
+        if clip.is_some() {
+            painter.pop_clip();
         }
     }
 }

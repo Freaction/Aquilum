@@ -143,7 +143,19 @@ impl TextEditor {
             return if down { (self.doc.len(), Affinity::Downstream) } else { (0, Affinity::Downstream) };
         }
         let caret = self.caret();
-        self.at_column(if down { caret.y1 + 1.0 } else { caret.y0 - 1.0 })
+        let i = self.doc.at_offset(self.focus);
+        let band = |j: usize| {
+            let p = self.doc.paragraph(j);
+            let top = self.shift().y + self.doc.origin(j).y;
+            (top, top + p.laid().map_or(self.doc.bottom(j) - self.doc.top(j), |layout| f64::from(layout.height())))
+        };
+        let y = match (down, band(i)) {
+            (true, (_, bottom)) if caret.y1 + 1.0 >= bottom && i + 1 < self.doc.line_count() => band(i + 1).0 + 1.0,
+            (false, (top, _)) if caret.y0 - 1.0 <= top && i > 0 => band(i - 1).1 - 1.0,
+            (true, _) => caret.y1 + 1.0,
+            (false, _) => caret.y0 - 1.0,
+        };
+        self.at_column(y)
     }
 
     fn at_column(&mut self, y: f64) -> (usize, Affinity) {

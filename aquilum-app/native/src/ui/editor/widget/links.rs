@@ -38,8 +38,9 @@ impl TextEditor {
     }
 
     pub(super) fn hover_text(&mut self, ctx: &mut EventCtx<'_>, point: Point) {
-        self.pointer_hover = self.link_at(point).is_some() || self.task_at(point).is_some() || self.card_action_at(point).is_some();
-        let link = self.card_link_at(point);
+        let code = self.code_hover(ctx, point);
+        let link = self.card_link_at(point).or(code.map(|start| (start, 0)));
+        self.pointer_hover = self.link_at(point).is_some() || self.task_at(point).is_some() || self.card_action_at(point).is_some() || link.is_some();
         if link != self.hovered_link {
             self.hovered_link = link;
             ctx.request_render();
@@ -51,7 +52,7 @@ impl TextEditor {
         if let Some((_, hit)) = self.hovered_link.filter(|(start, _)| *start == p.start)
             && let Some(crate::ui::editor::embed::View::Drawing(drawing)) = p.embed.map(|e| &e.view)
         {
-            drawing.paint_hover(painter, self.shift().x, self.doc.top(i), hit);
+            drawing.paint_hover(painter, self.embed_x(i), self.doc.top(i), hit);
         }
     }
 

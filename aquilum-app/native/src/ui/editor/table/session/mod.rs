@@ -40,6 +40,7 @@ pub enum Outcome {
     Write(Table),
     Leave,
     Remove,
+    Copy(String),
 }
 
 pub(super) fn caret_in(cell: &Cell, value: &str, at: Point) -> usize {

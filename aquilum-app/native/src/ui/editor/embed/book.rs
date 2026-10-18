@@ -5,6 +5,7 @@ use masonry::parley::Layout;
 use super::super::markdown::{ACCENT, MUTED, ON_ACCENT, SUCCESS, TEXT};
 use super::super::resolve::{Book, Fetch};
 use super::metrics::{COVER_H, COVER_RADIUS, COVER_W};
+use super::panel::PAD;
 use super::{Drawing, Font, Item, Spec, Tone};
 use crate::i18n::{t, t_with};
 use crate::ui::tokens::{number, size};
@@ -34,7 +35,7 @@ fn clipped(text: &str, width: f64, spec: impl Fn(&str) -> Spec<'_>, make: &mut d
 }
 
 fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>, entry: &Row, top: f64, available: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) {
-    let pad = size::GAP_XL;
+    let pad = PAD;
     let book = match &entry.book {
         Fetch::Ready(book) => book.clone(),
         _ => return,
@@ -81,7 +82,7 @@ fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>
 }
 
 pub fn books(rows: &[Row], available: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Drawing {
-    let row_h = COVER_H + size::GAP_XL * 2.0;
+    let row_h = COVER_H + PAD * 2.0;
     let height = row_h * rows.len() as f64;
     let mut items: Vec<Item> = super::card(available, height).into();
     let mut hits = Vec::new();

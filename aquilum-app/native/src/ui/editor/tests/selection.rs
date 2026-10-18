@@ -81,9 +81,11 @@ fn selection_is_painted_over_code_backgrounds() {
     let before = crate::ui::theme::is_dark();
     crate::ui::theme::apply_setting("light", false, "#1471eb");
     let tm = crate::ui::theme::current();
-    for (text, backdrop) in [("`код в строке`\n\nтекст", tm.editor_code_bg), ("```\nблок кода\n```\nтекст", tm.block_bg)] {
-        let c = backdrop.to_rgba8();
-        let is_backdrop = |p: &u32| [(p >> 16) as u8, (p >> 8) as u8, *p as u8] == [c.r, c.g, c.b];
+    for (text, backdrop) in [("`код в строке`\n\nтекст", tm.editor_code_bg), ("```\nблок кода\n```\nтекст", crate::ui::editor::embed::panel::Tone::Surface.fill())] {
+        let (c, b) = (backdrop.to_rgba8(), crate::ui::theme::background().to_rgba8());
+        let a = f32::from(c.a) / 255.0;
+        let target = [(c.r, b.r), (c.g, b.g), (c.b, b.b)].map(|(c, b)| f32::from(c) * a + f32::from(b) * (1.0 - a));
+        let is_backdrop = |p: &u32| [(p >> 16) as u8, (p >> 8) as u8, *p as u8].iter().zip(target).all(|(p, t)| (f32::from(*p) - t).abs() <= 1.0);
         let (plain, selected) = (frame(text, false), frame(text, true));
         let backdrop = plain.iter().filter(|p| is_backdrop(p)).count();
         let covered = plain.iter().zip(&selected).filter(|(p, s)| is_backdrop(p) && p != s).count();

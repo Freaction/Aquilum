@@ -17,7 +17,7 @@ pub struct Quote {
     pub callout: Option<Callout>,
 }
 
-fn callout(line: &str, marker: usize) -> Option<Callout> {
+pub fn callout(line: &str, marker: usize) -> Option<Callout> {
     let rest = line[marker..].strip_prefix("[!")?;
     let close = rest.find(']')?;
     let name = &rest[..close];
@@ -31,17 +31,18 @@ fn callout(line: &str, marker: usize) -> Option<Callout> {
     Some(Callout { range: marker..end, name: name.to_lowercase(), fold })
 }
 
-pub fn quote(line: &str) -> Option<Quote> {
+pub fn markers(line: &str, limit: usize) -> (usize, usize) {
     let indent = Indent::of(line);
-    if indent.columns > INDENT_LIMIT {
-        return None;
-    }
-    let mut marker = indent.bytes;
-    let mut depth = 0;
-    while line[marker..].starts_with('>') {
+    let (mut marker, mut depth) = (indent.bytes, 0);
+    while indent.columns <= INDENT_LIMIT && depth < limit && line[marker..].starts_with('>') {
         marker += 1 + usize::from(line[marker + 1..].starts_with(' '));
         depth += 1;
     }
+    if depth == 0 { (0, 0) } else { (marker, depth) }
+}
+
+pub fn quote(line: &str) -> Option<Quote> {
+    let (marker, depth) = markers(line, usize::MAX);
     (depth > 0).then(|| Quote { marker, depth, callout: callout(line, marker) })
 }
 
@@ -59,6 +60,8 @@ mod tests {
         assert!(quote("\t> a").is_none());
         assert!(quote("текст > не цитата").is_none());
         assert_eq!(quote(">").map(|q| (q.marker, q.depth)), Some((1, 1)));
+        assert_eq!(markers("> > код", 1), (2, 1));
+        assert_eq!(markers("  код", 1), (0, 0));
     }
 
     #[test]

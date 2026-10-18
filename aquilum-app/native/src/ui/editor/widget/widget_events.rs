@@ -37,7 +37,15 @@ impl TextEditor {
                 ctx.request_render();
             }
         }
+        if self.copied.is_some_and(|(_, at)| at.elapsed() >= super::code::COPIED) {
+            self.copied = None;
+            ctx.request_render();
+        }
+        let copied = self.copied.map(|(_, at)| at + super::code::COPIED);
         if !(ctx.is_window_focused() && ctx.is_focus_target()) {
+            if let Some(at) = copied {
+                crate::ui::timer::wake(ctx.widget_id(), at);
+            }
             return;
         }
         let halves = self.blink_start.elapsed().as_millis() / BLINK_HALF.as_millis();
@@ -46,7 +54,8 @@ impl TextEditor {
             self.caret_visible = visible;
             ctx.request_post_paint();
         }
-        crate::ui::timer::wake(ctx.widget_id(), self.blink_start + BLINK_HALF * (halves as u32 + 1));
+        let blink = self.blink_start + BLINK_HALF * (halves as u32 + 1);
+        crate::ui::timer::wake(ctx.widget_id(), copied.map_or(blink, |at| at.min(blink)));
     }
 
     pub(super) fn do_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
@@ -60,6 +69,7 @@ impl TextEditor {
                 let new_tab = crate::ui::keymap::action(state.modifiers);
                 if self.table_press(ctx, point, state.modifiers.shift(), new_tab, state.count)
                     || self.media_press(ctx, point, state.count)
+                    || self.code_press(ctx, point)
                     || self.card_click(ctx, point, new_tab)
                     || self.toggle_task(ctx, point)
                     || self.open_link(ctx, point, new_tab)
@@ -83,7 +93,7 @@ impl TextEditor {
             PointerEvent::Move(PointerUpdate { current, .. }) => {
                 let point = ctx.local_position(current.position);
                 self.hover_text(ctx, point);
-                if self.media_move(ctx, point) || self.table_move(ctx, point) || !ctx.is_active() || self.table_active() {
+                if self.media_move(ctx, point) || self.table_move(ctx, point) || self.code_drag(ctx, point) || !ctx.is_active() || self.table_active() {
                     return;
                 }
                 self.drag_select(point);
@@ -104,10 +114,11 @@ impl TextEditor {
             PointerEvent::Up(_) => {
                 self.media_release(ctx);
                 self.table_release(ctx);
+                self.code_release();
             }
             PointerEvent::Leave(_) => {
                 self.media_leave(ctx);
-                if self.hovered_link.take().is_some() {
+                if self.hovered_link.take().is_some() | self.code_bar.take().is_some() {
                     ctx.request_render();
                 }
                 if self.hovered_table.take().is_some() {
@@ -122,7 +133,7 @@ impl TextEditor {
                     _ => (0.0, 0.0),
                 };
                 let (dx, dy) = if scroll.state.modifiers.shift() && dx == 0.0 { (dy, 0.0) } else { (dx, dy) };
-                if dx.abs() > dy.abs() && self.table_scroll(ctx, point, -dx) {
+                if dx.abs() > dy.abs() && (self.table_scroll(ctx, point, -dx) || self.code_scroll(ctx, point, -dx)) {
                     ctx.set_handled();
                 }
             }

@@ -54,6 +54,7 @@ impl TextEditor {
             ctx.request_scroll_by(shift);
         }
         self.reveal_caret();
+        self.follow_code();
         if self.suggest.is_some() {
             self.publish_suggest(ctx.widget_id());
         }
@@ -91,6 +92,7 @@ impl TextEditor {
     pub(super) fn do_get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
         self.media_cursor()
             .or_else(|| self.table_cursor().filter(|_| self.hovered_table.is_some()))
+            .or(self.code_bar.map(|_| CursorIcon::Default))
             .or(self.pointer_hover.then_some(CursorIcon::Pointer))
             .unwrap_or(CursorIcon::Text)
     }

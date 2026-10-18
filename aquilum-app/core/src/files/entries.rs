@@ -80,18 +80,18 @@ pub fn rename_file_impl(old_path: &Path, new_path: &Path) -> Result<(), FileComm
         return Ok(());
     }
 
-    if old_path.is_dir() {
-        if new_path.exists() {
-            return Err(taken(new_path));
-        }
-        fs::rename(old_path, new_path)?;
+    if new_path.exists() {
+        return Err(taken(new_path));
+    }
+
+    if fs::rename(old_path, new_path).is_ok() {
         return Ok(());
     }
 
-    match fs::hard_link(old_path, new_path) {
-        Ok(()) => return remove_renamed_source(old_path, new_path),
-        Err(error) if error.kind() == ErrorKind::AlreadyExists => return Err(taken(new_path)),
-        Err(_) => {}
+    if old_path.is_dir() {
+        copy_directory_impl(old_path, new_path)?;
+        fs::remove_dir_all(old_path)?;
+        return Ok(());
     }
 
     let mut source = fs::File::open(old_path)?;
@@ -106,13 +106,5 @@ pub fn rename_file_impl(old_path: &Path, new_path: &Path) -> Result<(), FileComm
         return Err(error.into());
     }
 
-    Ok(())
-}
-
-fn remove_renamed_source(old_path: &Path, new_path: &Path) -> Result<(), FileCommandError> {
-    if let Err(error) = fs::remove_file(old_path) {
-        let _ = fs::remove_file(new_path);
-        return Err(error.into());
-    }
     Ok(())
 }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::editor::embed::panel::{self, Header};
 use markdown::{LIST_START, QUOTE_BAR};
 use masonry::peniko::Brush;
 
@@ -7,7 +8,6 @@ const CALLOUT_RADIUS: f64 = 4.0;
 const CALLOUT_ALPHA: f32 = 0.12;
 const CHECKBOX: f64 = markdown::CHECKBOX as f64;
 const CHECKBOX_RADIUS: f64 = 6.0;
-const BLOCK_RADIUS: f64 = 12.0;
 const RULE: f64 = 2.0;
 const QUOTE_INSET: f64 = 2.0;
 
@@ -20,72 +20,51 @@ fn x_at(layout: &Layout<BrushIndex>, offset: usize) -> f64 {
 }
 
 impl TextEditor {
-    pub(super) fn run(&self, i: usize, same: impl Fn(&Block) -> bool, starts: impl Fn(&Block) -> bool) -> (usize, usize) {
-        let block = |j: usize| self.doc.block(j);
-        let mut a = i;
-        while a > 0 && !starts(block(a)) && same(block(a - 1)) {
-            a -= 1;
-        }
-        let mut b = i;
-        while b + 1 < self.doc.line_count() && same(block(b + 1)) && !starts(block(b + 1)) {
-            b += 1;
-        }
-        (a, b)
-    }
-
-    pub(super) fn paint_blocks(&self, painter: &mut Painter<'_>, first: usize, last: usize) {
-        let tm = theme::current();
-        let x = self.shift().x;
-        let inner = (self.width - size::CARET_WIDTH * 2.0).max(0.0);
+    fn runs(&self, first: usize, last: usize, same: impl Fn(usize) -> bool, starts: impl Fn(usize) -> bool) -> Vec<(usize, usize)> {
+        let mut runs = Vec::new();
         let mut i = first;
         while i <= last {
-            let block = self.doc.block(i);
-            let (a, b) = match block {
-                Block::Code { .. } => self.run(i, Block::is_code, |b| matches!(b, Block::Code { first: true, .. })),
-                Block::Quote { .. } => self.run(i, Block::is_quote, |b| matches!(b, Block::Quote { callout: Some(_), .. })),
-                _ => {
-                    i += 1;
-                    continue;
-                }
-            };
-            let (top, bottom) = (self.doc.top(a), self.doc.bottom(b));
-            if block.is_code() {
-                if self.doc.paragraph(a).fold != Fold::Head {
-                    painter.fill(RoundedRect::new(x, top, x + inner, bottom, BLOCK_RADIUS), tm.block_bg).draw();
-                    let border = RoundedRect::new(x + 0.5, top + 0.5, x + inner - 0.5, bottom - 0.5, BLOCK_RADIUS - 0.5);
-                    painter.stroke(border, &Stroke::new(size::BORDER_1), tm.block_border).draw();
-                }
-            } else if !matches!(self.doc.block(a), Block::Quote { callout: Some((_, Callout::Book)), .. }) {
-                for (dx, from, to) in self.quote_bars(a, b) {
-                    painter.fill(RoundedRect::new(x + dx, from + QUOTE_INSET, x + dx + QUOTE_BAR, to - QUOTE_INSET, QUOTE_BAR / 2.0), tm.bg_accent).draw();
-                }
+            if same(i) {
+                let run = self.doc.around(i, &same, &starts);
+                runs.push(run);
+                i = run.1;
             }
-            i = b + 1;
+            i += 1;
         }
+        runs
     }
 
-    fn quote_bars(&self, a: usize, b: usize) -> Vec<(f64, f64, f64)> {
-        let depth = |i: usize| match self.doc.block(i) {
-            Block::Quote { depth, .. } => usize::from(*depth),
-            _ => 0,
-        };
-        let ch = self.doc.markdown.as_ref().map_or(0.0, |fonts| f64::from(fonts.ch));
-        let marker_x = |i: usize, level: usize| self.doc.slice(self.doc.paragraph(i).range()).match_indices('>').nth(level - 1).map_or(0.0, |(at, _)| at as f64 * ch);
-        let mut bars = Vec::new();
-        for level in 1..=(a..=b).map(depth).max().unwrap_or(0) {
-            let mut open = None;
-            for i in a..=b + 1 {
-                match (i <= b && depth(i) >= level, open) {
-                    (true, None) => open = Some(i),
-                    (false, Some(start)) => {
-                        bars.push((marker_x(start, level), self.doc.top(start), self.doc.bottom(i - 1)));
-                        open = None;
-                    }
-                    _ => {}
-                }
+    pub(super) fn paint_blocks(&self, painter: &mut Painter<'_>, first: usize, last: usize, palette: &[Brush]) -> Vec<(std::ops::RangeInclusive<usize>, Rect)> {
+        let Some(fonts) = self.doc.markdown.as_ref() else { return Vec::new() };
+        let tm = theme::current();
+        let x = self.shift().x;
+        let right = x + self.inner_width();
+        let block = |j: usize| self.doc.block(j);
+        let view = |j: usize| self.doc.view(j);
+        let clips = self.paint_codes(painter, first, last, fonts, palette);
+        for k in 1..=(first..=last).map(|j| view(j).panels).max().unwrap_or(0) {
+            let header = |j: usize| view(j).panels == k && matches!(block(j), Block::Callout { kind: Callout::Typed(_), .. });
+            for (top, end) in self.runs(first, last, |j| view(j).panels >= k, header) {
+                let index = match block(top) {
+                    Block::Callout { kind: Callout::Typed(index), .. } => usize::from(*index),
+                    _ => 0,
+                };
+                let kind = &panel::KINDS[index];
+                let close = view(end);
+                let lift = f64::from((k - 1 + close.closes).saturating_sub(close.panels)) * panel::PAD;
+                let rect = Rect::new(x + view(top).shell(self.doc.line(top), k, fonts), self.doc.top(top), right - f64::from(k - 1) * panel::PAD, self.doc.bottom(end) - lift);
+                panel::paint(painter, rect, kind.tone, Some(Header { height: panel::header(fonts.line), icon: Some(kind.icon), button: None }));
             }
         }
-        bars
+        for level in 1..=(first..=last).map(|j| view(j).quote).max().unwrap_or(0) {
+            let bare = |j: usize| view(j).quote >= level && level > view(j).panel;
+            let book = |j: usize| matches!(block(j), Block::Callout { kind: Callout::Book, .. });
+            for (from, to) in self.runs(first, last, bare, book).into_iter().filter(|&(from, _)| !(book(from) && view(from).quote == level)) {
+                let dx = view(from).bar(self.doc.line(from), level, fonts);
+                painter.fill(RoundedRect::new(x + dx, self.doc.top(from) + QUOTE_INSET, x + dx + QUOTE_BAR, self.doc.bottom(to) - QUOTE_INSET, QUOTE_BAR / 2.0), tm.bg_accent).draw();
+            }
+        }
+        clips
     }
 
     pub(super) fn paint_backdrop(&self, painter: &mut Painter<'_>, i: usize) {
@@ -93,9 +72,8 @@ impl TextEditor {
         if let Some(item) = p.block.item()
             && let Some((_, tone)) = item.callout().filter(|_| self.doc.markdown.as_ref().is_some_and(|fonts| fonts.callouts))
         {
-            let inner = (self.width - size::CARET_WIDTH * 2.0).max(0.0);
             let x = self.shift().x + p.decor().x - LIST_START;
-            let shape = RoundedRect::new(x, self.doc.top(i), self.shift().x + inner, self.doc.bottom(i), CALLOUT_RADIUS);
+            let shape = RoundedRect::new(x, self.doc.top(i), self.shift().x + self.inner_width() - p.frame.right(), self.doc.bottom(i), CALLOUT_RADIUS);
             painter.fill(shape, markdown::tone(&theme::current(), tone).multiply_alpha(CALLOUT_ALPHA)).draw();
         }
         markdown::paint_backgrounds(painter, p.layout(), p.decor(), self.shift() + self.doc.origin(i));
@@ -109,9 +87,9 @@ impl TextEditor {
         let caret = p.decor().caret;
         let touching = |start: usize, end: usize| caret.is_some_and(|c| start <= c && c <= end);
         if matches!(p.block, Block::Rule) && caret.is_none() {
-            let inner = (self.width - size::CARET_WIDTH * 2.0).max(0.0);
-            let (x, y) = (self.shift().x, (self.doc.top(i) + self.doc.bottom(i)) / 2.0);
-            painter.fill(Rect::new(x, y - RULE / 2.0, x + inner, y + RULE / 2.0), tm.icon_quiet).draw();
+            let (x, y, view) = (self.shift().x, (self.doc.top(i) + self.doc.bottom(i)) / 2.0, self.doc.view(i));
+            let left = self.doc.markdown.as_ref().map_or(0.0, |fonts| view.x(self.doc.line(i), fonts));
+            painter.fill(Rect::new(x + left, y - RULE / 2.0, x + self.inner_width() - view.right(), y + RULE / 2.0), tm.icon_quiet).draw();
         }
         if let Some(item) = p.block.item() {
             let (marker, task) = (item.marker(), item.task());

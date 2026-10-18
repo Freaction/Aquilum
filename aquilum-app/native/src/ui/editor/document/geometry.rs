@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use super::super::markdown::Frame;
 use super::Document;
 
 impl Document {
@@ -13,6 +14,23 @@ impl Document {
 
     pub fn bottom(&self, index: usize) -> f64 {
         self.top(index) + self.heights.get(index)
+    }
+
+    pub fn line(&self, line: usize) -> &str {
+        &self.text[self.lines.range(line)]
+    }
+
+    pub fn inside(&self, line: usize) -> bool {
+        self.entered.is_some_and(|(first, last)| (first..=last).contains(&self.start(line)))
+    }
+
+    pub fn view(&self, line: usize) -> Frame {
+        let frame = self.blocks.get(line).0;
+        if self.inside(line) { frame.plain() } else { frame }
+    }
+
+    pub fn scroll_of(&self, offset: usize) -> f64 {
+        self.scrolls.iter().find(|(first, end, _)| (*first..=*end).contains(&offset)).map_or(0.0, |(_, _, x)| *x)
     }
 
     pub fn origin(&self, index: usize) -> masonry::kurbo::Vec2 {

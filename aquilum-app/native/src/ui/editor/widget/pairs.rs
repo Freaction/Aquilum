@@ -57,8 +57,15 @@ impl TextEditor {
                 return false;
             }
             let fence = c == '`' && before.strip_suffix("``").is_some_and(|rest| !rest.ends_with(|p: char| p == '`' || p.is_alphanumeric()));
-            let insert = if fence { "````".to_owned() } else { format!("{c}{close}") };
-            let inside = self.focus + c.len_utf8();
+            let p = self.doc.paragraph(self.doc.at_offset(self.focus));
+            let prefix = &self.doc.line(self.doc.at_offset(self.focus))[..p.frame.lead];
+            let block = fence && self.focus == p.start + prefix.len() + 2 && !p.block.is_code() && self.doc.slice(self.focus..p.end()).trim().is_empty();
+            let (insert, inside) = match (block, fence) {
+                (true, _) => (format!("`\n{prefix}\n{prefix}```"), 2 + prefix.len()),
+                (false, true) => ("````".to_owned(), 1),
+                (false, false) => (format!("{c}{close}"), c.len_utf8()),
+            };
+            let inside = self.focus + inside;
             self.dispatch(vec![(self.focus..self.focus, insert)], Some((inside, inside)), Kind::Typing);
             return true;
         }

@@ -17,6 +17,8 @@ mod probe;
 mod corpus_blocks;
 #[cfg(test)]
 mod corpus_inline;
+#[cfg(test)]
+mod reveal_tests;
 mod source;
 mod scan;
 mod sparse;
@@ -43,11 +45,15 @@ pub enum Fold {
     Head,
     Member,
     Above,
+    Below,
 }
+
+const NO_RUN: (usize, usize, usize) = (1, 0, 0);
 
 pub struct Embed {
     key: u64,
     pub view: View,
+    pub x: f64,
 }
 
 pub struct Document {
@@ -79,6 +85,9 @@ pub struct Document {
     pub pins: Vec<usize>,
     edits: Option<Vec<super::Edit>>,
     anchor: Option<(usize, f64)>,
+    entered: Option<(usize, usize)>,
+    pub scrolls: Vec<(usize, usize, f64)>,
+    gutters: std::cell::Cell<(usize, usize, usize)>,
     front: usize,
     dirty: Option<Range<usize>>,
     pub rebroke: bool,
@@ -130,6 +139,9 @@ impl Document {
             pins: Vec::new(),
             edits: None,
             anchor: None,
+            entered: None,
+            scrolls: Vec::new(),
+            gutters: std::cell::Cell::new(NO_RUN),
             front: 0,
             dirty: None,
             rebroke: false,
@@ -143,6 +155,7 @@ impl Document {
     }
 
     fn mark(&mut self, range: Range<usize>) {
+        self.gutters.set(NO_RUN);
         self.dirty = Some(match self.dirty.take() {
             Some(dirty) => dirty.start.min(range.start)..dirty.end.max(range.end),
             None => range,

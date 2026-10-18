@@ -3,6 +3,7 @@ use aquilum_core::markdown::indent::Indent;
 use aquilum_core::markdown::list as grammar;
 use aquilum_core::markdown::quote as syntax;
 
+use super::super::super::embed::panel;
 use super::{Block, Callout};
 
 pub fn heading(line: &str) -> Option<Block> {
@@ -47,15 +48,12 @@ pub fn indented(line: &str) -> bool {
     Indent::of(line).columns > INDENT_LIMIT && !line.trim().is_empty() && grammar::item(line).is_none()
 }
 
-pub fn quote(line: &str) -> Option<Block> {
-    let found = syntax::quote(line)?;
-    let callout = found.callout.map(|c| {
-        let kind = match c.name.as_str() {
-            "quote" => Callout::Quote,
-            "book" => Callout::Book,
-            _ => Callout::Other,
-        };
-        (c.range, kind)
-    });
-    Some(Block::Quote { marker: found.marker, depth: u8::try_from(found.depth).unwrap_or(u8::MAX), callout, item: None })
+pub fn callout(line: &str, marker: usize) -> Option<Block> {
+    let found = syntax::callout(line, marker)?;
+    let kind = match found.name.as_str() {
+        "quote" => Callout::Quote,
+        "book" => Callout::Book,
+        name => Callout::Typed(panel::kind(name)),
+    };
+    Some(Block::Callout { range: found.range, kind })
 }

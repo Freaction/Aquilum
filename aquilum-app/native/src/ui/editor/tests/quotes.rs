@@ -32,6 +32,8 @@ fn a_nested_quote_gets_a_bar_for_every_level() {
     assert_eq!(most_bars_in_a_row(&render("> один\n> > два\n> три", "quote-2.png")), 2);
     assert_eq!(most_bars_in_a_row(&render("> один\n> > два\n> > > три\n\nтекст", "quote-3.png")), 3);
     assert_eq!(most_bars_in_a_row(&render(">один\n>>два", "quote-compact.png")), 2);
+    assert_eq!(most_bars_in_a_row(&render("> один\n> ```rust\n> let x = 1;\n> ```\n> > ```\n> > код\n> > ```", "quote-code.png")), 2);
+    assert_eq!(most_bars_in_a_row(&render("- пункт\n  ```rust\n  let x = 1;\n  ```\n```\nкод\n```", "list-code.png")), 0);
     assert_eq!(most_bars_in_a_row(&render("текст без цитаты", "quote-none.png")), 0);
 }
 

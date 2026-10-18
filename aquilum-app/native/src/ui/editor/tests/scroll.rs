@@ -1,6 +1,6 @@
 use masonry::app::RenderRoot;
 
-use super::support::{scrolled, wheel, PAGE, TAG};
+use super::support::{drag, scrolled, wheel, PAGE, TAG};
 use crate::ui::editor::TextEditor;
 use crate::ui::scroll::ScrollArea;
 
@@ -39,4 +39,20 @@ fn measuring_above_the_view_does_not_move_the_text() {
         assert_eq!(at(&root, 110.0), before, "текст сдвинулся при прокрутке вверх с {from}");
     }
     assert!(shifted, "оценки выше видимой области ни разу не уточнились");
+}
+
+#[test]
+fn a_long_code_line_scrolls_sideways_instead_of_wrapping() {
+    let code = format!("```\n{}\n```\nпосле", "x".repeat(300));
+    let mut root = scrolled(TextEditor::new(&code).markdown(), 600, 400);
+    let at = |root: &RenderRoot| {
+        let w = root.get_widget_with_tag(TAG).unwrap();
+        w.inner().offset_at(w.ctx().window_transform().inverse(), masonry::kurbo::Point::new(300.0, 66.0))
+    };
+    let before = at(&root);
+    wheel(&mut root, (300.0, 66.0), (-200.0, 0.0));
+    let wheeled = at(&root);
+    assert!(wheeled > before + 10, "строка кода не прокрутилась вбок: {before} → {wheeled}");
+    drag(&mut root, (120.0, 80.0), (360.0, 80.0));
+    assert!(at(&root) > wheeled + 10, "ползунок полосы прокрутки не тянется: {wheeled} → {}", at(&root));
 }

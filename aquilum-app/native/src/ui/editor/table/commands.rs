@@ -4,6 +4,7 @@ use super::view::TableView;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Command {
+    Copy,
     Merge,
     Unmerge,
     AlignLeft,
@@ -18,6 +19,7 @@ impl Command {
     pub fn icon(self) -> crate::ui::icons::Icon {
         use crate::ui::icons;
         match self {
+            Command::Copy => icons::COPY,
             Command::Merge => icons::TABLE_MERGE,
             Command::Unmerge => icons::TABLE_SPLIT,
             Command::AlignLeft => icons::ALIGN_LEFT,
@@ -31,6 +33,7 @@ impl Command {
 
     pub fn label_key(self) -> &'static str {
         match self {
+            Command::Copy => "editor.table.copy",
             Command::Merge => "editor.table.merge",
             Command::Unmerge => "editor.table.unmerge",
             Command::AlignLeft => "editor.table.alignLeft",
@@ -55,6 +58,7 @@ impl Session {
         let range = self.range.unwrap_or(Range2::cell(r, c));
         let align = model.aligns.get(c).copied().flatten();
         vec![
+            (Command::Copy, true),
             (Command::Merge, !range.single() && model.can_merge(range) && model.merge_at(range.top, range.left) != Some(range)),
             (Command::Unmerge, model.merge_at(r, c).is_some()),
             (Command::AlignLeft, align != Some(Align::Left)),
@@ -71,6 +75,7 @@ impl Session {
         let mut model = view.model.clone();
         let (ar, ac) = model.anchor(r, c);
         let resume = match command {
+            Command::Copy => return Outcome::Copy(view.model.serialize()),
             Command::Merge => {
                 let Some(range) = self.range else { return Outcome::None };
                 if !model.merge(range) {

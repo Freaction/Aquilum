@@ -5,6 +5,7 @@ use masonry::core::{
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Axis, Rect, RoundedRect, Size, Stroke, Vec2};
+use masonry::peniko::Color;
 use masonry::layout::{LenReq, Length};
 
 use crate::ui::icons::{self, Icon};
@@ -118,12 +119,8 @@ impl Widget for IconButton {
         } else {
             (None, idle)
         };
-        if let Some(bg) = background {
-            painter.fill(RoundedRect::from_rect(bounds, size::ROUNDED_LG), bg).draw();
-        }
         let (glyph, stroke) = if self.pressed.is_some() { (size::SIZE_20, 1.2) } else { (size::SIZE_16, 1.6) };
-        let origin = bounds.center() - Vec2::new(glyph / 2.0, glyph / 2.0);
-        self.icon.draw(painter, origin, glyph, stroke, color);
+        paint_glyph(painter, bounds, self.icon, background, color, glyph, stroke);
     }
 
     fn accessibility_role(&self) -> Role {
@@ -140,12 +137,19 @@ impl Widget for IconButton {
     }
 }
 
-pub fn paint_close(painter: &mut Painter<'_>, rect: Rect, hovered: bool, alpha: f32) {
-    let t = theme::current();
-    if hovered {
-        painter.fill(RoundedRect::from_rect(rect, size::ROUNDED_LG), t.icon_button_bg_hover.multiply_alpha(alpha)).draw();
+fn paint_glyph(painter: &mut Painter<'_>, bounds: Rect, icon: Icon, background: Option<Color>, color: Color, glyph: f64, stroke: f64) {
+    if let Some(bg) = background {
+        painter.fill(RoundedRect::from_rect(bounds, size::ROUNDED_LG), bg).draw();
     }
-    let glyph = size::SIZE_16;
-    let color = if hovered { t.icon_button_icon_hover } else { t.icon_button_icon };
-    icons::X.draw(painter, rect.center() - Vec2::new(glyph / 2.0, glyph / 2.0), glyph, 1.6, color.multiply_alpha(alpha));
+    icon.draw(painter, bounds.center() - Vec2::new(glyph / 2.0, glyph / 2.0), glyph, stroke, color);
+}
+
+pub fn paint_icon(painter: &mut Painter<'_>, bounds: Rect, icon: Icon, hovered: bool, alpha: f32, tint: Option<Color>) {
+    let t = theme::current();
+    let color = tint.unwrap_or(if hovered { t.icon_button_icon_hover } else { t.icon_button_icon });
+    paint_glyph(painter, bounds, icon, hovered.then(|| t.icon_button_bg_hover.multiply_alpha(alpha)), color.multiply_alpha(alpha), size::SIZE_16, 1.6);
+}
+
+pub fn paint_close(painter: &mut Painter<'_>, rect: Rect, hovered: bool, alpha: f32) {
+    paint_icon(painter, rect, icons::X, hovered, alpha, None);
 }

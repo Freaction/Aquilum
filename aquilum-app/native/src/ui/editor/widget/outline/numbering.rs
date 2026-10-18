@@ -3,7 +3,7 @@ use super::*;
 
 fn listed(doc: &Document, i: usize) -> bool {
     let p = doc.paragraph(i);
-    matches!(p.block, Block::Item(_) | Block::Continuation { .. } | Block::Code { .. }) || doc.slice(p.range()).trim().is_empty()
+    matches!(p.block, Block::Item(_) | Block::Code { .. }) || p.frame.list.is_some() || doc.slice(p.range()).trim().is_empty()
 }
 
 pub(in super::super) fn renumbered(doc: &Document, edited: Range<usize>) -> Vec<(Range<usize>, String)> {
@@ -29,7 +29,7 @@ pub(in super::super) fn renumbered(doc: &Document, edited: Range<usize>) -> Vec<
                     expected
                 }));
             }
-            Block::Continuation { level, .. } => counters.truncate(level + 1),
+            _ if let Some(nest) = p.frame.list => counters.truncate(nest.level + 1),
             _ if listed(doc, i) => {}
             _ => counters.clear(),
         }

@@ -6,13 +6,13 @@ use crate::test_dir::command;
 #[test]
 fn list_lines_inside_code_blocks_stay_plain_text() {
     let mut root = markdown_root("```\n- один\n```");
-    click(&mut root, 590.0, 10.0);
+    click(&mut root, 100.0, 10.0);
     named(&mut root, NamedKey::ArrowDown);
     named(&mut root, NamedKey::End);
     named(&mut root, NamedKey::Enter);
     assert_eq!(text(&root), "```\n- один\n\n```", "Enter внутри блока кода не продолжает список");
     let mut root = markdown_root("```\n1. а\n3. б\n```");
-    click(&mut root, 590.0, 10.0);
+    click(&mut root, 100.0, 10.0);
     named(&mut root, NamedKey::ArrowDown);
     named(&mut root, NamedKey::ArrowDown);
     named(&mut root, NamedKey::End);

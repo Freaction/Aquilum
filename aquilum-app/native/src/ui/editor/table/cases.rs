@@ -1,3 +1,4 @@
+use super::commands::Command;
 use super::markdown::{parse, parse_with};
 use super::model::{Align, Range2, Table};
 use super::session::{Outcome, Session};
@@ -165,4 +166,13 @@ fn words_with_spaces_can_be_typed_one_key_at_a_time() {
     }
     assert_eq!(table(&text).value(0, 0), "a hello  world");
     assert_eq!(session.caret, "a hello  world".len());
+}
+
+#[test]
+fn the_cell_menu_starts_with_copying_the_whole_table() {
+    let t = table("| a | b |\n| --- | --- |\n| 1 | 2 |");
+    let view = blank_view(&t);
+    let mut session = Session::new(0);
+    assert_eq!(session.context(&view, 1, 0)[0], (Command::Copy, true));
+    assert!(matches!(session.run(&view, Command::Copy), Outcome::Copy(text) if text == t.serialize()));
 }

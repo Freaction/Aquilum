@@ -1,6 +1,8 @@
 use masonry::core::{BrushIndex, StyleSet};
 use masonry::parley::{FontContext, LayoutContext};
 
+use super::super::super::highlight::Lang;
+use super::super::super::markdown::Block;
 use super::super::embeds::Reveal;
 use super::super::{Document, Fold};
 
@@ -10,7 +12,7 @@ impl Document {
         let all = !self.placed;
         let len = self.lines.count();
         let (mut i, until) = if all { (0, len) } else { (from.min(len.saturating_sub(1)), until.min(len)) };
-        while i > 0 && self.heights.fold(i) == Fold::Member {
+        while i > 0 && (self.heights.fold(i) == Fold::Member || self.inside(i) && matches!(self.blocks.get(i).1, Block::Code { first: false, lang: Some(Lang::Math), .. })) {
             i -= 1;
         }
         let mut top = self.top(i);
@@ -40,11 +42,21 @@ impl Document {
                     (!(inside && reveal == Reveal::Source)).then(|| self.embed(i, end, fcx, lcx, styles, width)).flatten()
                 };
                 if let Some(height) = built {
-                    if reveal == Reveal::Above && self.source == Some(*span.start()) {
-                        let total = height + self.heights.text(i);
-                        put(self, i, total, Fold::Above);
+                    let beside = match reveal {
+                        Reveal::Above if self.source == Some(*span.start()) => Some((i, Fold::Above)),
+                        Reveal::Below if inside => Some((end, Fold::Below)),
+                        _ => None,
+                    };
+                    if let Some((at, fold)) = beside {
+                        for k in i..at {
+                            let text = self.heights.text(k);
+                            put(self, k, text, Fold::None);
+                            top += text;
+                        }
+                        let total = height + self.heights.text(at);
+                        put(self, at, total, fold);
                         top += total;
-                        i += 1;
+                        i = at + 1;
                         continue;
                     }
                     put(self, i, height, Fold::Head);

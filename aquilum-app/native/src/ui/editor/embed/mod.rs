@@ -4,6 +4,7 @@ mod drawing;
 mod math;
 pub mod media;
 mod metrics;
+pub mod panel;
 mod spec;
 
 use masonry::imaging::Painter;

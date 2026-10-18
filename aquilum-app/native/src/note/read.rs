@@ -5,7 +5,7 @@ use std::path::Path;
 use aquilum_core::files::document::normalize_tail;
 use aquilum_core::files::error::FileCommandError;
 
-const BLOCK: usize = 8 << 20;
+const BLOCK: usize = 64 * 1024;
 
 pub type Stamp = (u64, std::time::SystemTime);
 
@@ -41,11 +41,13 @@ fn fill(file: &mut File, buf: &mut Vec<u8>) -> std::io::Result<usize> {
 pub fn read(path: &Path) -> Result<Loaded, FileCommandError> {
     let mut file = File::open(path)?;
     let stamp = stamp_of(file.metadata());
-    let (mut hasher, mut builder, mut buf) = (blake3::Hasher::new(), crop::RopeBuilder::new(), Vec::with_capacity(BLOCK + 8));
+    let file_len = stamp.as_ref().map(|s| s.0 as usize).unwrap_or(0);
+    let initial_cap = file_len.min(BLOCK) + 8;
+    let (mut hasher, mut builder, mut buf) = (blake3::Hasher::new(), crop::RopeBuilder::new(), Vec::with_capacity(initial_cap));
     loop {
         let start = buf.len();
         let eof = fill(&mut file, &mut buf)? < BLOCK;
-        hasher.update_rayon(&buf[start..]);
+        hasher.update(&buf[start..]);
         let kept = normalize_tail(&mut buf, 0, eof);
         let invalid = |error: std::str::Utf8Error| FileCommandError::InvalidUtf8 { message: error.to_string() };
         let valid = match std::str::from_utf8(&buf[..kept]) {

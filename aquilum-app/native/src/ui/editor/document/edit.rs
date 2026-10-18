@@ -16,7 +16,8 @@ impl Document {
     }
 
     pub fn set_rope(&mut self, text: crop::Rope) {
-        (self.anchor, self.editing, self.resized, self.uncropped, self.source) = (None, None, None, None, None);
+        (self.anchor, self.editing, self.resized, self.uncropped, self.source, self.entered) = (None, None, None, None, None, None);
+        self.scrolls.clear();
         if let Some(edits) = self.edits.as_mut() {
             edits.clear();
         }
@@ -36,6 +37,12 @@ impl Document {
         let shift = |at: usize| super::super::change::shift(at, &range, insert.len());
         for at in [self.anchor.as_mut().map(|(at, _)| at), self.editing.as_mut().map(|(at, _)| at), self.resized.as_mut().map(|(at, _)| at), self.uncropped.as_mut(), self.source.as_mut()].into_iter().flatten() {
             *at = shift(*at);
+        }
+        for (first, last) in self.entered.iter_mut() {
+            (*first, *last) = (shift(*first), shift(*last));
+        }
+        for (first, last, _) in &mut self.scrolls {
+            (*first, *last) = (shift(*first), shift(*last));
         }
         let (base, end) = self.loaded_range();
         if range.start >= base && range.end <= end {

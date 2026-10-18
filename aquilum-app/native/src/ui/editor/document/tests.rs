@@ -4,17 +4,17 @@ use std::sync::Arc;
 use masonry::core::StyleSet;
 use masonry::parley::{Affinity, Alignment, Cursor, FontContext, LayoutContext};
 
-use super::super::markdown::{self, Block, Fonts};
+use super::super::markdown::{self, Block, Fonts, Frame};
 use super::{Document, Fold, text};
 
 pub(super) fn markdown(text: &str) -> Document {
     let mut doc = Document::new(text);
-    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags: true }));
+    doc.set_markdown(Some(Fonts::new(16.0, true, true)));
     doc
 }
 
-fn blocks(doc: &Document) -> Vec<Block> {
-    doc.paragraphs().map(|p| p.block.clone()).collect()
+fn blocks(doc: &Document) -> Vec<(Frame, Block)> {
+    doc.paragraphs().map(|p| (*p.frame, p.block.clone())).collect()
 }
 
 struct Files;
@@ -112,15 +112,15 @@ fn typing_markdown_never_breaks_layout() {
     let mut fcx = FontContext::default();
     let mut lcx = LayoutContext::new();
     let styles = StyleSet::new(16.0);
-    let fonts = Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 8.0, callouts: true, tags: true };
+    let fonts = Fonts { ch: 8.0, ..Fonts::new(16.0, true, true) };
     let unresolved = HashSet::new();
-    let context = markdown::Context { fonts: &fonts, unresolved: &unresolved, resolver: None };
+    let context = markdown::Context { fonts: &fonts, unresolved: &unresolved, resolver: None, inside: false, gutter: 0 };
     for line in TYPED.lines() {
         for end in line.char_indices().map(|(i, _)| i).chain([line.len()]) {
             let text = &line[..end];
-            let block = markdown::classify(std::iter::once(text)).remove(0);
+            let (frame, block) = markdown::classify(std::iter::once(text)).remove(0);
             for caret in [None, Some(end)] {
-                let _ = text::build(&mut fcx, &mut lcx, &styles, text, Some(end..end), Some(400.0), Alignment::Start, Some((&context, &block, caret)));
+                let _ = text::build(&mut fcx, &mut lcx, &styles, text, Some(end..end), Some(400.0), Alignment::Start, Some((&context, &frame, &block, caret)));
             }
         }
     }
@@ -172,18 +172,19 @@ fn partial_classification_matches_a_full_pass() {
 #[test]
 fn frontmatter_lines_are_metadata_and_follow_the_block_boundary() {
     let mut doc = markdown("---\ntitle: **не жирный**\n# не заголовок\n- не пункт\n---\n# Заголовок\n- пункт");
-    let kinds = blocks(&doc);
+    let leaves = |doc: &Document| -> Vec<Block> { doc.paragraphs().map(|p| p.block.clone()).collect() };
+    let kinds = leaves(&doc);
     let framed = |kinds: &[Block]| kinds[0] == Block::Rule && kinds[4] == Block::Rule && kinds[1..4].iter().all(|b| *b == Block::Meta);
     assert!(framed(&kinds), "{kinds:?}");
     assert!(matches!(kinds[5], Block::Heading { .. }));
     assert!(matches!(kinds[6], Block::Item(_)));
     doc.replace(0..0, "x");
-    assert!(blocks(&doc).iter().all(|b| *b != Block::Meta), "без открывающей черты блока метаданных нет");
+    assert!(leaves(&doc).iter().all(|b| *b != Block::Meta), "без открывающей черты блока метаданных нет");
     doc.replace(0..1, "");
-    assert!(framed(&blocks(&doc)));
+    assert!(framed(&leaves(&doc)));
     let closing = doc.whole().rfind("\n---").unwrap();
     doc.replace(closing + 1..closing + 4, "--");
-    assert!(blocks(&doc).iter().all(|b| *b != Block::Meta), "без закрывающей черты блока метаданных нет");
+    assert!(leaves(&doc).iter().all(|b| *b != Block::Meta), "без закрывающей черты блока метаданных нет");
 }
 
 #[test]
@@ -197,7 +198,7 @@ fn indented_text_lines_keep_their_inline_markup() {
 
 fn laid_out(text: &str, tags: bool) -> Document {
     let mut doc = Document::new(text);
-    doc.set_markdown(Some(Fonts { size: 16.0, mono: crate::ui::theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: true, tags }));
+    doc.set_markdown(Some(Fonts::new(16.0, true, tags)));
     doc.keep = (0.0, 10_000.0);
     let mut fcx = FontContext::default();
     let mut lcx = LayoutContext::new();

@@ -8,7 +8,8 @@ use crate::ui::widgets::Slot;
 
 impl App {
     pub(super) fn body_edited(&mut self, root: &mut RenderRoot, edits: &[crate::ui::editor::Edit]) {
-        let had = self.has_frontmatter();
+        let could_affect_frontmatter = self.hidden == 0 && edits.iter().any(|edit| edit.range.start == 0);
+        let had = if could_affect_frontmatter { self.has_frontmatter() } else { self.hidden > 0 };
         if let Some(note) = &mut self.note {
             for edit in edits {
                 note.touch(self.hidden + edit.range.start..self.hidden + edit.range.end, edit.inserted);
@@ -16,13 +17,17 @@ impl App {
         }
         self.adopt_body(root);
         self.queue_save();
-        self.refresh_hero(root);
-        self.metadata_changed(root, had);
+        if could_affect_frontmatter {
+            self.refresh_hero(root);
+            self.metadata_changed(root, had);
+        }
     }
 
     pub(in crate::app) fn adopt_body(&mut self, root: &mut RenderRoot) {
         let Some(mut text) = self.note_ids.as_ref().and_then(|ids| ids.body.get(root)).map(|body| body.inner().rope()) else { return };
-        text.insert(0, self.text.byte_slice(..crate::rope::floor(&self.text, self.hidden)).to_string());
+        if self.hidden > 0 {
+            text.insert(0, self.text.byte_slice(..crate::rope::floor(&self.text, self.hidden)).to_string());
+        }
         self.text = text;
     }
 

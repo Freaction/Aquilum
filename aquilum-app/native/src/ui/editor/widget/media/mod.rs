@@ -54,7 +54,7 @@ impl TextEditor {
         let i = self.doc.at_y(point.y.max(0.0));
         let p = self.doc.paragraph(i);
         let Some(View::Media(view)) = p.embed.map(|e| &e.view).filter(|_| matches!(p.fold, Fold::Head | Fold::Above)) else { return None };
-        let local = Point::new(point.x - self.shift().x, point.y - self.doc.top(i));
+        let local = self.embed_local(i, point);
         if local.y >= view.height {
             return None;
         }
@@ -69,7 +69,7 @@ impl TextEditor {
             if let (Fold::Head | Fold::Above, Some(View::Media(view))) = (p.fold, p.embed.map(|e| &e.view)) {
                 let overlay = self.media_overlay(p.start);
                 if overlay.video.is_some() {
-                    view.paint(painter, self.shift().x, top, &overlay);
+                    view.paint(painter, self.embed_x(i), top, &overlay);
                 }
             }
         }
@@ -85,7 +85,8 @@ impl TextEditor {
     }
 
     fn rewrite(&mut self, start: usize, line: &EmbedLine) {
-        let range = self.doc.paragraph(self.doc.at_offset(start)).range();
+        let p = self.doc.paragraph(self.doc.at_offset(start));
+        let range = p.start + p.frame.lead..p.end();
         let text = media::format(line);
         if self.doc.slice(range.clone()) != text {
             self.dispatch(vec![(range, text)], None, Kind::Block);

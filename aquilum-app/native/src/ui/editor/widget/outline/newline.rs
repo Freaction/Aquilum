@@ -4,10 +4,11 @@ use aquilum_core::markdown::indent::Indent;
 
 impl TextEditor {
     fn continued(&self, i: usize) -> Option<Item<'_>> {
-        let Block::Continuation { level, .. } = self.doc.paragraph(i).block else { return None };
-        let owner = (0..i).rev().map(|j| self.doc.paragraph(j)).find(|p| matches!(&p.block, Block::Item(item) if item.level() == *level))?;
+        let p = self.doc.paragraph(i);
+        let (Block::Text, Some(nest)) = (p.block, p.frame.list) else { return None };
+        let owner = (0..i).rev().map(|j| self.doc.paragraph(j)).find(|p| matches!(&p.block, Block::Item(item) if item.level() == nest.level))?;
         let item = Item::parse(self.doc.slice(owner.range()))?;
-        let line = self.doc.slice(self.doc.paragraph(i).range());
+        let line = self.doc.line(i);
         (Indent::of(line).columns == item.content_column()).then_some(item)
     }
 
@@ -19,11 +20,16 @@ impl TextEditor {
         let at = range.start;
         let i = self.doc.at_offset(at);
         let p = self.doc.paragraph(i);
-        if p.block.is_code() {
-            return false;
-        }
         let Range { start, end } = p.range();
         let line = self.doc.slice(start..end);
+        if p.block.is_code() {
+            let lead = p.frame.lead;
+            if lead == 0 || at < start + lead {
+                return false;
+            }
+            self.replace(at..at, &format!("\n{}", &line[..lead]), Kind::Other);
+            return true;
+        }
         let item = Item::parse(line);
         if item.as_ref().is_some_and(|item| at < start + item.content()) {
             return false;
@@ -39,8 +45,8 @@ impl TextEditor {
             }
         } else if let Some(open) = self.continued(i) {
             (at..at, format!("\n{}{}", open.indent, open.next()))
-        } else if line.trim_start().starts_with('>') {
-            let quote = &line[..line.len() - line.trim_start_matches([' ', '\t', '>']).len()];
+        } else if p.frame.quote > 0 {
+            let quote = &line[..p.frame.marker];
             if line.trim() == ">" {
                 (start..end, "\n".to_owned())
             } else {

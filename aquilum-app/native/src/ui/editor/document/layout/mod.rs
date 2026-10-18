@@ -14,8 +14,9 @@ impl Document {
         if let Some(fonts) = self.markdown.as_mut()
             && fonts.ch == 0.0
         {
-            fonts.ch = text::measure_ch(fcx, lcx, fonts);
+            text::measure(fcx, lcx, styles, fonts);
         }
+        self.enter(caret);
         let rebreak = self.width != width;
         self.width = width;
         self.rebroke |= rebreak;

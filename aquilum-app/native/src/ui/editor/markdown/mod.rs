@@ -10,10 +10,10 @@ mod style;
 #[cfg(test)]
 mod tests;
 
-pub use blocks::{Block, Callout, State};
+pub use blocks::{Block, Callout, Frame, State};
 #[cfg(test)]
 pub use blocks::classify;
-pub use brushes::{ACCENT, DANGER, LINK, MUTED, ON_ACCENT, SECONDARY, SUCCESS, SYNTAX, TEXT, palette, tone};
+pub use brushes::{ACCENT, DANGER, IDEA, INFO, LINK, MUTED, ON_ACCENT, SECONDARY, SUCCESS, SYNTAX, TEXT, WARNING, palette, tone};
 pub use decor::{Boxed, Decor, Link};
 pub use inline::bare_urls;
 #[cfg(test)]

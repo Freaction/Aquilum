@@ -57,7 +57,7 @@ impl TextEditor {
     fn apply(&mut self, ctx: &mut EventCtx<'_>, outcome: Outcome) {
         self.remember_scroll();
         match outcome {
-            Outcome::None => return,
+            Outcome::None | Outcome::Copy(_) => return,
             Outcome::Repaint => {}
             Outcome::Write(model) => {
                 self.write_table(&model);
@@ -80,7 +80,9 @@ impl TextEditor {
     fn write_table(&mut self, model: &Table) {
         let Some(start) = self.table.as_ref().map(|s| s.start) else { return };
         let Some((range, _)) = self.doc.table_at(start) else { return };
-        let text = model.serialize();
+        let i = self.doc.at_offset(range.start);
+        let prefix = &self.doc.line(i)[..self.doc.frame(i).lead];
+        let text = format!("{prefix}{}", model.serialize().replace('\n', &format!("\n{prefix}")));
         if self.doc.slice(range.clone()) != text {
             self.dispatch(vec![(range, text)], None, Kind::Block);
         }
@@ -100,6 +102,7 @@ impl TextEditor {
         match session.run(view, command) {
             Outcome::Write(model) => widget.write_table(&model),
             Outcome::Remove => widget.remove_table(),
+            Outcome::Copy(text) => this.ctx.set_clipboard(text),
             _ => {}
         }
         widget.sync_editing();
@@ -144,9 +147,9 @@ impl TextEditor {
     pub(super) fn paint_table_caret(&self, painter: &mut Painter<'_>) {
         let Some(session) = self.table.as_ref().filter(|s| s.active.is_some()) else { return };
         let Some((range, view)) = self.doc.table_at(session.start) else { return };
-        let top = self.doc.top(self.doc.at_offset(range.start));
+        let i = self.doc.at_offset(range.start);
         let Some((at, height, selection)) = session.caret_geometry(view) else { return };
-        let origin = Vec2::new(self.shift().x, top);
+        let origin = Vec2::new(self.embed_x(i), self.doc.top(i));
         let tm = theme::current();
         for rect in selection {
             painter.fill(rect + origin, tm.selection_bg).draw();

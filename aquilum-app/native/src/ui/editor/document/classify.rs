@@ -3,18 +3,22 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::RangeInclusive;
 
-use super::super::markdown::{self, Block, Fonts};
+use foldhash::fast::FixedState;
+
+use super::super::markdown::{self, Block, Fonts, Frame};
 use super::Document;
 
 struct Interned<T> {
     list: Vec<T>,
-    ids: HashMap<T, u32>,
+    ids: HashMap<T, u32, FixedState>,
     last: u32,
 }
 
 impl<T: Clone + Eq + Hash> Interned<T> {
     fn new(first: T) -> Self {
-        Interned { list: vec![first.clone()], ids: HashMap::from([(first, 0)]), last: 0 }
+        let mut ids = HashMap::default();
+        ids.insert(first.clone(), 0);
+        Interned { list: vec![first], ids, last: 0 }
     }
 
     fn id(&mut self, value: T) -> u32 {
@@ -36,15 +40,15 @@ pub(super) struct Blocks {
     states: Vec<u32>,
     kinds: Vec<u32>,
     state_ids: Interned<markdown::State>,
-    block_ids: Interned<Block>,
+    block_ids: Interned<(Frame, Block)>,
 }
 
 impl Blocks {
     pub(super) fn new(count: usize) -> Self {
-        Blocks { states: vec![u32::MAX; count], kinds: vec![0; count], state_ids: Interned::new(markdown::State::default()), block_ids: Interned::new(Block::Text) }
+        Blocks { states: vec![u32::MAX; count], kinds: vec![0; count], state_ids: Interned::new(markdown::State::default()), block_ids: Interned::new((Frame::default(), Block::Text)) }
     }
 
-    pub(super) fn get(&self, line: usize) -> &Block {
+    pub(super) fn get(&self, line: usize) -> &(Frame, Block) {
         &self.block_ids.list[self.kinds[line] as usize]
     }
 
@@ -52,7 +56,7 @@ impl Blocks {
         self.state_ids.list.get(self.states[line] as usize).copied()
     }
 
-    fn set(&mut self, line: usize, state: markdown::State, block: Block) -> (bool, bool) {
+    fn set(&mut self, line: usize, state: markdown::State, block: (Frame, Block)) -> (bool, bool) {
         let (state, kind) = (self.state_ids.id(state), self.block_ids.id(block));
         let changed = std::mem::replace(&mut self.kinds[line], kind) != kind;
         let same = std::mem::replace(&mut self.states[line], state) == state;
@@ -134,9 +138,9 @@ impl Document {
             let block = if self.lines.start(j) >= front {
                 state.step(line, next.as_deref())
             } else if crate::frontmatter::fence(line) {
-                Block::Rule
+                (Frame::default(), Block::Rule)
             } else {
-                Block::Meta
+                (Frame::default(), Block::Meta)
             };
             drop(next);
             let (changed, same) = self.blocks.set(j, state, block);

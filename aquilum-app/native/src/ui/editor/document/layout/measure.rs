@@ -28,7 +28,7 @@ impl Document {
             match self.laid.get_mut(i).filter(|_| current) {
                 Some(laid) => {
                     if rebreak {
-                        laid.layout.break_all_lines(self.width.map(|w| (w - laid.decor.inset as f32).max(0.0)));
+                        laid.layout.break_all_lines(laid.decor.wrap(self.width));
                         laid.layout.align(Alignment::Start, AlignmentOptions::default());
                         self.heights.set_text(i, laid.height());
                     }
@@ -42,7 +42,7 @@ impl Document {
                 None => {
                     let laid = self.lay(i, fcx, lcx, styles, composing, caret);
                     changed |= self.heights.set_text(i, laid.height());
-                    if *self.blocks.get(i) == Block::Text && laid.layout.len() == 1 {
+                    if self.blocks.get(i).1 == Block::Text && laid.layout.len() == 1 {
                         line = laid.height();
                     }
                     wanted.extend(laid.decor.links.iter().filter(|l| l.wiki).map(|l| l.target.trim().to_owned()));

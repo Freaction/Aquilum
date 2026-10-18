@@ -1,8 +1,6 @@
-pub(super) const PAD: f64 = 12.0;
 pub(super) const CELL_X: f64 = 6.0;
 pub(super) const CELL_Y: f64 = 4.0;
 pub(super) const PENDING: f64 = 96.0;
-pub(super) const RADIUS: f64 = 12.0;
 pub(super) const BAR_HEIGHT: f64 = 8.0;
 pub(super) const BAR_MIN: f64 = 120.0;
 pub(super) const CHECK: f64 = 20.0;

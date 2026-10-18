@@ -37,6 +37,9 @@ impl TextEditor {
             table: None,
             hovered_table: None,
             table_scrolls: std::collections::HashMap::new(),
+            clips: Vec::new(),
+            code_bar: None,
+            copied: None,
             media: media::MediaState::default(),
             videos: crate::video::Owned::default(),
             pointer_hover: false,
@@ -65,7 +68,7 @@ impl TextEditor {
 
     pub fn markdown(mut self) -> Self {
         let size = self.styles.inner().values().find_map(|p| if let StyleProperty::FontSize(s) = p { Some(*s) } else { None }).unwrap_or(16.0);
-        self.doc.set_markdown(Some(Fonts { size, mono: theme::editor_font("iA Writer Mono"), ch: 0.0, callouts: self.smart.callouts, tags: self.smart.tags }));
+        self.doc.set_markdown(Some(Fonts::new(size, self.smart.callouts, self.smart.tags)));
         self
     }
 
