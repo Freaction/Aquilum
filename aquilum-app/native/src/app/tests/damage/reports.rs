@@ -4,15 +4,40 @@ use super::*;
 #[ignore]
 fn scroll_damage_report() {
     let spec = size();
-    let mut h = setup(spec, &plain_body(120));
+    let mut h = match std::env::var("AQ_VAULT") {
+        Ok(vault) => {
+            let vault = std::path::PathBuf::from(vault);
+            let mut h = sized(spec, Some(&vault));
+            h.open(vault.join(std::env::var("AQ_NOTE").expect("AQ_NOTE")));
+            h
+        }
+        Err(_) => setup(spec, &plain_body(120)),
+    };
     let ids = h.app.note_ids.as_ref().unwrap();
     let (viewport, column) = (rect_of(&h, ids.scroll.id(), spec.scale), rect_of(&h, ids.body.id(), spec.scale));
     eprintln!("окно {}x{}@{}; область прокрутки {viewport:?}; колонка текста x {:.0}..{:.0}", spec.width, spec.height, spec.scale, column.x0, column.x1);
-    let mut frames = Frames::new(&mut h, spec, false);
-    let reports = scroll_frames(&mut h, &mut frames, 30);
-    for (i, r) in reports.iter().enumerate().take(4) {
-        r.print(&format!("прокрутка {i}"));
+    let mut frames = Frames::new(&mut h, spec, std::env::var_os("AQ_CHECK").is_some());
+    let screen = u64::from(frames.width) * u64::from(frames.height);
+    let dy: f64 = std::env::var("AQ_DY").ok().and_then(|v| v.parse().ok()).unwrap_or(-25.0);
+    let (mut last, mut wide) = (None, 0);
+    let mut reports = Vec::new();
+    for step in 0..200 {
+        h.scroll((f64::from(frames.width) * 0.55, f64::from(frames.height) * 0.5), spec.scale, (0.0, dy));
+        h.anim(std::time::Duration::from_millis(8));
+        h.app.on_core_events(&mut h.root);
+        let report = frames.draw(&mut h);
+        let ids = h.app.note_ids.as_ref().unwrap();
+        let column = rect_of(&h, ids.body.id(), spec.scale);
+        let edges = (column.x0.round(), column.x1.round(), column.height().round());
+        let big = report.raster * 4 > screen;
+        if big || last.is_some_and(|l: (f64, f64, f64)| (l.0, l.1) != (edges.0, edges.1)) {
+            wide += usize::from(big);
+            report.print(&format!("шаг {step}: колонка x {:.0}..{:.0} высота {:.0}, расхождений {}", edges.0, edges.1, edges.2, report.differ));
+        }
+        last = Some(edges);
+        reports.push(report);
     }
+    eprintln!("кадров с растром больше четверти экрана: {wide} из 200");
     summary("прокрутка", &reports);
 }
 

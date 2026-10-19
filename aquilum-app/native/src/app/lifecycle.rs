@@ -50,7 +50,7 @@ impl App {
     }
 
     pub fn holding(&mut self) -> bool {
-        let loading = self.embeds.as_ref().is_some_and(embeds::Embeds::busy);
+        let loading = self.opening.is_some() || self.embeds.as_ref().is_some_and(embeds::Embeds::busy);
         if !loading || self.hold.is_some_and(|until| until <= Instant::now()) {
             self.hold = None;
         }
@@ -61,9 +61,8 @@ impl App {
         self.note_ids.as_ref().map(|ids| ids.body.id())
     }
 
-    pub fn restore(&mut self, root: &mut RenderRoot) -> bool {
+    pub fn restore(&mut self, root: &mut RenderRoot) {
         self.show_active(root);
-        self.note.is_some()
     }
 
     pub fn forget_session(&mut self) {

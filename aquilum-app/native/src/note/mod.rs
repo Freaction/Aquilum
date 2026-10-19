@@ -1,4 +1,3 @@
-mod dirty;
 mod read;
 mod save;
 
@@ -12,7 +11,8 @@ use aquilum_core::Core;
 use aquilum_core::files::error::FileCommandError;
 
 use crate::i18n::{t, t_with};
-use dirty::Dirty;
+use aquilum_core::history::delta::{Region, compose};
+use aquilum_core::text::content::Splice;
 pub use read::read;
 use read::Stamp;
 use save::Outcome;
@@ -46,15 +46,14 @@ pub struct Note {
     queued: usize,
     done: (Sender<Outcome>, Receiver<Outcome>),
     seq: u64,
-    dirty: Dirty,
+    dirty: Vec<Region>,
 }
 
 impl Note {
     pub fn open(path: PathBuf) -> Result<(Note, crop::Rope), FileCommandError> {
         let loaded = read(&path)?;
         let disk = Arc::new(Mutex::new(Disk { hash: loaded.hash, stamp: loaded.stamp, written: 0 }));
-        let dirty = Dirty::clean(loaded.text.byte_len());
-        let note = Note { path, disk, pending: None, save_error: None, replaced: None, queued: 0, done: channel(), seq: 0, dirty };
+        let note = Note { path, disk, pending: None, save_error: None, replaced: None, queued: 0, done: channel(), seq: 0, dirty: Vec::new() };
         Ok((note, loaded.text))
     }
 
@@ -63,15 +62,15 @@ impl Note {
     }
 
     pub fn touch(&mut self, range: Range<usize>, inserted: usize) {
-        self.dirty.edit(range, inserted);
+        self.dirty = compose(&self.dirty, Splice { at: range.start, removed: range.len(), inserted });
     }
 
     pub fn hash(&self) -> String {
         lock(&self.disk).hash.clone()
     }
 
-    fn settle(&mut self, len: usize) {
-        self.dirty = Dirty::clean(len);
+    fn settle(&mut self) {
+        self.dirty.clear();
         lock(&self.disk).written = self.seq;
     }
 
@@ -82,9 +81,8 @@ impl Note {
     fn queue(&mut self, core: &Arc<Core>, text: &crop::Rope) {
         self.pending = None;
         self.queued += 1;
-        let job = save::Job { after: self.seq, seq: self.seq + 1, change: self.dirty.splice() };
+        let job = save::Job { after: self.seq, seq: self.seq + 1, change: std::mem::take(&mut self.dirty) };
         self.seq += 1;
-        self.dirty = Dirty::clean(text.byte_len());
         save::queue(Arc::clone(core), self.path.clone(), text.clone(), job, Arc::clone(&self.disk), self.done.0.clone());
     }
 
@@ -131,7 +129,7 @@ impl Note {
 
     pub fn take_replaced(&mut self) -> Option<crop::Rope> {
         let text = self.replaced.take()?;
-        self.settle(text.byte_len());
+        self.settle();
         Some(text)
     }
 
@@ -149,7 +147,7 @@ impl Note {
             return None;
         }
         let text = lock(&self.disk).adopt(read(&self.path).ok()?);
-        self.settle(text.byte_len());
+        self.settle();
         Some(text)
     }
 

@@ -93,6 +93,13 @@ impl GraphView {
         (self.sprites.len(), self.surfaces.pool_len())
     }
 
+    pub fn drop_frames(this: &mut WidgetMut<'_, Self>) {
+        this.widget.surfaces = crate::render::Surfaces::default();
+        this.widget.sprites.clear();
+        this.ctx.request_paint_only();
+        this.ctx.request_anim_frame();
+    }
+
     pub fn set_graph(this: &mut WidgetMut<'_, Self>, graph: Arc<Graph>, keep: bool) {
         this.widget.adopt(graph, keep);
         this.ctx.request_layout();

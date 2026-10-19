@@ -20,7 +20,7 @@ fn wait_cached(h: &mut Harness) {
 fn removed_images_leave_caches() {
     let mut h = Harness::new();
     let note = image_note(&h);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     wait_cached(&mut h);
     assert_eq!(cached(&h), 2, "картинка не попала в кэш заметки и общий кэш");
     h.app.set_text(&mut h.root, crop::Rope::from("текст\n\nконец"));
@@ -36,7 +36,7 @@ fn removed_images_leave_caches() {
 fn leaving_the_note_lets_go_of_its_embeds() {
     let mut h = Harness::new();
     let note = image_note(&h);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     wait_cached(&mut h);
     assert_eq!(cached(&h), 2, "картинка не загрузилась");
     let alive = h.app.embeds.as_ref().unwrap().watch();
@@ -88,7 +88,7 @@ fn book_page_snapshot() {
     h.write_note("С обложкой.md", "---\ncover: true\ntype: book\nPage_cover: pattern:tunnel\nПуть к файлу: book.epub\n---\n\nТекст");
     h.write_note("Без обложки.md", "---\ntype: book\n---\n\nТекст");
     for name in ["С обложкой", "Без обложки"] {
-        h.app.open(&mut h.root, h.vault.path().join(format!("{name}.md")));
+        h.open(h.vault.path().join(format!("{name}.md")));
         let _ = h.root.redraw();
         let size = h.root.size();
         std::fs::write(out.join(format!("{name}.png")), h.frame(size.width as u16, size.height as u16, scale).png()).unwrap();
@@ -100,13 +100,14 @@ fn mcp_navigation_opens_notes_and_tracks_active_note() {
     let mut h = Harness::new();
     let vault = h.vault.path().to_path_buf();
     h.write_note("b.md", "текст");
-    h.app.open(&mut h.root, vault.join("a.md"));
+    h.open(vault.join("a.md"));
     assert_eq!(h.app.workspace.core.active_note.get(), Some(vault.join("a.md")));
     aquilum_core::mcp::bridge::open_note(&h.app.workspace.core, &vault.join("b.md"), true);
     wait_until(50, 10, || {
         h.app.on_core_events(&mut h.root);
         h.tab_paths().len() == 2
     });
+    h.parked();
     assert_eq!(h.tab_paths(), [Some("a".to_owned()), Some("b".to_owned())]);
     assert_eq!(h.app.workspace.core.active_note.get(), Some(vault.join("b.md")));
 }
@@ -114,7 +115,7 @@ fn mcp_navigation_opens_notes_and_tracks_active_note() {
 #[test]
 fn editor_font_and_column_follow_settings() {
     let mut h = Harness::new();
-    h.app.open(&mut h.root, h.vault.path().join("a.md"));
+    h.open(h.vault.path().join("a.md"));
     let _ = h.root.redraw();
     let mut config = h.config();
     config.editor.font.font_size_base = 22;
@@ -133,7 +134,7 @@ fn unresolved_wiki_links_are_dimmed_like_tauri() {
     h.write_note("Есть.md", "текст");
     let text = "[[Есть]] и [[Нет такой]]";
     let note = h.write_note("Ссылки.md", text);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let editor = h.app.editor_id().unwrap();
     let brush = |h: &Harness, at: usize| h.root.get_widget(editor).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).unwrap().inner().brush_at(at);
     let (present, missing) = (text.find("Есть").unwrap(), text.find("Нет").unwrap());
@@ -150,7 +151,7 @@ fn trimmed_renderer_draws_the_same_frame() {
     let mut h = Harness::new();
     image::RgbaImage::from_pixel(40, 30, image::Rgba([10, 120, 200, 255])).save(h.vault.path().join("pic.png")).unwrap();
     let note = h.write_note("Картинка.md", "# Заголовок\n\nТекст **жирный**.\n\n![](pic.png)\n");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     for _ in 0..100 {
         h.step();
         std::thread::sleep(std::time::Duration::from_millis(5));
@@ -170,7 +171,7 @@ fn tiny_window_and_back_keeps_the_note_consistent() {
     h.root.handle_window_event(masonry::core::WindowEvent::Resize(PhysicalSize::new(2880, 1716)));
     let body: String = (0..400).map(|i| if i % 5 == 0 { format!("Длинный абзац {i}: {}\n\n", "слово ".repeat(80)) } else { format!("- пункт {i}\n") }).collect();
     let note = h.write_note("длинная.md", &body);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let _ = h.root.redraw();
     for size in [(1, 1), (2880, 1716), (276, 45), (2880, 1716)] {
         h.root.handle_window_event(masonry::core::WindowEvent::Resize(PhysicalSize::new(size.0, size.1)));

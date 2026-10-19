@@ -8,7 +8,7 @@ pub use raster::Cell;
 #[cfg(test)]
 pub use raster::expand;
 
-pub use motion::{Target as MotionTarget, animated, fps as motion_fps, over, render as render_motion};
+pub use motion::{Target as MotionTarget, animated, forget_tile, fps as motion_fps, over, render as render_motion};
 
 use std::collections::HashMap;
 use std::sync::OnceLock;

@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use masonry::core::{BrushIndex, StyleProperty};
 use masonry::parley::{FontStyle, FontWeight, InlineBox, InlineBoxKind, RangedBuilder, VerticalAlign};
 
@@ -8,7 +10,8 @@ use super::super::inline::{Kind, hashtags, inline};
 use super::super::metrics::{INLINE_CODE_PADDING, SCRIPT, TAG_PADDING};
 use super::super::{Boxed, Decor, Link};
 use super::Context;
-use super::builder::{hide, push, touches};
+use super::super::reveal::Part;
+use super::builder::{hide, push};
 use crate::ui::palette;
 
 fn picture(builder: &mut RangedBuilder<'_, BrushIndex>, source: &str, at: usize, shown: bool, resolver: &dyn Resolver, room: f64, decor: &mut Decor) {
@@ -27,7 +30,7 @@ fn picture(builder: &mut RangedBuilder<'_, BrushIndex>, source: &str, at: usize,
     decor.boxes.push(Boxed::Image { image, crop: view.crop() });
 }
 
-pub(super) fn style_spans(builder: &mut RangedBuilder<'_, BrushIndex>, text: &str, content: usize, caret: Option<usize>, context: &Context, room: f64, decor: &mut Decor) {
+pub(super) fn style_spans(builder: &mut RangedBuilder<'_, BrushIndex>, text: &str, content: usize, selection: Option<&Range<usize>>, context: &Context, room: f64, decor: &mut Decor) {
     let (fonts, unresolved) = (context.fonts, context.unresolved);
     let tags: Vec<_> = hashtags(&text[content..]).into_iter().map(|tag| tag.start + content..tag.end + content).collect();
     for pair in tags.windows(2) {
@@ -41,7 +44,7 @@ pub(super) fn style_spans(builder: &mut RangedBuilder<'_, BrushIndex>, text: &st
         }
     }
     for tag in tags {
-        if !touches(caret, &tag) {
+        if !Part::Tag.shown(selection, &tag) {
             let slot = fonts.tags.then(|| palette::tag(text[tag.start + 1..tag.end].split('/').next().unwrap_or_default()));
             push(builder, StyleProperty::Brush(slot.map_or(ACCENT, tag_brush)), tag.clone());
             decor.tags.push((tag, slot));
@@ -52,9 +55,9 @@ pub(super) fn style_spans(builder: &mut RangedBuilder<'_, BrushIndex>, text: &st
     for span in spans {
         let whole = span.whole.start + content..span.whole.end + content;
         let inner = span.inner.start + content..span.inner.end + content;
-        let shown = touches(caret, &whole);
+        let shown = Part::Inline.shown(selection, &whole);
         if span.kind == Kind::Image {
-            let shown = shown || links.iter().any(|link| link.start <= whole.start && whole.end <= link.end && touches(caret, link));
+            let shown = shown || links.iter().any(|link| link.start <= whole.start && whole.end <= link.end && Part::Inline.shown(selection, link));
             if let Some(resolver) = context.resolver {
                 picture(builder, &text[whole.clone()], whole.start, shown, resolver, room, decor);
             }

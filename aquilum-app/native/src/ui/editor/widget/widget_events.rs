@@ -4,7 +4,6 @@ use super::paste;
 use super::TextEditor;
 
 const BLINK_HALF: std::time::Duration = std::time::Duration::from_millis(500);
-const LINE_SCROLL: f64 = 40.0;
 
 impl TextEditor {
     pub(super) fn restart_blink(&mut self, ctx: &mut EventCtx<'_>) {
@@ -127,13 +126,9 @@ impl TextEditor {
             }
             PointerEvent::Scroll(scroll) => {
                 let point = ctx.local_position(scroll.state.position);
-                let (dx, dy) = match scroll.delta {
-                    masonry::core::ScrollDelta::PixelDelta(p) => (p.x / ctx.scale_factor(), p.y / ctx.scale_factor()),
-                    masonry::core::ScrollDelta::LineDelta(x, y) => (f64::from(x) * LINE_SCROLL, f64::from(y) * LINE_SCROLL),
-                    _ => (0.0, 0.0),
-                };
-                let (dx, dy) = if scroll.state.modifiers.shift() && dx == 0.0 { (dy, 0.0) } else { (dx, dy) };
-                if dx.abs() > dy.abs() && (self.table_scroll(ctx, point, -dx) || self.code_scroll(ctx, point, -dx)) {
+                let d = crate::ui::scroll::pixels(&scroll.delta, ctx.scale_factor(), ctx.content_box().width());
+                let dx = crate::ui::scroll::sideways(d, scroll.state.modifiers.shift());
+                if dx != 0.0 && (self.table_scroll(ctx, point, -dx) || self.code_scroll(ctx, point, -dx)) {
                     ctx.set_handled();
                 }
             }

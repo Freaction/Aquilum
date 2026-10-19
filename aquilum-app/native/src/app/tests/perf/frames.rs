@@ -18,7 +18,7 @@ fn partial_frames(scale: f64, width: u32, height: u32, steps: u32) {
     h.app.window_resized(&mut h.root, Size::new(f64::from(width) / scale, f64::from(height) / scale));
     let body: String = (0..120).map(|i| format!("Абзац {i}: текст заметки, который переносится на несколько строк в колонке редактора.\n\n")).collect();
     let note = h.write_note("Длинная.md", &format!("---\ncover: true\ntype: book\nPage_cover: pattern:polka\n---\n{body}"));
-    h.app.open(&mut h.root, note);
+    h.open(note);
     h.wait_cover(true);
     let (w, hh) = (width as u16, height as u16);
     let mut partial = Renderer::new(2);
@@ -43,7 +43,7 @@ fn partial_frames(scale: f64, width: u32, height: u32, steps: u32) {
 fn live_cover_frames_match_full_frames() {
     let mut h = Harness::new();
     let note = h.write_note("Туннель.md", "---\ncover: true\nPage_cover: tunnel\n---\nТекст под обложкой.");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     h.wait_cover(true);
     let (w, hh) = (W as u16, H as u16);
     h.anim(Duration::from_secs(1));
@@ -70,7 +70,7 @@ fn every_animated_cover_changes_between_frames() {
     for id in ["tunnel", "city", "dreams"] {
         let mut h = Harness::new();
         let note = h.write_note("Обложка.md", &format!("---\ncover: true\nPage_cover: {id}\n---\nТекст под обложкой."));
-        h.app.open(&mut h.root, note);
+        h.open(note);
         h.wait_cover(true);
         h.anim(Duration::from_secs(1));
         let (layers, _) = h.root.redraw();
@@ -91,7 +91,7 @@ fn every_animated_cover_changes_between_frames() {
 fn the_animations_switch_does_not_touch_an_animated_cover() {
     let mut h = Harness::new();
     let note = h.write_note("Туннель.md", "---\ncover: true\nPage_cover: tunnel\n---\nТекст под обложкой.");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     h.wait_cover(true);
     h.click(242.0, 578.0);
     let switch = h.binding("переключатель анимаций", |b| matches!(b, crate::ui::settings::Binding::Switch(_)));
@@ -114,7 +114,7 @@ fn modal_intro_leaves_frames_like_full_redraw() {
     for close_early in [false, true] {
         let mut h = Harness::new();
         let note = h.write_note("заметка.md", "Текст заметки под окном настроек.");
-        h.app.open(&mut h.root, note);
+        h.open(note);
         let (w, hh) = (W as u16, H as u16);
         let mut renderer = Renderer::new(2);
         let (layers, _) = h.root.redraw();
@@ -148,7 +148,7 @@ fn settings_scroll_frames_match_full_frames() {
     let mut h = Harness::new();
     let text: String = (0..40).map(|i| format!("Строка {i} текста под окном настроек.\n\n")).collect();
     let note = h.write_note("заметка.md", &text);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     h.app.open_settings(&mut h.root);
     let (w, hh) = (W as u16, H as u16);
     let mut renderer = Renderer::new(2);

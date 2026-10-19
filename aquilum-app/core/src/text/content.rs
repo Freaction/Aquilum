@@ -133,11 +133,18 @@ pub fn char_floor(bytes: &[u8], at: usize) -> usize {
     (0..=at.min(bytes.len())).rev().find(|&at| bytes.get(at).is_none_or(|&byte| starts_char(byte))).unwrap_or(0)
 }
 
-pub fn chars_below(content: &dyn Content, range: Range<usize>, limit: usize) -> io::Result<bool> {
-    if range.len() >= limit * 4 {
-        return Ok(false);
+pub fn chars_below(content: &dyn Content, ranges: impl IntoIterator<Item = Range<usize>>, limit: usize) -> io::Result<bool> {
+    let mut chars = 0;
+    for range in ranges {
+        if range.len() >= limit * 4 {
+            return Ok(false);
+        }
+        chars += read_bytes(content, range)?.iter().filter(|&&byte| starts_char(byte)).count();
+        if chars >= limit {
+            return Ok(false);
+        }
     }
-    Ok(read_bytes(content, range)?.iter().filter(|&&byte| starts_char(byte)).count() < limit)
+    Ok(true)
 }
 
 pub struct HashedWriter<W: Write> {

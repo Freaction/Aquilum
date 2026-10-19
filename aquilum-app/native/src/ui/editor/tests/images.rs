@@ -93,7 +93,7 @@ fn laid(text: &str, caret: Option<usize>) -> crate::ui::editor::document::Docume
     doc.set_markdown(Some(crate::ui::editor::markdown::Fonts::new(16.0, true, true)));
     doc.resolver = Some(Arc::new(FakeMedia));
     doc.keep = (0.0, 10_000.0);
-    doc.layout(&mut FontContext::default(), &mut LayoutContext::new(), &masonry::core::StyleSet::new(16.0), Some(600.0), None, caret);
+    doc.layout(&mut FontContext::default(), &mut LayoutContext::new(), &masonry::core::StyleSet::new(16.0), Some(600.0), None, caret.map(|c| c..c));
     doc
 }
 

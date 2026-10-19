@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, OnceLock};
 
+use aquilum_core::recent::Recent;
 use masonry::peniko::{Extend, ImageAlphaType, ImageBrush, ImageQuality};
 
 use super::render_pattern;
@@ -20,12 +21,17 @@ pub struct Pattern {
     pub exact: bool,
 }
 
-#[derive(Default)]
 struct Jobs {
-    done: Vec<(Key, ImageBrush)>,
+    done: Recent<Key, ImageBrush>,
     wanted: HashMap<&'static str, Key>,
     running: HashSet<&'static str>,
     finished: bool,
+}
+
+impl Default for Jobs {
+    fn default() -> Self {
+        Jobs { done: Recent::new(usize::MAX, CACHE_BYTES), wanted: HashMap::new(), running: HashSet::new(), finished: false }
+    }
 }
 
 static JOBS: Mutex<Option<Jobs>> = Mutex::new(None);
@@ -38,11 +44,8 @@ pub fn set_waker(wake: Arc<dyn Fn() + Send + Sync>) {
 pub fn image(key: Key) -> Option<Pattern> {
     let mut guard = JOBS.lock().ok()?;
     let jobs = guard.get_or_insert_with(Jobs::default);
-    if let Some(at) = jobs.done.iter().position(|(k, _)| *k == key) {
-        let entry = jobs.done.remove(at);
-        let image = entry.1.clone();
-        jobs.done.push(entry);
-        return Some(Pattern { image, exact: true });
+    if let Some(image) = jobs.done.get(&key) {
+        return Some(Pattern { image: image.clone(), exact: true });
     }
     jobs.wanted.insert(key.id, key);
     if jobs.running.insert(key.id) {
@@ -81,10 +84,8 @@ fn work(id: &'static str) {
         let mut guard = JOBS.lock().unwrap_or_else(|e| e.into_inner());
         let jobs = guard.get_or_insert_with(Jobs::default);
         if let Some(image) = image {
-            jobs.done.push((key, image));
-            while jobs.done.len() > 1 && jobs.done.iter().map(|(_, i)| i.image.data.len()).sum::<usize>() > CACHE_BYTES {
-                jobs.done.remove(0);
-            }
+            let size = image.image.data.len();
+            jobs.done.put(key, image, size);
             jobs.finished = true;
         }
         drop(guard);

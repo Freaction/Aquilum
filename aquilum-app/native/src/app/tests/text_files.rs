@@ -6,7 +6,7 @@ fn text_files_are_listed_opened_edited_and_saved() {
     let path = h.write_note("заметка.txt", "первая строка");
     h.app.tree.paths_changed(&mut h.root, std::slice::from_ref(&path));
     assert!(h.app.tree.names().iter().any(|name| name == "заметка.txt"), "текстовый файл не показан в дереве");
-    assert!(h.app.open(&mut h.root, path.clone()), "текстовый файл не открылся");
+    assert!(h.open(path.clone()), "текстовый файл не открылся");
     assert_eq!(h.body_text(), "первая строка");
     h.replace_body("первая строка\nвторая");
     h.save_now();
@@ -28,7 +28,7 @@ fn text_file_follows_outside_edits_and_has_properties_like_a_note() {
     h.watch_vault();
     let path = h.write_note("заметка.txt", "---\nтег: один\n---\nтекст");
     h.app.tree.paths_changed(&mut h.root, std::slice::from_ref(&path));
-    assert!(h.app.open(&mut h.root, path.clone()));
+    assert!(h.open(path.clone()));
     assert!(h.app.metadata_state().is_some(), "у .txt нет блока свойств, как у заметки");
     std::fs::write(&path, "---\nтег: один\n---\nизменён снаружи").unwrap();
     assert!(

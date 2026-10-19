@@ -23,7 +23,7 @@ struct Code {
 impl TextEditor {
     fn code(&self, i: usize, fonts: &Fonts) -> Code {
         let block = |j: usize| self.doc.block(j);
-        let (first, last) = self.doc.around(i, |j| block(j).is_code(), |j| matches!(block(j), Block::Code { first: true, .. }));
+        let (first, last) = self.doc.code_run(i);
         let fenced = |j: usize| matches!(block(j), Block::Code { fence: true, .. });
         let body = first + usize::from(fenced(first))..=last - usize::from(last > first && fenced(last));
         let math = matches!(block(first), Block::Code { lang: Some(Lang::Math), .. });

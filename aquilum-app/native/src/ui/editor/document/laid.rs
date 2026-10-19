@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::ops::Range;
 
 use masonry::core::{BrushIndex, StyleSet};
 use masonry::parley::{Alignment, FontContext, Layout, LayoutContext};
@@ -8,7 +9,7 @@ use super::super::highlight::Lang;
 use super::super::markdown::{self, Block, Decor, Fonts};
 use super::{Document, text};
 
-pub(super) static PLAIN: Decor = Decor { x: 0.0, inset: 0.0, pad: (0.0, 0.0), hang: None, nowrap: false, codes: Vec::new(), marks: Vec::new(), tags: Vec::new(), links: Vec::new(), caret: None, boxes: Vec::new(), pictures: Vec::new() };
+pub(super) static PLAIN: Decor = Decor { x: 0.0, inset: 0.0, pad: (0.0, 0.0), hang: None, nowrap: false, codes: Vec::new(), marks: Vec::new(), tags: Vec::new(), links: Vec::new(), selection: None, boxes: Vec::new(), pictures: Vec::new() };
 
 pub(super) struct Laid {
     pub(super) layout: Layout<BrushIndex>,
@@ -26,9 +27,9 @@ impl Document {
         markdown::Context { fonts, unresolved: &self.unresolved.0, resolver: self.resolver.as_deref(), inside: false, gutter: 0 }
     }
 
-    pub(super) fn local_caret(&self, line: usize, caret: Option<usize>) -> Option<usize> {
+    pub(super) fn local_selection(&self, line: usize, selection: Option<&Range<usize>>) -> Option<Range<usize>> {
         let range = self.span(line);
-        self.markdown.as_ref().and(caret).filter(|c| range.start <= *c && *c <= range.end).map(|c| c - range.start)
+        self.markdown.as_ref().and(selection).filter(|s| markdown::touches(Some(s), &range)).map(|s| s.start.max(range.start) - range.start..s.end.min(range.end) - range.start)
     }
 
     fn gutter(&self, line: usize) -> usize {
@@ -47,7 +48,7 @@ impl Document {
         digits
     }
 
-    pub(super) fn lay(&self, line: usize, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, composing: Option<(usize, &str)>, caret: Option<usize>) -> Laid {
+    pub(super) fn lay(&self, line: usize, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, composing: Option<(usize, &str)>, selection: Option<&Range<usize>>) -> Laid {
         let range = self.span(line);
         let source = self.line(line);
         let (text, underline) = match composing {
@@ -61,7 +62,7 @@ impl Document {
         let gutter = self.gutter(line);
         let context = self.markdown.as_ref().map(|fonts| markdown::Context { inside, gutter, ..self.context(fonts) });
         let (frame, block) = (self.view(line), &self.blocks.get(line).1);
-        let markdown = context.as_ref().map(|context| (context, &frame, block, self.local_caret(line, caret)));
+        let markdown = context.as_ref().map(|context| (context, &frame, block, self.local_selection(line, selection)));
         let (layout, decor) = text::build(fcx, lcx, styles, &text, underline, self.width, Alignment::Start, markdown);
         Laid { layout, decor }
     }

@@ -27,7 +27,7 @@ fn heading_link_opens_the_note_at_the_heading_without_creating_files() {
     let vault = h.vault.path().to_path_buf();
     std::fs::write(vault.join("a.md"), "[[Заметка#Раздел]]").unwrap();
     std::fs::write(vault.join("Заметка.md"), "# Первый\n\nтекст\n\n## Раздел\n\nещё").unwrap();
-    h.app.open(&mut h.root, vault.join("a.md"));
+    h.open(vault.join("a.md"));
     assert!(follow(&mut h, "Заметка#Раздел|подпись", true));
     assert_eq!(h.tab_paths(), tabs(&["a", "Заметка"]));
     assert_eq!(caret(&h), "# Первый\n\nтекст\n\n".len());
@@ -39,7 +39,7 @@ fn link_to_a_missing_note_with_an_anchor_creates_a_clean_file_name() {
     let mut h = Harness::new();
     let vault = h.vault.path().to_path_buf();
     std::fs::write(vault.join("a.md"), "текст").unwrap();
-    h.app.open(&mut h.root, vault.join("a.md"));
+    h.open(vault.join("a.md"));
     assert!(follow(&mut h, "Новая#Раздел|подпись", false));
     assert_eq!(notes(&h), ["a.md", "Новая.md"]);
     assert_eq!(h.tab_paths(), tabs(&["Новая"]));
@@ -50,7 +50,7 @@ fn link_to_a_heading_of_the_current_note_stays_in_it() {
     let mut h = Harness::new();
     let vault = h.vault.path().to_path_buf();
     std::fs::write(vault.join("b.md"), "# А\n\n## Раздел\n\nтекст").unwrap();
-    h.app.open(&mut h.root, vault.join("b.md"));
+    h.open(vault.join("b.md"));
     let before = notes(&h);
     assert!(follow(&mut h, "#Раздел", false));
     assert_eq!(notes(&h), before);

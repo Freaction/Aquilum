@@ -11,6 +11,7 @@ fn scale_is_rounded_clamped_and_persisted() {
     assert_eq!(interface.scale(), MAX_SCALE);
     assert!(!interface.set_scale(9.0));
     interface.set_sidebar_open(false);
+    crate::disk::wait();
     let reloaded = Interface::load(dir.path());
     assert_eq!(reloaded.scale(), MAX_SCALE);
     assert!(!reloaded.sidebar_open());

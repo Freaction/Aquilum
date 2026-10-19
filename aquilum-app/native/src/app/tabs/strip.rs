@@ -29,7 +29,6 @@ impl App {
     }
 
     pub(in crate::app) fn refresh_tabs(&mut self, root: &mut RenderRoot) {
-        self.release_graph(root);
         if let Some(session) = &mut self.session {
             session.save(&self.workspace.core, &mut self.tabs);
         }

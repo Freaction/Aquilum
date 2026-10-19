@@ -23,3 +23,15 @@ pub use offscreen::offscreen;
 pub use pixels::{brush, from_rgba};
 pub use renderer::Renderer;
 pub use surface::Surfaces;
+
+thread_local! {
+    static TRIM: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+pub fn trim_soon() {
+    TRIM.set(true);
+}
+
+pub fn take_trim() -> bool {
+    TRIM.replace(false)
+}

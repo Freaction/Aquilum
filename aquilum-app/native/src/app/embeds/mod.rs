@@ -7,7 +7,7 @@ mod resolver;
 #[cfg(test)]
 mod testing;
 
-pub use media::prune_remote;
+pub use media::{forget_recent, prune_remote};
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

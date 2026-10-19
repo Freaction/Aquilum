@@ -29,7 +29,7 @@ fn quote_boxes(h: &mut Harness) -> Vec<(String, Vec<Rect>)> {
 fn reader_quotes_round_trip() {
     let mut h = Harness::new();
     let (file, page) = book_note(&h, "Заметки о книге");
-    h.app.open(&mut h.root, page.clone());
+    h.open(page.clone());
     let _ = h.root.redraw();
     open_book(&mut h, &file, Some(&page), "Книга");
     quote_selection(&mut h, (120.0, 160.0), (420.0, 220.0));
@@ -61,7 +61,7 @@ fn reader_quotes_round_trip() {
 
 fn two_quotes(h: &mut Harness) {
     let (file, page) = book_note(h, "Заметки о книге");
-    h.app.open(&mut h.root, page.clone());
+    h.open(page.clone());
     let _ = h.root.redraw();
     open_book(h, &file, Some(&page), "Книга");
     quote_selection(h, (300.0, 150.0), (500.0, 330.0));

@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 
+use aquilum_core::recent::Recent;
+
 use super::{Target, pack};
 
 const TILE_PNG: &[u8] = include_bytes!("../../../assets/city-cover.png");
@@ -10,18 +12,23 @@ const SECONDS: f64 = 60.0;
 
 type Tile = (u32, usize, usize, Arc<Vec<u32>>);
 
+static TILE: Mutex<Recent<u32, Tile>> = Mutex::new(Recent::new(1, usize::MAX));
+
+pub fn forget() {
+    TILE.lock().unwrap_or_else(|e| e.into_inner()).clear();
+}
+
 fn scaled_tile(scale: f64) -> Option<Tile> {
-    static TILE: Mutex<Option<Tile>> = Mutex::new(None);
     let key = (scale * 1000.0).round() as u32;
     let mut cached = TILE.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some(tile) = cached.as_ref().filter(|t| t.0 == key) {
+    if let Some(tile) = cached.get(&key) {
         return Some(tile.clone());
     }
     let (w, h) = ((WIDTH * scale).round() as u32, (HEIGHT * scale).round() as u32);
     let image = image::load_from_memory(TILE_PNG).ok()?.resize_exact(w.max(1), h.max(1), image::imageops::FilterType::Triangle).into_rgba8();
     let pixels = image.pixels().map(|p| pack([p[0], p[1], p[2]], f64::from(p[3]) / 255.0)).collect();
     let tile = (key, w as usize, h as usize, Arc::new(pixels));
-    *cached = Some(tile.clone());
+    cached.put(key, tile.clone(), 0);
     Some(tile)
 }
 

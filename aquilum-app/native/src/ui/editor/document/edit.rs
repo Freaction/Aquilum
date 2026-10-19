@@ -9,8 +9,14 @@ impl Document {
     }
 
     pub fn changed(&mut self) -> TextAction {
+        let front = self.front;
         match self.edits.as_mut() {
-            Some(edits) => TextAction::Edited(std::mem::take(edits)),
+            Some(edits) => {
+                for edit in edits.iter_mut() {
+                    edit.head |= edit.range.start <= front;
+                }
+                TextAction::Edited(std::mem::take(edits))
+            }
             None => TextAction::Changed(self.whole()),
         }
     }
@@ -29,7 +35,7 @@ impl Document {
 
     pub fn report(&mut self, range: Range<usize>, insert: &str) {
         if let Some(edits) = self.edits.as_mut() {
-            edits.push(Edit { range, inserted: insert.len() });
+            edits.push(Edit { head: range.start <= self.front, range, inserted: insert.len() });
         }
     }
 

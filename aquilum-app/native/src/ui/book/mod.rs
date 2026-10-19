@@ -30,6 +30,7 @@ mod page_cover;
 mod star;
 mod thumb;
 
+pub use draw::forget as forget_art;
 pub use hero_widget::{Hero, hero};
 pub use page_cover::PageCover;
 pub use star::Star;

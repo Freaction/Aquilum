@@ -67,7 +67,7 @@ fn big_note_audit() {
     let note = b.h.copy_note();
     let heap = crate::memory_probe::heap();
     let t = Instant::now();
-    b.h.app.open(&mut b.h.root, note);
+    b.h.open(note);
     let opened = t.elapsed();
     let (layers, _) = b.h.root.redraw();
     let scene = t.elapsed();

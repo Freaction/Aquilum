@@ -10,13 +10,6 @@ fn latin(code: Code) -> Option<char> {
     LETTERS.iter().position(|&c| c == code).map(|i| char::from(b'a' + i as u8))
 }
 
-fn png(image: arboard::ImageData<'_>) -> Option<Vec<u8>> {
-    let rgba = image::RgbaImage::from_raw(image.width as u32, image.height as u32, image.bytes.into_owned())?;
-    let mut out = std::io::Cursor::new(Vec::new());
-    rgba.write_to(&mut out, image::ImageFormat::Png).ok()?;
-    Some(out.into_inner())
-}
-
 impl Host {
     pub(super) fn text_event(&mut self, event: TextEvent) {
         if let Some(root) = &mut self.root {
@@ -55,15 +48,6 @@ impl Host {
         }
     }
 
-    fn paste(&mut self) -> bool {
-        let (Some(clipboard), Some(root)) = (self.clipboard.as_mut(), &mut self.root) else { return false };
-        if let Ok(text) = clipboard.get_text() {
-            root.handle_text_event(TextEvent::ClipboardPaste(text));
-            return true;
-        }
-        clipboard.get_image().ok().and_then(png).is_some_and(|png| self.app.paste_image(root, &png))
-    }
-
     pub(super) fn keyboard(&mut self, event: winit::event::KeyEvent) {
         let key = match event.logical_key {
             wk::Key::Named(named) => Key::Named(named),
@@ -98,7 +82,11 @@ impl Host {
         if state == KeyState::Down && self.shortcut(&key, event.repeat) {
             return;
         }
-        if state == KeyState::Down && keymap::command(&[Scope::Text], &key, self.modifiers) == Some(Command::Paste) && self.paste() {
+        if state == KeyState::Down
+            && keymap::command(&[Scope::Text], &key, self.modifiers) == Some(Command::Paste)
+            && let Some(root) = &mut self.root
+            && self.app.paste(root)
+        {
             return;
         }
         let location: Location = event.location;

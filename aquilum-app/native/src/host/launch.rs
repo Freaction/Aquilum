@@ -42,7 +42,6 @@ pub fn run(args: Args) -> Result<(), String> {
         moved: false,
         ime_enabled: false,
         ime_area: None,
-        clipboard: arboard::Clipboard::new().ok(),
         last_anim: None,
         last_vblank: None,
         anim_pending: false,

@@ -4,7 +4,7 @@ use super::*;
 fn page_search_counts_and_steps_through_matches() {
     let mut h = Harness::new();
     let note = h.write_note("Коты.md", "кот и Кот\n\nещё КОТ");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let _ = h.root.redraw();
     h.app.open_find(&mut h.root);
     let _ = h.root.redraw();
@@ -24,7 +24,7 @@ fn page_search_counts_and_steps_through_matches() {
 fn page_search_marks_table_cells_and_counter_fits() {
     let mut h = Harness::new();
     let note = h.write_note("таблица.md", "Слово в тексте.\n\n| Колонка | Ещё |\n| --- | --- |\n| слово тут | нет |\n| и снова слово | да |\n");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let _ = h.root.redraw();
     h.app.open_find(&mut h.root);
     h.type_text("слово");

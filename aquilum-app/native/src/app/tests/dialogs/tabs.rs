@@ -5,7 +5,7 @@ use crate::ui::titlebar::TitlebarAction;
 fn tabs_open_new_select_and_close() {
     let mut h = Harness::new();
     let note = h.vault.path().join("a.md");
-    h.app.open(&mut h.root, note.clone());
+    h.open(note.clone());
     assert_eq!(h.app.tabs.tabs().len(), 1);
     assert!(h.app.note.is_some());
 
@@ -54,7 +54,7 @@ fn ctrl_shift_click_opens_note_in_new_tab_and_tabs_reorder_by_drag() {
 fn tab_menu_renames_note_in_tab() {
     let mut h = Harness::new();
     let vault = h.vault.path().to_path_buf();
-    h.app.open(&mut h.root, vault.join("a.md"));
+    h.open(vault.join("a.md"));
     let id = h.app.tabs.active_id();
     let strip = h.app.chrome.as_ref().unwrap().tab_strip.id();
     h.send(strip, TitlebarAction::Menu(id, masonry::kurbo::Point::new(300.0, 20.0)));

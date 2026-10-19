@@ -1,7 +1,7 @@
 use std::ops::{Range, RangeInclusive};
 use masonry::core::{PaintCtx, PropertiesRef, render_text};
 use masonry::imaging::Painter;
-use masonry::kurbo::{Affine, RoundedRect};
+use masonry::kurbo::{Affine, Rect, RoundedRect};
 use masonry::parley::{Affinity, BoundingBox, Cursor};
 use masonry::properties::{ContentColor, SelectionColor};
 use super::Fold;
@@ -19,7 +19,7 @@ impl TextEditor {
         let (first, last) = (self.doc.at_y(self.painted.0), self.doc.at_y(self.painted.1));
         if self.laid_out() {
             let (fcx, lcx) = ctx.text_contexts();
-            self.doc.ensure(first..=last, fcx, lcx, &self.styles, self.focused.then_some(self.focus));
+            self.doc.ensure(first..=last, fcx, lcx, &self.styles, self.focused.then(|| self.selection()).as_ref());
         }
         let shown = first..=last;
         let texts: Vec<usize> = shown.clone().filter(|&i| {
@@ -92,7 +92,14 @@ impl TextEditor {
     pub(super) fn paint_range(&self, painter: &mut Painter<'_>, shown: RangeInclusive<usize>, range: Range<usize>, color: masonry::peniko::Color) {
         for i in shown {
             let p = self.doc.paragraph(i);
-            if matches!(p.fold, Fold::Head | Fold::Member) || p.laid().is_none() || p.start > range.end || p.end() < range.start {
+            if p.start > range.end || p.end() < range.start {
+                continue;
+            }
+            if p.fold == Fold::Head && p.embed.is_some() && range.start <= p.start && self.doc.folded_end(i) <= range.end {
+                let right = self.shift().x + self.inner_width() - p.frame.right();
+                painter.fill(Rect::new(self.embed_x(i), self.doc.top(i), right, self.doc.bottom(i)), color).draw();
+            }
+            if matches!(p.fold, Fold::Head | Fold::Member) || p.laid().is_none() {
                 continue;
             }
             let origin = self.doc.origin(i);

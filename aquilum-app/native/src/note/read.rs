@@ -4,6 +4,7 @@ use std::path::Path;
 
 use aquilum_core::files::document::normalize_tail;
 use aquilum_core::files::error::FileCommandError;
+use aquilum_core::text::utf8::prefix;
 
 const BLOCK: usize = 64 * 1024;
 
@@ -49,18 +50,9 @@ pub fn read(path: &Path) -> Result<Loaded, FileCommandError> {
         let eof = fill(&mut file, &mut buf)? < BLOCK;
         hasher.update(&buf[start..]);
         let kept = normalize_tail(&mut buf, 0, eof);
-        let invalid = |error: std::str::Utf8Error| FileCommandError::InvalidUtf8 { message: error.to_string() };
-        let valid = match std::str::from_utf8(&buf[..kept]) {
-            Ok(text) => {
-                builder.append(text);
-                kept
-            }
-            Err(error) if error.error_len().is_none() && !eof => {
-                builder.append(std::str::from_utf8(&buf[..error.valid_up_to()]).map_err(invalid)?);
-                error.valid_up_to()
-            }
-            Err(error) => return Err(invalid(error)),
-        };
+        let text = prefix(&buf[..kept], eof).map_err(|error| FileCommandError::InvalidUtf8 { message: error.to_string() })?;
+        builder.append(text);
+        let valid = text.len();
         buf.drain(..valid);
         if eof {
             break;

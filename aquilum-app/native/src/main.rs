@@ -10,6 +10,7 @@ mod a11y;
 mod args;
 mod autostart;
 mod app;
+mod clipboard;
 mod cover;
 mod poster;
 mod graph;
@@ -79,6 +80,8 @@ mod workspace;
 
 pub use args::Args;
 
+const WORKERS: usize = 4;
+
 fn main() {
     #[cfg(target_os = "windows")]
     unsafe {
@@ -91,6 +94,7 @@ fn main() {
     if std::env::args().any(|argument| argument == "--mcp-stdio") {
         std::process::exit(aquilum_core::mcp::run_stdio_bridge(workspace::APP_ID));
     }
+    let _ = rayon::ThreadPoolBuilder::new().num_threads(WORKERS).build_global();
     let result = args::parse().and_then(host::run);
     if let Err(err) = &result {
         report!("{err}");

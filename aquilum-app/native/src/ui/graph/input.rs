@@ -86,8 +86,11 @@ impl GraphView {
                 let scale = ctx.scale_factor().max(0.1);
                 match delta {
                     ScrollDelta::LineDelta(_, y) => self.camera.zoom_by((f64::from(*y) * NOTCH_PIXELS * WHEEL_RESPONSE).exp(), cx, cy),
-                    ScrollDelta::PixelDelta(d) if state.modifiers.ctrl() || state.modifiers.meta() => self.camera.zoom_by((d.y / scale * PINCH_RESPONSE).exp(), cx, cy),
-                    ScrollDelta::PixelDelta(d) => self.camera.pan_by(d.x / scale, d.y / scale),
+                    ScrollDelta::PixelDelta(_) if state.modifiers.ctrl() || state.modifiers.meta() => self.camera.zoom_by((crate::ui::scroll::pixels(delta, scale, 0.0).y * PINCH_RESPONSE).exp(), cx, cy),
+                    ScrollDelta::PixelDelta(_) => {
+                        let d = crate::ui::scroll::pixels(delta, scale, 0.0);
+                        self.camera.pan_by(d.x, d.y);
+                    }
                     _ => return,
                 }
                 self.moved();

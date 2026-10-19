@@ -41,7 +41,7 @@ impl TextEditor {
                 let width = cross.map_or(self.width, Length::get);
                 let (fcx, lcx) = ctx.text_contexts();
                 self.ensure_layout(fcx, lcx, width);
-                Length::px(self.doc.height())
+                Length::px(self.doc.height() + self.past_end)
             }
         }
     }

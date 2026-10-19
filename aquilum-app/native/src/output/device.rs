@@ -1,7 +1,7 @@
 use windows::Win32::Foundation::{HMODULE, HWND, RECT};
 use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE, D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP};
 use windows::Win32::Graphics::Direct3D11::{
-    D3D11_BOX, D3D11_CPU_ACCESS_WRITE, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_CREATE_DEVICE_SINGLETHREADED, D3D11_SDK_VERSION,
+    D3D11_BOX, D3D11_CPU_ACCESS_READ, D3D11_CPU_ACCESS_WRITE, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_CREATE_DEVICE_SINGLETHREADED, D3D11_SDK_VERSION,
     D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING, D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D,
 };
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_ALPHA_MODE_IGNORE, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
@@ -47,7 +47,7 @@ pub(super) fn texture(device: &ID3D11Device, width: u32, height: u32) -> windows
         SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
         Usage: D3D11_USAGE_STAGING,
         BindFlags: 0,
-        CPUAccessFlags: D3D11_CPU_ACCESS_WRITE.0 as u32,
+        CPUAccessFlags: (D3D11_CPU_ACCESS_READ.0 | D3D11_CPU_ACCESS_WRITE.0) as u32,
         MiscFlags: 0,
     };
     let mut texture = None;
@@ -64,11 +64,14 @@ pub(super) fn region(a: Area) -> D3D11_BOX {
 }
 
 pub(super) fn create(hwnd: HWND, width: u32, height: u32) -> Result<Gpu, String> {
-    #[cfg(feature = "memory-probe")]
-    let first = if std::env::var_os("AQ_PROBE_HARDWARE").is_some() { D3D_DRIVER_TYPE_HARDWARE } else { D3D_DRIVER_TYPE_WARP };
-    #[cfg(not(feature = "memory-probe"))]
-    let first = D3D_DRIVER_TYPE_WARP;
-    let (device, context) = device(first).or_else(|_| device(D3D_DRIVER_TYPE_HARDWARE)).map_err(|e| format!("D3D11: {e}"))?;
+    let warp = cfg!(feature = "memory-probe") && std::env::var_os("AQ_PROBE_WARP").is_some();
+    let (device, context) = if warp { device(D3D_DRIVER_TYPE_WARP) } else {
+        device(D3D_DRIVER_TYPE_HARDWARE).or_else(|error| {
+            report!("видеокарта недоступна ({error}), вывод через WARP");
+            device(D3D_DRIVER_TYPE_WARP)
+        })
+    }
+    .map_err(|e| format!("D3D11: {e}"))?;
     let factory: IDXGIFactory2 = unsafe { CreateDXGIFactory2(DXGI_CREATE_FACTORY_FLAGS(0)) }.map_err(|e| format!("DXGI: {e}"))?;
     let desc = DXGI_SWAP_CHAIN_DESC1 {
         Width: width,

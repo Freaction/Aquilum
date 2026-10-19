@@ -9,7 +9,7 @@ use super::super::laid::PLAIN;
 
 impl Document {
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn measure(&mut self, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, compose: Option<(usize, &str)>, caret: Option<usize>, rebreak: bool, spans: &[Range<usize>], pinned: &[usize], stale: Option<&Range<usize>>, wanted: &mut Vec<String>) -> bool {
+    pub(super) fn measure(&mut self, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, compose: Option<(usize, &str)>, selection: Option<&Range<usize>>, rebreak: bool, spans: &[Range<usize>], pinned: &[usize], stale: Option<&Range<usize>>, wanted: &mut Vec<String>) -> bool {
         let keep = self.kept();
         let mut line = self.line_height();
         let mut changed = false;
@@ -23,7 +23,7 @@ impl Document {
             let near = self.placed && self.heights.near(i, keep) || pinned.contains(&i);
             let range = self.span(i);
             let composing = compose.filter(|(at, _)| range.contains(at) || *at == range.end);
-            let moved = self.markdown.is_some() && self.local_caret(i, caret) != self.laid.get(i).map_or(&PLAIN, |laid| &laid.decor).caret;
+            let moved = near && self.markdown.is_some() && self.local_selection(i, selection) != self.laid.get(i).map_or(&PLAIN, |laid| &laid.decor).selection;
             let current = composing.is_none() && !moved;
             match self.laid.get_mut(i).filter(|_| current) {
                 Some(laid) => {
@@ -40,7 +40,7 @@ impl Document {
                     }
                 }
                 None => {
-                    let laid = self.lay(i, fcx, lcx, styles, composing, caret);
+                    let laid = self.lay(i, fcx, lcx, styles, composing, selection);
                     changed |= self.heights.set_text(i, laid.height());
                     if self.blocks.get(i).1 == Block::Text && laid.layout.len() == 1 {
                         line = laid.height();

@@ -29,7 +29,7 @@ fn drag(b: &mut Bench, sash: masonry::core::WidgetId, step: f64) -> (std::time::
 fn sash_drag_cost() {
     let vault = vault_with_links(60);
     let mut b = Bench::start(Some(vault.path()));
-    b.h.app.open(&mut b.h.root, vault.path().join("Цель.md"));
+    b.h.open(vault.path().join("Цель.md"));
     wait_until(200, 20, || {
         b.h.deliver();
         b.h.app.listing.as_ref().is_some_and(|l| !l.items.is_empty())

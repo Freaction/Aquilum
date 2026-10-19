@@ -11,6 +11,9 @@ pub(super) struct Checkpoints {
     points: Vec<(usize, State)>,
     rx: Option<Receiver<Vec<(usize, State)>>>,
     edits: Vec<Edited>,
+    covered: usize,
+    wanted: usize,
+    until: usize,
 }
 
 fn moved(at: usize, &((from, to), delta): &Edited) -> Option<usize> {
@@ -24,10 +27,11 @@ fn moved(at: usize, &((from, to), delta): &Edited) -> Option<usize> {
 impl Checkpoints {
     fn start(&mut self, rope: crop::Rope, from: usize, state: State) {
         let (tx, rx) = channel();
-        (self.rx, self.edits) = (Some(rx), Vec::new());
+        let until = self.wanted;
+        (self.rx, self.edits, self.until) = (Some(rx), Vec::new(), until);
         std::thread::spawn(move || {
             let _zone = aq_trace::zone("фон: контрольные точки разбора");
-            scan(rope, from, state, tx);
+            scan(rope, from, state, until, tx);
         });
     }
 
@@ -46,12 +50,13 @@ impl Checkpoints {
         };
         if finished {
             (self.rx, self.edits) = (None, Vec::new());
+            self.covered = self.covered.max(self.until);
         }
         finished || self.points.len() != before
     }
 
     fn reached(&self, byte: usize) -> bool {
-        self.rx.is_none() || self.points.last().is_some_and(|&(at, _)| at >= byte)
+        self.covered >= byte || self.points.last().is_some_and(|&(at, _)| at >= byte)
     }
 
     fn before(&self, byte: usize) -> Option<(usize, State)> {
@@ -62,6 +67,7 @@ impl Checkpoints {
     fn edited(&mut self, window: (usize, usize), delta: isize) {
         let edit = (window, delta);
         self.points.retain_mut(|(at, _)| moved(*at, &edit).map(|to| *at = to).is_some());
+        self.covered = moved(self.covered, &edit).unwrap_or(window.0);
         if self.rx.is_some() {
             self.edits.push(edit);
         }
@@ -70,19 +76,26 @@ impl Checkpoints {
     fn cut(&mut self, from: usize) {
         self.rx = None;
         self.points.retain(|(at, _)| *at < from);
+        self.covered = self.covered.min(from);
     }
 }
 
 impl Document {
     pub(super) fn rescan(&mut self) {
         self.points = Checkpoints::default();
-        if self.windowed {
-            self.points.start(self.full.clone(), 0, State::default());
+    }
+
+    fn want(&mut self, byte: usize) {
+        self.points.wanted = self.points.wanted.max(byte);
+        if self.windowed && self.points.rx.is_none() && !self.points.reached(self.points.wanted) {
+            let (from, state) = self.points.points.last().copied().unwrap_or_default();
+            self.points.start(self.full.clone(), from, state);
         }
     }
 
     pub(super) fn checkpoint(&mut self, byte: usize) -> State {
         self.points.poll();
+        self.want(byte);
         match self.points.before(byte) {
             Some((at, state)) if self.points.reached(byte) => walk(&self.full, at, state, 0, |start, _| start < byte),
             _ => State::default(),
@@ -90,7 +103,11 @@ impl Document {
     }
 
     pub(super) fn refresh_entry(&mut self) {
-        if self.base > 0 && self.points.poll() && self.points.reached(self.base) {
+        if self.base == 0 || !self.points.poll() {
+            return;
+        }
+        self.want(self.base);
+        if self.points.reached(self.base) {
             let entry = self.checkpoint(self.base);
             if entry != self.entry {
                 self.entry = entry;
@@ -122,7 +139,7 @@ mod tests {
     #[test]
     fn points_of_a_running_scan_follow_later_edits_and_the_end_is_reached() {
         let (tx, rx) = channel();
-        let mut points = Checkpoints { rx: Some(rx), ..Checkpoints::default() };
+        let mut points = Checkpoints { rx: Some(rx), until: 400, ..Checkpoints::default() };
         points.edited((100, 200), 5);
         tx.send([50, 150, 300].map(|at| (at, State::default())).to_vec()).unwrap();
         assert!(points.poll());

@@ -62,6 +62,10 @@ impl Item {
         self.indent()..self.indent() + usize::from(self.width)
     }
 
+    pub fn symbol(&self) -> Range<usize> {
+        self.indent()..self.indent() + usize::from(self.width) - 1
+    }
+
     pub fn task(&self) -> Option<(Range<usize>, bool)> {
         let end = self.marker().end;
         (self.boxed > 0).then(|| (end..end + usize::from(self.boxed), self.done))

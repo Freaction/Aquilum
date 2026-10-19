@@ -119,7 +119,7 @@ impl Widget for EditorColumn {
         crate::images::show(inner * ctx.scale_factor().max(1.0));
         let auto = SizeDef::new(LenDef::Fixed(Length::px(inner)), LenDef::MaxContent);
         let child = ctx.compute_size(&mut self.child, auto, Size::new(inner, size_.height).into());
-        ctx.run_layout(&mut self.child, Size::new(inner, child.height));
+        ctx.run_layout(&mut self.child, Size::new(inner, child.height.max(size_.height)));
         ctx.place_child(&mut self.child, Point::new(((size_.width - inner) / 2.0).round(), 0.0));
     }
 

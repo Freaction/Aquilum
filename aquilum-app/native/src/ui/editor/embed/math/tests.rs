@@ -78,7 +78,7 @@ fn laid(text: &str, caret: Option<usize>) -> Document {
     for property in crate::ui::style::editor_text() {
         styles.insert(property);
     }
-    doc.layout(&mut FontContext::default(), &mut LayoutContext::new(), &styles, Some(600.0), None, caret);
+    doc.layout(&mut FontContext::default(), &mut LayoutContext::new(), &styles, Some(600.0), None, caret.map(|c| c..c));
     doc
 }
 

@@ -34,9 +34,16 @@ impl App {
         true
     }
 
+    pub(in crate::app) fn drop_version(&mut self, root: &mut RenderRoot) {
+        self.version_view = None;
+        if let Some(chrome) = &self.chrome {
+            chrome.version_page.edit(root, |mut slot| Slot::clear(&mut slot));
+        }
+    }
+
     pub(super) fn close_version(&mut self, root: &mut RenderRoot) {
         self.opened_versions.remove(&self.tabs.active_id());
-        self.version_view = None;
+        self.drop_version(root);
         self.show_page(root, 0);
         self.render_history(root);
     }

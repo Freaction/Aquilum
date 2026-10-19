@@ -25,9 +25,7 @@ fn the_writer_lives_only_while_there_is_something_to_write() {
     assert!(!synchronizer.holds_writer(), "открытие не создаёт писателя");
 
     synchronizer.full_scan(&cancelled).unwrap();
-    assert!(synchronizer.holds_writer(), "новая заметка записана писателем");
-    synchronizer.release_writer().unwrap();
-    assert!(!synchronizer.holds_writer());
+    assert!(!synchronizer.holds_writer(), "писатель не отпущен после записи");
     drop(index.index.writer::<tantivy::TantivyDocument>(15_000_000).expect("блокировка индекса отпущена"));
 
     synchronizer.full_scan(&cancelled).unwrap();
@@ -35,6 +33,6 @@ fn the_writer_lives_only_while_there_is_something_to_write() {
 
     fs::write(&note, "второе слово").unwrap();
     synchronizer.apply_paths(HashSet::from([note])).unwrap();
-    assert!(synchronizer.holds_writer());
+    assert!(!synchronizer.holds_writer(), "писатель не отпущен после правки");
     assert!(!index.search(&crate::search::query::Request::new("второе")).unwrap().results.is_empty(), "правка видна поиску сразу");
 }

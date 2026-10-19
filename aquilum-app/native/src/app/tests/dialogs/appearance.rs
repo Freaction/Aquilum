@@ -36,7 +36,7 @@ fn primary_color_typed_into_field() {
 fn restyle_matches_fresh_build() {
     let mut h = Harness::new();
     let note = h.write_note("заметка.md", "# Заголовок\n\nТекст заметки с [[ссылкой]] и **жирным**.\n\n- пункт\n- [ ] задача");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     h.app.open_settings(&mut h.root);
     let templates = h.nav(Section::Data);
     h.act(templates, crate::ui::widgets::Pressed);

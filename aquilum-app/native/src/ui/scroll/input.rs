@@ -1,39 +1,21 @@
 use masonry::core::{EventCtx, PointerButton, PointerEvent, PointerScrollEvent, ScrollDelta, Widget};
 use masonry::kurbo::Axis;
 
-use super::LINE;
 use super::area::ScrollArea;
+use super::{pixels, sideways};
 
 impl<W: Widget> ScrollArea<W> {
-    fn wheel_delta(&self, x: f64, y: f64, shift: bool) -> f64 {
-        match self.axis {
-            Axis::Vertical => y,
-            Axis::Horizontal if shift && x == 0.0 => y,
-            Axis::Horizontal if x.abs() > y.abs() => x,
-            Axis::Horizontal => 0.0,
-        }
-    }
 
     pub(super) fn pointer(&mut self, ctx: &mut EventCtx<'_>, event: &PointerEvent) {
         match event {
             PointerEvent::Scroll(PointerScrollEvent { delta, state, .. }) => {
                 let before = (self.offset, self.glide.map(|g| g.to));
-                let shift = state.modifiers.shift();
-                match *delta {
-                    ScrollDelta::LineDelta(x, y) => {
-                        if self.glide_by(-self.wheel_delta(f64::from(x), f64::from(y), shift) * LINE) {
-                            ctx.request_anim_frame();
-                        }
-                    }
-                    ScrollDelta::PixelDelta(p) => {
-                        let d = self.wheel_delta(p.x, p.y, shift);
-                        self.jump(self.offset - d / ctx.scale_factor());
-                    }
-                    ScrollDelta::PageDelta(x, y) => {
-                        if self.glide_by(-self.wheel_delta(f64::from(x), f64::from(y), shift) * self.view()) {
-                            ctx.request_anim_frame();
-                        }
-                    }
+                let d = pixels(delta, ctx.scale_factor(), self.view());
+                let d = if self.axis == Axis::Vertical { d.y } else { sideways(d, state.modifiers.shift()) };
+                if matches!(delta, ScrollDelta::PixelDelta(_)) {
+                    self.jump(self.offset - d);
+                } else if self.glide_by(-d) {
+                    ctx.request_anim_frame();
                 }
                 if (self.offset, self.glide.map(|g| g.to)) != before {
                     ctx.request_compose();

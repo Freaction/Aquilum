@@ -117,6 +117,7 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
         .styled(style::editor_text)
         .markdown()
         .report_edits()
+        .past_end(size::EDITOR_PADDING_Y + size::EDITOR_SCROLL_PAST_END)
         .with_resolver(view.resolver.clone())
         .with_wake(std::sync::Arc::clone(&view.wake))
         .with_smart(view.smart);
@@ -128,7 +129,7 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
         .with_fixed(error_slot)
         .with_fixed(title_field)
         .with_fixed(metadata)
-        .with_fixed(body_area);
+        .with(body_area, 1.0);
     let parts = hero_parts(view.hero);
     let hero = parts.hero;
     let hero_slot = Slot::fit(parts.widget);
@@ -137,17 +138,11 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let spacer_handle = Handle::of(&spacer);
     let column = EditorColumn::new(NewWidget::new(content), parts.inset, view.wide);
     let column_handle = Handle::of(&column);
-    let wrapper = NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(spacer).with_fixed(column)).with_props(
-        PropertySet::new().with(Padding {
-            top: Length::ZERO,
-            bottom: Length::px(size::EDITOR_PADDING_Y + size::EDITOR_SCROLL_PAST_END),
-            left: Length::px(size::EDITOR_PADDING_X),
-            right: Length::px(size::EDITOR_PADDING_X),
-        }),
-    );
-    let scroller = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(hero_slot).with_fixed(wrapper);
-    let scroller = NewWidget::new(scroller).with_class(style::EDITOR);
-    let scroll = NewWidget::new(ScrollArea::new(scroller));
+    let wrapper = NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(spacer).with(column, 1.0))
+        .with_props(PropertySet::new().with(Padding::horizontal(Length::px(size::EDITOR_PADDING_X))));
+    let scroller = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(hero_slot).with(wrapper, 1.0);
+    let scroller = NewWidget::new(scroller);
+    let scroll = NewWidget::new(ScrollArea::new(scroller).fill(true));
     let scroll_handle = Handle::of(&scroll);
     let find = Slot::fit(NewWidget::new(SizedBox::empty()).erased());
     let find_handle = Handle::of(&find);

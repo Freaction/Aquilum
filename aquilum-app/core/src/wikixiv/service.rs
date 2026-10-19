@@ -1,4 +1,4 @@
-use super::cache::{content_hash, HitCache};
+use super::cache::content_hash;
 use super::extract::{body_term_lang, extract_queries, has_enough_text, is_cyrillic};
 use super::http::HttpClient;
 use super::models::{SearchRequest, WikixivHit, WikixivSearchResult};
@@ -7,7 +7,10 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use crate::recent::Recent;
+
 const MAX_TOTAL_HITS: usize = 20;
+const CACHED_SEARCHES: usize = 32;
 
 #[derive(Clone)]
 pub struct WikixivService {
@@ -17,7 +20,7 @@ pub struct WikixivService {
 struct Inner {
     client: HttpClient,
     generation: AtomicU64,
-    cache: Mutex<HitCache>,
+    cache: Mutex<Recent<blake3::Hash, Vec<WikixivHit>>>,
 }
 
 impl WikixivService {
@@ -26,8 +29,14 @@ impl WikixivService {
             inner: Arc::new(Inner {
                 client: HttpClient::new(),
                 generation: AtomicU64::new(0),
-                cache: Mutex::new(HitCache::new()),
+                cache: Mutex::new(Recent::new(CACHED_SEARCHES, usize::MAX)),
             }),
+        }
+    }
+
+    pub fn forget(&self) {
+        if let Ok(mut cache) = self.inner.cache.lock() {
+            cache.clear();
         }
     }
 
@@ -61,7 +70,7 @@ impl WikixivService {
 
         let cache_key = content_hash(request.document_path.as_deref(), text);
         if let Ok(mut cache) = self.inner.cache.lock() {
-            if let Some(hits) = cache.get(&cache_key) {
+            if let Some(hits) = cache.get(&cache_key).cloned() {
                 if self.is_current(request.generation) {
                     return Ok(WikixivSearchResult {
                         hits,
@@ -83,7 +92,7 @@ impl WikixivService {
                 hits.truncate(MAX_TOTAL_HITS);
                 if !hits.is_empty() {
                     if let Ok(mut cache) = self.inner.cache.lock() {
-                        cache.put(cache_key, hits.clone());
+                        cache.put(cache_key, hits.clone(), 0);
                     }
                 }
                 Ok(WikixivSearchResult {

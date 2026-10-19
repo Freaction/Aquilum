@@ -11,7 +11,6 @@ use std::path::Path;
 
 use masonry::app::RenderRoot;
 use masonry::core::{NewWidget, Widget};
-use masonry::widgets::SizedBox;
 
 use super::App;
 use crate::frontmatter;
@@ -93,7 +92,7 @@ impl App {
             ids.error_slot.edit(root, |mut slot| Slot::set_child(&mut slot, banner.erased()));
         } else {
             self.save_error_ids = None;
-            ids.error_slot.edit(root, |mut slot| Slot::set_child(&mut slot, NewWidget::new(SizedBox::empty()).erased()));
+            ids.error_slot.edit(root, |mut slot| Slot::clear(&mut slot));
         }
     }
 

@@ -69,14 +69,17 @@ impl Navigation {
     }
 
     fn save(&self) {
-        let Some(root) = &self.root else { return };
-        let mut all = load_all(&self.file);
-        let entries = self.entries.iter().filter_map(|p| relative(root, p)).collect();
-        all.insert(comparable(root), Stored { entries, index: self.index.map_or(-1, |i| i as i64) });
-        let Ok(json) = serde_json::to_string(&all) else { return };
-        if let Err(e) = write_content_atomic(&self.file, &json, None) {
-            report!("история переходов не сохранена: {e}");
-        }
+        let Some(root) = self.root.clone() else { return };
+        let stored = Stored { entries: self.entries.iter().filter_map(|p| relative(&root, p)).collect(), index: self.index.map_or(-1, |i| i as i64) };
+        let file = self.file.clone();
+        crate::disk::run(move || {
+            let mut all = load_all(&file);
+            all.insert(comparable(&root), stored);
+            let Ok(json) = serde_json::to_string(&all) else { return };
+            if let Err(e) = write_content_atomic(&file, &json, None) {
+                report!("история переходов не сохранена: {e}");
+            }
+        });
     }
 }
 
@@ -103,6 +106,7 @@ mod tests {
         assert!(nav.can_forward());
         nav.push(&c);
         assert!(!nav.can_forward());
+        crate::disk::wait();
         let nav = Navigation::load(data.path(), Some(&root));
         assert!(nav.can_back());
         assert_eq!(nav.entries, vec![a, c]);

@@ -1,31 +1,36 @@
-use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+
+use aquilum_core::recent::Recent;
 
 use super::Inner;
 use crate::ui::editor::resolve::{Fetch, Media};
 
 const RECENT: usize = 24;
 
-static LOADED: Mutex<VecDeque<(String, PathBuf, bool)>> = Mutex::new(VecDeque::new());
+static LOADED: Mutex<Recent<String, (PathBuf, bool)>> = Mutex::new(Recent::new(RECENT, usize::MAX));
 
 pub(super) fn recent(key: &str) -> Option<Media> {
-    let (path, video) = LOADED.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(k, _, _)| k == key).map(|(_, p, v)| (p.clone(), *v))?;
+    let (path, video) = LOADED.lock().unwrap_or_else(|e| e.into_inner()).get(key).cloned()?;
     let picture = crate::images::cached(&path)?;
     Some(Media { image: Some(picture.image), natural: picture.natural, video, path: Some(path) })
 }
 
 #[cfg(test)]
 pub(super) fn recent_count(prefix: &str) -> usize {
-    LOADED.lock().unwrap_or_else(|e| e.into_inner()).iter().filter(|(k, _, _)| k.starts_with(prefix)).count()
+    LOADED.lock().unwrap_or_else(|e| e.into_inner()).iter().filter(|(k, _)| k.starts_with(prefix)).count()
+}
+
+pub fn forget_recent() {
+    LOADED.lock().unwrap_or_else(|e| e.into_inner()).clear();
 }
 
 pub(super) fn forget_key(key: &str) {
-    LOADED.lock().unwrap_or_else(|e| e.into_inner()).retain(|(k, _, _)| k != key);
+    LOADED.lock().unwrap_or_else(|e| e.into_inner()).retain(|k, _| k != key);
 }
 
 pub(super) fn forget(paths: &[PathBuf]) {
-    LOADED.lock().unwrap_or_else(|e| e.into_inner()).retain(|(_, p, _)| !paths.contains(p));
+    LOADED.lock().unwrap_or_else(|e| e.into_inner()).retain(|_, (p, _)| !paths.contains(p));
 }
 
 const REMOTE_DAYS: u64 = 30;
@@ -43,10 +48,7 @@ pub fn prune_remote(dir: &Path) {
 
 pub(super) fn remember(key: String, media: &Media) {
     let Some(path) = media.path.clone() else { return };
-    let mut loaded = LOADED.lock().unwrap_or_else(|e| e.into_inner());
-    loaded.retain(|(k, _, _)| *k != key);
-    loaded.push_front((key, path, media.video));
-    loaded.truncate(RECENT);
+    LOADED.lock().unwrap_or_else(|e| e.into_inner()).put(key, (path, media.video), 0);
 }
 
 pub(super) fn locate(inner: &Inner, source: &str) -> Option<PathBuf> {

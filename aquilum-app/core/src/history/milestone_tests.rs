@@ -1,4 +1,5 @@
 use super::{fits, is_small, plan, Incoming, MilestonePlan, Recorded, Source, CAP, IDLE};
+use crate::history::delta::single;
 use crate::history::store::VersionFile;
 use crate::text::content::Splice;
 use std::collections::HashMap;
@@ -84,8 +85,9 @@ fn a_change_is_small_by_characters_and_fits_by_bytes() {
     let base = "было";
     let text = format!("было{}", "я".repeat(150));
     let splice = Splice { at: base.len(), removed: 0, inserted: text.len() - base.len() };
-    assert!(is_small(&base, &text.as_str(), splice).unwrap());
+    assert!(is_small(&text.as_str(), &single(splice)).unwrap());
     let long = format!("было{}", "я".repeat(250));
-    assert!(!is_small(&base, &long.as_str(), Splice { inserted: long.len() - base.len(), ..splice }).unwrap());
-    assert!(fits(1000, splice) && !fits(1 << 20, splice));
+    assert!(!is_small(&long.as_str(), &single(Splice { inserted: long.len() - base.len(), ..splice })).unwrap());
+    assert!(!is_small(&text.as_str(), &single(Splice { removed: 200, ..splice })).unwrap(), "удаление в 200 байт не мелкая правка");
+    assert!(fits(1000, &single(splice)) && !fits(1 << 20, &single(splice)));
 }

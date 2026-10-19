@@ -7,7 +7,7 @@ fn reader_snapshot() {
     let book = std::path::PathBuf::from(std::env::var("AQ_BOOK").unwrap());
     let mut h = Harness::new();
     let note = h.vault.path().join("a.md");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let _ = h.root.redraw();
     open_book(&mut h, &book, None, &book.file_stem().unwrap().to_string_lossy());
     let size = h.root.size();
@@ -46,7 +46,7 @@ fn quote_links_open_reader_at_quote() {
     std::fs::create_dir_all(vault.join(&book).parent().unwrap()).unwrap();
     std::fs::copy(source_vault.join(&book), vault.join(&book)).unwrap();
     let note = h.write_note(&source_note.file_name().unwrap().to_string_lossy(), &doc);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let _ = h.root.redraw();
     for (n, line) in doc.lines().filter(|l| crate::links::reader::is_reader(l.rsplit_once("](").map_or("", |(_, href)| href))).enumerate() {
         let href = line.rsplit_once("](").unwrap().1.trim_end().trim_end_matches(')');

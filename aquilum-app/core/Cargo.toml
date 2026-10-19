@@ -1,6 +1,6 @@
 [package]
 name = "aquilum-core"
-version = "0.3.11"
+version = "0.3.12"
 description = "Aquilum core: documents, files, search, history and settings without any UI"
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"
@@ -24,6 +24,7 @@ ureq = "2.12"
 httparse = "1"
 yrs = "0.28"
 memchr = "2"
+simdutf8 = "0.1.5"
 
 [dev-dependencies]
 tempfile = "3"

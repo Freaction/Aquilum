@@ -95,11 +95,8 @@ impl ReaderView {
                 if self.popover.is_some() {
                     return;
                 }
-                let (dx, dy) = match delta {
-                    ScrollDelta::PixelDelta(d) => (d.x / ctx.scale_factor(), d.y / ctx.scale_factor()),
-                    ScrollDelta::LineDelta(x, y) => (f64::from(*x) * crate::ui::scroll::LINE, f64::from(*y) * crate::ui::scroll::LINE),
-                    _ => (0.0, 0.0),
-                };
+                let d = crate::ui::scroll::pixels(delta, ctx.scale_factor(), ctx.content_box().height());
+                let (dx, dy) = (d.x, d.y);
                 if self.settings.scrolled {
                     let changed = self.session.scroll_by(-dy);
                     self.moved(ctx, changed);

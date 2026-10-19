@@ -10,7 +10,7 @@ use super::super::embed::{self, Font, MediaView, Spec, View};
 use super::super::embed::media;
 use super::super::highlight::Lang;
 use super::super::resolve::{Fetch, Grid, Media};
-use super::super::markdown::{self, Block, Callout, Frame};
+use super::super::markdown::{self, Block, Callout, Frame, Part, Reveal};
 use super::super::table::{self, TableView};
 use super::{Document, Embed, text};
 
@@ -22,14 +22,6 @@ enum Fetched {
     Media(media::EmbedLine, Fetch<Media>),
     Books(Vec<embed::BookRow>),
     Math(String),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Reveal {
-    Never,
-    Source,
-    Above,
-    Below,
 }
 
 fn book_header(header: &str) -> (bool, String, String) {
@@ -48,10 +40,10 @@ impl Document {
         let until = |pred: &dyn Fn(&Block) -> bool| (i..count).find(|j| pred(block(*j)));
         let resolved = self.resolver.is_some();
         match block(i) {
-            Block::Table { first: true, .. } => until(&|b| matches!(b, Block::Table { last: true, .. })).map(|e| (e, Reveal::Never)),
-            Block::Code { first: true, lang: Some(Lang::Math), .. } => until(&|b| matches!(b, Block::Code { last: true, .. })).map(|e| (e, Reveal::Below)),
-            Block::Code { first: true, lang: Some(Lang::Dataview), .. } if resolved => until(&|b| matches!(b, Block::Code { last: true, .. })).map(|e| (e, Reveal::Source)),
-            Block::Image if resolved => Some((i, Reveal::Above)),
+            Block::Table { first: true, .. } => until(&|b| matches!(b, Block::Table { last: true, .. })).map(|e| (e, Part::Table.reveal())),
+            Block::Code { first: true, lang: Some(Lang::Math), .. } => until(&|b| matches!(b, Block::Code { last: true, .. })).map(|e| (e, Part::Math.reveal())),
+            Block::Code { first: true, lang: Some(Lang::Dataview), .. } if resolved => until(&|b| matches!(b, Block::Code { last: true, .. })).map(|e| (e, Part::Dataview.reveal())),
+            Block::Image if resolved => Some((i, Part::Image.reveal())),
             Block::Callout { kind: Callout::Book, .. } if resolved => {
                 let book = |j: usize| matches!(block(j), Block::Callout { kind: Callout::Book, .. });
                 let quoted = |j: usize| self.blocks.get(j).0.quote > 0 && !matches!(block(j), Block::Callout { .. });
@@ -70,7 +62,7 @@ impl Document {
                         None => break,
                     }
                 }
-                Some((end, Reveal::Source))
+                Some((end, Part::Book.reveal()))
             }
             _ => None,
         }

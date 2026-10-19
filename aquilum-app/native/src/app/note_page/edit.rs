@@ -8,7 +8,7 @@ use crate::ui::widgets::Slot;
 
 impl App {
     pub(super) fn body_edited(&mut self, root: &mut RenderRoot, edits: &[crate::ui::editor::Edit]) {
-        let could_affect_frontmatter = self.hidden == 0 && edits.iter().any(|edit| edit.range.start == 0);
+        let could_affect_frontmatter = self.hidden == 0 && edits.iter().any(|edit| edit.head);
         let had = if could_affect_frontmatter { self.has_frontmatter() } else { self.hidden > 0 };
         if let Some(note) = &mut self.note {
             for edit in edits {

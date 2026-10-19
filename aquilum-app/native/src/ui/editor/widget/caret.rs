@@ -95,7 +95,9 @@ impl TextEditor {
         let i = self.doc.at_y(point.y.clamp(0.0, self.doc.height()));
         let p = self.doc.paragraph(i);
         if matches!(p.fold, Fold::Head | Fold::Member) {
-            return (p.start, Affinity::Downstream);
+            let head = (0..=i).rev().find(|&j| self.doc.paragraph(j).fold == Fold::Head).unwrap_or(i);
+            let below = point.y > (self.doc.top(head) + self.doc.bottom(head)) / 2.0;
+            return (if below { (self.doc.folded_end(head) + 1).min(self.doc.len()) } else { self.doc.paragraph(head).start }, Affinity::Downstream);
         }
         let local = point - self.doc.origin(i);
         let Some(layout) = p.laid() else { return (p.start, Affinity::Downstream) };

@@ -4,8 +4,7 @@
 use masonry::app::RenderRoot;
 use masonry::core::keyboard::{Key, Modifiers};
 use crate::ui::keymap::{self, Command, Scope};
-use masonry::core::{ErasedAction, NewWidget, WidgetId};
-use masonry::widgets::SizedBox;
+use masonry::core::{ErasedAction, WidgetId};
 use crate::ui::editor::TextAction;
 
 use super::App;
@@ -27,7 +26,7 @@ impl App {
 
     fn close_find(&mut self, root: &mut RenderRoot) {
         let (Some(_), Some(ids)) = (self.find.take(), &self.note_ids) else { return };
-        ids.find.edit(root, |mut slot| Slot::set_child(&mut slot, NewWidget::new(SizedBox::empty()).erased()));
+        ids.find.edit(root, |mut slot| Slot::clear(&mut slot));
         ids.body.edit(root, |mut body| TextEditor::find(&mut body, ""));
         root.focus_on(Some(ids.body.id()));
     }

@@ -85,7 +85,7 @@ impl Harness {
 }
 
 #[cfg(feature = "memory-probe")]
-fn wait_index(core: &aquilum_core::Core, workspace: &str) -> bool {
+pub(super) fn wait_index(core: &aquilum_core::Core, workspace: &str) -> bool {
     wait_until(6000, 50, || {
         let status = core.search.status(Some(workspace));
         status.state == aquilum_core::search::models::SearchIndexState::Ready && !status.updating

@@ -74,14 +74,21 @@ impl Host {
     }
 
     pub(super) fn trim(&mut self) {
-        self.renderer.trim();
+        if let Some(root) = self.root.as_mut() {
+            self.app.forget(crate::app::Moment::Hide, root);
+        }
+        self.trim_renderer();
         if let Some(output) = &mut self.output {
             output.trim();
         }
         self.layers = None;
-        self.full_next = true;
-        crate::images::trim();
-        crate::cover::trim();
+    }
+
+    pub(super) fn trim_renderer(&mut self) {
+        if crate::render::take_trim() {
+            self.renderer.trim();
+            self.full_next = true;
+        }
     }
 
     pub(super) fn close(&mut self, event_loop: &dyn ActiveEventLoop) {
@@ -99,6 +106,7 @@ impl Host {
 impl Drop for Host {
     fn drop(&mut self) {
         self.app.shutdown();
+        crate::clipboard::release();
         if self.args.size.is_none()
             && let Some(window) = &self.window
         {

@@ -1,4 +1,6 @@
 mod city;
+
+pub use city::forget as forget_tile;
 mod dreams;
 mod tunnel;
 

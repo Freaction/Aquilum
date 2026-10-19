@@ -60,7 +60,11 @@ fn big_note_typing_memory() {
     let base = heap();
     eprintln!("до открытия · {}", private());
     phase(&mut b, "открытие", base, |b| {
+        let started = Instant::now();
         b.h.app.open(&mut b.h.root, note.clone());
+        let asked = started.elapsed();
+        b.h.parked();
+        eprintln!("  главный поток занят {asked:?}, текст готов через {:?}", started.elapsed());
         b.timed(true);
     });
     phase(&mut b, "фон после открытия 10 с", base, |b| {

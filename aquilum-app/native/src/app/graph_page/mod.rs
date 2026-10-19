@@ -6,8 +6,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
 use masonry::app::RenderRoot;
-use masonry::core::{NewWidget, WidgetId};
-use masonry::widgets::SizedBox;
+use masonry::core::WidgetId;
 
 use super::App;
 use crate::graph::Graph;
@@ -111,18 +110,25 @@ impl App {
     }
 
     pub(super) fn release_graph(&mut self, root: &mut RenderRoot) {
-        if self.tabs.has_graph() || (self.graph.view.is_none() && self.graph.data.is_none()) {
+        if self.graph_active() || (self.graph.view.is_none() && self.graph.data.is_none()) {
             return;
         }
         self.graph.view = None;
         self.graph.controls = None;
         self.graph.data = None;
+        self.graph.loading = false;
         self.graph.failed = None;
         self.graph.stale = false;
         self.graph.share = 0.0;
         self.graph.generation += 1;
         if let Some(chrome) = &self.chrome {
-            chrome.graph_page.edit(root, |mut slot| Slot::set_child(&mut slot, NewWidget::new(SizedBox::empty()).erased()));
+            chrome.graph_page.edit(root, |mut slot| Slot::clear(&mut slot));
+        }
+    }
+
+    pub(super) fn drop_graph_frames(&mut self, root: &mut RenderRoot) {
+        if let Some(view) = self.graph.view {
+            view.edit(root, |mut view| GraphView::drop_frames(&mut view));
         }
     }
 

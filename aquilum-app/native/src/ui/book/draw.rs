@@ -1,3 +1,5 @@
+use aquilum_core::recent::Recent;
+
 use super::*;
 
 pub(super) type BakeKey = (u16, u16, usize, u64, i64);
@@ -47,18 +49,19 @@ pub(super) fn linear(from: Point, to: Point, stops: &[(f32, Color)]) -> Gradient
     Gradient::new_linear(from, to).with_stops(stops.iter().map(|(o, c)| ColorStop::from((*o, *c))).collect::<Vec<_>>().as_slice())
 }
 
+static CACHE: std::sync::Mutex<Recent<(u8, u32, u32), ImageBrush>> = std::sync::Mutex::new(Recent::new(8, usize::MAX));
+
+pub fn forget() {
+    CACHE.lock().unwrap_or_else(|e| e.into_inner()).clear();
+}
+
 pub(super) fn cached(kind: u8, width: u32, height: u32, make: impl FnOnce() -> Option<ImageBrush>) -> Option<ImageBrush> {
-    static CACHE: std::sync::Mutex<Vec<((u8, u32, u32), ImageBrush)>> = std::sync::Mutex::new(Vec::new());
     let key = (kind, width, height);
-    if let Some((_, image)) = CACHE.lock().ok()?.iter().find(|(k, _)| *k == key) {
+    if let Some(image) = CACHE.lock().ok()?.get(&key) {
         return Some(image.clone());
     }
     let image = make()?;
-    let mut cache = CACHE.lock().ok()?;
-    if cache.len() >= 8 {
-        cache.remove(0);
-    }
-    cache.push((key, image.clone()));
+    CACHE.lock().ok()?.put(key, image.clone(), 0);
     Some(image)
 }
 

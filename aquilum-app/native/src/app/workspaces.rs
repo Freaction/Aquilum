@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use masonry::app::RenderRoot;
@@ -181,15 +180,7 @@ impl App {
         self.vault_error = None;
         self.renaming_tab = None;
         self.rename_field = None;
-        self.listing = None;
-        self.panel_body = None;
-        self.history = None;
-        self.history_body = None;
-        self.opened_versions = HashMap::new();
-        self.version_view = None;
-        self.version_notice = None;
-        self.home = None;
-        self.graph = super::graph_page::GraphState::default();
+        self.forget(super::Moment::Vault, root);
         self.start_index();
         self.refresh_home();
         self.cleanup_retention();

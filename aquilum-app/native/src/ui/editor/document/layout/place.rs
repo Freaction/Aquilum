@@ -1,14 +1,15 @@
+use std::ops::Range;
+
 use masonry::core::{BrushIndex, StyleSet};
 use masonry::parley::{FontContext, LayoutContext};
 
 use super::super::super::highlight::Lang;
-use super::super::super::markdown::Block;
-use super::super::embeds::Reveal;
+use super::super::super::markdown::{Block, Reveal};
 use super::super::{Document, Fold};
 
 impl Document {
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn place(&mut self, from: usize, until: usize, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, width: Option<f32>, caret: Option<usize>) {
+    pub(super) fn place(&mut self, from: usize, until: usize, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, width: Option<f32>, selection: Option<&Range<usize>>) {
         let all = !self.placed;
         let len = self.lines.count();
         let (mut i, until) = if all { (0, len) } else { (from.min(len.saturating_sub(1)), until.min(len)) };
@@ -26,25 +27,26 @@ impl Document {
         };
         while i < until {
             if let Some((end, reveal)) = self.run_end(i) {
-                let span = self.start(i)..=self.base + self.lines.end(end);
-                let inside = caret.is_some_and(|c| span.contains(&c));
+                let span = self.start(i)..self.base + self.lines.end(end);
+                let open = reveal.opened(selection, &span) || reveal == Reveal::Above && self.source == Some(span.start);
+                let held = self.pins.iter().any(|&pin| span.start <= pin && pin <= span.end);
                 let known = match self.heights.fold(i) {
                     Fold::Head => Some(self.heights.get(i)),
                     Fold::Above => Some(self.heights.get(i) - self.heights.text(i)),
                     _ => None,
                 };
                 let guess = known.unwrap_or_else(|| (i..=end).map(|k| self.heights.text(k)).sum());
-                let far = !inside && self.source != Some(*span.start()) && (top + guess < keep.0 || top > keep.1);
+                let far = !held && (top + guess < keep.0 || top > keep.1);
                 let built = if far {
                     self.embeds.remove(i);
                     Some(guess)
                 } else {
-                    (!(inside && reveal == Reveal::Source)).then(|| self.embed(i, end, fcx, lcx, styles, width)).flatten()
+                    (!(open && reveal == Reveal::Block)).then(|| self.embed(i, end, fcx, lcx, styles, width)).flatten()
                 };
                 if let Some(height) = built {
                     let beside = match reveal {
-                        Reveal::Above if self.source == Some(*span.start()) => Some((i, Fold::Above)),
-                        Reveal::Below if inside => Some((end, Fold::Below)),
+                        Reveal::Above if open => Some((i, Fold::Above)),
+                        Reveal::Below if open => Some((end, Fold::Below)),
                         _ => None,
                     };
                     if let Some((at, fold)) = beside {

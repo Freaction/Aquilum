@@ -4,6 +4,7 @@ impl Host {
     pub(super) fn redraw(&mut self) {
         let _zone = aq_trace::zone("кадр");
         let t0 = Instant::now();
+        self.trim_renderer();
         let (Some(window), Some(output), Some(root)) = (self.window.clone(), self.output.as_mut(), self.root.as_mut()) else { return };
         let size = window.surface_size();
         if size.width == 0 || size.height == 0 {

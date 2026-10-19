@@ -18,7 +18,7 @@ fn big_note_open_memory() {
     trace(true);
     let base = heap();
     reset_peak();
-    b.h.app.open(&mut b.h.root, note);
+    b.h.open(note);
     b.timed(true);
     eprintln!("открытие и первый кадр: пик +{:.0} МБ, после +{:.0} МБ", mb(peak() - base), mb(heap() - base));
     let (mut top, mut snapshot) = (heap(), report());

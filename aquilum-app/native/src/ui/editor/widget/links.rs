@@ -16,7 +16,7 @@ impl TextEditor {
         let i = self.index_at(point)?;
         let p = self.doc.paragraph(i);
         let (range, done) = p.block.item()?.task()?;
-        if p.laid().is_none() || matches!(p.fold, Fold::Head | Fold::Member) || p.decor().caret.is_some_and(|c| range.start <= c && c <= range.end) {
+        if p.laid().is_none() || matches!(p.fold, Fold::Head | Fold::Member) || markdown::Part::Task.shown(p.decor().selection.as_ref(), &range) {
             return None;
         }
         let rect = self.checkbox_rect(i, range.start);

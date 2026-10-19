@@ -27,6 +27,10 @@ impl Host {
         let mut retitle = false;
         if let Some(root) = &mut self.root {
             retitle = self.app.on_core_events(root);
+            if self.args.focus && let Some(editor) = self.app.editor_id() {
+                root.focus_on(Some(editor));
+                self.args.focus = false;
+            }
             for request in self.accessibility.as_ref().map(Accessibility::drain).unwrap_or_default() {
                 match request {
                     a11y::Request::Activate => {

@@ -1,4 +1,6 @@
-use super::{HistoryService, NoteWrite};
+use super::{Change, HistoryService, NoteWrite};
+use crate::files::document::hash_bytes;
+use crate::history::delta::Region;
 use crate::history::milestone::Source;
 use crate::history::rebuild::rebuild;
 use crate::text::content::collect;
@@ -124,4 +126,26 @@ fn the_device_id_is_kept_between_launches() {
     let second = fixture.service();
     assert_eq!(first.device, second.device);
     assert_eq!(first.device.len(), 8);
+}
+
+#[test]
+fn edits_at_both_ends_keep_the_version_small() {
+    let fixture = Fixture::new();
+    let history = fixture.service();
+    let note = fixture.vault.join("Большая.md");
+    let body = "строка текста
+".repeat(20_000);
+    fs::write(&note, &body).unwrap();
+    let first = format!("{body}конец");
+    fixture.save(&history, &note, &first, Source::Me);
+    let last = format!("Начало {first}!");
+    let regions = vec![Region { from: 0, to: 0, len: "Начало ".len() }, Region { from: first.len(), to: first.len(), len: 1 }];
+    let (hash, base) = (hash_bytes(last.as_bytes()), hash_bytes(first.as_bytes()));
+    fs::write(&note, &last).unwrap();
+    let change = Some(Change { regions, base: &base });
+    history.saved(&|| fixture.roots(), &note, NoteWrite { text: &last.as_str(), hash: &hash, source: Source::Me, name: None, change, original: None });
+    let dir = fixture.history_of("Большая.md");
+    let deltas: u64 = versions(&dir).iter().filter(|version| version.id.ends_with(".delta")).map(|version| fs::metadata(dir.join(&version.id)).unwrap().len()).sum();
+    assert!(deltas < 4096, "правки в начале и в конце записали {deltas} байт");
+    assert_eq!(texts(&dir).last().map(|(text, _)| text.clone()), Some(last));
 }

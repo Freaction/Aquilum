@@ -40,9 +40,8 @@ impl App {
             }
             Action::NewToken => self.apply(Setter::Config(|c, _| c.mcp.token = schema::new_token()), Value::Bool(true)),
             Action::Copy(index, code) => {
-                match arboard::Clipboard::new().and_then(|mut clipboard| clipboard.set_text(code)) {
-                    Ok(()) => dialog.copied = Some(index),
-                    Err(error) => report!("не скопировано: {error}"),
+                if crate::clipboard::copy(code) {
+                    dialog.copied = Some(index);
                 }
                 Effect::Content
             }

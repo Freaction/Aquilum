@@ -1,11 +1,10 @@
 use std::path::{Path, PathBuf};
 
-use aquilum_core::search::paths::{is_markdown, is_plain_text};
+use aquilum_core::search::paths::{is_markdown, is_plain_text, same_path};
 use masonry::app::RenderRoot;
 use masonry::widgets::IndexedStack;
 
 use super::super::{App, Outcome};
-use crate::note::Note;
 use crate::ui::editor::TextEditor;
 use crate::ui::widgets::Slot;
 
@@ -14,40 +13,46 @@ impl App {
         if let Some((layer, _)) = self.suggest_layer.take() {
             root.remove_layer(layer);
         }
-        self.show_tab(root);
-        self.version_view = None;
+        let tab = self.tabs.active();
+        let stays = if tab.graph { self.graph_shown() } else { tab.path.as_deref().is_some_and(|path| self.shows(path)) };
+        if !self.show_tab(root) {
+            self.refresh_tabs(root);
+            return;
+        }
+        if !stays {
+            self.forget(super::super::Moment::Tab, root);
+        }
         self.show_version(root);
         self.refresh_tabs(root);
         self.request_panel(root);
         self.workspace.core.active_note.set(self.note.as_ref().map(|n| n.path.clone()));
     }
 
-    fn show_tab(&mut self, root: &mut RenderRoot) {
+    fn show_tab(&mut self, root: &mut RenderRoot) -> bool {
         let tab = self.tabs.active().clone();
+        let opened = self.opened(tab.path.as_deref().filter(|path| !self.shows(path)));
         if tab.graph && self.tree.root().is_some() {
             self.leave_note();
             self.drop_note_page(root);
             self.tree.set_active(root, None);
             self.show_graph(root);
             self.show_page(root, 4);
-            return;
+            return true;
         }
         let Some(path) = tab.path else {
             self.leave_note();
             self.drop_note_page(root);
             self.tree.set_active(root, None);
             self.show_page(root, if self.tree.root().is_some() { 1 } else { 3 });
-            return;
+            return true;
         };
         if self.shows(&path) {
-            self.reveal_pending(root);
+            self.reveal_pending(root, &path);
             self.show_page(root, 0);
-            return;
+            return true;
         }
+        let Some(opened) = opened else { return false };
         self.leave_note();
-        let read = aq_trace::zone("открытие: чтение файла");
-        let opened = Note::open(path.clone());
-        drop(read);
         match opened {
             Ok((note, text)) => {
                 self.open_error = None;
@@ -56,7 +61,7 @@ impl App {
                 self.note = Some(note);
                 let _zone = aq_trace::zone("открытие: страница заметки");
                 self.render_note(root);
-                self.reveal_pending(root);
+                self.reveal_pending(root, &path);
             }
             Err(error) => {
                 let err_str = format!("{error}");
@@ -65,12 +70,13 @@ impl App {
                 self.show_open_error(root, &path, &err_str);
             }
         }
-        self.hold = Some(std::time::Instant::now() + super::super::HOLD);
         self.tree.set_active(root, Some(path));
         self.show_page(root, 0);
+        true
     }
 
     pub(in crate::app) fn show_open_error(&mut self, root: &mut RenderRoot, path: &Path, error: &str) {
+        self.text = crop::Rope::new();
         self.note = None;
         self.note_ids = None;
         self.embeds = None;
@@ -88,7 +94,7 @@ impl App {
         }
         self.text = crop::Rope::new();
         if let Some(chrome) = &self.chrome {
-            chrome.note_page.edit(root, |mut slot| Slot::set_child(&mut slot, masonry::core::NewWidget::new(masonry::widgets::SizedBox::empty()).erased()));
+            chrome.note_page.edit(root, |mut slot| Slot::clear(&mut slot));
         }
     }
 
@@ -114,8 +120,8 @@ impl App {
         self.open_in(root, path, false)
     }
 
-    fn reveal_pending(&mut self, root: &mut RenderRoot) {
-        let Some(units) = self.pending_reveal.take() else { return };
+    fn reveal_pending(&mut self, root: &mut RenderRoot, path: &Path) {
+        let Some((_, units)) = self.pending_reveal.take().filter(|(target, _)| same_path(target, path)) else { return };
         let byte = self.byte_of(usize::try_from(units).unwrap_or(0)).saturating_sub(self.hidden);
         self.reveal(root, byte);
         if let Some(ids) = &self.note_ids {
@@ -131,17 +137,17 @@ impl App {
         if !is_markdown(&path) && !is_plain_text(&path) {
             return false;
         }
-        if let Some(current) = self.note.as_ref().map(|n| n.path.clone()) {
-            self.navigation.push(&current);
-        }
-        self.navigation.push(&path);
-        self.pending_reveal = offset;
+        let current = self.note.as_ref().map(|n| n.path.clone());
+        self.pending_reveal = offset.map(|offset| (path.clone(), offset));
         if new_tab {
-            self.tabs.open_new(path);
+            self.tabs.open_new(path.clone());
         } else {
-            self.tabs.open(path);
+            self.tabs.open(path.clone());
         }
         self.show_active(root);
+        for visited in current.iter().chain([&path]) {
+            self.navigation.push(visited);
+        }
         true
     }
 

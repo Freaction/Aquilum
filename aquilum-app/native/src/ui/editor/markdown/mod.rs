@@ -5,6 +5,7 @@ mod inline;
 mod mark;
 mod metrics;
 mod paint;
+mod reveal;
 mod style;
 
 #[cfg(test)]
@@ -21,6 +22,7 @@ pub use inline::{Kind as SpanKind, hashtags, inline as inline_spans};
 pub use mark::{Mark, enclosing, word_at};
 pub use metrics::{CHECKBOX, Fonts, LIST_START, QUOTE_BAR};
 pub use paint::{paint_backgrounds, paint_boxes, range_rects};
+pub use reveal::{Part, Reveal, touches};
 #[cfg(test)]
 pub use paint::tag_chips;
 pub use style::{Context, push, style};

@@ -5,13 +5,11 @@ mod mask;
 mod runs;
 mod sink;
 
-use std::collections::VecDeque;
-
 use masonry::kurbo::{Affine, Rect};
 use vello_cpu::{RenderContext, RenderSettings, Resources};
 
 pub use error::PaintError;
-use mask::CachedMask;
+use mask::{MASK_CACHE_LIMIT, Masks};
 
 pub fn settings(threads: u16) -> RenderSettings {
     let level = RenderSettings::default().level;
@@ -29,7 +27,7 @@ pub struct Painter {
     pub(super) error: Option<PaintError>,
     pub(super) clip_depth: u32,
     pub(super) groups: Vec<bool>,
-    pub(super) mask_cache: VecDeque<CachedMask>,
+    pub(super) mask_cache: Masks,
     pub(super) frame: Rect,
     pub(super) shift: Affine,
     pub(super) images: convert::Images,
@@ -47,7 +45,7 @@ impl Painter {
             error: None,
             clip_depth: 0,
             groups: Vec::new(),
-            mask_cache: VecDeque::new(),
+            mask_cache: Masks::new(MASK_CACHE_LIMIT, usize::MAX),
             frame: Rect::new(0.0, 0.0, f64::from(width), f64::from(height)),
             shift: Affine::IDENTITY,
             images: convert::Images::default(),
@@ -61,7 +59,7 @@ impl Painter {
         self.ctx = RenderContext::new_with(1, 1, self.settings);
         self.resources = Resources::new();
         self.images = convert::Images::default();
-        self.mask_cache = VecDeque::new();
+        self.mask_cache.clear();
     }
 
     pub fn width(&self) -> u16 {

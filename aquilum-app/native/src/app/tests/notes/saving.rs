@@ -4,7 +4,7 @@ use super::*;
 fn conflicting_edit_is_kept_as_a_copy() {
     let mut h = Harness::new();
     let path = h.vault.path().join("a.md");
-    h.app.open(&mut h.root, path.clone());
+    h.open(path.clone());
     std::fs::write(&path, "снаружи").unwrap();
     h.app.text = crop::Rope::from("моя правка");
     h.app.note.as_mut().unwrap().edit(std::time::Duration::ZERO);
@@ -20,7 +20,7 @@ fn conflicting_edit_is_kept_as_a_copy() {
 fn inserted_text_reaches_the_disk() {
     let mut h = Harness::new();
     let path = h.vault.path().join("a.md");
-    h.app.open(&mut h.root, path.clone());
+    h.open(path.clone());
     h.app.commit_text(&mut h.root, crop::Rope::from("---\ntags: []\n---\nтекст"));
     h.save_now();
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "---\ntags: []\n---\nтекст");
@@ -31,7 +31,7 @@ fn inserted_text_reaches_the_disk() {
 fn unsaved_text_is_written_on_shutdown() {
     let mut h = Harness::new();
     let path = h.vault.path().join("a.md");
-    h.app.open(&mut h.root, path.clone());
+    h.open(path.clone());
     h.app.commit_text(&mut h.root, crop::Rope::from("несохранённая правка"));
     h.app.shutdown();
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "несохранённая правка");
@@ -41,7 +41,7 @@ fn unsaved_text_is_written_on_shutdown() {
 fn typed_edits_reach_the_file_behind_hidden_frontmatter() {
     let mut h = Harness::new();
     let path = h.write_note("правки.md", "---\ntags: [a]\n---\nпривет мир");
-    h.app.open(&mut h.root, path.clone());
+    h.open(path.clone());
     assert!(h.app.hidden > 0, "метаданные должны быть скрыты");
     let body = h.app.note_ids.as_ref().unwrap().body;
     let end = h.body_text().len();

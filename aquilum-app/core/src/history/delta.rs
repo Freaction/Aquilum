@@ -16,7 +16,7 @@ pub struct Region {
 }
 
 impl Region {
-    fn grows(self) -> isize {
+    pub fn grows(self) -> isize {
         self.len as isize - (self.to - self.from) as isize
     }
 }
@@ -30,10 +30,8 @@ pub struct Delta {
     pub body: u64,
 }
 
-impl Delta {
-    pub fn inserted(&self) -> usize {
-        self.regions.iter().map(|region| region.len).sum()
-    }
+pub fn inserted(regions: &[Region]) -> usize {
+    regions.iter().map(|region| region.len).sum()
 }
 
 pub fn starts(regions: &[Region]) -> Vec<usize> {

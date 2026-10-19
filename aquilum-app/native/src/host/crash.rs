@@ -21,7 +21,7 @@ pub(super) fn install_crash_log(file: std::path::PathBuf) {
             let _ = std::io::Write::write_all(&mut log, entry.as_bytes());
         }
 
-        let copied = arboard::Clipboard::new().and_then(|mut cb| cb.set_text(entry.clone())).is_ok();
+        let copied = crate::clipboard::copy(entry.clone());
         let prompt = if copied {
             "В приложении произошла непредвиденная ошибка.\nОтчёт об ошибке скопирован в буфер обмена.\n\nПерезапустить Aquilum?"
         } else {

@@ -1,8 +1,10 @@
+use std::ops::{Range, RangeInclusive};
+
 use masonry::core::{BrushIndex, StyleSet};
 use masonry::parley::{FontContext, LayoutContext};
 
 use super::super::Document;
-use crate::ui::editor::markdown::{Block, Callout};
+use crate::ui::editor::markdown::{Block, Callout, Part, Reveal};
 
 impl Document {
     pub fn invalidate(&mut self, offset: usize) {
@@ -22,31 +24,43 @@ impl Document {
         (first, last)
     }
 
-    pub(super) fn enter(&mut self, caret: Option<usize>) {
+    pub fn code_run(&self, i: usize) -> (usize, usize) {
+        let block = |j: usize| &self.blocks.get(j).1;
+        self.around(i, |j| block(j).is_code(), |j| matches!(block(j), Block::Code { first: true, .. }))
+    }
+
+    pub(super) fn enter(&mut self, selection: Option<&Range<usize>>) {
         let (base, end) = self.loaded_range();
-        let caret = caret.filter(|c| (base..=end).contains(c));
-        let within = |(first, last): (usize, usize)| caret.is_some_and(|c| first <= c && self.at_offset(c) <= self.at_offset(last));
-        if self.dirty.is_none() && self.entered.is_some_and(within) {
-            return;
-        }
         let (frame, block) = (|j: usize| &self.blocks.get(j).0, |j: usize| &self.blocks.get(j).1);
         let header = |j: usize| frame(j).panels == 1 && matches!(block(j), Block::Callout { kind: Callout::Typed(_), .. });
-        let entered = caret.map(|c| self.at_offset(c)).and_then(|i| match (frame(i).panels > 0, block(i).is_code()) {
-            (true, _) => Some(self.around(i, |j| frame(j).panels > 0, header)),
-            (false, true) => Some(self.around(i, |j| block(j).is_code(), |j| matches!(block(j), Block::Code { first: true, .. }))),
-            _ => None,
+        let unit = |i: usize| match (frame(i).panels > 0, block(i)) {
+            (true, _) if Part::Callout.reveal() == Reveal::Block => self.around(i, |j| frame(j).panels > 0, header),
+            (false, Block::Code { .. }) if Part::Fence.reveal() == Reveal::Block => self.code_run(i),
+            (false, Block::Heading { marker: 0, .. }) if Part::Setext.reveal() == Reveal::Block => (i, (i + 1).min(self.lines.count() - 1)),
+            (false, Block::Underline) if Part::Setext.reveal() == Reveal::Block => (i.saturating_sub(1), i),
+            _ => (i, i),
+        };
+        let entered = selection.filter(|s| s.start <= end && base <= s.end).map(|s| {
+            let (first, last) = (unit(self.at_offset(s.start.max(base))).0, unit(self.at_offset(s.end.min(end))).1);
+            (self.start(first), self.start(last))
         });
-        let entered = entered.map(|(first, last)| (self.start(first), self.start(last)));
-        if entered != self.entered {
-            for (first, last) in [self.entered, entered].into_iter().flatten() {
-                let (first, last) = (self.at_offset(first), self.at_offset(last));
-                let fences = self.blocks.get(first).1.is_code();
-                for i in (first..=last).filter(|&i| !fences || i == first || i == last) {
-                    self.laid.remove(i);
+        if entered == self.entered {
+            return;
+        }
+        let mut stale = Vec::new();
+        for (from, to) in [(self.entered, entered), (entered, self.entered)] {
+            let Some((first, last)) = from else { continue };
+            for i in self.at_offset(first)..=self.at_offset(last) {
+                let kept = to.is_some_and(|(a, b)| (a..=b).contains(&self.start(i)));
+                if !kept && (frame(i).panels > 0 || matches!(block(i), Block::Code { fence: true, .. } | Block::Underline)) {
+                    stale.push(i);
                 }
             }
-            self.entered = entered;
         }
+        for i in stale {
+            self.laid.remove(i);
+        }
+        self.entered = entered;
     }
 
     pub fn fonts_changed(&mut self) {
@@ -70,10 +84,10 @@ impl Document {
         self.laid.retain(|i| heights.near(i, keep) || pinned.contains(&i));
     }
 
-    pub fn ensure(&mut self, shown: std::ops::RangeInclusive<usize>, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, caret: Option<usize>) {
+    pub fn ensure(&mut self, shown: RangeInclusive<usize>, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, selection: Option<&Range<usize>>) {
         for i in shown {
             if self.laid.get(i).is_none() {
-                let laid = self.lay(i, fcx, lcx, styles, None, caret);
+                let laid = self.lay(i, fcx, lcx, styles, None, selection);
                 self.heights.set_text(i, laid.height());
                 self.laid.insert(i, laid);
             }

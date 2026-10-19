@@ -5,7 +5,7 @@ fn cover_actions_rewrite_frontmatter() {
     use crate::ui::widgets::Pressed;
     let mut h = Harness::new();
     let note = h.write_note("Книга.md", "---\ncover: true\ntype: book\nPage_cover: pattern:polka\nBook_cover: Files/x.png\n---\nтекст");
-    h.app.open(&mut h.root, note.clone());
+    h.open(note.clone());
     let hero = |h: &Harness| h.app.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()).map(|(_, ids)| (ids.random, ids.remove, ids.thumbnail.map(|t| t.id())));
     let (random, _, _) = hero(&h).expect("обложка и книга");
     h.act(random.unwrap(), Pressed);
@@ -57,7 +57,7 @@ fn real_vault_book_notes_open() {
         };
         for note in &notes {
             eprintln!("{scale} {}", note.display());
-            h.app.open(&mut h.root, note.clone());
+            h.open(note.clone());
             frame(&mut h);
             h.pointer_move(300.0 * scale, 150.0 * scale);
             frame(&mut h);
@@ -74,7 +74,7 @@ fn real_vault_book_notes_open() {
 fn book_page_renders_with_multithreaded_rasterizer() {
     let mut h = Harness::new();
     let note = h.write_note("Книга.md", "---\ncover: true\ntype: book\nPage_cover: pattern:polka\n---\nтекст");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let mut renderer = crate::render::Renderer::new(2);
     for _ in 0..3 {
         h.app.on_core_events(&mut h.root);
@@ -89,7 +89,7 @@ fn editing_cover_fields_in_metadata_keeps_rendering() {
     let mut h = Harness::new();
     let text = "---\ncover: true\ntype: book\nPage_cover: pattern:polka\nBook_cover: Files/x.png\n---\nтекст";
     let note = h.write_note("Книга.md", text);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let toggle = h.app.note_ids.as_ref().unwrap().metadata.id();
     h.act(toggle, crate::ui::note::MetadataToggled);
     let mut renderer = crate::render::Renderer::new(2);
@@ -124,7 +124,7 @@ fn scroll_frame_times() {
         let mut h = Harness::with(None, scale);
         let body: String = (0..200).map(|i| format!("Строка текста номер {i} для прокрутки страницы.\n")).collect();
         let note = h.write_note(&format!("{name}.md"), &format!("{text}{body}"));
-        h.app.open(&mut h.root, note);
+        h.open(note);
         let mut renderer = crate::render::Renderer::new(4);
         let (w, hh) = ((f64::from(W) * scale) as u16, (f64::from(H) * scale) as u16);
         let warm = std::time::Instant::now();
@@ -168,7 +168,7 @@ fn every_pattern_is_painted_from_its_tile_like_from_the_whole_bake() {
     for id in ["foliage", "weave", "pineapple", "stripes", "origami", "polka"] {
         let mut h = Harness::with(None, scale);
         let note = h.write_note("обложка.md", &format!("---\ncover: true\nPage_cover: pattern:{id}\n---\nтекст"));
-        h.app.open(&mut h.root, note);
+        h.open(note);
         let (w, hh) = ((f64::from(W) * scale) as u16, (f64::from(H) * scale) as u16);
         let mut shot = None;
         let mut whole: Option<(Vec<u8>, u32)> = None;
@@ -214,14 +214,26 @@ fn every_pattern_is_painted_from_its_tile_like_from_the_whole_bake() {
 #[test]
 fn cover_disappears_when_its_fields_are_removed() {
     let mut h = Harness::new();
-    let note = h.write_note("Книга.md", "---\ncover: true\nPage_cover: pattern:polka\n---\nтекст");
-    h.app.open(&mut h.root, note);
+    let text = "---\ncover: true\nPage_cover: tunnel\n---\nтекст";
+    let note = h.write_note("Книга.md", text);
+    h.open(note);
     let toggle = h.app.note_ids.as_ref().unwrap().metadata.id();
     h.act(toggle, crate::ui::note::MetadataToggled);
-    assert!(h.app.note_ids.as_ref().unwrap().hero.is_some());
-    h.replace_body("---\nPage_cover: pattern:polka\n---\nтекст");
-    assert!(h.app.note_ids.as_ref().unwrap().hero.is_none());
-    h.replace_body("---\ncover: true\n---\nтекст");
+    let body = h.app.note_ids.as_ref().unwrap().body;
+    h.root.focus_on(Some(body.id()));
+    let erase = |h: &mut Harness, range: std::ops::Range<usize>| {
+        body.edit(&mut h.root, |mut b| crate::ui::editor::TextEditor::select_byte_range(&mut b, range.start, range.end));
+        h.key(Key::Named(NamedKey::Backspace), Modifiers::empty());
+    };
+    let shown = |h: &Harness| h.app.hero_shown.as_ref().map(|key| key[0].clone());
+    assert_eq!(shown(&h).as_deref(), Some("tunnel"));
+    let end = text.find("tunnel").unwrap() + "tunnel".len();
+    erase(&mut h, end..end);
+    assert_eq!(shown(&h).as_deref(), Some("tunne"), "обложка не сбросилась после правки узора");
+    let cover = text.find("cover: true").unwrap();
+    erase(&mut h, cover..cover + "cover: true\n".len());
+    assert!(h.app.note_ids.as_ref().unwrap().hero.is_none(), "обложка осталась без cover: true");
+    h.type_text("cover: true\n");
     assert!(h.app.note_ids.as_ref().unwrap().hero.is_some());
     let _ = h.root.redraw();
 }

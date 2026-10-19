@@ -61,9 +61,7 @@ impl App {
             (Some(NoteCommand::ExportPdf), _) => self.export_pdf(root),
             (Some(NoteCommand::Reveal), Some(path)) => crate::system::reveal(&path),
             (Some(NoteCommand::CopyPath), Some(path)) => {
-                if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                    let _ = clipboard.set_text(path.to_string_lossy());
-                }
+                crate::clipboard::copy(path.to_string_lossy());
             }
             (Some(NoteCommand::Duplicate), Some(path)) => crate::file_ops::duplicate_all(&self.workspace.core, vec![path]),
             (Some(NoteCommand::Delete), Some(path)) => self.confirm_delete(root, vec![path]),

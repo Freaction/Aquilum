@@ -17,7 +17,15 @@ fn natural_width(source: &Source<'_>) -> Option<f64> {
 }
 
 impl App {
-    pub fn paste_image(&mut self, root: &mut RenderRoot, png: &[u8]) -> bool {
+    pub fn paste(&mut self, root: &mut RenderRoot) -> bool {
+        if let Some(text) = crate::clipboard::text() {
+            root.handle_text_event(masonry::core::TextEvent::ClipboardPaste(text));
+            return true;
+        }
+        crate::clipboard::png().is_some_and(|png| self.paste_image(root, &png))
+    }
+
+    pub(in crate::app) fn paste_image(&mut self, root: &mut RenderRoot, png: &[u8]) -> bool {
         if self.note_ids.as_ref().is_none_or(|ids| root.focused_widget() != Some(ids.body.id())) {
             return false;
         }

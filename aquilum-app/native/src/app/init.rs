@@ -27,6 +27,7 @@ impl App {
             suggest_layer: None,
             find: None,
             note: None,
+            opening: None,
             text: crop::Rope::from(initial_text),
             system_dark: false,
             tabs,

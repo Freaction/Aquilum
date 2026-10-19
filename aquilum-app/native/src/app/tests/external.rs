@@ -34,7 +34,7 @@ fn open_note_follows_an_outside_edit_without_waiting_for_the_index() {
     h.watch_vault();
     let path = h.write_note("внешняя.md", "старый текст");
     h.app.tree.paths_changed(&mut h.root, std::slice::from_ref(&path));
-    assert!(h.app.open(&mut h.root, path.clone()));
+    assert!(h.open(path.clone()));
     std::fs::write(&path, "новый текст снаружи").unwrap();
     assert!(
         wait_until(250, 20, || {
@@ -50,7 +50,7 @@ fn a_lost_batch_of_events_still_leaves_the_tree_and_the_open_note_up_to_date() {
     let mut h = Harness::new();
     let path = h.write_note("внешняя.md", "старый текст");
     h.app.tree.paths_changed(&mut h.root, std::slice::from_ref(&path));
-    assert!(h.app.open(&mut h.root, path.clone()));
+    assert!(h.open(path.clone()));
     std::fs::write(&path, "новый текст").unwrap();
     std::fs::write(h.vault.path().join("новая.md"), "").unwrap();
     h.app.workspace.core.emit(aquilum_core::CoreEvent::WorkspaceRescanned);
@@ -66,7 +66,7 @@ fn a_note_or_text_file_removed_outside_closes_its_tab() {
     for name in ["удаляемая.md", "удаляемая.txt"] {
         let path = h.write_note(name, "текст");
         h.app.tree.paths_changed(&mut h.root, std::slice::from_ref(&path));
-        assert!(h.app.open(&mut h.root, path.clone()));
+        assert!(h.open(path.clone()));
         assert!(h.app.shows(&path));
         std::fs::remove_file(&path).unwrap();
         assert!(
@@ -84,7 +84,7 @@ fn deleting_a_text_file_from_the_tree_closes_its_tab() {
     let mut h = Harness::new();
     let path = h.write_note("черновик.txt", "текст");
     h.app.tree.paths_changed(&mut h.root, std::slice::from_ref(&path));
-    assert!(h.app.open(&mut h.root, path.clone()));
+    assert!(h.open(path.clone()));
     crate::file_ops::trash_all(&h.app.workspace.core, h.vault.path().to_path_buf(), vec![path.clone()]);
     assert!(
         wait_until(250, 20, || {

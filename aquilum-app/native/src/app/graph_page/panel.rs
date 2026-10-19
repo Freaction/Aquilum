@@ -17,7 +17,7 @@ use crate::ui::widgets::{IconButton, Leading};
 
 impl App {
     pub(in crate::app) fn graph_widget(&mut self) -> Option<NewWidget<dyn Widget>> {
-        if !self.tabs.has_graph() {
+        if !self.graph_active() {
             self.graph.view = None;
             self.graph.controls = None;
             return None;

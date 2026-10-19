@@ -41,9 +41,7 @@ impl Host {
         }
         let logical = window.surface_size().to_logical::<f64>(window.scale_factor() * self.app.scale());
         self.app.attach_window_controls(&mut root, masonry::kurbo::Size::new(logical.width, logical.height));
-        if self.app.restore(&mut root) {
-            window.set_title(&self.app.title());
-        }
+        self.app.restore(&mut root);
         let window: std::rc::Rc<dyn Window> = std::rc::Rc::from(window);
         match crate::output::Output::new(event_loop.owned_display_handle(), window.clone()) {
             Ok(output) => self.output = Some(output),
@@ -53,9 +51,6 @@ impl Host {
         self.window = Some(window);
         if let Some(note) = self.args.open.clone() {
             self.app.open(&mut root, note);
-        }
-        if self.args.focus {
-            root.focus_on(self.app.editor_id());
         }
         self.root = Some(root);
         self.on_wake(event_loop);

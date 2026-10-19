@@ -57,8 +57,9 @@ impl Resolver for Embeds {
     }
 
     fn suggest(&self, query: &str) -> Option<Vec<String>> {
-        let text = query.to_owned();
-        let (fetched, _) = self.fetch(|i| &i.suggestions, &query.to_lowercase(), move |inner| {
+        let (text, key) = (query.to_owned(), query.to_lowercase());
+        self.0.suggestions.entries.lock().unwrap_or_else(|e| e.into_inner()).retain(|k, _| *k == key);
+        let (fetched, _) = self.fetch(|i| &i.suggestions, &key, move |inner| {
             match inner.core.search.suggest_notes(&inner.workspace(), &text, SUGGESTIONS) {
                 Ok(notes) => Fetch::Ready(notes.into_iter().map(|n| n.title).collect()),
                 Err(_) => Fetch::Ready(Vec::new()),
@@ -84,15 +85,9 @@ impl Resolver for Embeds {
     }
 
     fn sweep(&self) {
-        let mut entries = self.0.media.entries.lock().unwrap_or_else(|e| e.into_inner());
-        entries.retain(|key, entry| {
-            let keep = entry.used;
-            if !keep {
-                media::forget_key(&self.shared(key));
-            }
-            entry.used = false;
-            keep
-        });
+        self.0.media.sweep(|key| media::forget_key(&self.shared(key)));
+        self.0.grids.sweep(|_| {});
+        self.0.books.sweep(|_| {});
     }
 
     fn request(&self, request: Request) {

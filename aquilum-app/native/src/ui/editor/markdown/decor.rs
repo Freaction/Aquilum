@@ -30,7 +30,7 @@ pub struct Decor {
     pub marks: Vec<Range<usize>>,
     pub tags: Vec<(Range<usize>, Option<usize>)>,
     pub links: Vec<Link>,
-    pub caret: Option<usize>,
+    pub selection: Option<Range<usize>>,
     pub boxes: Vec<Boxed>,
     pub pictures: Vec<(String, bool, u64)>,
 }

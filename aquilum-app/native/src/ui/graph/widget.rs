@@ -57,11 +57,6 @@ impl Widget for GraphView {
                 self.notice = [Line::default(), Line::default()];
                 ctx.request_anim_frame();
             }
-            Update::StashedChanged(true) => {
-                self.surfaces = crate::render::Surfaces::default();
-                self.sprites.clear();
-            }
-            Update::StashedChanged(false) => ctx.request_anim_frame(),
             _ => {}
         }
     }

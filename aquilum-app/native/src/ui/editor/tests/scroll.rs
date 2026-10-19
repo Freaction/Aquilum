@@ -53,6 +53,11 @@ fn a_long_code_line_scrolls_sideways_instead_of_wrapping() {
     wheel(&mut root, (300.0, 66.0), (-200.0, 0.0));
     let wheeled = at(&root);
     assert!(wheeled > before + 10, "строка кода не прокрутилась вбок: {before} → {wheeled}");
-    drag(&mut root, (120.0, 80.0), (360.0, 80.0));
+    let track = {
+        let w = root.get_widget_with_tag(TAG).unwrap();
+        let bottom = w.inner().top_of(code.find("после").unwrap()).unwrap();
+        (w.ctx().window_transform() * masonry::kurbo::Point::new(0.0, bottom - 4.0)).y
+    };
+    drag(&mut root, (120.0, track), (360.0, track));
     assert!(at(&root) > wheeled + 10, "ползунок полосы прокрутки не тянется: {wheeled} → {}", at(&root));
 }

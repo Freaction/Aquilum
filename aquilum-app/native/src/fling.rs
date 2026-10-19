@@ -22,17 +22,18 @@ impl Trail {
     }
 
     pub fn release(&mut self, scale: f64) -> Option<Fling> {
-        let samples = std::mem::take(&mut self.0);
-        let &(last, _, _) = samples.back()?;
+        let mut samples = std::mem::take(&mut self.0);
+        let (last, x, y) = samples.pop_back()?;
+        let &(from, px, py) = samples.back()?;
         let n = samples.len() as f64;
-        let ms = |t: Instant| -last.saturating_duration_since(t).as_secs_f64() * 1000.0;
+        let ms = |t: Instant| -from.saturating_duration_since(t).as_secs_f64() * 1000.0;
         let mean = samples.iter().fold((0.0, 0.0, 0.0), |m, &(t, x, y)| (m.0 + ms(t) / n, m.1 + x / n, m.2 + y / n));
         let spread: f64 = samples.iter().map(|&(t, _, _)| (ms(t) - mean.0).powi(2)).sum();
         if spread == 0.0 {
             return None;
         }
         let slope = |pick: fn(&(Instant, f64, f64)) -> f64, average: f64| samples.iter().map(|s| (ms(s.0) - mean.0) * (pick(s) - average)).sum::<f64>() / spread;
-        Fling::new(last, slope(|s| s.1, mean.1), slope(|s| s.2, mean.2), scale)
+        Fling::new(from, last, (slope(|s| s.1, mean.1), slope(|s| s.2, mean.2)), (x - px, y - py), scale)
     }
 }
 
@@ -46,12 +47,14 @@ pub struct Fling {
 }
 
 impl Fling {
-    fn new(start: Instant, vx: f64, vy: f64, scale: f64) -> Option<Self> {
+    fn new(from: Instant, last: Instant, (vx, vy): (f64, f64), (dx, dy): (f64, f64), scale: f64) -> Option<Self> {
         let measured = vx.hypot(vy);
         let friction = FRICTION_PER_MS * scale;
         if measured <= friction {
             return None;
         }
+        let lift = ((dx * vx + dy * vy) / measured / measured).clamp(0.0, last.saturating_duration_since(from).as_secs_f64() * 1000.0);
+        let start = from + Duration::from_secs_f64(lift / 1000.0);
         let speed = measured + friction;
         let end = BEND_MS * ((speed / friction).powf(1.0 / POWER) - 1.0);
         Some(Fling { start, speed, direction: (vx / measured, vy / measured), friction, end, covered: 0.0 })
@@ -87,15 +90,19 @@ mod tests {
         (trail.release(SCALE).expect("инерция после движения"), start + FRAME * (frames - 1))
     }
 
-    fn steps(mut fling: Fling, from: Instant) -> Vec<f64> {
-        (1..1000).map_while(|k| fling.advance(from + FRAME * k)).map(|(_, y)| y).collect()
+    fn steps(mut fling: Fling, from: Instant, moved: f64) -> Vec<f64> {
+        let mut steps: Vec<f64> = (0..1000).map_while(|k| fling.advance(from + FRAME * k)).map(|(_, y)| y).collect();
+        steps[0] += moved;
+        steps
     }
 
     #[test]
     fn continues_at_the_speed_of_the_fingers() {
         let (fling, last) = released(90.0, 12);
-        let first = steps(fling, last)[0];
-        assert!((first - 90.0).abs() < 90.0 * 0.05, "первый шаг инерции {first} вместо 90");
+        let steps = steps(fling, last, 90.0);
+        for step in &steps[..2] {
+            assert!((step - 90.0).abs() < 90.0 * 0.05, "шаги отрыва и инерции {:?} вместо 90", &steps[..2]);
+        }
     }
 
     fn recorded(steps: &[f64]) -> (Fling, Instant, f64) {
@@ -113,6 +120,15 @@ mod tests {
     }
 
     #[test]
+    fn a_release_in_the_middle_of_a_frame_does_not_stall() {
+        let mut flick: Vec<f64> = vec![90.0; 11];
+        flick.push(22.0);
+        let (fling, last, reference) = recorded(&flick);
+        let steps = steps(fling, last, 22.0);
+        assert!(steps[..3].iter().all(|step| (0.85..=1.25).contains(&(step / reference))), "провал в кадре отрыва: {:?}", &steps[..3]);
+    }
+
+    #[test]
     fn real_flicks_do_not_brake_at_the_moment_of_release() {
         let flicks: [&[f64]; 4] = [
             &[30.0, 37.0, 47.0, 58.0, 67.0, 74.0, 80.0, 89.0],
@@ -122,15 +138,16 @@ mod tests {
         ];
         for flick in flicks {
             let (fling, last, reference) = recorded(flick);
-            let first = steps(fling, last)[0];
-            assert!((0.85..=1.25).contains(&(first / reference)), "первый шаг инерции {first:.0} при скорости пальцев {reference:.0}: {flick:?}");
+            let steps = steps(fling, last, flick[flick.len() - 1]);
+            assert!((0.85..=1.25).contains(&(steps[1] / reference)), "первый шаг инерции {:.0} при скорости пальцев {reference:.0}: {flick:?}", steps[1]);
+            assert!(steps[0] >= 0.85 * steps[1].min(reference), "провал в кадре отрыва {:.0}: {flick:?}", steps[0]);
         }
     }
 
     #[test]
     fn slows_down_smoothly_to_a_stop() {
         let (fling, last) = released(100.0, 12);
-        let steps = steps(fling, last);
+        let steps = steps(fling, last, 100.0);
         assert!(steps.windows(2).all(|w| w[1] <= w[0] && w[1] >= 0.0), "шаги не убывают плавно: {steps:?}");
         assert!(steps.windows(2).all(|w| w[0] - w[1] < 0.1 * w[0] + 0.5), "резкий скачок скорости: {steps:?}");
         assert!(*steps.last().unwrap() < 1.0, "остановка обрывом: {:?}", &steps[steps.len() - 3..]);

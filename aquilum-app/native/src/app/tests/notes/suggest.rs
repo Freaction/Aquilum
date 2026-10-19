@@ -4,7 +4,7 @@ fn complete(name: &str, text: &str, moves: &[NamedKey], typed: &str, what: &str)
     let mut h = Harness::new();
     let note = h.write_note(name, text);
     h.app.interface.set_metadata_expanded(&note, true);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let _ = h.root.redraw();
     h.focus_editor();
     for key in moves {

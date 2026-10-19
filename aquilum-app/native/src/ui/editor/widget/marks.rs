@@ -1,6 +1,6 @@
 use super::*;
 use crate::ui::editor::embed::panel::{self, Header};
-use markdown::{LIST_START, QUOTE_BAR};
+use markdown::{LIST_START, Part, QUOTE_BAR};
 use masonry::peniko::Brush;
 
 const BULLET: f64 = 5.0;
@@ -72,7 +72,7 @@ impl TextEditor {
         if let Some(item) = p.block.item()
             && let Some((_, tone)) = item.callout().filter(|_| self.doc.markdown.as_ref().is_some_and(|fonts| fonts.callouts))
         {
-            let x = self.shift().x + p.decor().x - LIST_START;
+            let x = self.shift().x + self.doc.origin(i).x + x_at(p.layout(), item.marker().start) - LIST_START;
             let shape = RoundedRect::new(x, self.doc.top(i), self.shift().x + self.inner_width() - p.frame.right(), self.doc.bottom(i), CALLOUT_RADIUS);
             painter.fill(shape, markdown::tone(&theme::current(), tone).multiply_alpha(CALLOUT_ALPHA)).draw();
         }
@@ -84,9 +84,8 @@ impl TextEditor {
         let p = self.doc.paragraph(i);
         let layout = p.layout();
         let origin = self.shift() + self.doc.origin(i);
-        let caret = p.decor().caret;
-        let touching = |start: usize, end: usize| caret.is_some_and(|c| start <= c && c <= end);
-        if matches!(p.block, Block::Rule) && caret.is_none() {
+        let selection = p.decor().selection.as_ref();
+        if matches!(p.block, Block::Rule) && !Part::Rule.shown(selection, &(p.frame.lead..p.len as usize)) {
             let (x, y, view) = (self.shift().x, (self.doc.top(i) + self.doc.bottom(i)) / 2.0, self.doc.view(i));
             let left = self.doc.markdown.as_ref().map_or(0.0, |fonts| view.x(self.doc.line(i), fonts));
             painter.fill(Rect::new(x + left, y - RULE / 2.0, x + self.inner_width() - view.right(), y + RULE / 2.0), tm.icon_quiet).draw();
@@ -94,12 +93,12 @@ impl TextEditor {
         if let Some(item) = p.block.item() {
             let (marker, task) = (item.marker(), item.task());
             let middle = origin.y + line_middle(layout);
-            if !item.ordered && !touching(marker.start, marker.end - 1) {
+            if !item.ordered && !Part::Bullet.shown(selection, &item.symbol()) {
                 let (x0, x1) = (x_at(layout, marker.start), x_at(layout, marker.start + 1));
                 painter.fill(Circle::new((origin.x + (x0 + x1) / 2.0, middle), BULLET / 2.0), tm.editor_list_marker_color).draw();
             }
             if let Some((range, checked)) = task
-                && !touching(range.start, range.end)
+                && !Part::Task.shown(selection, &range)
             {
                 let bounds = self.checkbox_rect(i, range.start);
                 let shape = RoundedRect::from_rect(bounds, CHECKBOX_RADIUS);

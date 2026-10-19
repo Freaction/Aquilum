@@ -1,4 +1,7 @@
 mod actions;
+mod caches;
+
+pub(crate) use caches::Moment;
 mod commands;
 mod book;
 mod core_events;
@@ -113,6 +116,7 @@ pub struct App {
     suggest_layer: Option<(WidgetId, WidgetId)>,
     find: Option<crate::ui::find::FindBar>,
     note: Option<Note>,
+    opening: Option<tabs::reading::Opening>,
     text: crop::Rope,
     system_dark: bool,
     tabs: Tabs,
@@ -164,5 +168,5 @@ pub struct App {
     pub open_error: Option<(PathBuf, String)>,
     pub open_error_ids: Option<crate::ui::note::OpenErrorIds>,
     pub save_error_ids: Option<crate::ui::note::SaveErrorIds>,
-    pub pending_reveal: Option<usize>,
+    pub pending_reveal: Option<(PathBuf, usize)>,
 }

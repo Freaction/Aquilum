@@ -1,5 +1,6 @@
 use super::store;
-use crate::text::content::{chars_below, Content, Splice};
+use super::delta::{inserted, starts, Region};
+use crate::text::content::{chars_below, Content};
 use serde::{Serialize, Serializer};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
@@ -100,13 +101,13 @@ pub struct Recorded<'a> {
     pub last_edit: Option<SystemTime>,
 }
 
-pub fn is_small(base: &dyn Content, text: &dyn Content, splice: Splice) -> std::io::Result<bool> {
-    Ok(chars_below(text, splice.at..splice.at + splice.inserted, BIG_CHANGE_CHARS)?
-        && chars_below(base, splice.at..splice.at + splice.removed, BIG_CHANGE_CHARS)?)
+pub fn is_small(text: &dyn Content, regions: &[Region]) -> std::io::Result<bool> {
+    let removed: usize = regions.iter().map(|region| region.to - region.from).sum();
+    Ok(removed < BIG_CHANGE_CHARS && chars_below(text, regions.iter().zip(starts(regions)).map(|(region, at)| at..at + region.len), BIG_CHANGE_CHARS)?)
 }
 
-pub fn fits(latest_inserted: usize, splice: Splice) -> bool {
-    latest_inserted + splice.inserted <= COALESCE_BYTES
+pub fn fits(latest_inserted: usize, regions: &[Region]) -> bool {
+    latest_inserted + inserted(regions) <= COALESCE_BYTES
 }
 
 pub fn plan(device: &str, incoming: &Incoming, recorded: &Recorded<'_>, now: SystemTime) -> MilestonePlan {

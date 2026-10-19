@@ -22,6 +22,7 @@ impl App {
         self.on_home_resolved(root);
         self.on_link_titles(root);
         self.on_graph_results(root);
+        title |= self.on_opened(root);
         self.on_update(root);
         self.on_retention_done(root);
         self.undo_failed_renames(root);

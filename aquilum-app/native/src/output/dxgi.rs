@@ -1,6 +1,6 @@
 use std::rc::Rc;
-use windows::Win32::Foundation::{HWND, POINT};
-use windows::Win32::Graphics::Direct3D11::{D3D11_MAP_WRITE, D3D11_MAPPED_SUBRESOURCE, ID3D11Texture2D};
+use windows::Win32::Foundation::HWND;
+use windows::Win32::Graphics::Direct3D11::{D3D11_MAP_READ_WRITE, D3D11_MAPPED_SUBRESOURCE, ID3D11Texture2D};
 use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_UNKNOWN;
 use windows::Win32::Graphics::Dxgi::{DXGI_PRESENT, DXGI_PRESENT_PARAMETERS, DXGI_SWAP_CHAIN_FLAG};
 use winit::event_loop::OwnedDisplayHandle;
@@ -110,7 +110,7 @@ impl Output {
                     DirtyRectsCount: if self.fresh { 0 } else { rects.len() as u32 },
                     pDirtyRects: rects.as_mut_ptr(),
                     pScrollRect: std::ptr::null_mut(),
-                    pScrollOffset: std::ptr::null_mut::<POINT>(),
+                    pScrollOffset: std::ptr::null_mut(),
                 };
                 gpu.chain.Present1(1, DXGI_PRESENT(0), &params).ok()
             })
@@ -133,7 +133,7 @@ impl Canvas for Output {
     fn with_target(&mut self, paint: &mut dyn FnMut(Target<'_>)) {
         let Some(gpu) = &self.gpu else { return };
         let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
-        if let Err(err) = unsafe { gpu.context.Map(&gpu.canvas, 0, D3D11_MAP_WRITE, 0, Some(&mut mapped)) } {
+        if let Err(err) = unsafe { gpu.context.Map(&gpu.canvas, 0, D3D11_MAP_READ_WRITE, 0, Some(&mut mapped)) } {
             self.lost(err);
             return;
         }

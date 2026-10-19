@@ -76,18 +76,12 @@ impl App {
         match command {
             EditorCommand::Copy => {
                 let selected = body.get(root).and_then(|e| e.inner().selected_text());
-                if let Some(text) = selected
-                    && let Ok(mut cb) = arboard::Clipboard::new()
-                {
-                    let _ = cb.set_text(text);
+                if let Some(text) = selected {
+                    crate::clipboard::copy(text);
                 }
             }
             EditorCommand::Paste => {
-                if let Ok(mut cb) = arboard::Clipboard::new()
-                    && let Ok(text) = cb.get_text()
-                {
-                    body.edit(root, |mut e| TextEditor::insert_text(&mut e, &text));
-                }
+                self.paste(root);
             }
             EditorCommand::InsertBook => {
                 body.edit(root, |mut e| TextEditor::insert_text(&mut e, "> [!book] [[Название книги]]\n"));

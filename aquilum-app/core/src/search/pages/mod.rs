@@ -77,7 +77,7 @@ impl<'a> Pages<'a> {
             self.step(end);
         }
         let rest = self.buf.split_off(self.scanned);
-        let text = String::from_utf8(std::mem::replace(&mut self.buf, rest)).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        let text = crate::text::utf8::string(std::mem::replace(&mut self.buf, rest))?;
         (self.normalized, self.scanned) = (self.normalized - text.len(), 0);
         let at = self.at;
         let chars = text.chars().count();
@@ -114,7 +114,7 @@ impl<'a> Pages<'a> {
 
     fn step(&mut self, end: usize) {
         let line = &self.buf[self.scanned..end];
-        if let Some(line) = std::str::from_utf8(line).ok().filter(|_| marker(line)) {
+        if let Some(line) = crate::text::utf8::prefix(line, true).ok().filter(|_| marker(line)) {
             self.fence = Fence::step(self.fence, line, INDENT_LIMIT);
         }
         self.scanned = end;

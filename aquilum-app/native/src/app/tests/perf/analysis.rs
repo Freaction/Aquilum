@@ -51,7 +51,7 @@ fn frames(b: &mut Bench, n: usize) -> String {
 }
 
 fn editor(b: &mut Bench, note: PathBuf) {
-    b.h.app.open(&mut b.h.root, note);
+    b.h.open(note);
     let busy = |b: &Bench| b.h.app.embeds.as_ref().is_some_and(crate::app::embeds::Embeds::busy);
     let t = Instant::now();
     while busy(b) && t.elapsed() < Duration::from_secs(60) {

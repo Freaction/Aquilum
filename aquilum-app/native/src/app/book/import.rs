@@ -123,14 +123,7 @@ impl App {
     }
 
     pub(super) fn paste_book_cover(&mut self, root: &mut RenderRoot) {
-        let Ok(mut clipboard) = arboard::Clipboard::new() else { return };
-        let Ok(image) = clipboard.get_image() else { return };
-        let Some(buffer) = image::RgbaImage::from_raw(image.width as u32, image.height as u32, image.bytes.into_owned()) else { return };
-        let mut png = std::io::Cursor::new(Vec::new());
-        if buffer.write_to(&mut png, image::ImageFormat::Png).is_err() {
-            return;
-        }
-        let bytes = png.into_inner();
+        let Some(bytes) = crate::clipboard::png() else { return };
         if let Some(relative) = self.import_cover(Source::Bytes(&bytes, "image.png")) {
             self.set_fields(root, &[(BOOK_COVER, relative)]);
         }

@@ -114,7 +114,7 @@ impl Harness {
         let body = self.app.note_ids.as_ref().unwrap().body;
         let range = 0..self.app.text.byte_len() - self.app.hidden;
         body.edit(&mut self.root, |mut editor| crate::ui::editor::TextEditor::apply_external(&mut editor, range.clone(), text));
-        self.act(body.id(), crate::ui::editor::TextAction::Edited(vec![crate::ui::editor::Edit { range, inserted: text.len() }]));
+        self.act(body.id(), crate::ui::editor::TextAction::Edited(vec![crate::ui::editor::Edit { range, inserted: text.len(), head: true }]));
     }
 
     pub(super) fn save_now(&mut self) {

@@ -18,6 +18,18 @@ pub(super) struct Cache<T> {
     pub(super) epoch: AtomicU64,
 }
 
+impl<T> Cache<T> {
+    pub(super) fn sweep(&self, mut dropped: impl FnMut(&str)) {
+        self.entries.lock().unwrap_or_else(|e| e.into_inner()).retain(|key, entry| {
+            let used = std::mem::replace(&mut entry.used, false);
+            if !used {
+                dropped(key);
+            }
+            used
+        });
+    }
+}
+
 impl<T> Default for Cache<T> {
     fn default() -> Self {
         Cache { entries: Mutex::new(HashMap::new()), epoch: AtomicU64::new(0) }

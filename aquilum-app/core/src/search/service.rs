@@ -23,7 +23,6 @@ pub struct SearchService {
     notifier: ChangeNotifier,
     index_notifier: IndexNotifier,
     pub analysis_graph: Arc<RwLock<Option<CachedGraph>>>,
-    pub render_graph: Arc<RwLock<Option<CachedRenderGraph>>>,
     pub render_lock: Arc<Mutex<()>>,
     pub next_render_epoch: Arc<AtomicU64>,
     next_generation: Arc<AtomicU64>,
@@ -34,15 +33,6 @@ pub struct CachedGraph {
     pub generation: u64,
     pub revision: u64,
     pub graph: Arc<GraphSnapshot>,
-}
-
-pub struct CachedRenderGraph {
-    pub root: PathBuf,
-    pub generation: u64,
-    pub revision: u64,
-    pub epoch: u64,
-    pub paths: Arc<Vec<String>>,
-    pub bytes: Arc<Vec<u8>>,
 }
 
 pub struct OpenIndex {
@@ -92,7 +82,6 @@ impl SearchService {
             notifier,
             index_notifier,
             analysis_graph: Arc::new(RwLock::new(None)),
-            render_graph: Arc::new(RwLock::new(None)),
             render_lock: Arc::new(Mutex::new(())),
             next_render_epoch: Arc::new(AtomicU64::new(0)),
             next_generation: Arc::new(AtomicU64::new(0)),
@@ -119,7 +108,6 @@ impl SearchService {
             previous.stop();
         }
         clear_if(&self.analysis_graph, |_| true);
-        clear_if(&self.render_graph, |_| true);
         let snapshot = progress.snapshot();
         (self.index_notifier)(IndexRevision {
             workspace_path: workspace.to_owned(),
@@ -167,19 +155,19 @@ impl SearchService {
         visible: Arc<AtomicBool>,
     ) -> IndexNotifier {
         let analysis_graph = Arc::clone(&self.analysis_graph);
-        let render_graph = Arc::clone(&self.render_graph);
         let index_notifier = Arc::clone(&self.index_notifier);
         Arc::new(move |event: IndexRevision| {
             clear_if(&analysis_graph, |cached| {
-                cached.root == root && cached.generation == generation
-            });
-            clear_if(&render_graph, |cached| {
                 cached.root == root && cached.generation == generation
             });
             if visible.load(Ordering::Relaxed) {
                 (index_notifier)(event);
             }
         })
+    }
+
+    pub fn forget_analysis(&self) {
+        clear_if(&self.analysis_graph, |_| true);
     }
 
     pub fn search(&self, workspace: &str, request: &Request) -> Result<SearchResponse, SearchError> {

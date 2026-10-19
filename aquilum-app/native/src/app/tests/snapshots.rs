@@ -8,7 +8,7 @@ fn chrome_snapshots() {
     let mut h = Harness::with(None, scale);
     let note = h.vault.path().join("Заметка.md");
     std::fs::write(&note, "Текст заметки\n\nВторой абзац").unwrap();
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let (w, hh) = ((f64::from(W) * scale) as u16, (f64::from(H) * scale) as u16);
     let shot = |h: &mut Harness, name: &str| {
         let (layers, _) = h.root.redraw();
@@ -108,7 +108,7 @@ fn main() {
 ```
 Конец";
     std::fs::write(&note, body).unwrap();
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let (w, hh) = ((f64::from(W) * scale) as u16, (f64::from(H) * scale) as u16);
     let shot = |h: &mut Harness, name: &str| {
         let (layers, _) = h.root.redraw();
@@ -136,7 +136,7 @@ fn note_snapshot() {
     let vault = std::path::PathBuf::from(std::env::var("AQ_VAULT").unwrap());
     let scale = 1.75;
     let mut h = Harness::with(Some(&vault), scale);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let _ = h.root.redraw();
     for _ in 0..200 {
         std::thread::sleep(std::time::Duration::from_millis(50));

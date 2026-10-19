@@ -1,9 +1,10 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::SystemTime;
 
+use aquilum_core::recent::Recent;
 use masonry::peniko::{Blob, ImageAlphaType, ImageBrush, WeakBlob};
 
 mod decode;
@@ -33,30 +34,20 @@ struct Cached {
     data: WeakBlob<u8>,
 }
 
-#[derive(Default)]
 struct Cache {
     entries: HashMap<PathBuf, Cached>,
-    recent: VecDeque<ImageBrush>,
+    recent: Recent<u64, ImageBrush>,
 }
 
 impl Cache {
     fn keep(&mut self, image: &ImageBrush) {
-        let id = image.image.data.id();
-        self.recent.retain(|kept| kept.image.data.id() != id);
-        self.recent.push_front(image.clone());
-        let mut total = 0;
-        let mut count = 0;
-        self.recent.retain(|kept| {
-            total += kept.image.data.len();
-            count += 1;
-            count == 1 || total <= RECENT_BYTES
-        });
+        self.recent.put(image.image.data.id(), image.clone(), image.image.data.len());
     }
 }
 
 fn cache() -> std::sync::MutexGuard<'static, Cache> {
     static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
-    CACHE.get_or_init(Mutex::default).lock().unwrap_or_else(|e| e.into_inner())
+    CACHE.get_or_init(|| Mutex::new(Cache { entries: HashMap::new(), recent: Recent::new(usize::MAX, RECENT_BYTES) })).lock().unwrap_or_else(|e| e.into_inner())
 }
 
 fn modified(path: &Path) -> Option<SystemTime> {

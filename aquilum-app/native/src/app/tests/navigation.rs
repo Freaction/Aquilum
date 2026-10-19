@@ -9,16 +9,16 @@ fn note_reopens_at_saved_scroll_position() {
     std::fs::write(&long, &body).unwrap();
     let other = h.vault.path().join("Другая.md");
     std::fs::write(&other, "текст").unwrap();
-    h.app.open(&mut h.root, long.clone());
+    h.open(long.clone());
     let _ = h.root.redraw();
     let state = pointer_at(600.0, 300.0, 1.0);
     h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, -2500.0)), state }));
     h.deliver();
     let saved = note_offset(&h);
     assert!(saved > 2000.0, "прокрутка не сработала: {saved}");
-    h.app.open(&mut h.root, other);
+    h.open(other);
     let _ = h.root.redraw();
-    h.app.open(&mut h.root, long);
+    h.open(long);
     let _ = h.root.redraw();
     assert!(h.app.restore_view(&mut h.root), "позиция не восстановлена");
     let _ = h.root.redraw();
@@ -61,7 +61,7 @@ fn tree_rows_survive_focus_mode() {
         std::fs::write(vault.path().join(format!("Заметка {i:04}.md")), "текст").unwrap();
     }
     let mut h = Harness::with(Some(vault.path()), 1.0);
-    h.app.open(&mut h.root, vault.path().join("Заметка 0900.md"));
+    h.open(vault.path().join("Заметка 0900.md"));
     h.deliver();
     let offset = |h: &Harness| scroll_offset(h, h.app.tree.scroll_id().unwrap());
     let before = (offset(&h), h.app.tree.built_rows());
@@ -76,7 +76,7 @@ fn tree_rows_survive_focus_mode() {
 #[test]
 fn focus_mode_removes_the_rail_and_puts_settings_in_the_top_left_corner() {
     let mut h = Harness::new();
-    h.app.open(&mut h.root, h.vault.path().join("a.md"));
+    h.open(h.vault.path().join("a.md"));
     h.settle();
     let (rail, settings, strip, toggle) = {
         let chrome = h.app.chrome.as_ref().unwrap();
@@ -107,7 +107,7 @@ fn wiki_link_opens_note_from_subfolder_without_creating_duplicate() {
     let vault = h.vault.path().to_path_buf();
     std::fs::create_dir_all(vault.join("Base")).unwrap();
     std::fs::write(vault.join("Base").join("📖 Книга.md"), "---\nauthor: А\n---\nтекст").unwrap();
-    h.app.open(&mut h.root, vault.join("a.md"));
+    h.open(vault.join("a.md"));
     let mut opened = false;
     for _ in 0..250 {
         h.app.on_core_events(&mut h.root);
@@ -138,7 +138,7 @@ fn books_snapshot() {
     std::fs::write(&note, "Текст\n\n> [!book] [[📖 Победители недр]]\n> [!book] [[📖 Марсианские хроники]]\n\n> [!book] [[📖 Очень длинное название книги, которое точно не поместится в одну строку виджета]]\n> [!book] [[📖 Нет такой книги]]\n\nПосле").unwrap();
     let mut h = Harness::with(Some(&vault), scale);
     std::thread::sleep(std::time::Duration::from_secs(2));
-    h.app.open(&mut h.root, note);
+    h.open(note);
     for _ in 0..100 {
         std::thread::sleep(std::time::Duration::from_millis(30));
         h.app.on_core_events(&mut h.root);
@@ -174,7 +174,7 @@ pages: 10/100
 {query}
 ```
 ")).unwrap();
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let wait = |h: &mut Harness, done: &dyn Fn(&Harness) -> bool| {
         for _ in 0..300 {
             h.app.on_core_events(&mut h.root);
@@ -222,7 +222,7 @@ fn tree_rows_return_after_small_scroll_up() {
 #[test]
 fn note_search_button_sits_left_of_the_menu_opens_the_find_bar_and_hides_in_focus_mode() {
     let mut h = Harness::new();
-    h.app.open(&mut h.root, h.vault.path().join("a.md"));
+    h.open(h.vault.path().join("a.md"));
     h.settle();
     let (search, more) = {
         let ids = h.app.note_ids.as_ref().unwrap();
@@ -266,7 +266,7 @@ fn a_restarted_app_reopens_a_long_note_at_the_place_it_was_left() {
     use masonry::core::{PointerScrollEvent, ScrollDelta};
     let mut h = Harness::new();
     let long = long_note(&h);
-    h.app.open(&mut h.root, long);
+    h.open(long);
     let _ = h.root.redraw();
     let state = pointer_at(600.0, 300.0, 1.0);
     h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, -9000.0)), state }));
@@ -276,6 +276,7 @@ fn a_restarted_app_reopens_a_long_note_at_the_place_it_was_left() {
     let saved = h.app.view.expect("позиция запомнена");
     let mut h = h.restarted(1.0);
     h.app.restore(&mut h.root);
+    h.parked();
     for _ in 0..3 {
         h.app.restore_view(&mut h.root);
         let _ = h.root.redraw();

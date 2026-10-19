@@ -17,7 +17,3 @@ pub(super) fn hide(builder: &mut RangedBuilder<'_, BrushIndex>, range: Range<usi
     push(builder, StyleProperty::LetterSpacing(spacing), range.clone());
     push(builder, StyleProperty::Brush(HIDDEN), range);
 }
-
-pub(super) fn touches(caret: Option<usize>, range: &Range<usize>) -> bool {
-    caret.is_some_and(|c| range.start <= c && c <= range.end)
-}

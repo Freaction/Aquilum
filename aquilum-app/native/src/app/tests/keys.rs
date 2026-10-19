@@ -7,7 +7,7 @@ fn page_keys_scroll_the_note_by_a_page_and_carry_the_caret() {
     std::fs::write(&note, (0..300).map(|i| format!("Абзац {i}
 
 ")).collect::<String>()).unwrap();
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let body = h.app.note_ids.as_ref().unwrap().body;
     h.root.focus_on(Some(body.id()));
     h.deliver();
@@ -23,4 +23,29 @@ fn page_keys_scroll_the_note_by_a_page_and_carry_the_caret() {
         h.key(Key::Named(NamedKey::PageUp), Modifiers::empty());
     }
     assert_eq!((note_offset(&h), caret(&h)), (0.0, 0), "PageUp у начала не вернул в начало");
+}
+
+#[test]
+fn copy_and_paste_go_through_the_system_clipboard() {
+    let before = crate::clipboard::text();
+    let mut h = Harness::new();
+    h.open(h.write_note("Буфер.md", "первая строка"));
+    h.focus_editor();
+    h.key(Key::Character("a".into()), crate::test_dir::command());
+    h.signals.borrow_mut().clear();
+    crate::test_dir::key(&mut h.root, Key::Character("c".into()), crate::test_dir::command());
+    let copied = h.signals.borrow().iter().find_map(|signal| match signal {
+        RenderRootSignal::ClipboardStore(text) => Some(text.clone()),
+        _ => None,
+    });
+    assert_eq!(copied.as_deref(), Some("первая строка"), "Ctrl+C не отдал выделение");
+    assert!(crate::clipboard::copy(copied.unwrap()), "системный буфер не принял текст");
+    assert_eq!(crate::clipboard::text().as_deref(), Some("первая строка"), "из системного буфера вернулось другое");
+    assert!(crate::clipboard::copy("вставка\r\nиз буфера"));
+    assert!(h.app.paste(&mut h.root), "вставка не сработала");
+    h.deliver();
+    assert_eq!(h.body_text(), "вставка\nиз буфера");
+    if let Some(text) = before {
+        crate::clipboard::copy(text);
+    }
 }

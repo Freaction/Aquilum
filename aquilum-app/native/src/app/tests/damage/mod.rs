@@ -25,12 +25,17 @@ fn size() -> Spec {
     Spec { scale: bench_scale(1.75), width, height }
 }
 
-fn setup(spec: Spec, body: &str) -> Harness {
-    let mut h = Harness::with(None, spec.scale);
+fn sized(spec: Spec, vault: Option<&std::path::Path>) -> Harness {
+    let mut h = Harness::with(vault, spec.scale);
     h.root.handle_window_event(masonry::core::WindowEvent::Resize(PhysicalSize::new(spec.width, spec.height)));
     h.app.window_resized(&mut h.root, Size::new(f64::from(spec.width) / spec.scale, f64::from(spec.height) / spec.scale));
+    h
+}
+
+fn setup(spec: Spec, body: &str) -> Harness {
+    let mut h = sized(spec, None);
     let note = h.write_note("Заметка.md", body);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     for _ in 0..3 {
         h.settle();
     }

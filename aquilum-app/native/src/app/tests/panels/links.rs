@@ -19,7 +19,7 @@ fn backlinks_panel_lists_and_opens_mentions() {
     h.write_note("a.md", "Ссылка на [[b]]");
     h.write_note("b.md", "Текст");
     h.app.tree.paths_changed(&mut h.root, &[vault.join("b.md")]);
-    h.app.open(&mut h.root, vault.join("b.md"));
+    h.open(vault.join("b.md"));
     let mut listing = h.wait_listing();
     for _ in 0..50 {
         if !listing.items.is_empty() {
@@ -56,7 +56,7 @@ fn history_panel_opens_version_and_reverts_it() {
 
     let mut h = Harness::new();
     let note = h.vault.path().join("a.md");
-    h.app.open(&mut h.root, note.clone());
+    h.open(note.clone());
     for (text, source) in [("один\nдва\n", Source::Me), ("один\nдва\nтри\n", Source::Agent)] {
         let hash = read_file_snapshot_impl(&note).unwrap().hash;
         gate::write(&h.app.workspace.core, &note, text, Some(&hash), source, None).unwrap();

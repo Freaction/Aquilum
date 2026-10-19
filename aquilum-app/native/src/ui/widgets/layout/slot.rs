@@ -22,6 +22,10 @@ impl Slot {
         this.ctx.remove_child(std::mem::replace(&mut this.widget.child, child.to_pod()));
         this.ctx.children_changed();
     }
+
+    pub fn clear(this: &mut WidgetMut<'_, Self>) {
+        Self::set_child(this, NewWidget::new(masonry::widgets::SizedBox::empty()).erased());
+    }
 }
 
 impl Widget for Slot {

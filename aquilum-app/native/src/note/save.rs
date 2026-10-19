@@ -8,7 +8,7 @@ use aquilum_core::documents::io::preserve_copy;
 use aquilum_core::files::error::FileCommandError;
 use aquilum_core::files::gate::{self, Saving};
 use aquilum_core::history::{Change, Source};
-use aquilum_core::text::content::Splice;
+use aquilum_core::history::delta::Region;
 
 use super::{lock, Disk};
 use super::read::{read, stamp};
@@ -24,7 +24,7 @@ pub enum Outcome {
 pub struct Job {
     pub after: u64,
     pub seq: u64,
-    pub change: Splice,
+    pub change: Vec<Region>,
 }
 
 fn write(core: &Core, path: &PathBuf, text: &crop::Rope, job: &Job, disk: &Mutex<Disk>) -> Outcome {
@@ -34,7 +34,7 @@ fn write(core: &Core, path: &PathBuf, text: &crop::Rope, job: &Job, disk: &Mutex
         (disk.hash.clone(), disk.stamp.is_some() && disk.stamp == stamp(path), disk.written == job.after)
     };
     let content = Text(text);
-    let change = hinted.then_some(Change { splice: job.change, base: &expected });
+    let change = hinted.then_some(Change { regions: job.change.clone(), base: &expected });
     match gate::save(core, path, Saving { content: &content, expected_hash: (!ours).then_some(expected.as_str()), source: Source::Me, name: None, change }) {
         Ok(result) => {
             *lock(disk) = Disk { hash: result.hash, stamp: stamp(path), written: job.seq };

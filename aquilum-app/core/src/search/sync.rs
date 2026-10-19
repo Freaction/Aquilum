@@ -67,7 +67,7 @@ impl IndexSynchronizer {
         transaction.commit()?;
         metadata::maintain(&self.connection)?;
         output.progress.completed(output.index.document_count());
-        Ok(())
+        self.release_writer()
     }
 
     pub fn holds_writer(&self) -> bool {
@@ -96,6 +96,7 @@ impl IndexSynchronizer {
         if changed {
             metadata::maintain(&self.connection)?;
         }
+        self.release_writer()?;
         Ok(changed)
     }
 }

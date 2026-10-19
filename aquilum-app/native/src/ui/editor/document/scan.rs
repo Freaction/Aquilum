@@ -27,12 +27,15 @@ pub(super) fn walk(text: &crop::Rope, from: usize, mut state: State, front: usiz
     state
 }
 
-pub(super) fn scan(rope: crop::Rope, from: usize, state: State, tx: Sender<Vec<(usize, State)>>) {
+pub(super) fn scan(rope: crop::Rope, from: usize, state: State, until: usize, tx: Sender<Vec<(usize, State)>>) {
     let front = if from == 0 { crate::frontmatter::bounds_of(&crate::rope::Text(&rope)).map_or(0, |found| found.body) } else { 0 };
     let (mut batch, mut lines) = (Vec::new(), 0usize);
     walk(&rope, from, state, front, |start, state| {
         if lines % EVERY == 0 {
             batch.push((start, *state));
+            if start >= until {
+                return false;
+            }
             if batch.len() == BATCH && tx.send(std::mem::take(&mut batch)).is_err() {
                 return false;
             }

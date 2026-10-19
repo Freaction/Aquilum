@@ -186,7 +186,7 @@ version = "0.1.0"
 
 [[package]]
 name = "aquilum-core"
-version = "0.3.11"
+version = "0.3.12"
 dependencies = [
  "atomic-write-file",
  "blake3",
@@ -198,6 +198,7 @@ dependencies = [
  "rust-stemmers",
  "serde",
  "serde_json",
+ "simdutf8",
  "tantivy",
  "tempfile",
  "unicode-normalization",
@@ -209,7 +210,7 @@ dependencies = [
 
 [[package]]
 name = "aquilum-native"
-version = "0.3.11"
+version = "0.3.12"
 dependencies = [
  "accesskit_macos",
  "accesskit_unix",
@@ -585,7 +586,6 @@ dependencies = [
  "cfg-if",
  "constant_time_eq",
  "cpufeatures",
- "rayon-core",
 ]
 
 [[package]]

@@ -25,15 +25,15 @@ impl TextEditor {
         self.width = width;
         let compose = self.compose.as_ref().map(|(text, _)| (self.focus, text.as_str()));
         let wrap = (!self.single_line).then(|| (width - size::CARET_WIDTH * 2.0).max(0.0) as f32);
-        let focus = self.focus;
+        let selection = self.selection();
         self.doc.source = self.doc.source.filter(|&source| {
             let p = self.doc.paragraph(self.doc.at_offset(source));
-            p.start == source && (p.start..=p.end()).contains(&focus)
+            p.start == source && markdown::touches(Some(&selection), &p.range())
         });
         if self.single_line {
             self.doc.keep = (f64::NEG_INFINITY, f64::INFINITY);
         }
         self.doc.pins = [self.anchor, self.focus].into_iter().chain(self.extra_cursors.iter().flat_map(|&(a, f)| [a, f])).collect();
-        self.doc.layout(fcx, lcx, &self.styles, wrap, compose, self.focused.then_some(self.focus));
+        self.doc.layout(fcx, lcx, &self.styles, wrap, compose, self.focused.then(|| self.selection()));
     }
 }

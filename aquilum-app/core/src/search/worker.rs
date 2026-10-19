@@ -13,7 +13,6 @@ use std::time::{Duration, Instant};
 
 const EVENT_QUEUE_CAPACITY: usize = 2_048;
 const EVENT_BATCH_WINDOW: Duration = Duration::from_millis(80);
-const WRITER_IDLE: Duration = Duration::from_secs(5);
 
 pub struct WorkerHandle {
     sender: mpsc::SyncSender<WorkerMessage>,
@@ -114,13 +113,11 @@ fn run(
     )?;
     synchronizer.full_scan(&context.cancelled)?;
     notify_index(context);
-    let mut last_write = Instant::now();
 
     while !context.cancelled.load(Ordering::Relaxed) {
         if context.dirty.swap(false, Ordering::Relaxed) {
             synchronizer.full_scan(&context.cancelled)?;
             notify_index(context);
-            last_write = Instant::now();
             continue;
         }
         match receiver.recv_timeout(Duration::from_millis(300)) {
@@ -132,13 +129,8 @@ fn run(
                 } else if synchronizer.apply_paths(paths)? {
                     notify_index(context);
                 }
-                last_write = Instant::now();
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                if synchronizer.holds_writer() && last_write.elapsed() >= WRITER_IDLE {
-                    synchronizer.release_writer()?;
-                }
-            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
     }

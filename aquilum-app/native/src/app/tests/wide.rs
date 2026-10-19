@@ -17,7 +17,7 @@ fn wide_window() -> Harness {
     h.app.workspace.core.settings.update_config(config).unwrap();
     h.app.rebuild(&mut h.root);
     let note = h.write_note("Заметка.md", "текст");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     h.settle();
     h
 }
@@ -90,7 +90,7 @@ fn width_tween_frame_cost() {
         h.app.rebuild(&mut h.root);
         let body: String = (0..paragraphs).map(|i| format!("Абзац {i}: обычный текст заметки, который переносится на несколько строк в колонке редактора и не содержит разметки, но достаточно длинный для проверки.\n\n")).collect();
         let note = h.write_note("Большая.md", &body);
-        h.app.open(&mut h.root, note);
+        h.open(note);
         h.settle();
         let started = std::time::Instant::now();
         let _ = h.root.redraw();

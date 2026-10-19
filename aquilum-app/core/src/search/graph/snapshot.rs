@@ -66,13 +66,6 @@ impl RenderSnapshot {
     }
 }
 
-pub fn paths_at(paths: &[String], indices: &[u32]) -> Vec<String> {
-    indices
-        .iter()
-        .map(|index| paths.get(*index as usize).cloned().unwrap_or_default())
-        .collect()
-}
-
 fn read_nodes(connection: &Connection) -> Result<Vec<NodeRow>, SearchError> {
     let mut statement = connection.prepare(
         "SELECT wiki_documents.path, wiki_documents.relative_key, wiki_documents.title_key,
@@ -179,7 +172,7 @@ fn days(nanos: i64) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{paths_at, RenderSnapshot};
+    use super::RenderSnapshot;
     use rusqlite::Connection;
     use std::path::Path;
 
@@ -213,11 +206,7 @@ mod tests {
         let snapshot = RenderSnapshot::build(&connection, root).expect("snapshot");
 
         assert_eq!(snapshot.node_count(), 4);
-        assert!(
-            paths_at(&snapshot.paths, &(0..4).collect::<Vec<_>>())
-                .iter()
-                .any(|path| path.ends_with("Lonely.md"))
-        );
+        assert!(snapshot.paths.iter().any(|path| path.ends_with("Lonely.md")));
     }
 
     #[test]
@@ -235,7 +224,7 @@ mod tests {
 
         let snapshot = RenderSnapshot::build(&connection, root).expect("snapshot");
 
-        assert!(paths_at(&snapshot.paths, &[0])[0].ends_with("Hub.md"));
+        assert!(snapshot.paths[0].ends_with("Hub.md"));
     }
 
     #[test]

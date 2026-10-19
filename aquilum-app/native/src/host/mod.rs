@@ -72,7 +72,6 @@ struct Host {
     moved: bool,
     ime_enabled: bool,
     ime_area: Option<(LogicalPosition<f64>, LogicalSize<f64>)>,
-    clipboard: Option<arboard::Clipboard>,
     last_anim: Option<Instant>,
     last_vblank: Option<Instant>,
     anim_pending: bool,

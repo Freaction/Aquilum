@@ -46,9 +46,7 @@ impl Host {
                     }
                 }
                 RenderRootSignal::ClipboardStore(text) => {
-                    if let Some(clipboard) = &mut self.clipboard {
-                        let _ = clipboard.set_text(text);
-                    }
+                    crate::clipboard::copy(text);
                 }
                 RenderRootSignal::SetCursor(cursor) => {
                     self.cursor = cursor;

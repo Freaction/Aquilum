@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 fn open_env_note(h: &mut Harness) {
     let note = h.copy_note();
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let _ = h.root.redraw();
 }
 
@@ -27,7 +27,7 @@ fn long_tree_builds_only_rows_near_the_view() {
     }
     let mut h = Harness::with(Some(vault.path()), 1.0);
     assert!(h.app.tree.built_rows().len() <= 160);
-    h.app.open(&mut h.root, vault.path().join("Заметка 0900.md"));
+    h.open(vault.path().join("Заметка 0900.md"));
     assert!(h.app.tree.built_rows().contains(&900));
     let scroll = h.app.tree.scroll_id().unwrap();
     h.act(scroll, crate::ui::scroll::Scrolled(0.0));
@@ -126,7 +126,7 @@ fn settings_rebuild_cost() {
     let note = vault.path().join("длинная.md");
     std::fs::write(&note, dense_body(400)).unwrap();
     let mut b = Bench::start(Some(vault.path()));
-    b.h.app.open(&mut b.h.root, note);
+    b.h.open(note);
     b.h.app.open_settings(&mut b.h.root);
     b.animate(30);
     for size in [15, 16, 14] {

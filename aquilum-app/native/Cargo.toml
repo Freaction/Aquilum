@@ -1,6 +1,6 @@
 [package]
 name = "aquilum-native"
-version = "0.3.11"
+version = "0.3.12"
 description = "Aquilum native UI (Masonry on winit + vello_cpu), no WebView"
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"
@@ -64,7 +64,7 @@ ratex-font = "0.1.14"
 ratex-katex-fonts = "0.1.14"
 aq_trace = { path = "vendor/aq_trace" }
 crop = { version = "0.4", features = ["utf16-metric", "graphemes"] }
-blake3 = { version = "1.8.5", features = ["rayon"] }
+blake3 = "1.8.5"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 softbuffer = "0.4.8"

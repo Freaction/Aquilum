@@ -119,7 +119,7 @@ fn typing_markdown_never_breaks_layout() {
         for end in line.char_indices().map(|(i, _)| i).chain([line.len()]) {
             let text = &line[..end];
             let (frame, block) = markdown::classify(std::iter::once(text)).remove(0);
-            for caret in [None, Some(end)] {
+            for caret in [None, Some(end..end)] {
                 let _ = text::build(&mut fcx, &mut lcx, &styles, text, Some(end..end), Some(400.0), Alignment::Start, Some((&context, &frame, &block, caret)));
             }
         }

@@ -15,7 +15,7 @@ fn frame_parts() {
     let body: String = (0..400).map(|i| format!("Абзац {i}: плотный текст заметки, как в настоящей базе знаний, с длинными предложениями, которые переносятся на несколько строк и заполняют всю ширину колонки редактора от края до края. ")).collect();
     let head = if std::env::var_os("AQUILUM_BENCH_HERO").is_some() { "---\ncover: true\ntype: book\nPage_cover: pattern:ruby\n---\n" } else { "" };
     std::fs::write(&note, format!("{head}{body}")).unwrap();
-    b.h.app.open(&mut b.h.root, note);
+    b.h.open(note);
     b.h.wait_cover(!head.is_empty());
     let threads: u16 = std::env::var("AQUILUM_BENCH_THREADS").ok().and_then(|v| v.parse().ok()).unwrap_or_else(raster_threads);
     b.renderer = Renderer::new(threads);
@@ -38,7 +38,7 @@ fn panel_animation_frames() {
     let note = vault.path().join("длинная.md");
     std::fs::write(&note, dense_body(400)).unwrap();
     let mut b = Bench::start(Some(vault.path()));
-    b.h.app.open(&mut b.h.root, note);
+    b.h.open(note);
     b.timed(true);
     for name in ["появление", "фокус", "выход", "панель"] {
         match name {
@@ -70,7 +70,7 @@ fn modal_intro_frames() {
     let note = vault.path().join("заметка.md");
     std::fs::write(&note, dense_body(60)).unwrap();
     let mut b = Bench::start(Some(vault.path()));
-    b.h.app.open(&mut b.h.root, note);
+    b.h.open(note);
     b.timed(true);
     let t = Instant::now();
     b.h.app.open_settings(&mut b.h.root);

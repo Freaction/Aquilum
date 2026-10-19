@@ -178,8 +178,11 @@ impl Interface {
 
     fn save(&self) {
         let Ok(json) = serde_json::to_string(&self.state) else { return };
-        if let Err(e) = write_content_atomic(&self.path, &json, None) {
-            report!("состояние интерфейса не сохранено: {e}");
-        }
+        let path = self.path.clone();
+        crate::disk::run(move || {
+            if let Err(e) = write_content_atomic(&path, &json, None) {
+                report!("состояние интерфейса не сохранено: {e}");
+            }
+        });
     }
 }

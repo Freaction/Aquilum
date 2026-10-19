@@ -42,10 +42,10 @@ impl App {
 
     pub(in crate::app) fn on_graph_results(&mut self, root: &mut RenderRoot) {
         while let Ok((generation, result)) = self.graph.rx.try_recv() {
-            self.graph.loading = false;
-            if generation != self.graph.generation || !self.tabs.has_graph() {
+            if generation != self.graph.generation {
                 continue;
             }
+            self.graph.loading = false;
             match result {
                 Ok(graph) => {
                     let keep = self.graph.data.is_some();

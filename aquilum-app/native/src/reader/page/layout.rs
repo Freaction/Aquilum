@@ -6,8 +6,6 @@ use super::text::{BOLD, TextStyle, glyph_width, wrapped};
 use super::{Item, Line, Settings};
 use crate::reader::flow::{Align, Block, Role};
 
-const THREADS: usize = 4;
-
 fn heading_scale(level: u8) -> f32 {
     match level {
         1 => 2.0,
@@ -105,7 +103,7 @@ pub fn layout_blocks(
         _ => Item::Rule,
     };
     let sizes: Vec<Option<(u32, u32)>> = blocks.iter().map(|block| if let Block::Image { src, .. } = block { images(src) } else { None }).collect();
-    let chunk = blocks.len().div_ceil(THREADS).max(1);
+    let chunk = blocks.len().div_ceil(rayon::current_num_threads()).max(1);
     let contexts: Vec<FontContext> = blocks.chunks(chunk).map(|_| fcx.clone()).collect();
     let parts: Vec<Vec<Item>> = blocks
         .par_chunks(chunk)

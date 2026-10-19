@@ -5,6 +5,7 @@ use crate::files::document::{write_content_atomic, write_spliced_atomic};
 use crate::files::entries::{copy_file_impl, create_content_file};
 use crate::files::error::FileCommandError;
 use crate::files::models::FileWriteResult;
+use crate::history::delta::single;
 use crate::history::{Change, NoteWrite, Source};
 use crate::search::paths::{is_markdown, is_note};
 use crate::text::content::{Content, Splice};
@@ -45,7 +46,7 @@ pub fn edit(
     name: Option<&str>,
 ) -> Result<FileWriteResult, FileCommandError> {
     let change = match (changes, expected_hash) {
-        ([(range, insert)], Some(base)) => Some(Change { splice: Splice { at: range.start, removed: range.len(), inserted: insert.len() }, base }),
+        ([(range, insert)], Some(base)) => Some(Change { regions: single(Splice { at: range.start, removed: range.len(), inserted: insert.len() }), base }),
         _ => None,
     };
     note_write(core, path, source, name, change, None, || write_spliced_atomic(path, changes, expected_hash))

@@ -40,15 +40,21 @@ fn graph_tab_loads_opens_notes_and_unloads() {
     }
     assert!(opened, "под курсором не нашлось ни одного узла");
     assert!(!h.app.tabs.active().graph && h.app.tabs.active().path.is_some(), "щелчок по узлу не открыл заметку");
-    assert!(h.app.tabs.has_graph() && h.app.graph_loaded() == Some(3), "граф закрылся вместе с переходом к заметке");
+    assert!(h.app.tabs.has_graph() && h.app.graph_released(), "граф остался в памяти на соседней вкладке");
     let graph = h.app.tabs.tabs().iter().find(|t| t.graph).unwrap().id;
+    assert!(h.app.tabs.select(graph));
+    h.app.show_active(&mut h.root);
+    assert!(wait(&mut h, &|h| h.app.graph_loaded() == Some(3)), "граф не загрузился заново");
+    let note = h.app.tabs.tabs().iter().find(|t| !t.graph).unwrap().id;
+    assert!(h.app.tabs.select(note));
+    h.app.show_active(&mut h.root);
     h.app.tabs.close(graph);
     h.app.show_active(&mut h.root);
     assert!(h.app.graph_released(), "граф остался в памяти после закрытия вкладки");
 }
 
 #[test]
-fn hidden_graph_gives_back_frames_and_draws_labels_again() {
+fn a_graph_left_for_a_note_is_unloaded_and_drawn_again_on_return() {
     let mut h = Harness::new();
     let vault = h.vault.path().to_path_buf();
     std::fs::write(vault.join("b.md"), "[[a]] [[c]]").unwrap();
@@ -77,11 +83,16 @@ fn hidden_graph_gives_back_frames_and_draws_labels_again() {
     assert!(h.app.tabs.select(note));
     h.app.show_active(&mut h.root);
     h.settle();
-    assert_eq!(retained(&h), (0, 0), "спрятанный граф держит подписи и кадры");
+    assert!(h.app.graph_view().is_none() && h.app.graph_released(), "спрятанный граф остался в памяти");
     assert!(h.app.tabs.select(graph));
     h.app.show_active(&mut h.root);
-    for _ in 0..20 {
+    for _ in 0..300 {
+        h.app.on_core_events(&mut h.root);
         h.settle();
+        if h.app.graph_loaded() == Some(3) && retained(&h).1 > 0 {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
     }
     let (sprites, frames) = retained(&h);
     assert!(sprites > 0 && frames > 0, "после возврата граф не нарисован: подписей {sprites}, кадров {frames}");
@@ -137,7 +148,7 @@ fn typing_suggests_notes_and_enter_links_them() {
     let note = vault.join("Черновик.md");
     std::fs::write(&note, "").unwrap();
     h.app.tree.paths_changed(&mut h.root, &[vault.join("Проектирование.md"), note.clone()]);
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let _ = h.root.redraw();
     let editor = h.app.editor_id().unwrap();
     h.root.handle_text_event(TextEvent::WindowFocusChange(true));
@@ -172,4 +183,22 @@ fn typing_suggests_notes_and_enter_links_them() {
         h.key(Key::Character(" ".into()), Modifiers::empty());
     }
     assert_eq!(text(&h), "[[Проектирование]] [[Проектирование]] ");
+}
+
+#[test]
+fn a_quick_return_to_the_graph_still_loads_it() {
+    let mut h = Harness::new();
+    std::fs::write(h.vault.path().join("b.md"), "[[a]]").unwrap();
+    h.app.open_graph(&mut h.root);
+    let graph = h.app.tabs.active_id();
+    let _ = h.app.new_tab(&mut h.root);
+    assert!(h.app.tabs.select(graph));
+    h.app.show_active(&mut h.root);
+    let loaded = (0..300).any(|_| {
+        h.app.on_core_events(&mut h.root);
+        h.settle();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        h.app.graph_loaded().is_some()
+    });
+    assert!(loaded, "граф остался в загрузке после быстрого возврата");
 }

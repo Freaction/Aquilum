@@ -19,6 +19,7 @@ pub use widget::{Search, Smart, Status, TextEditor};
 pub struct Edit {
     pub range: std::ops::Range<usize>,
     pub inserted: usize,
+    pub head: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]

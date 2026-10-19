@@ -72,7 +72,7 @@ pub fn build(
     underline: Option<Range<usize>>,
     width: Option<f32>,
     align: Alignment,
-    markdown: Option<(&markdown::Context, &Frame, &Block, Option<usize>)>,
+    markdown: Option<(&markdown::Context, &Frame, &Block, Option<Range<usize>>)>,
 ) -> (Layout<BrushIndex>, Decor) {
     let mut builder = lcx.ranged_builder(fcx, text, 1.0, true);
     for prop in styles.inner().values() {
@@ -82,7 +82,7 @@ pub fn build(
         builder.push_default(StyleProperty::OverflowWrap(OverflowWrap::Anywhere));
     }
     let decor = match markdown {
-        Some((context, frame, block, caret)) => markdown::style(&mut builder, frame, block, text, caret, context, width),
+        Some((context, frame, block, selection)) => markdown::style(&mut builder, frame, block, text, selection, context, width),
         None => Decor::default(),
     };
     if let Some(range) = underline {

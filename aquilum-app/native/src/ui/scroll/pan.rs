@@ -38,12 +38,8 @@ impl Pan {
     }
 
     pub fn wheel(&mut self, ctx: &mut EventCtx<'_>, delta: &ScrollDelta) {
-        let d = match *delta {
-            ScrollDelta::LineDelta(x, y) => -f64::from(if x != 0.0 { x } else { y }) * super::LINE,
-            ScrollDelta::PixelDelta(p) => -(if p.x != 0.0 { p.x } else { p.y }) / ctx.scale_factor(),
-            ScrollDelta::PageDelta(x, y) => -f64::from(if x != 0.0 { x } else { y }) * self.width,
-        };
-        if self.shift(d) {
+        let d = super::pixels(delta, ctx.scale_factor(), self.width);
+        if self.shift(-if d.x != 0.0 { d.x } else { d.y }) {
             ctx.request_layout();
             ctx.set_handled();
         }

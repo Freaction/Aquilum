@@ -106,7 +106,7 @@ fn enter_inserts_the_chosen_template_into_the_open_note() {
     let mut h = Harness::new();
     fill_templates(&h, &["Книга.md", "Обычная заметка.md"]);
     let note = h.write_note("заметка.md", "");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     h.settle();
     h.app.open_templates(&mut h.root);
     h.settle();

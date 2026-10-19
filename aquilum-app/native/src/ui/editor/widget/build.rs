@@ -27,6 +27,7 @@ impl TextEditor {
             column: None,
             compose: None,
             width: 0.0,
+            past_end: 0.0,
             caret_visible: true,
             painted: (0.0, 0.0),
             blink_start: std::time::Instant::now(),
@@ -69,6 +70,11 @@ impl TextEditor {
     pub fn markdown(mut self) -> Self {
         let size = self.styles.inner().values().find_map(|p| if let StyleProperty::FontSize(s) = p { Some(*s) } else { None }).unwrap_or(16.0);
         self.doc.set_markdown(Some(Fonts::new(size, self.smart.callouts, self.smart.tags)));
+        self
+    }
+
+    pub fn past_end(mut self, past_end: f64) -> Self {
+        self.past_end = past_end;
         self
     }
 

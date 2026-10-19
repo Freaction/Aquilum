@@ -5,8 +5,8 @@ fn note_page_hides_frontmatter_renames_and_navigates() {
     use crate::ui::editor::TextAction;
     let mut h = Harness::new();
     let note = h.write_note("b.md", "---\ntype: book\n---\nтекст");
-    h.app.open(&mut h.root, h.vault.path().join("a.md"));
-    h.app.open(&mut h.root, note.clone());
+    h.open(h.vault.path().join("a.md"));
+    h.open(note.clone());
     assert_eq!(h.body_text(), "текст");
 
     h.replace_body("новый текст");
@@ -46,8 +46,9 @@ fn note_page_hides_frontmatter_renames_and_navigates() {
 fn a_new_note_renamed_from_its_title_stays_open_with_the_caret_in_the_body() {
     use crate::ui::editor::TextAction;
     let mut h = Harness::new();
-    h.app.open(&mut h.root, h.vault.path().join("a.md"));
+    h.open(h.vault.path().join("a.md"));
     assert!(h.app.new_note(&mut h.root));
+    h.parked();
     let tabs = h.app.tabs.tabs().len();
     let ids = h.app.note_ids.as_ref().unwrap();
     let (title, body) = (ids.title.id(), ids.body.id());
@@ -88,7 +89,7 @@ fn home_button_appears_only_for_resolved_home_page() {
 fn pasted_image_is_saved_and_embedded() {
     let mut h = Harness::new();
     let note = h.write_note("Картинки.md", "до");
-    h.app.open(&mut h.root, note);
+    h.open(note);
     let _ = h.root.redraw();
     let mut png = std::io::Cursor::new(Vec::new());
     image::RgbaImage::from_pixel(2000, 10, image::Rgba([255, 0, 0, 255])).write_to(&mut png, image::ImageFormat::Png).unwrap();
@@ -123,4 +124,20 @@ fn pdf_export_keeps_what_the_editor_shows() {
         std::fs::write(std::path::Path::new(&out).join("export.pdf"), &pdf).unwrap();
     }
     assert!(pdf.starts_with(b"%PDF"), "не PDF");
+}
+
+#[test]
+fn the_space_below_a_short_note_puts_the_caret_at_the_end_and_selects_upward() {
+    let mut h = Harness::new();
+    let text = "первая строка\n```\nкод\n```";
+    let note = h.write_note("Короткая.md", text);
+    h.open(note);
+    let body = h.app.note_ids.as_ref().unwrap().body;
+    let rect = h.root.get_widget(body.id()).unwrap().ctx().bounding_box();
+    assert!(rect.y1 >= f64::from(H) - 1.0, "редактор не занимает место под текстом: {rect:?}");
+    let below = (rect.center().x, f64::from(H) - 10.0);
+    h.click(below.0, below.1);
+    assert_eq!(caret(&h), text.len(), "щелчок под текстом не поставил каретку в конец");
+    h.drag(below, (rect.center().x, rect.y0 - 10.0));
+    assert_eq!(body.get(&h.root).unwrap().inner().selection(), 0..text.len(), "выделение снизу вверх не захватило конец заметки");
 }

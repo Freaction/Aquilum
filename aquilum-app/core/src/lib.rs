@@ -8,6 +8,7 @@ pub mod history;
 pub mod link_title;
 pub mod markdown;
 pub mod mcp;
+pub mod recent;
 pub mod migration;
 pub mod search;
 pub mod settings;

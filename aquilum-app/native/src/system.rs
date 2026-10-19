@@ -61,6 +61,34 @@ pub fn reveal(path: &Path) {
     }
 }
 
+pub fn release_memory() {
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::System::Memory::{HeapOptimizeResources, HeapSetInformation};
+        #[repr(C)]
+        struct Optimize {
+            version: u32,
+            flags: u32,
+        }
+        let info = Optimize { version: 1, flags: 0 };
+        let _ = unsafe { HeapSetInformation(None, HeapOptimizeResources, Some((&raw const info).cast()), size_of::<Optimize>()) };
+    }
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    {
+        unsafe extern "C" {
+            fn malloc_trim(pad: usize) -> i32;
+        }
+        unsafe { malloc_trim(0) };
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" {
+            fn malloc_zone_pressure_relief(zone: *mut std::ffi::c_void, goal: usize) -> usize;
+        }
+        unsafe { malloc_zone_pressure_relief(std::ptr::null_mut(), 0) };
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

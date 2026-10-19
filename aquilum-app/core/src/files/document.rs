@@ -44,7 +44,7 @@ pub fn normalize_tail(buf: &mut Vec<u8>, from: usize, ended: bool) -> usize {
 pub fn text_from_bytes(mut bytes: Vec<u8>) -> std::io::Result<String> {
     let kept = normalize_line_endings_in_place(&mut bytes);
     bytes.truncate(kept);
-    String::from_utf8(bytes).map_err(|error| std::io::Error::new(ErrorKind::InvalidData, error))
+    crate::text::utf8::string(bytes)
 }
 
 pub fn normalize_line_endings(content: String) -> String {

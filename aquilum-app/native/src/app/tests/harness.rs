@@ -49,8 +49,22 @@ impl Harness {
     }
 
     pub(super) fn settle(&mut self) {
+        self.parked();
         self.anim(std::time::Duration::from_secs(1));
         let _ = self.root.redraw();
+    }
+
+    pub(super) fn parked(&mut self) {
+        while self.app.opening.is_some() {
+            crate::disk::wait();
+            self.app.on_opened(&mut self.root);
+        }
+    }
+
+    pub(super) fn open(&mut self, path: std::path::PathBuf) -> bool {
+        let opened = self.app.open(&mut self.root, path);
+        self.parked();
+        opened
     }
 
     pub(super) fn anim(&mut self, elapsed: std::time::Duration) {
@@ -58,7 +72,9 @@ impl Harness {
     }
 
     pub(super) fn send(&mut self, id: masonry::core::WidgetId, action: impl std::any::Any + std::fmt::Debug + Send) -> Outcome {
-        self.app.on_action(&mut self.root, id, masonry::core::ErasedAction::from(Box::new(action)), Size::new(1000.0, 600.0))
+        let outcome = self.app.on_action(&mut self.root, id, masonry::core::ErasedAction::from(Box::new(action)), Size::new(1000.0, 600.0));
+        self.parked();
+        outcome
     }
 
     pub(super) fn act(&mut self, id: masonry::core::WidgetId, action: impl std::any::Any + std::fmt::Debug + Send) -> Outcome {
@@ -68,9 +84,10 @@ impl Harness {
     }
 
     pub(super) fn deliver(&mut self) -> Outcome {
-        let _ = self.root.redraw();
         let mut outcome = Outcome::default();
         loop {
+            self.parked();
+            let _ = self.root.redraw();
             let actions: Vec<_> = std::mem::take(&mut *self.signals.borrow_mut())
                 .into_iter()
                 .filter_map(|s| match s {
@@ -86,7 +103,6 @@ impl Harness {
                 outcome.title |= next.title;
                 outcome.rescale |= next.rescale;
             }
-            let _ = self.root.redraw();
         }
     }
 

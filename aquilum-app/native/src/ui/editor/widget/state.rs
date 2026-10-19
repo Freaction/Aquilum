@@ -11,6 +11,7 @@ pub struct TextEditor {
     pub(super) column: Option<f64>,
     pub(super) compose: Option<(String, Option<(usize, usize)>)>,
     pub(super) width: f64,
+    pub(super) past_end: f64,
     pub(super) caret_visible: bool,
     pub(in crate::ui::editor) painted: (f64, f64),
     pub(super) blink_start: std::time::Instant,

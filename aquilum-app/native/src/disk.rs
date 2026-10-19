@@ -8,7 +8,7 @@ static QUEUE: OnceLock<Sender<Job>> = OnceLock::new();
 pub fn run(job: impl FnOnce() + Send + 'static) {
     let queue = QUEUE.get_or_init(|| {
         let (tx, rx) = channel::<Job>();
-        std::thread::spawn(move || rx.into_iter().for_each(|job| job()));
+        std::thread::spawn(move || rx.into_iter().for_each(|job| drop(std::panic::catch_unwind(std::panic::AssertUnwindSafe(job)))));
         tx
     });
     let _ = queue.send(Box::new(job));

@@ -10,13 +10,14 @@ use masonry::parley::{FontContext, LayoutContext};
 use super::{Document, text};
 
 impl Document {
-    pub fn layout(&mut self, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, width: Option<f32>, compose: Option<(usize, &str)>, caret: Option<usize>) {
+    pub fn layout(&mut self, fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, styles: &StyleSet, width: Option<f32>, compose: Option<(usize, &str)>, selection: Option<Range<usize>>) {
         if let Some(fonts) = self.markdown.as_mut()
             && fonts.ch == 0.0
         {
             text::measure(fcx, lcx, styles, fonts);
         }
-        self.enter(caret);
+        let selection = selection.as_ref();
+        self.enter(selection);
         let rebreak = self.width != width;
         self.width = width;
         self.rebroke |= rebreak;
@@ -55,12 +56,12 @@ impl Document {
                 }
             }
             let measured = aq_trace::zone("вёрстка: высоты абзацев");
-            let changed = self.measure(fcx, lcx, styles, compose, caret, rebreak, &merged, &pinned, stale.as_ref(), &mut wanted) || rebreak;
+            let changed = self.measure(fcx, lcx, styles, compose, selection, rebreak, &merged, &pinned, stale.as_ref(), &mut wanted) || rebreak;
             drop(measured);
             rebreak = false;
             let placed = aq_trace::zone("вёрстка: расстановка");
             for span in &merged {
-                self.place(span.start, span.end, fcx, lcx, styles, width, caret);
+                self.place(span.start, span.end, fcx, lcx, styles, width, selection);
             }
             drop(placed);
             if !(changed | self.aligned()) {
