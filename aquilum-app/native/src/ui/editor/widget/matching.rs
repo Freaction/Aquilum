@@ -9,7 +9,7 @@ pub(super) const HOVER: Options = Options { mode: Mode::WordPrefix, ..IGNORE_CAS
 
 pub(super) fn find_in(text: &crop::Rope, matcher: &Matcher, cancel: &Cancel) -> Vec<Range<usize>> {
     let mut lines = matcher.lines(cancel);
-    crate::rope::each_line(text.byte_slice(..), |line| lines.feed(line));
+    crate::rope::each_block(text.byte_slice(..), |block| lines.feed(block));
     lines.finish()
 }
 
@@ -38,7 +38,7 @@ mod tests {
     use aquilum_core::text::matcher::Matcher;
 
     #[test]
-    fn the_whole_rope_is_searched_line_by_line() {
+    fn the_whole_rope_is_searched_with_offsets_of_the_text() {
         let text: String = (0..3000).map(|i| format!("строка {i} Текст\n")).collect();
         let matcher = Matcher::new("текст", FIND);
         let found = find_in(&crop::Rope::from(text.as_str()), &matcher, &Cancel::never());

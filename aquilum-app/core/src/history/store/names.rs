@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-const NAME_EXTENSION: &str = ".name";
+pub(super) const NAME_EXTENSION: &str = ".name";
 
 pub fn remove_version_and_names(dir: &Path, version_id: &str) {
     let _ = fs::remove_file(dir.join(version_id));

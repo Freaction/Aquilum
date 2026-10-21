@@ -50,9 +50,6 @@ fn announce(core: &Core, relocation: Relocation) {
     if relocation.moves.is_empty() && relocation.removed.is_empty() {
         return;
     }
-    let moves: Vec<(String, String)> =
-        relocation.moves.iter().map(|step| (step.from.clone(), step.to.clone())).collect();
-    core.documents.relocated(&moves, &relocation.removed);
     core.emit(CoreEvent::NotesRelocated(relocation));
 }
 

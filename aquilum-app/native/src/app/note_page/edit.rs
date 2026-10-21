@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use masonry::app::RenderRoot;
 
 use super::super::App;
@@ -52,8 +50,7 @@ impl App {
 
     fn queue_save(&mut self) {
         if let Some(note) = &mut self.note {
-            let debounce = self.workspace.core.settings.get_config().editor.save_debounce_ms;
-            note.edit(Duration::from_millis(u64::from(debounce)));
+            note.edit();
         }
     }
 

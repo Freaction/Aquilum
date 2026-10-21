@@ -41,6 +41,13 @@ pub const PLUG: Icon = Icon::lucide(&[
     Shape::Path("M17 8a1 1 0 0 1 1 1v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1z"),
     Shape::Path("M9 8V2"),
 ]);
+pub const CLOUD: Icon = Icon::lucide(&[Shape::Path("M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z")]);
+pub const REFRESH_CW: Icon = Icon::lucide(&[
+    Shape::Path("M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"),
+    Shape::Path("M21 3v5h-5"),
+    Shape::Path("M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"),
+    Shape::Path("M8 16H3v5"),
+]);
 pub const POWER: Icon = Icon::lucide(&[Shape::Path("M12 2v10"), Shape::Path("M18.4 6.6a9 9 0 1 1-12.77.04")]);
 pub const KEYBOARD: Icon = Icon::lucide(&[
     Shape::Path("M10 8h.01"),

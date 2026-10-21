@@ -38,6 +38,10 @@ struct Located {
 pub type Roots<'a> = &'a dyn Fn() -> Vec<PathBuf>;
 
 impl HistoryService {
+    pub fn device(&self) -> &str {
+        &self.device
+    }
+
     pub fn new(app_data: &Path) -> Self {
         Self {
             device: device_id(app_data),

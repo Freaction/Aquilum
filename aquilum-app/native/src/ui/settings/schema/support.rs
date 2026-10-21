@@ -1,7 +1,7 @@
 use aquilum_core::settings::models::{AppConfig, FontSettings};
 
 use super::{Control, Number, Row, Setter, Value};
-use crate::i18n::{t, t_with};
+use crate::i18n::t;
 
 pub(super) const THEMES: [&str; 3] = ["system", "light", "dark"];
 pub(super) const LANGUAGES: [&str; 2] = ["ru", "en"];
@@ -17,11 +17,15 @@ pub(super) const READER_FAMILIES: [&str; 3] = [QUATTRO, INTER, MONO];
 pub(super) const WEIGHTS: [u32; 5] = [400, 450, 500, 550, 600];
 
 pub(super) fn row(label: String, description: Option<String>, control: Control, setter: fn(&mut AppConfig, &Value)) -> Row {
-    Row { label, description, control, setter: Some(Setter::Config(setter)), code: None }
+    bound(label, description, control, Setter::Config(setter))
+}
+
+pub(super) fn bound(label: String, description: Option<String>, control: Control, setter: Setter) -> Row {
+    Row { setter: Some(setter), ..info(label, description, control) }
 }
 
 pub(super) fn info(label: String, description: Option<String>, control: Control) -> Row {
-    Row { label, description, control, setter: None, code: None }
+    Row { label, description, control, setter: None, code: None, countdown: None }
 }
 
 pub(super) fn index(value: &Value) -> usize {
@@ -53,13 +57,6 @@ pub(super) fn text(value: &Value) -> String {
     match value {
         Value::Text(s) => s.clone(),
         _ => String::new(),
-    }
-}
-
-pub(super) fn interval(ms: u32) -> String {
-    match ms / 1000 {
-        seconds if seconds < 60 => t_with("settings.editor.seconds", &[("count", &seconds.to_string())]),
-        seconds => t_with("settings.editor.minutes", &[("count", &(seconds / 60).to_string())]),
     }
 }
 

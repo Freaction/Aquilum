@@ -1,6 +1,5 @@
 pub mod active;
 pub mod bridge;
-mod http;
 mod protocol;
 mod server;
 mod stdio;

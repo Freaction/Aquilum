@@ -1,14 +1,33 @@
-use super::names::{names, orphan_names};
+use super::names::{names, orphan_names, NAME_EXTENSION};
 use super::{history_root, millis, versions, VersionFile};
 use crate::history::delta;
 use crate::history::rebuild::{is_delta, rebuild};
 use crate::files::relocate::{remove_empty_folders, remove_files};
+use crate::files::trash::files_in;
+use std::fs;
+use std::io;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use walkdir::WalkDir;
 
 pub(super) const DAY: Duration = Duration::from_secs(24 * 60 * 60);
+
+pub struct Usage {
+    pub versions: u64,
+    pub bytes: u64,
+}
+
+pub fn usage(vault: &Path) -> Usage {
+    files_in(&history_root(vault)).fold(Usage { versions: 0, bytes: 0 }, |usage, (path, metadata)| Usage {
+        versions: usage.versions + u64::from(!path.to_string_lossy().ends_with(NAME_EXTENSION)),
+        bytes: usage.bytes + metadata.len(),
+    })
+}
+
+pub fn clear(vault: &Path) -> io::Result<()> {
+    crate::files::missing_ok(fs::remove_dir_all(history_root(vault)))
+}
 
 pub fn remove_expired(vault: &Path, retention_days: u32) -> u64 {
     let root = history_root(vault);
@@ -66,3 +85,7 @@ fn settle(dir: &Path, version: &VersionFile) {
         eprintln!("[aquilum:history] версия {} не переписана перед удалением старых: {error}", path.display());
     }
 }
+
+#[cfg(test)]
+#[path = "usage_tests.rs"]
+mod tests;

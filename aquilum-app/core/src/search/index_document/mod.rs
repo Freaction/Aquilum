@@ -15,6 +15,8 @@ use std::path::Path;
 use tantivy::{IndexWriter, Term};
 
 pub use note::apply;
+#[cfg(test)]
+pub(crate) use note::add_page;
 
 #[cfg(test)]
 pub fn index_text(transaction: &Transaction<'_>, root: &Path, path: &Path, body: &str) -> Result<(), SearchError> {
@@ -22,7 +24,7 @@ pub fn index_text(transaction: &Transaction<'_>, root: &Path, path: &Path, body:
     wiki::register(transaction, root, path)?;
     pages::remove(transaction, &key)?;
     let Some(page) = pages::Pages::of(&body).next()? else { return Ok(()) };
-    note::store_page(transaction, path, &key, 0, &page)
+    note::store_page(transaction, path, &pages::Keys::default().next(&key, &page), 0, &page)
 }
 
 #[derive(Clone, Copy)]

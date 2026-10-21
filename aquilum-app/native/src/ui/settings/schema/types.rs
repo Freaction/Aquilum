@@ -1,7 +1,9 @@
 use std::path::PathBuf;
+use std::time::Instant;
 
 use aquilum_core::mcp::McpStatus;
-use aquilum_core::settings::models::AppConfig;
+use aquilum_core::settings::models::{AppConfig, SyncSettings};
+use aquilum_core::sync::{Large, Size, SyncStatus};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -14,6 +16,7 @@ pub enum Value {
 #[derive(Clone, Copy)]
 pub enum Setter {
     Config(fn(&mut AppConfig, &Value)),
+    VaultSync(fn(&mut SyncSettings, &Value)),
     Scale,
     HomePage,
     Autostart,
@@ -28,18 +31,31 @@ pub struct Context {
     pub trash_page: usize,
     pub autostart: Option<bool>,
     pub update: Option<crate::updater::Status>,
+    pub sync: SyncStatus,
+    pub vault_sync: Option<SyncSettings>,
+    pub sync_large: Vec<Large>,
+    pub sync_size: Size,
+    pub sync_due: Option<Instant>,
+    pub sync_last: Option<u64>,
 }
 
 impl Context {
     #[cfg(test)]
     pub fn new(scale: f64) -> Self {
-        Context { workspace: None, scale, home_page: String::new(), mcp: None, copied: None, trash_page: 0, autostart: None, update: None }
+        Context { workspace: None, scale, home_page: String::new(), mcp: None, copied: None, trash_page: 0, autostart: None, update: None, sync: SyncStatus::Off(None), vault_sync: None, sync_large: Vec::new(), sync_size: Size::default(), sync_due: None, sync_last: None }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
     OpenTrash,
+    Wipe(Wipe),
+    SyncConnect,
+    SyncDisconnect,
+    SyncAllowDeletions,
+    Reveal(String),
+    SyncSend(Vec<String>),
+    Trash(String),
     Restore(String),
     TrashPage(usize),
     CreateTemplates,
@@ -50,16 +66,52 @@ pub enum Action {
     InstallUpdate,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Wipe {
+    History,
+    Trash,
+}
+
+impl Wipe {
+    pub fn key(self, name: &str) -> String {
+        let section = match self {
+            Wipe::History => "history",
+            Wipe::Trash => "trash",
+        };
+        format!("settings.{section}.{name}")
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Button {
     pub label: String,
     pub action: Action,
     pub enabled: bool,
+    pub icon: Option<ButtonIcon>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ButtonIcon {
+    Folder,
+    Trash,
+    Upload,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Indicator {
+    Syncing,
+    Synced,
+    Failed,
 }
 
 impl Button {
     pub(super) fn new(label: String, action: Action) -> Self {
-        Button { label, action, enabled: true }
+        Button { label, action, enabled: true, icon: None }
+    }
+
+    pub(super) fn icon(mut self, icon: ButtonIcon) -> Self {
+        self.icon = Some(icon);
+        self
     }
 
     pub(super) fn enabled(mut self, enabled: bool) -> Self {
@@ -128,6 +180,7 @@ pub enum Control {
     Color(String),
     Kbd(String),
     Buttons(Vec<Button>),
+    Indicated(Vec<Button>, Indicator),
     Status { text: String, tone: Tone },
 }
 
@@ -137,6 +190,7 @@ pub struct Row {
     pub control: Control,
     pub setter: Option<Setter>,
     pub code: Option<String>,
+    pub countdown: Option<(Instant, fn(u64) -> String)>,
 }
 
 pub struct Block {

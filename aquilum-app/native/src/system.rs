@@ -1,14 +1,21 @@
 use std::path::Path;
+#[cfg(not(target_os = "windows"))]
 use std::process::Command;
 
+#[cfg(target_os = "windows")]
 pub fn open(target: &str) {
-    let program = if cfg!(target_os = "windows") {
-        "explorer"
-    } else if cfg!(target_os = "macos") {
-        "open"
-    } else {
-        "xdg-open"
-    };
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    use windows::core::{HSTRING, PCWSTR, w};
+    let launched = unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(target), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL) };
+    if launched.0 as usize <= 32 {
+        report!("{target} не открыт: код {}", launched.0 as usize);
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn open(target: &str) {
+    let program = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
     if let Err(error) = Command::new(program).arg(target).spawn() {
         report!("{target} не открыт: {error}");
     }

@@ -6,15 +6,7 @@ use crate::files::trash::{move_to_trash_impl, restore_from_trash_impl};
 use crate::search::paths::is_note;
 use std::path::{Path, PathBuf};
 
-pub fn trash(
-    core: &Core,
-    workspace: &Path,
-    path: &Path,
-) -> Result<PathBuf, FileCommandError> {
-    core.documents.moving(core, path, || trash_now(core, workspace, path))
-}
-
-fn trash_now(core: &Core, workspace: &Path, path: &Path) -> Result<PathBuf, FileCommandError> {
+pub fn trash(core: &Core, workspace: &Path, path: &Path) -> Result<PathBuf, FileCommandError> {
     let moved = move_to_trash_impl(workspace, path)?;
     let notes = note_moves(&moved.files);
     let history = &core.history;

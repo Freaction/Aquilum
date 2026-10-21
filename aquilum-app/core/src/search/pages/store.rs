@@ -13,8 +13,35 @@ pub const PAGES_DDL: &str = "CREATE TABLE IF NOT EXISTS note_pages (
           );
          CREATE INDEX IF NOT EXISTS note_pages_path ON note_pages(path)";
 
-pub fn key(path: &str, page: &Page, repeat: usize) -> String {
-    format!("{path}\u{1f}{}\u{1f}{repeat}{}", page.hash.to_hex(), if page.first { "^" } else { "" })
+#[derive(Default)]
+pub struct Keys(HashMap<blake3::Hash, usize>);
+
+impl Keys {
+    pub fn next(&mut self, path: &str, page: &Page) -> String {
+        let repeat = self.0.entry(page.hash).or_insert(0);
+        *repeat += 1;
+        format!("{path}\u{1f}{}\u{1f}{}{}", page.hash.to_hex(), *repeat - 1, if page.first { "^" } else { "" })
+    }
+}
+
+pub fn prefix(path: &str) -> String {
+    format!("{path}\u{1f}")
+}
+
+pub fn key_hash(key: &str) -> Option<blake3::Hash> {
+    key.rsplit('\u{1f}').nth(1).and_then(|hex| blake3::Hash::from_hex(hex).ok())
+}
+
+pub struct Placed {
+    pub key: String,
+    pub start: usize,
+    pub start_utf16: usize,
+}
+
+pub fn placed(connection: &Connection, path: &str) -> rusqlite::Result<Vec<Placed>> {
+    let mut statement = connection.prepare_cached("SELECT key, start, start_utf16 FROM note_pages WHERE path=?1 ORDER BY ordinal")?;
+    let rows = statement.query_map([path], |row| Ok(Placed { key: row.get(0)?, start: row.get::<_, i64>(1)? as usize, start_utf16: row.get::<_, i64>(2)? as usize }))?;
+    rows.collect()
 }
 
 pub fn stored(transaction: &Transaction<'_>, path: &str) -> rusqlite::Result<HashMap<String, i64>> {

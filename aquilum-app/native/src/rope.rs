@@ -35,26 +35,36 @@ pub fn floor(text: &Rope, at: usize) -> usize {
 }
 
 pub fn each_line(text: RopeSlice<'_>, mut line: impl FnMut(&str) -> bool) {
+    each_block(text, |block| block.split('\n').all(&mut line));
+}
+
+pub fn each_block(text: RopeSlice<'_>, mut block: impl FnMut(&str) -> bool) {
     let mut part = String::new();
     for chunk in text.chunks() {
-        let mut rest = chunk;
-        while let Some(i) = rest.find('\n') {
-            let go = if part.is_empty() {
-                line(&rest[..i])
-            } else {
-                part.push_str(&rest[..i]);
-                let go = line(&part);
-                part.clear();
-                go
-            };
-            if !go {
+        let Some(last) = chunk.rfind('\n') else {
+            part.push_str(chunk);
+            continue;
+        };
+        let mut whole = &chunk[..last];
+        if !part.is_empty() {
+            let first = whole.find('\n').unwrap_or(whole.len());
+            part.push_str(&whole[..first]);
+            if !block(&part) {
                 return;
             }
-            rest = &rest[i + 1..];
+            part.clear();
+            whole = whole.get(first + 1..).unwrap_or_default();
+            if first == last {
+                part.push_str(&chunk[last + 1..]);
+                continue;
+            }
         }
-        part.push_str(rest);
+        if !block(whole) {
+            return;
+        }
+        part.push_str(&chunk[last + 1..]);
     }
-    line(&part);
+    block(&part);
 }
 
 pub fn changed(old: &Rope, new: &Rope) -> Splice {
@@ -63,7 +73,7 @@ pub fn changed(old: &Rope, new: &Rope) -> Splice {
 
 #[cfg(test)]
 mod tests {
-    use super::{changed, each_line, Text};
+    use super::{changed, each_block, each_line, Text};
     use aquilum_core::text::content::{read_bytes, Splice};
     use crop::Rope;
 
@@ -94,5 +104,19 @@ mod tests {
             true
         });
         assert_eq!(lines, text.split('\n').collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn blocks_are_whole_lines_that_join_back_into_the_text() {
+        for tail in ["хвост", "", "\n"] {
+            let text: String = (0..3000).map(|i| format!("строка {i}\n{}", "\n".repeat(i % 3))).collect::<String>() + tail;
+            let mut blocks = Vec::new();
+            each_block(Rope::from(text.as_str()).byte_slice(..), |block| {
+                blocks.push(block.to_owned());
+                true
+            });
+            assert!(blocks.len() > 1, "текст идёт кусками, а не одной строкой");
+            assert_eq!(blocks.join("\n"), text);
+        }
     }
 }

@@ -1,6 +1,6 @@
 use super::*;
 use crate::ui::settings::Binding;
-use crate::ui::settings::schema::Action;
+use crate::ui::settings::schema::{Action, Wipe};
 
 #[test]
 fn settings_dialog_applies_changes() {
@@ -156,4 +156,42 @@ fn animations_switch_turns_motion_off_and_on() {
     assert!(!crate::ui::motion::on(), "после выключения анимации продолжают идти");
     h.click(center.x, center.y);
     assert!(h.config().ui.animations && crate::ui::motion::on());
+}
+
+fn wiped_after_confirmation(section: Section, wipe: Wipe, kept: &str, wiped: &str) -> Harness {
+    let mut h = Harness::new();
+    let vault = h.vault.path().to_path_buf();
+    let file = vault.join(wiped);
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, "старая версия").unwrap();
+    h.click(242.0, 578.0);
+    h.open_section(section);
+    let confirm_layer = |h: &Harness| match &h.app.popup {
+        Some(Popup::Settings { dialog, .. }) => dialog.confirm.as_ref().expect("окно подтверждения").0.layer,
+        _ => panic!("настройки закрылись"),
+    };
+
+    let clear = h.binding("кнопка очистки", |b| matches!(b, Binding::Button(Action::Wipe(found)) if *found == wipe));
+    h.act(clear, crate::ui::widgets::Pressed);
+    h.act(confirm_layer(&h), crate::ui::dialog::DialogAnswer::Cancel);
+    assert!(file.exists(), "отмена всё стёрла");
+
+    h.act(clear, crate::ui::widgets::Pressed);
+    h.act(confirm_layer(&h), crate::ui::dialog::DialogAnswer::Confirm);
+    assert!(!file.exists());
+    assert!(vault.join(kept).exists());
+    assert_eq!(h.section(), Some(section));
+    h
+}
+
+#[test]
+fn history_section_clears_every_version_only_after_confirmation() {
+    let h = wiped_after_confirmation(Section::History, Wipe::History, "a.md", ".aquilum/history/a.md/1_dev_me.md");
+    assert!(!h.vault.path().join(".aquilum").join("history").exists());
+}
+
+#[test]
+fn trash_section_empties_deleted_notes_with_their_history_only_after_confirmation() {
+    let h = wiped_after_confirmation(Section::Trash, Wipe::Trash, "a.md", ".trash/.aquilum/history/Старая.md/1_dev_me.md");
+    assert_eq!(std::fs::read_dir(h.vault.path().join(".trash")).unwrap().count(), 0);
 }

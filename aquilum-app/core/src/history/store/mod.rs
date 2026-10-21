@@ -16,10 +16,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use legacy::adopt_quantum_history;
 pub use names::{names, remove_version_and_names, write_name};
-pub use retention::remove_expired;
+pub use retention::{clear, remove_expired, usage, Usage};
 
 pub const AQUILUM_FOLDER: &str = ".aquilum";
-const HISTORY_FOLDER: &str = "history";
+pub const HISTORY_FOLDER: &str = "history";
 pub const VERSION_EXTENSION: &str = ".md";
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -108,7 +108,7 @@ fn parse_version(name: String) -> Option<VersionFile> {
     })
 }
 
-fn millis(at: SystemTime) -> u64 {
+pub(crate) fn millis(at: SystemTime) -> u64 {
     at.duration_since(UNIX_EPOCH)
         .map_or(0, |since| since.as_millis() as u64)
 }

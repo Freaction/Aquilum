@@ -16,7 +16,7 @@ use masonry::properties::{Gap, Padding};
 use masonry::widgets::{Flex, SizedBox};
 
 use crate::i18n::t;
-use crate::ui::dialog::{CardSize, Modal, header};
+use crate::ui::dialog::{CardSize, DialogIds, Modal, header};
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
@@ -47,6 +47,7 @@ pub struct SettingsDialog {
     pub bindings: HashMap<WidgetId, Binding>,
     pub copied: Option<usize>,
     pub trash_page: usize,
+    pub confirm: Option<(DialogIds, schema::Wipe)>,
 }
 
 fn card_size(room: Size) -> Size {
@@ -95,7 +96,7 @@ pub fn card(config: &AppConfig, ctx: &Context, section: Section) -> (NewWidget<F
         .with_fixed(Rule::new(Axis::Horizontal, || theme::current().border_default))
         .with(NewWidget::new(body), 1.0);
     let (copied, trash_page) = (ctx.copied, ctx.trash_page);
-    let finish = move |layer| SettingsDialog { layer, close: close_id, content: content_handle, nav: nav_ids, section, bindings, copied, trash_page };
+    let finish = move |layer| SettingsDialog { layer, close: close_id, content: content_handle, nav: nav_ids, section, bindings, copied, trash_page, confirm: None };
     (NewWidget::new(card), finish)
 }
 

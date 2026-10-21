@@ -52,7 +52,7 @@ pub fn revert_version(core: &Core, note: &Path, id: &str, source: Source, offset
     })?;
     let Some(displaced) = reverted else { return Ok(false) };
     if !displaced.is_empty() {
-        let report = ConflictReport { cause: ConflictCause::Reverted, disk_hash: None, synced_hash: None };
+        let report = ConflictReport { cause: ConflictCause::Reverted, synced_hash: None };
         preserve_copy(core, note, &displaced.join(BETWEEN), report, offset_seconds);
     }
     Ok(true)

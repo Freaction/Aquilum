@@ -1,13 +1,12 @@
 use crate::search::note_date::to_civil_at;
 use crate::text::content::{find_byte, read_bytes, Content};
 use crate::text::pieces::Pieces;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConflictCause {
     Diverged,
-    NoSyncPoint,
     Displaced,
-    Truncated,
     Reverted,
 }
 
@@ -24,12 +23,6 @@ fn explanation(cause: ConflictCause) -> Explanation {
                   Свести их без потери было нельзя, поэтому в заметке осталась версия с диска, \
                   а версия из редактора сохранена здесь.",
         },
-        ConflictCause::NoSyncPoint => Explanation {
-            title: "точка сверки недоступна",
-            why: "Хранилище точек синхронизации не ответило, поэтому сравнить версии было нечем. \
-                  Приложение не стало молча выбирать сторону: в заметке осталась версия с диска, \
-                  а версия из редактора сохранена здесь.",
-        },
         ConflictCause::Displaced => Explanation {
             title: "строки не поместились при слиянии",
             why: "В заметку приехала внешняя правка, и её сведение с тем, что набиралось в редакторе, \
@@ -41,18 +34,11 @@ fn explanation(cause: ConflictCause) -> Explanation {
                   В заметке эти места вернулись к виду до той версии, а более поздний текст этих строк \
                   сохранён здесь.",
         },
-        ConflictCause::Truncated => Explanation {
-            title: "заметка обнулена при сохранении",
-            why: "Сохранение записало в заметку пустой текст, хотя до этого в ней был текст. \
-                  Прежнее содержимое сохранено здесь до того, как файл был обнулён. \
-                  Если вы очистили заметку сами, эту копию можно просто удалить.",
-        },
     }
 }
 
 pub struct ConflictReport {
     pub cause: ConflictCause,
-    pub disk_hash: Option<String>,
     pub synced_hash: Option<String>,
 }
 
@@ -69,6 +55,11 @@ impl LocalMinute {
             time: format!("{:02}:{:02}", inside / 3600, (inside % 3600) / 60),
         }
     }
+
+    pub fn now(offset_seconds: i64) -> Self {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |since| since.as_nanos() as i64);
+        Self::at(nanos, offset_seconds)
+    }
 }
 
 fn quoted(value: &str) -> String {
@@ -79,8 +70,8 @@ fn one_line(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-pub fn copy_stem(stem: &str, moment: &LocalMinute) -> String {
-    format!("{stem} (конфликт {} {})", moment.date, moment.time.replace(':', "-"))
+pub fn copy_stem(stem: &str, moment: &LocalMinute, device: &str) -> String {
+    format!("{stem} (конфликт {} {} {device})", moment.date, moment.time.replace(':', "-"))
 }
 
 pub fn copy_content<'a>(
@@ -108,9 +99,6 @@ pub fn copy_content<'a>(
         format!("> **Когда.** {stamp}"),
         format!("> **Заметка.** `{note_path}`"),
     ];
-    if let Some(hash) = &report.disk_hash {
-        lines.push(format!("> **Отпечаток файла на диске.** `{}`", one_line(hash)));
-    }
     if let Some(hash) = &report.synced_hash {
         lines.push(format!("> **Отпечаток последней сверки.** `{}`", one_line(hash)));
     }

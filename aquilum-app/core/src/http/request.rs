@@ -1,7 +1,8 @@
 use super::{refused, Failure};
 
-pub(in crate::mcp) struct Head {
+pub(crate) struct Head {
     pub method: String,
+    pub target: String,
     version: u8,
     headers: Vec<(String, String)>,
 }
@@ -15,6 +16,7 @@ impl Head {
     pub fn from_parsed(request: &httparse::Request) -> Self {
         Self {
             method: request.method.unwrap_or_default().to_owned(),
+            target: request.path.unwrap_or_default().to_owned(),
             version: request.version.unwrap_or(1),
             headers: request
                 .headers
@@ -80,6 +82,7 @@ mod tests {
     fn head(version: u8, connection: Option<&str>) -> Head {
         Head {
             method: "POST".to_owned(),
+            target: "/".to_owned(),
             version,
             headers: connection
                 .map(|value| ("Connection".to_owned(), value.to_owned()))

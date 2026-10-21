@@ -59,21 +59,34 @@ pub(super) fn analysis(config: &AppConfig) -> Vec<Block> {
     vec![methods, params]
 }
 
-pub(super) fn history(config: &AppConfig) -> Vec<Block> {
+pub(super) fn history(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     let options = vec![
         t("settings.history.forever"),
         t_with("settings.history.days", &[("count", "30")]),
         t_with("settings.history.days", &[("count", "90")]),
         t("settings.history.year"),
     ];
+    let usage = ctx.workspace.as_deref().map(history::store::usage);
+    let stored = match &usage {
+        Some(usage) if usage.versions > 0 => format!("{}, {}", plural("settings.history.versions", usage.versions), format_size(usage.bytes)),
+        _ => t("settings.history.empty"),
+    };
+    let clearable = usage.is_some_and(|usage| usage.versions > 0);
     vec![Block {
         title: t("settings.history.section"),
-        rows: vec![row(
-            t("settings.history.retention"),
-            Some(t("settings.history.retentionHint")),
-            Control::Dropdown { options, selected: position(&HISTORY_DAYS, &config.history.retention_days) },
-            |c, v| c.history.retention_days = HISTORY_DAYS[index(v).min(3)],
-        )],
+        rows: vec![
+            row(
+                t("settings.history.retention"),
+                Some(t("settings.history.retentionHint")),
+                Control::Dropdown { options, selected: position(&HISTORY_DAYS, &config.history.retention_days) },
+                |c, v| c.history.retention_days = HISTORY_DAYS[index(v).min(3)],
+            ),
+            info(
+                t("settings.history.stored"),
+                Some(stored),
+                Control::Buttons(vec![Button::new(t("settings.history.clear"), Action::Wipe(Wipe::History)).enabled(clearable)]),
+            ),
+        ],
     }]
 }
 
@@ -84,7 +97,7 @@ pub(super) fn shortcuts() -> Vec<Block> {
             title: t(&format!("settings.shortcuts.{group}")),
             rows: items
                 .into_iter()
-                .map(|(label, keys)| Row { label: t(&format!("settings.shortcuts.{label}")), description: None, control: Control::Kbd(keys), setter: None, code: None })
+                .map(|(label, keys)| info(t(&format!("settings.shortcuts.{label}")), None, Control::Kbd(keys)))
                 .collect(),
         })
         .collect()

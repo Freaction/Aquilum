@@ -40,6 +40,12 @@ impl App {
         self.render_history(root);
     }
 
+    pub(super) fn refresh_history(&mut self, root: &mut RenderRoot) {
+        if self.panel_mode() == crate::links::Mode::History && self.panel_visible() {
+            self.load_history(root);
+        }
+    }
+
     pub(super) fn render_history(&mut self, root: &mut RenderRoot) {
         let Some(chrome) = &self.chrome else { return };
         let Some(state) = &self.history else {

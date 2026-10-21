@@ -65,14 +65,19 @@ impl TextButton {
         let shape = RoundedRect::from_rect(bounds, self.size.radius());
         let enabled = !ctx.is_disabled();
         let hovered = ctx.is_hovered() && enabled;
+        let active = hovered || (self.press.down && enabled) || self.pressed;
         let color = match self.variant {
             Variant::Primary => {
                 let shadow = if self.size == ButtonSize::Xs { t.shadow_action_xs } else { t.shadow_action };
                 paint_primary(painter, shape, hovered, shadow);
                 t.text_on_accent
             }
+            Variant::Secondary => {
+                painter.fill(shape, if active { t.button_secondary_bg_hover } else { t.button_secondary_bg }).draw();
+                if active { t.button_secondary_text_hover } else { t.button_secondary_text }
+            }
             Variant::Ghost => {
-                if hovered || (self.press.down && enabled) || self.pressed {
+                if active {
                     painter.fill(shape, t.bg_surface_overlay).draw();
                 }
                 t.text_tertiary
@@ -94,7 +99,7 @@ impl TextButton {
     fn style(&self) -> text::Style {
         let weight = match self.variant {
             Variant::Primary => number::FONT_WEIGHT_UI_MEDIUM,
-            Variant::Ghost => number::FONT_WEIGHT_UI_BASE,
+            Variant::Secondary | Variant::Ghost => number::FONT_WEIGHT_UI_BASE,
         };
         text::Style { size: size::BUTTON_FONT_SIZE as f32, weight: weight as f32, line_height: self.size.line_height() }
     }

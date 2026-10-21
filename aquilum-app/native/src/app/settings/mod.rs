@@ -3,7 +3,7 @@ use std::path::Path;
 
 use aquilum_core::files::gate;
 use crate::ui::editor::TextEditor;
-use aquilum_core::files::trash::{cleanup_trash_impl, ensure_trash_impl};
+use aquilum_core::files::trash::{cleanup_trash_impl, empty_trash_impl, ensure_trash_impl};
 use masonry::app::RenderRoot;
 use masonry::core::keyboard::{Key, NamedKey};
 use masonry::core::{ErasedAction, WidgetId};
@@ -15,14 +15,17 @@ use super::{App, Outcome, Popup};
 mod action;
 mod apply;
 mod bindings;
+mod cleanup;
 mod refresh;
 
 use crate::system;
+use crate::i18n::t;
+use crate::ui::dialog::ConfirmDialog;
 use crate::ui::menu::Menu;
 use crate::ui::settings::controls::{Changed, ColorPicker, Committed, DropdownButton, Switch};
 use crate::ui::theme;
 use crate::ui::tokens::size;
-use crate::ui::settings::schema::{self, Action, Context, Section, Setter, Value};
+use crate::ui::settings::schema::{self, Action, Context, Section, Setter, Value, Wipe};
 use crate::ui::settings::{self, Binding, SettingsDialog};
 use crate::ui::widgets::Pressed;
 
@@ -48,14 +51,10 @@ impl App {
 
     fn settings_context(&self, copied: Option<usize>, trash_page: usize) -> Context {
         let workspace = self.tree.root().map(Path::to_path_buf);
-        let home_page = workspace
-            .as_ref()
-            .and_then(|root| {
-                let path = root.to_string_lossy();
-                let known = self.workspace.core.ui_state.list_workspaces().ok()?;
-                known.into_iter().find(|w| w.path == path).map(|w| w.home_page)
-            })
-            .unwrap_or_default();
+        let known = workspace.as_deref().and_then(|root| self.workspace.core.ui_state.workspace(root));
+        let home_page = known.as_ref().map(|known| known.home_page.clone()).unwrap_or_default();
+        let large = self.workspace.core.sync.large().into_iter();
+        let sync_large = large.filter(|large| workspace.as_deref().is_some_and(|root| root.join(&large.path).exists())).collect();
         Context {
             workspace,
             scale: self.interface.scale(),
@@ -65,6 +64,12 @@ impl App {
             trash_page,
             autostart: crate::autostart::available().then(crate::autostart::enabled),
             update: crate::updater::available().then(|| self.updater.status()),
+            sync: self.workspace.core.sync.status(),
+            vault_sync: known.map(|known| known.sync),
+            sync_large,
+            sync_size: self.workspace.core.sync.size(),
+            sync_due: self.workspace.core.sync.due(),
+            sync_last: self.workspace.core.sync.last(),
         }
     }
 

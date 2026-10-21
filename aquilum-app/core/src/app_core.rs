@@ -1,4 +1,3 @@
-use crate::documents::{DocumentEvent, DocumentHub, SaveFailed};
 use crate::files::gate::{NoteHistoryChanged, Relocation};
 use crate::files::watcher::{WatchBatch, WatchScope, WatchSink, WorkspaceWatcher};
 use crate::history::HistoryService;
@@ -8,18 +7,18 @@ use crate::mcp::{McpServer, McpStatus};
 use crate::search::paths::is_markdown;
 use crate::search::{ChangeNotifier, IndexNotifier, IndexRevision, SearchService};
 use crate::settings::SettingsManager;
+use crate::sync::SyncService;
 use crate::ui_state::UiStateService;
 use crate::wikixiv::WikixivService;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
+use std::time::Duration;
+
+const SYNC_AFTER_EDIT: Duration = Duration::from_secs(3);
 
 /// What the core tells its host.
 #[derive(Clone)]
 pub enum CoreEvent {
-    DocumentChanged(DocumentEvent),
-    DocumentSaved(DocumentEvent),
-    DocumentMissing(DocumentEvent),
-    DocumentSaveFailed(SaveFailed),
     NotesRelocated(Relocation),
     NoteHistoryChanged(NoteHistoryChanged),
     WorkspaceChanged(Vec<String>),
@@ -27,6 +26,7 @@ pub enum CoreEvent {
     WorkspaceRescanned,
     LinksChanged(IndexRevision),
     Navigate(Navigation),
+    SyncChanged,
     Settle(std::sync::mpsc::SyncSender<()>),
 }
 
@@ -58,12 +58,12 @@ pub struct Core {
     pub ui_state: UiStateService,
     pub search: SearchService,
     pub history: HistoryService,
-    pub documents: DocumentHub,
     pub wikixiv: WikixivService,
     pub watcher: WorkspaceWatcher,
     /// The note open in the UI, reported by the host; MCP tools use it for «эта заметка».
     pub active_note: ActiveNote,
     pub mcp: McpServer,
+    pub sync: SyncService,
     events: Arc<dyn EventSink>,
 }
 
@@ -90,15 +90,15 @@ impl Core {
                 ui_state: UiStateService::open(&app_data_dir.join("ui-state.sqlite3")),
                 search: SearchService::new(app_data_dir.join("search-v2"), notifier, index_notifier),
                 history: HistoryService::new(app_data_dir),
-                documents: DocumentHub::new(&app_data_dir.join("documents.sqlite3")),
                 wikixiv: WikixivService::new(),
                 watcher: WorkspaceWatcher::new(watch_sink),
                 active_note: ActiveNote::default(),
                 mcp: McpServer::new(),
+                sync: SyncService::new(app_data_dir),
                 events,
             }
         });
-        core.documents.start(Arc::downgrade(&core));
+        core.sync.start(Arc::downgrade(&core));
         core
     }
 
@@ -117,10 +117,8 @@ impl Core {
         self.mcp.apply(self, &self.settings.get_config().mcp)
     }
 
-    /// Stops background work before the host exits: unsaved edits are written, MCP and the
-    /// watcher stop.
+    /// Stops background work before the host exits: MCP and the watcher stop.
     pub fn shutdown(&self) {
-        self.documents.flush_all(self);
         self.mcp.shutdown();
         self.watcher.stop();
     }
@@ -130,17 +128,20 @@ impl Core {
     }
 
     fn ingest_watch(&self, batch: WatchBatch) {
+        let rescan = batch.scope == WatchScope::Rescan;
+        if self.sync.touched(&batch.paths, rescan) {
+            self.sync.request(SYNC_AFTER_EDIT);
+            self.emit(CoreEvent::SyncChanged);
+        }
         match batch.scope {
             WatchScope::Content => self.emit(CoreEvent::ContentChanged(path_names(&batch.paths))),
             WatchScope::Rescan if batch.paths.is_empty() => self.emit(CoreEvent::WorkspaceRescanned),
             WatchScope::Listing | WatchScope::Structure | WatchScope::Rescan => self.emit(CoreEvent::WorkspaceChanged(path_names(&batch.paths))),
         }
-        let rescan = batch.scope == WatchScope::Rescan;
         let notes: Vec<PathBuf> = if rescan { batch.paths } else { batch.paths.into_iter().filter(|path| is_markdown(path)).collect() };
         if notes.is_empty() && !rescan {
             return;
         }
-        self.documents.reconcile_paths(self, &notes);
         self.search.ingest_watch(notes, rescan);
     }
 }

@@ -1,7 +1,5 @@
 use super::{Core, CoreEvent, EventSink};
-use crate::documents::session::SYSTEM_CLIENT;
 use crate::files::gate;
-use crate::history::Source;
 use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -27,9 +25,6 @@ impl Recording {
 
 fn name(event: &CoreEvent) -> &'static str {
     match event {
-        CoreEvent::DocumentChanged(_) => "document-changed",
-        CoreEvent::DocumentSaved(_) => "document-saved",
-        CoreEvent::DocumentMissing(_) => "document-missing",
         CoreEvent::NotesRelocated(_) => "notes-relocated",
         CoreEvent::NoteHistoryChanged(_) => "note-history-changed",
         CoreEvent::WorkspaceChanged(_) => "workspace-changed",
@@ -44,38 +39,6 @@ fn open_core() -> (tempfile::TempDir, Arc<Core>, Arc<Recording>) {
     let events = Arc::new(Recording::default());
     let core = Core::open(&directory.path().join("data"), Arc::clone(&events) as Arc<dyn EventSink>);
     (directory, core, events)
-}
-
-#[test]
-fn a_replaced_document_announces_the_change_before_the_save() {
-    let (directory, core, events) = open_core();
-    let note = directory.path().join("Заметка.md");
-    fs::write(&note, "первая строка\n").unwrap();
-    core.documents.open(&core, &note, 0).unwrap();
-    events.clear();
-
-    core.documents
-        .replace_text(&core, &note, "первая строка\nвторая\n", SYSTEM_CLIENT, Source::Me, None)
-        .unwrap();
-
-    assert_eq!(events.names(), ["document-changed", "document-saved"]);
-    assert_eq!(fs::read_to_string(&note).unwrap(), "первая строка\nвторая\n");
-}
-
-#[test]
-fn a_document_whose_file_vanished_reports_it_missing_instead_of_saved() {
-    let (directory, core, events) = open_core();
-    let note = directory.path().join("Заметка.md");
-    fs::write(&note, "текст\n").unwrap();
-    core.documents.open(&core, &note, 0).unwrap();
-    fs::remove_file(&note).unwrap();
-    events.clear();
-
-    core.documents.replace_text(&core, &note, "новый текст\n", SYSTEM_CLIENT, Source::Me, None).unwrap();
-
-    let names = events.names();
-    assert!(names.contains(&"document-missing"), "{names:?}");
-    assert!(!names.contains(&"document-saved"), "{names:?}");
 }
 
 #[test]

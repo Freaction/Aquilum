@@ -36,6 +36,10 @@ impl App {
         self.interface.set_scale(self.interface.scale() + step)
     }
 
+    pub fn window_unfocused(&mut self) {
+        self.commit_note();
+    }
+
     pub fn shutdown(&mut self) {
         self.flush_view();
         match &mut self.note {

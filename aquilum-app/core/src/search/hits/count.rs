@@ -1,39 +1,61 @@
 use crate::search::error::SearchError;
-use std::collections::BTreeMap;
-use tantivy::postings::Postings;
-use tantivy::schema::{Field, IndexRecordOption};
-use tantivy::{DocAddress, DocId, DocSet, Searcher, TERMINATED};
+use crate::search::index::SearchFields;
+use crate::search::pages;
+use std::collections::HashSet;
+use tantivy::postings::{Postings, SegmentPostings};
+use tantivy::schema::IndexRecordOption;
+use tantivy::{DocId, DocSet, InvertedIndexReader, Searcher, SegmentReader, TERMINATED};
 
-pub fn body_counts(
-    searcher: &Searcher,
-    field: Field,
-    terms: &[String],
-    addresses: &[DocAddress],
-) -> Result<Vec<u32>, SearchError> {
-    let mut counts = vec![0u32; terms.len()];
-    let mut by_segment = BTreeMap::<u32, Vec<DocId>>::new();
-    for address in addresses {
-        by_segment.entry(address.segment_ord).or_default().push(address.doc_id);
-    }
-    for (segment, mut documents) in by_segment {
-        documents.sort_unstable();
-        let inverted = searcher.segment_reader(segment).inverted_index(field)?;
+pub struct Hits {
+    pub counts: Vec<u32>,
+    pub pages: HashSet<String>,
+}
+
+pub fn note_hits(searcher: &Searcher, fields: SearchFields, path: &str, terms: &[String]) -> Result<Hits, SearchError> {
+    let mut hits = Hits { counts: vec![0u32; terms.len()], pages: HashSet::new() };
+    for segment in searcher.segment_readers() {
+        let documents = note_pages(segment, fields, path)?;
+        if documents.is_empty() {
+            continue;
+        }
+        let inverted = segment.inverted_index(fields.body)?;
         for (term, prefix) in terms.iter().enumerate() {
-            let mut stream = inverted.terms().range().ge(prefix.as_bytes()).into_stream()?;
-            while stream.advance() && stream.key().starts_with(prefix.as_bytes()) {
-                let mut postings = inverted.read_postings_from_terminfo(stream.value(), IndexRecordOption::WithFreqs)?;
-                for &document in &documents {
+            each_prefixed(&inverted, prefix, IndexRecordOption::WithFreqs, |_, mut postings| {
+                for (document, key) in &documents {
                     if postings.doc() == TERMINATED {
                         break;
                     }
-                    if postings.doc() <= document && postings.seek(document) == document {
-                        counts[term] += postings.term_freq();
+                    if postings.doc() <= *document && postings.seek(*document) == *document {
+                        hits.counts[term] += postings.term_freq();
+                        hits.pages.insert(key.clone());
                     }
                 }
-            }
+            })?;
         }
     }
-    Ok(counts)
+    Ok(hits)
+}
+
+fn note_pages(segment: &SegmentReader, fields: SearchFields, path: &str) -> Result<Vec<(DocId, String)>, SearchError> {
+    let mut documents = Vec::new();
+    each_prefixed(&*segment.inverted_index(fields.page)?, &pages::prefix(path), IndexRecordOption::Basic, |key, mut postings| {
+        while postings.doc() != TERMINATED {
+            if segment.alive_bitset().is_none_or(|alive| alive.is_alive(postings.doc())) {
+                documents.push((postings.doc(), String::from_utf8_lossy(key).into_owned()));
+            }
+            postings.advance();
+        }
+    })?;
+    documents.sort_unstable_by_key(|(document, _)| *document);
+    Ok(documents)
+}
+
+fn each_prefixed(inverted: &InvertedIndexReader, prefix: &str, option: IndexRecordOption, mut each: impl FnMut(&[u8], SegmentPostings)) -> Result<(), SearchError> {
+    let mut stream = inverted.terms().range().ge(prefix.as_bytes()).into_stream()?;
+    while stream.advance() && stream.key().starts_with(prefix.as_bytes()) {
+        each(stream.key(), inverted.read_postings_from_terminfo(stream.value(), option)?);
+    }
+    Ok(())
 }
 
 pub fn total(terms: &[String], counts: &[u32]) -> usize {

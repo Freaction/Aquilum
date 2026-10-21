@@ -34,14 +34,12 @@ fn index_note(root: &Path, index: &SearchIndex, writer: &IndexWriter, transactio
         }
     };
     wiki::register(transaction, root, path)?;
-    let (mut repeats, mut ordinal, mut changed, mut created) = (HashMap::new(), 0, false, probe.created);
+    let (mut keys, mut ordinal, mut changed, mut created) = (pages::Keys::default(), 0, false, probe.created);
     while let Some(page) = pages.next()? {
         if page.first {
             created = created::declared(&page.text).unwrap_or(probe.created);
         }
-        let repeat = repeats.entry(page.hash).or_insert(0usize);
-        let page_key = pages::key(key, &page, *repeat);
-        *repeat += 1;
+        let page_key = keys.next(key, &page);
         match old.remove(&page_key) {
             Some(id) => pages::place(transaction, id, ordinal, &page)?,
             None => {
@@ -68,7 +66,7 @@ pub(super) fn store_page(transaction: &Transaction<'_>, path: &Path, page_key: &
     fields::store(transaction, id, path, &fields::page_fields(&page.text, page.first))
 }
 
-fn add_page(root: &Path, index: &SearchIndex, writer: &IndexWriter, path: &Path, page: &Page, key: &str) -> Result<(), SearchError> {
+pub(crate) fn add_page(root: &Path, index: &SearchIndex, writer: &IndexWriter, path: &Path, page: &Page, key: &str) -> Result<(), SearchError> {
     let mut document = TantivyDocument::new();
     document.add_text(index.fields.id, path.to_string_lossy());
     document.add_text(index.fields.page, key);

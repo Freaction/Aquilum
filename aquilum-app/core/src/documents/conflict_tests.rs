@@ -9,7 +9,7 @@ fn moment() -> LocalMinute {
 }
 
 fn report(cause: ConflictCause) -> ConflictReport {
-    ConflictReport { cause, disk_hash: Some("hash:диск".into()), synced_hash: Some("hash:сверка".into()) }
+    ConflictReport { cause, synced_hash: Some("hash:сверка".into()) }
 }
 
 fn body(content: &str) -> &str {
@@ -25,7 +25,7 @@ fn renders_the_local_minute_of_the_conflict() {
 
 #[test]
 fn names_the_copy_with_a_readable_stamp() {
-    assert_eq!(copy_stem("Идея", &moment()), "Идея (конфликт 2026-08-17 08-30)");
+    assert_eq!(copy_stem("Идея", &moment(), "a1b2c3d4"), "Идея (конфликт 2026-08-17 08-30 a1b2c3d4)");
 }
 
 #[test]
@@ -50,7 +50,6 @@ fn names_the_note_the_moment_and_the_reason() {
         "заметка: \"Идея\"",
         "причина: \"файл и документ изменились одновременно\"",
         "`D:/База/Идея.md`",
-        "`hash:диск`",
         "`hash:сверка`",
     ] {
         assert!(content.contains(expected), "missing {expected}");
@@ -60,18 +59,15 @@ fn names_the_note_the_moment_and_the_reason() {
 #[test]
 fn explains_each_cause_in_its_own_words() {
     let render = |cause| collect(&copy_content("p", "Идея", &report(cause), &moment(), &"текст").expect("copy"));
-    let unavailable = render(ConflictCause::NoSyncPoint);
-    assert!(unavailable.contains("точка сверки недоступна") && unavailable.contains("не ответило"));
     let displaced = render(ConflictCause::Displaced);
     assert!(displaced.contains("строки не поместились при слиянии") && displaced.contains("вытеснило строки ниже"));
-    let truncated = render(ConflictCause::Truncated);
-    assert!(truncated.contains("причина: \"заметка обнулена при сохранении\""));
-    assert!(truncated.contains("записало в заметку пустой текст") && truncated.contains("копию можно просто удалить"));
+    let reverted = render(ConflictCause::Reverted);
+    assert!(reverted.contains("причина: \"изменения версии отменены поверх более поздних правок\""));
 }
 
 #[test]
 fn leaves_out_a_fingerprint_it_was_not_given() {
-    let bare = ConflictReport { cause: ConflictCause::Diverged, disk_hash: None, synced_hash: None };
+    let bare = ConflictReport { cause: ConflictCause::Diverged, synced_hash: None };
     let content = collect(&copy_content("p", "Идея", &bare, &moment(), &"текст").expect("copy"));
     assert!(!content.contains("Отпечаток"));
 }

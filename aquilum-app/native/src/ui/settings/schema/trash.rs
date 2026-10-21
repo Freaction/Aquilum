@@ -28,7 +28,10 @@ pub(super) fn format_size(bytes: u64) -> String {
     if bytes < 1024 * 1024 {
         return t_with("settings.trash.kilobytes", &[("value", &format_locale((bytes as f64 / 1024.0).round(), 0))]);
     }
-    t_with("settings.trash.megabytes", &[("value", &format_locale(bytes as f64 / (1024.0 * 1024.0), 1))])
+    if bytes < 1024 * 1024 * 1024 {
+        return t_with("settings.trash.megabytes", &[("value", &format_locale(bytes as f64 / (1024.0 * 1024.0), 1))]);
+    }
+    t_with("settings.trash.gigabytes", &[("value", &format_locale(bytes as f64 / (1024.0 * 1024.0 * 1024.0), 2))])
 }
 
 pub(super) fn deletion_row(deletion: TrashedDeletion) -> Row {
@@ -60,6 +63,7 @@ pub(super) fn trash(config: &AppConfig, ctx: &Context) -> Vec<Block> {
         t("settings.trash.year"),
     ];
     let state = ctx.workspace.as_deref().and_then(|w| trash_state_impl(w).ok());
+    let clearable = state.as_ref().is_some_and(|state| state.bytes > 0);
     let description = match state {
         Some(state) => format!("{}, {}", plural("settings.trash.files", state.count), format_size(state.bytes)),
         None => t("settings.trash.emptyHint"),
@@ -76,7 +80,10 @@ pub(super) fn trash(config: &AppConfig, ctx: &Context) -> Vec<Block> {
             info(
                 t("settings.trash.deleted"),
                 Some(description),
-                Control::Buttons(vec![Button::new(t("settings.trash.open"), Action::OpenTrash).enabled(ctx.workspace.is_some())]),
+                Control::Buttons(vec![
+                    Button::new(t("settings.trash.open"), Action::OpenTrash).enabled(ctx.workspace.is_some()),
+                    Button::new(t("settings.trash.clear"), Action::Wipe(Wipe::Trash)).enabled(clearable),
+                ]),
             ),
         ],
     }];

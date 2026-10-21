@@ -1,6 +1,5 @@
 use std::ops::Range;
 use std::path::Path;
-use std::time::Duration;
 
 use aquilum_core::files::content::FileContent;
 use aquilum_core::files::gate;
@@ -64,7 +63,7 @@ impl App {
             let Some((range, insert)) = change(&crate::rope::Text(&self.text)) else { return false };
             if let Some(note) = &mut self.note {
                 note.touch(range.clone(), insert.len());
-                note.edit(Duration::ZERO);
+                note.save_soon();
             }
             match &self.note_ids {
                 Some(ids) if range.start >= self.hidden => {

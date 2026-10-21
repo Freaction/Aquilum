@@ -1,10 +1,13 @@
 mod fold;
 mod lines;
+mod starts;
 #[cfg(test)]
 mod tests;
 
 pub use fold::{fold, Fold, Folded};
 pub use lines::Lines;
+use fold::expand;
+use starts::Starts;
 
 use super::cancel::Cancel;
 use std::ops::Range;
@@ -29,6 +32,7 @@ pub const IGNORE_CASE: Options = Options { fold: Fold::Lower, ..EXACT };
 pub struct Matcher {
     needles: Vec<Vec<char>>,
     options: Options,
+    starts: Starts,
 }
 
 impl Matcher {
@@ -44,7 +48,7 @@ impl Matcher {
             .collect();
         needles.sort_by(|left, right| right.len().cmp(&left.len()).then_with(|| left.cmp(right)));
         needles.dedup();
-        Self { needles, options }
+        Self { starts: Starts::new(&needles, options.fold), needles, options }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -59,22 +63,34 @@ impl Matcher {
         if self.needles.is_empty() {
             return true;
         }
-        let mut rest = Folded::new(text, self.options.fold);
-        let mut before = None;
-        while let Some((first, start, end)) = rest.next() {
-            if self.starts_word(before) {
-                if let Some((end, after, last)) = self.match_at(first, end, &rest) {
-                    if !found(start..end) {
-                        return false;
+        let (mut at, mut matched) = (0, None);
+        while let Some(start) = self.starts.next(text, at) {
+            let mut before = match matched {
+                Some((end, last)) if end == start => Some(last),
+                _ => text[..start].chars().next_back().and_then(|previous| self.last_part(previous)),
+            };
+            let mut rest = Folded::at(text, start, self.options.fold);
+            at = start + text[start..].chars().next().map_or(1, char::len_utf8);
+            while let Some((first, _, end)) = rest.next().filter(|&(_, from, _)| from == start) {
+                if self.starts_word(before) {
+                    if let Some((end, _, last)) = self.match_at(first, end, &rest) {
+                        if !found(start..end) {
+                            return false;
+                        }
+                        (at, matched) = (end, Some((end, last)));
+                        break;
                     }
-                    (rest, before) = (after, Some(last));
-                    rest.skip_rest_of_char();
-                    continue;
                 }
+                before = Some(first);
             }
-            before = Some(first);
         }
         true
+    }
+
+    fn last_part(&self, original: char) -> Option<char> {
+        let mut last = None;
+        expand(original, self.options.fold, |part| last = Some(part));
+        last
     }
 
     pub fn find_all(&self, text: &str) -> Vec<Range<usize>> {

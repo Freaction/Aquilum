@@ -1,6 +1,6 @@
 use super::IDLE_TIMEOUT;
 
-pub(in crate::mcp) struct Response {
+pub(crate) struct Response {
     status: u16,
     content_type: &'static str,
     allow: Option<&'static str>,

@@ -110,3 +110,56 @@ fn a_cancelled_line_search_stops_after_the_current_line() {
     assert!(!lines.feed("а"));
     assert_eq!(lines.finish().len(), 3);
 }
+
+fn char_by_char(matcher: &Matcher, text: &str) -> Vec<std::ops::Range<usize>> {
+    let (mut found, mut rest, mut before) = (Vec::new(), super::Folded::new(text, matcher.options.fold), None);
+    while let Some((first, start, end)) = rest.next() {
+        if matcher.starts_word(before) {
+            if let Some((end, after, last)) = matcher.match_at(first, end, &rest) {
+                found.push(start..end);
+                (rest, before) = (after, Some(last));
+                while rest.clone().next().is_some_and(|(_, from, _)| from < end) {
+                    rest.next();
+                }
+                continue;
+            }
+        }
+        before = Some(first);
+    }
+    found
+}
+
+struct Random(u64);
+
+impl Random {
+    fn below(&mut self, bound: usize) -> usize {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        (self.0 % bound as u64) as usize
+    }
+
+    fn text(&mut self, len: usize) -> String {
+        const LETTERS: [char; 30] = ['a', 'A', 's', 'S', 'ß', 'æ', 'Æ', 'é', 'É', 'e', 'E', 'i', 'I', 'İ', 'k', 'K', '\u{212A}', 'щ', 'Щ', 'ё', 'Ё', 'т', 'Т', ' ', '-', '1', '½', '(', '⑴', 'ﬁ'];
+        (0..len).map(|_| LETTERS[self.below(LETTERS.len())]).collect()
+    }
+}
+
+#[test]
+fn candidate_jumps_find_exactly_what_a_char_by_char_search_finds() {
+    let mut random = Random(0x9E37_79B9_7F4A_7C15);
+    for _ in 0..3000 {
+        let len = random.below(40);
+        let text = random.text(len);
+        let needles: Vec<String> = (0..1 + random.below(2)).map(|_| {
+            let len = 1 + random.below(3);
+            random.text(len)
+        }).collect();
+        for fold in [Fold::Exact, Fold::Lower, Fold::Ascii] {
+            for mode in [Mode::Substring, Mode::WordPrefix, Mode::WholeWord] {
+                let matcher = Matcher::any(&needles, Options { fold, mode, limit: usize::MAX });
+                assert_eq!(matcher.find_all(&text), char_by_char(&matcher, &text), "{text:?} {needles:?} {fold:?} {mode:?}");
+            }
+        }
+    }
+}

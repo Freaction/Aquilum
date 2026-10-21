@@ -19,6 +19,8 @@ use save::Outcome;
 
 const POLL: Duration = Duration::from_millis(20);
 const RETRY: Duration = Duration::from_secs(5);
+const QUIET: Duration = Duration::from_secs(2);
+const LONGEST: Duration = Duration::from_secs(10);
 
 struct Disk {
     hash: String,
@@ -41,6 +43,7 @@ pub struct Note {
     pub path: PathBuf,
     disk: Arc<Mutex<Disk>>,
     pending: Option<Instant>,
+    since: Option<Instant>,
     pub save_error: Option<String>,
     replaced: Option<crop::Rope>,
     queued: usize,
@@ -53,12 +56,18 @@ impl Note {
     pub fn open(path: PathBuf) -> Result<(Note, crop::Rope), FileCommandError> {
         let loaded = read(&path)?;
         let disk = Arc::new(Mutex::new(Disk { hash: loaded.hash, stamp: loaded.stamp, written: 0 }));
-        let note = Note { path, disk, pending: None, save_error: None, replaced: None, queued: 0, done: channel(), seq: 0, dirty: Vec::new() };
+        let note = Note { path, disk, pending: None, since: None, save_error: None, replaced: None, queued: 0, done: channel(), seq: 0, dirty: Vec::new() };
         Ok((note, loaded.text))
     }
 
-    pub fn edit(&mut self, debounce: Duration) {
-        self.pending = Some(Instant::now() + debounce);
+    pub fn edit(&mut self) {
+        let now = Instant::now();
+        let first = *self.since.get_or_insert(now);
+        self.pending = Some((now + QUIET).min(first + LONGEST));
+    }
+
+    pub fn save_soon(&mut self) {
+        self.pending = Some(Instant::now());
     }
 
     pub fn touch(&mut self, range: Range<usize>, inserted: usize) {
@@ -79,7 +88,7 @@ impl Note {
     }
 
     fn queue(&mut self, core: &Arc<Core>, text: &crop::Rope) {
-        self.pending = None;
+        (self.pending, self.since) = (None, None);
         self.queued += 1;
         let job = save::Job { after: self.seq, seq: self.seq + 1, change: std::mem::take(&mut self.dirty) };
         self.seq += 1;
@@ -157,21 +166,4 @@ impl Note {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn reload_ignores_own_write_and_sees_external_one() {
-        let dir = crate::test_dir::tempdir();
-        let path = dir.path().join("a.md");
-        std::fs::write(&path, "раз").unwrap();
-        let (mut note, text) = Note::open(path.clone()).unwrap();
-        assert_eq!(text, "раз");
-        assert_eq!(note.reload(), None);
-        std::fs::write(&path, "другой текст").unwrap();
-        assert_eq!(note.reload().map(|text| text.to_string()).as_deref(), Some("другой текст"));
-        note.edit(Duration::ZERO);
-        assert!(note.deadline().is_some());
-        assert_eq!(note.reload(), None, "несохранённая правка не затирается");
-    }
-}
+mod tests;

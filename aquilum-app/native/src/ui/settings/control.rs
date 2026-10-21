@@ -4,18 +4,29 @@ use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
 use masonry::layout::Length;
 use masonry::properties::Gap;
 use masonry::properties::types::CrossAxisAlignment;
-use masonry::widgets::Flex;
+use masonry::widgets::{Flex, SizedBox};
 
 use super::Binding;
 use super::controls::{DropdownButton, InputBox, Segmented, Swatch, Switch};
-use super::schema::{self, Control, Row, Tone};
+use super::schema::{self, ButtonIcon, Control, Indicator, Row, Tone};
 use crate::i18n::t;
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::text::selectable;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{IconButton, Leading, LinkButton, Paint, kbd};
-use crate::ui::{icons, style};
+use crate::ui::widgets::{IconButton, IconView, Label, Leading, Paint, TextButton, Variant, kbd};
+use crate::ui::{icons, style, theme};
+
+pub(super) const LEADING: Leading = Leading::Times(1.21);
+
+pub(super) fn status(text: &str, tone: Tone) -> NewWidget<Label> {
+    let paint: Paint = match tone {
+        Tone::Muted => |t| t.text_muted,
+        Tone::Secondary => |t| t.text_secondary,
+        Tone::Danger => |t| t.text_danger,
+    };
+    selectable(text, paint, None, LEADING)
+}
 
 fn text_field(value: &str, centered: bool) -> NewWidget<TextEditor> {
     let mut field = TextEditor::single_line(value).styled(|| style::ui_text(size::INPUT_CONTENT_HEIGHT as f32));
@@ -73,6 +84,34 @@ fn color_input(bindings: &mut HashMap<WidgetId, Binding>, setter: Option<schema:
     InputBox::new(inner, size::INPUT_WIDTH).erased()
 }
 
+fn buttons_row(buttons: &[schema::Button], indicator: Option<Indicator>, bindings: &mut HashMap<WidgetId, Binding>) -> NewWidget<dyn Widget> {
+    let mut flex = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center);
+    for button in buttons {
+        let widget = match button.icon {
+            Some(icon) => {
+                let icon = match icon {
+                    ButtonIcon::Folder => icons::FOLDER,
+                    ButtonIcon::Trash => icons::TRASH,
+                    ButtonIcon::Upload => icons::UPLOAD,
+                };
+                NewWidget::new(IconButton::new(icon, &button.label)).disabled(!button.enabled).erased()
+            }
+            None => NewWidget::new(TextButton::new(&button.label, Variant::Secondary)).disabled(!button.enabled).erased(),
+        };
+        bindings.insert(widget.id(), Binding::Button(button.action.clone()));
+        flex = flex.with_fixed(widget);
+    }
+    if let Some(indicator) = indicator {
+        let (icon, color): (_, fn() -> masonry::peniko::Color) = match indicator {
+            Indicator::Syncing => (icons::REFRESH_CW, || theme::current().icon_muted),
+            Indicator::Synced => (icons::CHECK, || theme::current().icon_success),
+            Indicator::Failed => (icons::TRIANGLE_ALERT, || theme::current().icon_muted),
+        };
+        flex = flex.with_fixed(IconView::new(icon, size::SIZE_32, size::SIZE_20, 1.2, color));
+    }
+    NewWidget::new(flex).with_props(PropertySet::new().with(Gap::new(Length::px(size::GAP_MD)))).erased()
+}
+
 pub(super) fn control_widget(row: &Row, bindings: &mut HashMap<WidgetId, Binding>) -> NewWidget<dyn Widget> {
     let setter = row.setter;
     match &row.control {
@@ -84,23 +123,9 @@ pub(super) fn control_widget(row: &Row, bindings: &mut HashMap<WidgetId, Binding
             widget.erased()
         }
         Control::Locked(on) => Switch::locked(*on, &row.label).erased(),
-        Control::Buttons(buttons) => {
-            let mut flex = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center);
-            for button in buttons {
-                let widget = LinkButton::new(&button.label).disabled(!button.enabled);
-                bindings.insert(widget.id(), Binding::Button(button.action.clone()));
-                flex = flex.with_fixed(widget);
-            }
-            NewWidget::new(flex).erased()
-        }
-        Control::Status { text, tone } => {
-            let paint: Paint = match tone {
-                Tone::Muted => |t| t.text_muted,
-                Tone::Secondary => |t| t.text_secondary,
-                Tone::Danger => |t| t.text_danger,
-            };
-            selectable(text, paint, None, Leading::Times(1.21)).erased()
-        }
+        Control::Buttons(buttons) => buttons_row(buttons, None, bindings),
+        Control::Indicated(buttons, indicator) => buttons_row(buttons, Some(*indicator), bindings),
+        Control::Status { .. } => NewWidget::new(SizedBox::empty()).erased(),
         Control::Segmented { options, selected } => {
             let widget = Segmented::new(options.clone(), *selected);
             if let Some(setter) = setter {

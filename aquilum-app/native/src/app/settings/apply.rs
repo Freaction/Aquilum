@@ -1,7 +1,7 @@
 use super::*;
 
 impl App {
-    pub(super) fn press(&mut self, dialog: &mut SettingsDialog, action: Action) -> Effect {
+    pub(super) fn press(&mut self, root: &mut RenderRoot, dialog: &mut SettingsDialog, action: Action) -> Effect {
         let core = &self.workspace.core;
         let workspace = self.tree.root().map(Path::to_path_buf);
         match action {
@@ -11,6 +11,47 @@ impl App {
                         Ok(path) => system::open(&path),
                         Err(error) => report!("корзина не открыта: {error:?}"),
                     }
+                }
+                Effect::None
+            }
+            Action::Wipe(wipe) => {
+                let (layer, confirm) = ConfirmDialog::new(&t(&wipe.key("clearTitle")), &t(&wipe.key("clearDescription")), &t("common.cancel"), &t(&wipe.key("clearConfirm")));
+                root.add_layer(layer, Point::ORIGIN);
+                root.focus_on(Some(confirm.layer));
+                dialog.confirm = Some((confirm, wipe));
+                Effect::None
+            }
+            Action::SyncConnect => {
+                match core.sync.connect(core) {
+                    Ok(url) => system::open_url(&url),
+                    Err(error) => report!("вход в Dropbox не начат: {error}"),
+                }
+                Effect::Content
+            }
+            Action::SyncDisconnect => {
+                if let Err(error) = core.sync.disconnect() {
+                    report!("Dropbox не отключён до конца: {error}");
+                }
+                Effect::Content
+            }
+            Action::SyncAllowDeletions => {
+                core.sync.allow_deletions();
+                Effect::Content
+            }
+            Action::Trash(path) => {
+                let Some(workspace) = workspace else { return Effect::None };
+                if let Err(error) = gate::trash(core, &workspace, &workspace.join(path)) {
+                    report!("файл не убран в корзину: {error:?}");
+                }
+                Effect::Content
+            }
+            Action::SyncSend(paths) => {
+                core.sync.allow(paths);
+                Effect::Content
+            }
+            Action::Reveal(path) => {
+                if let Some(workspace) = workspace {
+                    system::reveal(&workspace.join(path));
                 }
                 Effect::None
             }
@@ -73,6 +114,17 @@ impl App {
                 self.refresh_home();
                 Effect::None
             }
+            Setter::VaultSync(set) => {
+                let Some(root) = self.tree.root().map(Path::to_path_buf) else { return Effect::None };
+                let core = &self.workspace.core;
+                let mut sync = core.ui_state.workspace(&root).map(|known| known.sync).unwrap_or_default();
+                set(&mut sync, &value);
+                if let Err(error) = core.ui_state.set_sync(&root.to_string_lossy(), &sync) {
+                    report!("настройки синхронизации базы не сохранены: {error:?}");
+                }
+                self.bind_sync();
+                Effect::Content
+            }
             Setter::Config(set) => {
                 let core = &self.workspace.core;
                 let before = core.settings.get_config();
@@ -128,34 +180,6 @@ impl App {
     pub(super) fn refresh_analysis(&mut self, root: &mut RenderRoot) {
         if self.panel_mode() == crate::links::Mode::Analysis {
             self.request_panel(root);
-        }
-    }
-
-    pub(in crate::app) fn cleanup_retention(&self) {
-        let Some(workspace) = self.tree.root().map(Path::to_path_buf) else { return };
-        let core = std::sync::Arc::clone(&self.workspace.core);
-        let (done, wake) = (std::sync::Arc::clone(&self.retention_done), std::sync::Arc::clone(&self.workspace.wake));
-        std::thread::spawn(move || {
-            let config = core.settings.get_config();
-            if let Err(error) = cleanup_trash_impl(&workspace, config.trash.retention_days) {
-                report!("корзина не очищена: {error:?}");
-            }
-            aquilum_core::history::store::adopt_quantum_history(&workspace);
-            aquilum_core::history::store::adopt_quantum_history(&aquilum_core::files::trash::trash_path(&workspace));
-            aquilum_core::history::store::remove_expired(&workspace, config.history.retention_days);
-            if let Err(error) = core.ui_state.cleanup(config.trash.retention_days, crate::dates::now_ms()) {
-                report!("состояние документов не очищено: {error:?}");
-            }
-            done.store(true, std::sync::atomic::Ordering::Release);
-            wake();
-        });
-    }
-
-    pub(in crate::app) fn on_retention_done(&mut self, root: &mut RenderRoot) {
-        if self.retention_done.swap(false, std::sync::atomic::Ordering::Acquire)
-            && matches!(&self.popup, Some(Popup::Settings { dialog, .. }) if matches!(dialog.section, Section::Trash | Section::History))
-        {
-            self.refresh_settings(root);
         }
     }
 }

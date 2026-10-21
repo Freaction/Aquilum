@@ -74,7 +74,12 @@ impl Host {
                     ui::rescale(root, scale);
                 }
             }
-            WindowEvent::Focused(focused) => self.text_event(TextEvent::WindowFocusChange(focused)),
+            WindowEvent::Focused(focused) => {
+                if !focused {
+                    self.app.window_unfocused();
+                }
+                self.text_event(TextEvent::WindowFocusChange(focused));
+            }
             WindowEvent::ModifiersChanged(m) => self.modifiers = masonry_modifiers(m.state()),
             WindowEvent::KeyboardInput { event, is_synthetic: false, .. } => self.keyboard(event),
             WindowEvent::Ime(ime) => {

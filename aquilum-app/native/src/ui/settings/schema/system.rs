@@ -43,7 +43,7 @@ pub(super) fn system(config: &AppConfig, ctx: &Context) -> Vec<Block> {
         Block {
             title: t("settings.system.autostart"),
             rows: vec![match ctx.autostart {
-                Some(on) => Row { label: t("settings.system.launch"), description: Some(t("settings.system.launchHint")), control: Control::Switch(on), setter: Some(Setter::Autostart), code: None },
+                Some(on) => bound(t("settings.system.launch"), Some(t("settings.system.launchHint")), Control::Switch(on), Setter::Autostart),
                 None => info(t("settings.system.launch"), Some(t("settings.system.launchUnavailable")), Control::Locked(false)),
             }],
         },

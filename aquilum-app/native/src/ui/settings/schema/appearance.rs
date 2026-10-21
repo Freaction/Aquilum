@@ -3,10 +3,10 @@ use crate::ui::keymap;
 
 pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     let scale = ctx.scale;
-    let scale_row = Row {
-        label: t("settings.ui.scale"),
-        description: Some(t_with("settings.ui.scaleHint", &[("reset", &keymap::label(keymap::Scope::Global, keymap::Command::ZoomReset))])),
-        control: Control::Number(Number {
+    let scale_row = bound(
+        t("settings.ui.scale"),
+        Some(t_with("settings.ui.scaleHint", &[("reset", &keymap::label(keymap::Scope::Global, keymap::Command::ZoomReset))])),
+        Control::Number(Number {
             value: (scale * 100.0).round(),
             min: MIN_SCALE * 100.0,
             max: MAX_SCALE * 100.0,
@@ -15,9 +15,8 @@ pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
             commit: false,
             blank: false,
         }),
-        setter: Some(Setter::Scale),
-        code: None,
-    };
+        Setter::Scale,
+    );
     let theme = row(
         t("settings.ui.theme"),
         None,
@@ -42,13 +41,8 @@ pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     );
     let mut display = vec![scale_row, theme, language];
     if ctx.workspace.is_some() {
-        display.push(Row {
-            label: t("settings.ui.homePage"),
-            description: Some(t("settings.ui.homePageHint")),
-            control: Control::Text { value: ctx.home_page.clone(), commit: false },
-            setter: Some(Setter::HomePage),
-            code: None,
-        });
+        let page = Control::Text { value: ctx.home_page.clone(), commit: false };
+        display.push(bound(t("settings.ui.homePage"), Some(t("settings.ui.homePageHint")), page, Setter::HomePage));
     }
     display.push(row(t("settings.ui.primaryColor"), None, Control::Color(config.ui.primary_color.clone()), |c, v| {
         if let Some([r, g, b]) = crate::ui::theme::parse_hex(&text(v)) {
@@ -112,15 +106,6 @@ pub(super) fn editor(config: &AppConfig) -> Vec<Block> {
                     |c, v| c.editor.link_suggest_min_chars = number(v) as u32,
                 ),
             ],
-        },
-        Block {
-            title: t("settings.editor.saving"),
-            rows: vec![row(
-                t("settings.editor.saveDebounce"),
-                Some(t("settings.editor.saveDebounceHint")),
-                Control::Dropdown { options: SAVE_INTERVALS.map(interval).to_vec(), selected: position(&SAVE_INTERVALS, &e.save_debounce_ms) },
-                |c, v| c.editor.save_debounce_ms = SAVE_INTERVALS[index(v).min(SAVE_INTERVALS.len() - 1)],
-            )],
         },
     ]
 }

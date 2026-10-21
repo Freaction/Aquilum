@@ -2,6 +2,7 @@ use super::database::UiStateDatabase;
 use super::error::UiStateError;
 use super::models::KnownWorkspace;
 use super::paths::display_workspace;
+use crate::settings::models::SyncSettings;
 use crate::search::paths::{identity, same_path};
 use rusqlite::{params, OptionalExtension};
 use std::collections::HashSet;
@@ -19,7 +20,7 @@ impl UiStateDatabase {
         let mut statement = self
             .connection
             .prepare(
-                "SELECT id, path, last_seen_ms, home_page FROM workspaces
+                "SELECT id, path, last_seen_ms, home_page, sync FROM workspaces
                  ORDER BY last_seen_ms DESC",
             )?;
         let rows = statement.query_map([], |row| {
@@ -28,14 +29,16 @@ impl UiStateDatabase {
                 row.get::<_, String>(1)?,
                 row.get::<_, i64>(2)?,
                 row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
             ))
         })?;
         let (mut workspaces, mut seen) = (Vec::new(), HashSet::new());
         for row in rows {
-            let (id, path, last_seen_ms, home_page) = row?;
+            let (id, path, last_seen_ms, home_page, sync) = row?;
             let path = display_workspace(&path);
             if seen.insert(identity(Path::new(&path))) {
-                workspaces.push(KnownWorkspace { id: parse_uuid(id)?, path, last_seen_ms, home_page });
+                let sync = serde_json::from_str(&sync).unwrap_or_default();
+                workspaces.push(KnownWorkspace { id: parse_uuid(id)?, path, last_seen_ms, home_page, sync });
             }
         }
         Ok(workspaces)
@@ -48,6 +51,14 @@ impl UiStateDatabase {
     pub fn set_home_page(&mut self, path: &str, home_page: &str) -> Result<(), UiStateError> {
         if let Some(id) = self.find_workspace(path)? {
             self.connection.execute("UPDATE workspaces SET home_page = ?2 WHERE id = ?1", params![id.to_string(), home_page])?;
+        }
+        Ok(())
+    }
+
+    pub fn set_sync(&mut self, path: &str, sync: &SyncSettings) -> Result<(), UiStateError> {
+        if let Some(id) = self.find_workspace(path)? {
+            let sync = serde_json::to_string(sync).map_err(|error| UiStateError::Database { message: error.to_string() })?;
+            self.connection.execute("UPDATE workspaces SET sync = ?2 WHERE id = ?1", params![id.to_string(), sync])?;
         }
         Ok(())
     }

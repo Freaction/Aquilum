@@ -9,7 +9,7 @@ use std::path::Path;
 
 mod store;
 
-pub use store::{count, delete, insert, key, place, remove, stored, PAGES_DDL};
+pub use store::{count, delete, insert, key_hash, place, placed, prefix, remove, stored, Keys, Placed, PAGES_DDL};
 
 const MIN_PAGE: usize = 256 * 1024;
 const MAX_PAGE: usize = 4 * 1024 * 1024;

@@ -9,6 +9,7 @@ use crate::ui::tokens::{Shadow, number, size};
 #[derive(Clone, Copy, PartialEq)]
 pub enum Variant {
     Primary,
+    Secondary,
     Ghost,
 }
 

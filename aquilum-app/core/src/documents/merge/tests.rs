@@ -141,3 +141,21 @@ fn marks_an_ordinary_merge_as_precise() {
 fn survives_a_document_that_lost_everything_locally() {
     assert!(merge("a\nb\nc\n", "a\nb\nc\nd\n", "").text.contains('d'));
 }
+
+#[test]
+fn keeps_a_line_inserted_right_after_a_line_changed_elsewhere() {
+    let merged = merge("a\nb\nc\n", "a\nB\nc\n", "a\nb\nX\nc\n");
+    assert_eq!(merged.text, "a\nB\nX\nc\n");
+}
+
+#[test]
+fn keeps_a_line_inserted_right_before_a_line_changed_elsewhere() {
+    let merged = merge("a\nb\nc\n", "a\nB\nc\n", "a\nX\nb\nc\n");
+    assert_eq!(merged.text, "a\nX\nB\nc\n");
+}
+
+#[test]
+fn keeps_both_lines_inserted_at_the_same_place() {
+    let merged = merge("a\nb\n", "a\nтам\nb\n", "a\nздесь\nb\n");
+    assert!(merged.text.contains("там") && (merged.text.contains("здесь") || merged.result.displaced.contains(&"здесь".to_owned())));
+}

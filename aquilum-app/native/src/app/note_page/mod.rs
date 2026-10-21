@@ -98,7 +98,7 @@ impl App {
 
     pub(in crate::app) fn retry_save(&mut self, root: &mut RenderRoot) {
         let Some(note) = &mut self.note else { return };
-        note.edit(std::time::Duration::ZERO);
+        note.save_soon();
         self.refresh_save_error(root);
     }
 

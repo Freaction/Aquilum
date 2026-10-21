@@ -1,5 +1,5 @@
 use super::error::FileCommandError;
-use super::models::{FileSnapshot, FileWriteResult};
+use super::models::FileWriteResult;
 use atomic_write_file::AtomicWriteFile;
 use std::fs;
 use super::content::FileContent;
@@ -75,24 +75,6 @@ fn head_len(bytes: &[u8]) -> usize {
 
 pub fn read_text(path: &Path) -> std::io::Result<String> {
     text_from_bytes(fs::read(path)?)
-}
-
-fn snapshot_of(bytes: Vec<u8>) -> Result<FileSnapshot, FileCommandError> {
-    let hash = hash_bytes(&bytes);
-    let content = text_from_bytes(bytes).map_err(|error| FileCommandError::InvalidUtf8 {
-        message: error.to_string(),
-    })?;
-    let text_hash = hash_bytes(content.as_bytes());
-
-    Ok(FileSnapshot {
-        content,
-        hash,
-        text_hash,
-    })
-}
-
-pub fn read_file_snapshot_impl(path: &Path) -> Result<FileSnapshot, FileCommandError> {
-    snapshot_of(fs::read(path)?)
 }
 
 pub fn atomic(path: &Path, expected_hash: Option<&str>, fill: impl FnOnce(&mut HashedWriter<&mut AtomicWriteFile>) -> std::io::Result<()>) -> Result<FileWriteResult, FileCommandError> {

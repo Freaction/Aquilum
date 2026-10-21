@@ -1,4 +1,4 @@
-use super::{heading_at, scan, Heading};
+use super::{heading_near, scan, Heading};
 
 #[derive(Default)]
 pub(super) struct Builder {
@@ -73,16 +73,16 @@ pub fn find_spot(
     cancel: &crate::text::cancel::Cancel,
     mut found: impl FnMut(&crate::search::pages::Page) -> Option<usize>,
 ) -> std::io::Result<Option<Spot>> {
-    let mut heading = None;
+    let mut previous: Option<crate::search::pages::Page> = None;
     while let Some(page) = pages.next()? {
         if cancel.is_cancelled() {
             return Ok(None);
         }
         let Some(at) = found(&page) else {
-            heading = heading_at(&page.text, page.text.len()).or(heading);
+            previous = Some(page);
             continue;
         };
-        let heading = heading_at(&page.text, at).or(heading);
+        let heading = heading_near(&page.text, at, || previous.map(|previous| previous.text));
         return Ok(Some(Spot { page, at, heading }));
     }
     Ok(None)

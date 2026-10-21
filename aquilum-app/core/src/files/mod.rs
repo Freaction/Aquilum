@@ -19,3 +19,10 @@ pub(crate) fn rebase(path: &std::path::Path, from: &std::path::Path, to: &std::p
     let inside = path.strip_prefix(from).ok()?;
     Some(if inside.as_os_str().is_empty() { to.to_path_buf() } else { to.join(inside) })
 }
+
+pub(crate) fn missing_ok(result: std::io::Result<()>) -> std::io::Result<()> {
+    match result {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        other => other,
+    }
+}

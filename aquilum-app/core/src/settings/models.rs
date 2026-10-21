@@ -72,12 +72,9 @@ impl Default for FontSettings {
     }
 }
 
-pub const SAVE_INTERVALS: [u32; 5] = [5_000, 10_000, 30_000, 60_000, 300_000];
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct EditorSettings {
-    pub save_debounce_ms: u32,
     pub line_height: f32,
     pub max_width_ch: u32,
     pub smart_dashes: bool,
@@ -95,7 +92,6 @@ pub struct EditorSettings {
 impl Default for EditorSettings {
     fn default() -> Self {
         Self {
-            save_debounce_ms: 30_000,
             line_height: 1.8,
             max_width_ch: 65,
             smart_dashes: true,
@@ -262,5 +258,20 @@ pub struct UpdateSettings {
 impl Default for UpdateSettings {
     fn default() -> Self {
         Self { auto: true }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SyncSettings {
+    pub enabled: bool,
+    pub trash: bool,
+    pub history: bool,
+    pub interval: u64,
+}
+
+impl Default for SyncSettings {
+    fn default() -> Self {
+        Self { enabled: false, trash: true, history: true, interval: 300 }
     }
 }

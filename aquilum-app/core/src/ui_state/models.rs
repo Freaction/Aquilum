@@ -1,3 +1,4 @@
+use crate::settings::models::SyncSettings;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -18,6 +19,7 @@ pub struct KnownWorkspace {
     pub path: String,
     pub last_seen_ms: i64,
     pub home_page: String,
+    pub sync: SyncSettings,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

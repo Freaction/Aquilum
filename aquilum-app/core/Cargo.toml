@@ -1,6 +1,6 @@
 [package]
 name = "aquilum-core"
-version = "0.3.12"
+version = "0.3.13"
 description = "Aquilum core: documents, files, search, history and settings without any UI"
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"
@@ -21,8 +21,11 @@ notify = "8.2.0"
 unicode-normalization = "0.1.25"
 pulldown-cmark = "0.13.4"
 ureq = "2.12"
+url = "2.5.8"
+base64 = "0.22.1"
+sha2 = "0.11.1"
+getrandom = { version = "0.4.3", features = ["std"] }
 httparse = "1"
-yrs = "0.28"
 memchr = "2"
 simdutf8 = "0.1.5"
 

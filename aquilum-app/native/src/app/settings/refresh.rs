@@ -70,6 +70,12 @@ impl App {
         });
     }
 
+    pub(in crate::app) fn refresh_section(&mut self, root: &mut RenderRoot, section: Section) {
+        if matches!(&self.popup, Some(Popup::Settings { dialog, .. }) if dialog.section == section) {
+            self.refresh_settings(root);
+        }
+    }
+
     pub(in crate::app) fn refresh_settings(&mut self, root: &mut RenderRoot) {
         let Some(Popup::Settings { dialog, .. }) = &self.popup else { return };
         let (section, copied, page) = (dialog.section, dialog.copied, dialog.trash_page);

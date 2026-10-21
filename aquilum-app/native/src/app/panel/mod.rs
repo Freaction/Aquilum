@@ -16,7 +16,14 @@ use crate::ui::tokens::size;
 use crate::ui::widgets::{IconButton, ItemAction, Pressed, Slot};
 
 impl App {
+    pub(in crate::app) fn bind_sync(&self) {
+        let core = &self.workspace.core;
+        let vault = self.workspace.root.clone().and_then(|root| core.ui_state.workspace(&root).map(|known| (root, known.sync)));
+        core.sync.set_vault(vault, crate::dates::offset_seconds());
+    }
+
     pub(super) fn start_index(&self) {
+        self.bind_sync();
         let Some(root) = self.workspace.root.clone() else { return };
         let core = Arc::clone(&self.workspace.core);
         std::thread::spawn(move || {

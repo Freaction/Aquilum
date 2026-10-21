@@ -56,6 +56,10 @@ pub fn heading_at(text: &str, offset: usize) -> Option<String> {
         .map(|heading| heading.title)
 }
 
+pub fn heading_near(page: &str, at: usize, previous: impl FnOnce() -> Option<String>) -> Option<String> {
+    heading_at(page, at).or_else(|| previous().and_then(|text| heading_at(&text, text.len())))
+}
+
 pub fn matching<'a>(headings: &'a [Heading], wanted: &str) -> Vec<&'a Heading> {
     let needle = wanted.trim().trim_start_matches('#').trim().to_lowercase();
     headings

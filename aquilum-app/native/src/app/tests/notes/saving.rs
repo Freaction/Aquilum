@@ -7,7 +7,7 @@ fn conflicting_edit_is_kept_as_a_copy() {
     h.open(path.clone());
     std::fs::write(&path, "снаружи").unwrap();
     h.app.text = crop::Rope::from("моя правка");
-    h.app.note.as_mut().unwrap().edit(std::time::Duration::ZERO);
+    h.app.note.as_mut().unwrap().save_soon();
     h.save_now();
     let copies: Vec<_> = std::fs::read_dir(h.vault.path()).unwrap().flatten().map(|e| e.path()).filter(|p| p.to_string_lossy().contains("конфликт")).collect();
     assert_eq!(copies.len(), 1, "копия-конфликт не записана");
@@ -54,4 +54,22 @@ fn typed_edits_reach_the_file_behind_hidden_frontmatter() {
     assert_eq!(h.app.text.to_string(), "---\ntags: [a]\n---\nЖпривет мир!");
     h.save_now();
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "---\ntags: [a]\n---\nЖпривет мир!");
+}
+
+#[test]
+fn leaving_the_window_or_the_tab_writes_the_pending_edit() {
+    let mut h = Harness::new();
+    let path = h.vault.path().join("a.md");
+    h.open(path.clone());
+    h.app.commit_text(&mut h.root, crop::Rope::from("правка до ухода из окна"));
+    h.app.window_unfocused();
+    crate::disk::wait();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "правка до ухода из окна");
+
+    h.app.commit_text(&mut h.root, crop::Rope::from("правка до смены вкладки"));
+    let other = h.write_note("b.md", "другая");
+    h.app.open_in(&mut h.root, other, true);
+    h.parked();
+    crate::disk::wait();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "правка до смены вкладки");
 }

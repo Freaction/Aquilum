@@ -38,6 +38,7 @@ pub(super) struct SearchState {
     status: Option<SearchIndexStatus>,
     failed: bool,
     selected: usize,
+    refreshed: bool,
     cards: Vec<WidgetId>,
 }
 
@@ -89,6 +90,7 @@ impl App {
         if matches!(self.popup, Some(Popup::Search(_))) {
             return;
         }
+        self.commit_note();
         let search_box = search::search_box("");
         let body = Slot::new(NewWidget::new(Flex::column()).erased());
         let body_handle = Handle::of(&body);
@@ -112,6 +114,7 @@ impl App {
             status,
             failed: false,
             selected: 0,
+            refreshed: false,
             cards: Vec::new(),
         }));
         self.render_search(root);

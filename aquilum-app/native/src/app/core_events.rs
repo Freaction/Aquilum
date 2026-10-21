@@ -36,6 +36,7 @@ impl App {
         for event in self.workspace.drain_events() {
             match event {
                 CoreEvent::Navigate(navigation) => navigations.push(navigation),
+                CoreEvent::SyncChanged => self.refresh_section(root, crate::ui::settings::schema::Section::Sync),
                 CoreEvent::Settle(done) => {
                     if let Some(note) = &mut self.note {
                         note.flush(&self.workspace.core, &self.text);
@@ -66,7 +67,6 @@ impl App {
                     title |= self.close_missing_tabs(root, &removed);
                     changed.extend(removed);
                 }
-                _ => {}
             }
         }
         if rescan || !changed.is_empty() || !edited.is_empty() {
@@ -97,8 +97,11 @@ impl App {
         if links_changed && self.panel_mode() != crate::links::Mode::History {
             self.request_panel(root);
         }
-        if history_changed && self.panel_mode() == crate::links::Mode::History && self.panel_visible() {
-            self.load_history(root);
+        if links_changed {
+            self.search_index_changed();
+        }
+        if history_changed {
+            self.refresh_history(root);
         }
         title
     }
@@ -128,11 +131,7 @@ impl App {
                 }
                 (None, None) => {}
             }
-            if let Some(Popup::Settings { dialog, .. }) = &self.popup
-                && dialog.section == crate::ui::settings::schema::Section::System
-            {
-                self.refresh_settings(root);
-            }
+            self.refresh_section(root, crate::ui::settings::schema::Section::System);
         }
         if let Some(payload) = self.updater.take_ready() {
             let _ = root.redraw();

@@ -1,8 +1,8 @@
 mod request;
 mod response;
 
-pub(in crate::mcp) use request::Head;
-pub(in crate::mcp) use response::Response;
+pub(crate) use request::Head;
+pub(crate) use response::Response;
 
 use request::Body;
 use std::io::{self, Read, Write};

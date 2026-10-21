@@ -2,7 +2,8 @@ pub const SCHEMA: &str = "CREATE TABLE workspaces (
          id TEXT PRIMARY KEY,
          path TEXT NOT NULL UNIQUE,
          last_seen_ms INTEGER NOT NULL,
-         home_page TEXT NOT NULL DEFAULT ''
+         home_page TEXT NOT NULL DEFAULT '',
+         sync TEXT NOT NULL DEFAULT ''
      );
      CREATE TABLE documents (
          id TEXT PRIMARY KEY,

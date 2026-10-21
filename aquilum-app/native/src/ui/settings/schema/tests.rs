@@ -1,4 +1,5 @@
 use super::*;
+use aquilum_core::settings::models::SyncSettings;
 
 #[test]
 fn numbers_parse_clamp_step_and_format() {
@@ -60,7 +61,7 @@ fn templates_and_attachments_share_one_section_and_search_tuning_lives_with_bm25
         assert_eq!(Section::from_key(old), Some(Section::Data), "сохранённый раздел «{old}» открывает общий раздел");
     }
     assert_eq!(Section::from_key("search"), Some(Section::Analysis));
-    assert_eq!(Section::ALL.len(), 10);
+    assert_eq!(Section::ALL.len(), 11);
 
     let rows = |config: &AppConfig| blocks(Section::Analysis, config, &ctx).into_iter().flat_map(|b| b.rows).map(|r| r.label).collect::<Vec<_>>();
     let pool = t("settings.search.candidatePool");
@@ -68,4 +69,33 @@ fn templates_and_attachments_share_one_section_and_search_tuning_lives_with_bm25
     let mut off = AppConfig::default();
     off.analysis.enable_bm25f = false;
     assert!(!rows(&off).contains(&pool), "без BM25F этих настроек нет");
+}
+
+#[test]
+fn sync_is_turned_on_per_vault_after_connecting() {
+    let config = AppConfig::default();
+    let mut ctx = Context::new(1.0);
+    ctx.workspace = Some(PathBuf::from("База"));
+    ctx.vault_sync = Some(SyncSettings::default());
+    let labels = |ctx: &Context| blocks(Section::Sync, &config, ctx).into_iter().flat_map(|b| b.rows).map(|r| r.label).collect::<Vec<_>>();
+    assert!(!labels(&ctx).contains(&t("settings.sync.enabled")), "до входа настройки базы не показываются");
+
+    ctx.sync = SyncStatus::Ready;
+    assert!(labels(&ctx).contains(&t("settings.sync.enabled")));
+    assert!(!labels(&ctx).contains(&t("settings.sync.trash")), "новая база по умолчанию не синхронизируется");
+
+    ctx.vault_sync = Some(SyncSettings { enabled: true, ..SyncSettings::default() });
+    assert!(labels(&ctx).contains(&t("settings.sync.trash")) && labels(&ctx).contains(&t("settings.sync.history")));
+
+    ctx.sync_due = Some(std::time::Instant::now() + std::time::Duration::from_secs(90));
+    let countdown = |ctx: &Context| {
+        let rows = blocks(Section::Sync, &config, ctx).into_iter().flat_map(|b| b.rows);
+        rows.filter(|r| r.label == t("settings.sync.enabled")).find_map(|r| r.countdown).map(|(_, text)| text(90))
+    };
+    assert_eq!(countdown(&ctx), Some(t_with("settings.sync.next", &[("time", "1:30")])));
+
+    ctx.sync = SyncStatus::Running(aquilum_core::sync::Progress::default());
+    let rows = blocks(Section::Sync, &config, &ctx).into_iter().flat_map(|b| b.rows);
+    let description = rows.filter(|r| r.label == t("settings.sync.enabled")).find_map(|r| r.description);
+    assert_eq!(description, Some(t("settings.sync.running")), "во время прохода вместо отсчёта — «Синхронизация…»");
 }

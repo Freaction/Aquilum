@@ -14,14 +14,6 @@ struct SidedHunk {
     external: bool,
 }
 
-fn overlaps(left: &LineHunk, right: &LineHunk) -> bool {
-    left.from < right.to && right.from < left.to
-}
-
-fn contains(region: &LineHunk, hunk: &LineHunk) -> bool {
-    hunk.from >= region.from && hunk.to <= region.to
-}
-
 fn by_position(left: &LineHunk, right: &LineHunk) -> Ordering {
     left.from.cmp(&right.from).then(left.to.cmp(&right.to))
 }
@@ -69,27 +61,22 @@ pub fn merge_external_change(base: &str, disk: &str, current: &str) -> MergeResu
         .collect();
 
     let mut displaced = Vec::new();
-    let mut resolved = Vec::new();
+    let mut kept = Vec::new();
     for region in regions(sided) {
-        let external = side(&region, true);
+        let (external, local) = (side(&region, true), side(&region, false));
         if external.is_empty() {
+            kept.extend(local);
             continue;
         }
         let from = region.iter().map(|sided| sided.hunk.from).min().unwrap_or(0);
         let to = region.iter().map(|sided| sided.hunk.to).max().unwrap_or(0);
-        let local = side(&region, false);
-        if !local.is_empty() {
-            displaced.extend(apply_hunks(&base_lines, &local, from, to));
+        let lines = apply_hunks(&base_lines, &external, from, to);
+        let ours = apply_hunks(&base_lines, &local, from, to);
+        if !local.is_empty() && ours != lines {
+            displaced.extend(ours);
         }
-        resolved.push(LineHunk { from, to, lines: apply_hunks(&base_lines, &external, from, to) });
+        kept.push(LineHunk { from, to, lines });
     }
-
-    let untouched_local = local_diff
-        .hunks
-        .iter()
-        .filter(|hunk| !resolved.iter().any(|region| overlaps(region, hunk) || contains(region, hunk)))
-        .cloned();
-    let mut kept: Vec<LineHunk> = resolved.iter().cloned().chain(untouched_local).collect();
     kept.sort_by(by_position);
     let merged = apply_hunks(&base_lines, &kept, 0, base_lines.len());
     let merged: Vec<&str> = merged.iter().map(String::as_str).collect();

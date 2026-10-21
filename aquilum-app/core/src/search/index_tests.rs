@@ -1,7 +1,8 @@
 use super::index::SearchIndex;
+use super::index_document::add_page;
+use super::pages::{Keys, Pages};
 use super::query::{analyzed_query_terms, Request};
 use std::path::Path;
-use tantivy::doc;
 
 #[test]
 fn normalizes_case_and_deduplicates_query_terms() {
@@ -16,15 +17,10 @@ fn indexed(documents: &[(&str, &str)]) -> (tempfile::TempDir, SearchIndex) {
         let path = directory.path().join(name);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, body).unwrap();
-        let title = Path::new(name).file_stem().unwrap().to_string_lossy();
-        writer
-            .add_document(doc!(
-                index.fields.id => path.to_string_lossy().as_ref(),
-                index.fields.path => *name,
-                index.fields.title => title.as_ref(),
-                index.fields.body => *body,
-            ))
-            .unwrap();
+        let (mut pages, note, mut keys) = (Pages::open(&path).unwrap(), path.to_string_lossy().into_owned(), Keys::default());
+        while let Some(page) = pages.next().unwrap() {
+            add_page(directory.path(), &index, &writer, &path, &page, &keys.next(&note, &page)).unwrap();
+        }
     }
     writer.commit().unwrap();
     index.reload().unwrap();
@@ -124,4 +120,14 @@ fn a_multi_word_query_ranks_partial_matches_instead_of_returning_nothing() {
     assert_eq!(results[0].matched_terms.len(), 3);
     assert_eq!(results[1].matched_terms.len(), 2);
     assert_eq!(results[0].heading.as_deref(), Some("Ощущение камеры"), "фрагмент подписан разделом, в котором нашлось совпадение");
+}
+
+#[test]
+fn a_title_match_comes_before_any_body_match() {
+    let body = "Конец дня, конец недели, конец месяца. ".repeat(50);
+    let (_guard, index) = indexed(&[("Дневник.md", body.as_str()), ("Конец года.md", "Итоги.")]);
+
+    let results = search(&index, "конец");
+    assert!(results[0].path.ends_with("Конец года.md"), "совпадение в названии — выше любого совпадения в тексте");
+    assert!(results[1].path.ends_with("Дневник.md"));
 }

@@ -20,7 +20,7 @@ pub fn parse(value: &str) -> Option<i64> {
     parse_at(value, local_offset())
 }
 
-fn parse_at(value: &str, offset: i64) -> Option<i64> {
+pub fn parse_at(value: &str, offset: i64) -> Option<i64> {
     let mut parts = value.split(['T', ' ', 't']).filter(|part| !part.is_empty());
     let day = civil_day(parts.next()?)?;
     let seconds = parts.next().and_then(time_of_day).unwrap_or(0);

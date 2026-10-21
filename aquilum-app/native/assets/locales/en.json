@@ -180,6 +180,7 @@
       "mcp": "AI agents",
       "history": "History",
       "trash": "Trash",
+      "sync": "Sync",
       "system": "System",
       "shortcuts": "Keyboard shortcuts"
     },
@@ -230,12 +231,7 @@
       "linkSuggest": "Link suggestions",
       "linkSuggestHint": "A list of notes as you type; the chosen one is inserted as [[Note]]",
       "minChars": "Minimum characters",
-      "minCharsHint": "How many letters bring up the list",
-      "saving": "Saving",
-      "saveDebounce": "Autosave",
-      "saveDebounceHint": "How long after the last edit the note is written to disk",
-      "seconds": "{{count}} s",
-      "minutes": "{{count}} min"
+      "minCharsHint": "How many letters bring up the list"
     },
     "reader": {
       "lineHeight": "Line height",
@@ -361,7 +357,12 @@
       },
       "bytes": "{{value}} B",
       "kilobytes": "{{value}} KB",
-      "megabytes": "{{value}} MB"
+      "megabytes": "{{value}} MB",
+      "gigabytes": "{{value}} GB",
+      "clear": "Empty trash",
+      "clearTitle": "Empty the trash?",
+      "clearDescription": "Deleted notes and their history will be erased for good. This cannot be undone.",
+      "clearConfirm": "Empty"
     },
     "history": {
       "section": "Note history",
@@ -369,7 +370,55 @@
       "retentionHint": "Versions live in the .aquilum/history folder of the knowledge base",
       "forever": "Forever",
       "days": "{{count}} days",
-      "year": "A year"
+      "year": "A year",
+      "stored": "Stored",
+      "empty": "No versions yet",
+      "versions": {
+        "one": "{{count}} version",
+        "other": "{{count}} versions"
+      },
+      "clear": "Clear history",
+      "clearTitle": "Clear all history?",
+      "clearDescription": "All saved versions of the notes in this knowledge base will be deleted. The notes themselves stay. The history of deleted notes lives in the trash and goes with it. This cannot be undone.",
+      "clearConfirm": "Clear"
+    },
+    "sync": {
+      "providers": "Sync methods",
+      "settings": "Settings",
+      "files": "Files and limits",
+      "dropbox": "Dropbox",
+      "connect": "Connect",
+      "cancel": "Cancel sign-in",
+      "disconnect": "Disconnect",
+      "off": "Not connected",
+      "login": "Waiting for sign-in in the browser",
+      "running": "Syncing…",
+      "connected": "Connected",
+      "done": "Synced {{time}}",
+      "enabled": "Sync this knowledge base",
+      "next": "Next sync in {{time}}",
+      "every": {
+        "0": "Never",
+        "30": "Every 30 seconds",
+        "60": "Every minute",
+        "300": "Every 5 minutes",
+        "600": "Every 10 minutes"
+      },
+      "trash": "Sync trash",
+      "history": "Sync history",
+      "progress": "Syncing… {{done}} of {{total}}",
+      "reveal": "Show in folder",
+      "toTrash": "Move to trash",
+      "deletions": "{{planned}} of {{synced}} files would be deleted — sync stopped. If the files were deleted on purpose, confirm",
+      "allowDeletions": "Delete anyway",
+      "size": "Knowledge base size",
+      "sizeValue": "In the cloud: {{files}} · {{size}}",
+      "send": "Send to the cloud",
+      "sendAll": "Send all to the cloud",
+      "sendAllHint": "Will take {{size}} in the cloud",
+      "sendAllButton": "Send all",
+      "inCloud": "in the cloud",
+      "onDevice": "on device"
     },
     "shortcuts": {
       "global": "Global",

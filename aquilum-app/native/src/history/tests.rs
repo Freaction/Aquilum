@@ -1,5 +1,5 @@
 use aquilum_core::Core;
-use aquilum_core::files::document::read_file_snapshot_impl;
+use aquilum_core::files::document::hash_file;
 use aquilum_core::files::gate;
 use aquilum_core::history::Source;
 
@@ -25,7 +25,7 @@ fn with_versions(initial: &str, edits: [(&str, Source); 2]) -> (tempfile::TempDi
     let note = vault.path().join("a.md");
     std::fs::write(&note, initial).unwrap();
     for (text, source) in edits {
-        let hash = read_file_snapshot_impl(&note).unwrap().hash;
+        let hash = hash_file(&note).unwrap();
         gate::write(&core, &note, text, Some(&hash), source, None).unwrap();
     }
     (vault, data, core, note)

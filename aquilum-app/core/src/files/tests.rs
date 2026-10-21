@@ -1,24 +1,9 @@
-use super::document::{
-    hash_bytes, normalize_line_endings, read_file_snapshot_impl, write_content_atomic,
-};
+use super::document::{hash_bytes, hash_file, normalize_line_endings, read_text, write_content_atomic};
 use super::entries::{create_content_file, rename_file_impl};
 use super::error::FileCommandError;
 use super::models::FileItemType;
 use super::workspace::read_directory_impl;
 use std::fs;
-
-#[test]
-fn snapshot_contains_content_and_hash() {
-    let directory = tempfile::tempdir().expect("temp directory");
-    let path = directory.path().join("note.md");
-    fs::write(&path, "Привет,\nAquilum!").expect("fixture");
-
-    let snapshot = read_file_snapshot_impl(&path).expect("snapshot");
-
-    assert_eq!(snapshot.content, "Привет,\nAquilum!");
-    assert_eq!(snapshot.hash, hash_bytes(snapshot.content.as_bytes()));
-    assert_eq!(snapshot.hash, snapshot.text_hash);
-}
 
 #[test]
 fn atomic_write_replaces_the_complete_file() {
@@ -100,9 +85,9 @@ fn invalid_utf8_is_rejected() {
     let path = directory.path().join("note.md");
     fs::write(&path, [0xff, 0xfe]).expect("fixture");
 
-    let error = read_file_snapshot_impl(&path).expect_err("invalid UTF-8");
+    let error = read_text(&path).expect_err("invalid UTF-8");
 
-    assert!(matches!(error, FileCommandError::InvalidUtf8 { .. }));
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
 }
 
 #[test]
@@ -151,23 +136,16 @@ fn workspace_filters_and_sorts_entries() {
 }
 
 #[test]
-fn a_snapshot_normalises_crlf_but_keeps_the_hash_of_the_bytes_on_disk() {
+fn reading_normalises_crlf_but_the_hash_stays_the_hash_of_the_bytes_on_disk() {
     let directory = tempfile::tempdir().expect("workspace");
     let path = directory.path().join("Заметка.md");
     fs::write(&path, "первая\r\nвторая\r\nтретья").expect("fixture");
 
-    let snapshot = read_file_snapshot_impl(&path).expect("snapshot");
-
-    assert_eq!(snapshot.content, "первая\nвторая\nтретья");
+    assert_eq!(read_text(&path).expect("text"), "первая\nвторая\nтретья");
     assert_eq!(
-        snapshot.hash,
+        hash_file(&path).expect("hash"),
         hash_bytes("первая\r\nвторая\r\nтретья".as_bytes()),
         "хэш остаётся хэшем файла: на нём держится проверка при записи"
-    );
-    assert_eq!(
-        snapshot.text_hash,
-        hash_bytes("первая\nвторая\nтретья".as_bytes()),
-        "text_hash считается от нормализованного текста — его и видит документ в ядре"
     );
 }
 

@@ -1,5 +1,5 @@
 use crate::files::document::write_content_atomic;
-use crate::settings::models::{AppConfig, SAVE_INTERVALS};
+use crate::settings::models::AppConfig;
 use serde_json::Value;
 use std::fs;
 use std::io::ErrorKind;
@@ -62,11 +62,7 @@ fn overlay(base: &mut Value, over: Value) {
 fn parse(content: &str) -> Result<AppConfig, serde_json::Error> {
     let mut merged = serde_json::to_value(AppConfig::default())?;
     overlay(&mut merged, serde_json::from_str(content)?);
-    let mut config: AppConfig = serde_json::from_value(merged)?;
-    if !SAVE_INTERVALS.contains(&config.editor.save_debounce_ms) {
-        config.editor.save_debounce_ms = AppConfig::default().editor.save_debounce_ms;
-    }
-    Ok(config)
+    serde_json::from_value(merged)
 }
 
 fn write_config(path: &Path, config: &AppConfig) -> Result<(), String> {
@@ -97,7 +93,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(
             dir.path().join("settings.json"),
-            r#"{"mcp":{"token":"secret"},"editor":{"fontFamily":"iA Writer Quattro"}}"#,
+            r#"{"mcp":{"token":"secret"},"editor":{"fontFamily":"iA Writer Quattro","saveDebounceMs":5000}}"#,
         )
         .unwrap();
 
@@ -106,7 +102,6 @@ mod tests {
         assert_eq!(config.mcp.token, "secret");
         assert_eq!(config.mcp.port, 8787);
         assert_eq!(config.editor.font.font_family, "iA Writer Quattro");
-        assert_eq!(config.editor.save_debounce_ms, 30_000);
         assert!(config.analysis.enable_bm25f);
         assert!(config.ui.animations);
     }

@@ -72,8 +72,8 @@ mod tests {
         let body = "строка\r\n".repeat(700_000) + "конец\rхвост";
         std::fs::write(&path, &body).unwrap();
         let loaded = read(&path).unwrap();
-        let snapshot = aquilum_core::files::document::read_file_snapshot_impl(&path).unwrap();
-        assert_eq!(loaded.text.to_string(), snapshot.content);
-        assert_eq!(loaded.hash, snapshot.hash);
+        let text = aquilum_core::files::document::read_text(&path).unwrap();
+        assert_eq!(loaded.text.to_string(), text);
+        assert_eq!(loaded.hash, aquilum_core::files::document::hash_file(&path).unwrap());
     }
 }

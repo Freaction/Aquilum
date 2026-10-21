@@ -183,17 +183,22 @@ pub fn hash(content: &dyn Content) -> io::Result<String> {
 pub struct ContentReader<'a> {
     content: &'a dyn Content,
     at: usize,
+    end: usize,
 }
 
 impl<'a> ContentReader<'a> {
     pub fn new(content: &'a dyn Content) -> Self {
-        Self { content, at: 0 }
+        Self::range(content, 0..content.byte_len())
+    }
+
+    pub fn range(content: &'a dyn Content, range: Range<usize>) -> Self {
+        Self { content, at: range.start, end: range.end }
     }
 }
 
 impl io::Read for ContentReader<'_> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let end = (self.at + buf.len()).min(self.content.byte_len());
+        let end = (self.at + buf.len()).min(self.end);
         let mut filled = 0;
         self.content.read(self.at..end, &mut |bytes| {
             buf[filled..filled + bytes.len()].copy_from_slice(bytes);

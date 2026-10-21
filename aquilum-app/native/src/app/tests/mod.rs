@@ -14,6 +14,7 @@ mod panels;
 mod perf;
 mod reader;
 mod snapshots;
+mod sync_snapshot;
 mod support;
 mod tab_list;
 mod templates;

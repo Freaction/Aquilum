@@ -190,12 +190,12 @@ pages: 10/100
     let ok = wait(&mut h, &|h| embeds(h).cached_book("📖 Книга").is_some_and(|b| b.pages == Some((10, 100))) && embeds(h).cached_rows(query) == Some(2));
     assert!(ok, "{:?} {:?}", embeds(&h).cached_book("📖 Книга"), embeds(&h).cached_rows(query));
     let core = h.app.workspace.core.clone();
-    let snapshot = aquilum_core::files::document::read_file_snapshot_impl(&book).unwrap();
+    let hash = aquilum_core::files::document::hash_file(&book).unwrap();
     aquilum_core::files::gate::write(&core, &book, "---
 author: Второй
 pages: 50/100
 ---
-", Some(&snapshot.hash), aquilum_core::history::Source::Me, None).unwrap();
+", Some(&hash), aquilum_core::history::Source::Me, None).unwrap();
     assert!(wait(&mut h, &|h| embeds(h).cached_book("📖 Книга").is_some_and(|b| b.pages == Some((50, 100)) && b.author == "Второй")), "виджет книги не обновился");
     aquilum_core::files::gate::create(&core, &vault.join("новая.md"), &"[[📖 Книга]]", aquilum_core::history::Source::Me, None).unwrap();
     assert!(wait(&mut h, &|h| embeds(h).cached_rows(query) == Some(3)), "новая ссылка не попала в таблицу");

@@ -172,14 +172,14 @@ impl SearchService {
 
     pub fn search(&self, workspace: &str, request: &Request) -> Result<SearchResponse, SearchError> {
         let found = self.with_index(workspace, |open| {
-            Ok((Arc::clone(&open.index), Arc::clone(&open.progress)))
+            Ok((Arc::clone(&open.index), Arc::clone(&open.progress), open.metadata_path.clone()))
         });
-        let (index, progress) = match found {
+        let (index, progress, metadata) = match found {
             Ok(found) => found,
             Err(SearchError::Unavailable { .. }) => return Ok(SearchResponse::idle()),
             Err(error) => return Err(error),
         };
-        let found = index.search(request)?;
+        let found = index.search(&Request { metadata: Some(&metadata), cancel: request.cancel.clone(), ..*request })?;
         Ok(SearchResponse {
             query_terms: found.terms,
             results: found.results,

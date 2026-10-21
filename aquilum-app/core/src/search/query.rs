@@ -6,7 +6,7 @@ use super::models::SearchResult;
 use crate::text::cancel::Cancel;
 use std::path::Path;
 use tantivy::collector::TopDocs;
-use tantivy::query::{BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, Query, TermQuery, TermSetQuery};
+use tantivy::query::{BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, Query, QueryClone, TermQuery, TermSetQuery};
 use tantivy::schema::{Field, IndexRecordOption};
 use tantivy::tokenizer::TokenStream;
 use tantivy::{Searcher, Term};
@@ -20,11 +20,12 @@ pub struct Request<'a> {
     pub folder: Option<&'a Path>,
     pub limit: Option<usize>,
     pub cancel: Cancel,
+    pub metadata: Option<&'a Path>,
 }
 
 impl<'a> Request<'a> {
     pub fn new(text: &'a str) -> Self {
-        Self { text, folder: None, limit: None, cancel: Cancel::never() }
+        Self { text, folder: None, limit: None, cancel: Cancel::never(), metadata: None }
     }
 }
 
@@ -53,28 +54,38 @@ pub fn search(index: &SearchIndex, request: &Request) -> Result<Found, SearchErr
     }
     let limit = request.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
     let searcher = index.reader.searcher();
-    let mut clauses: Vec<(Occur, Box<dyn Query>)> = vec![(Occur::Must, Box::new(combined_query(index, &terms)))];
-    if let Some(folder) = request.folder {
-        clauses.push((Occur::Must, Box::new(folder_query(&searcher, index.fields.id, folder)?)));
+    let folder = request.folder.map(|folder| folder_query(&searcher, index.fields.id, folder)).transpose()?;
+    let within = |query: BooleanQuery| {
+        let mut clauses: Vec<(Occur, Box<dyn Query>)> = vec![(Occur::Must, Box::new(query))];
+        clauses.extend(folder.iter().map(|folder| (Occur::Must, folder.box_clone())));
+        BooleanQuery::new(clauses)
+    };
+    let mut notes = top_notes(&searcher, index, &within(combined_query(index, &terms, &[index.fields.title])), limit, &request.cancel)?;
+    for note in top_notes(&searcher, index, &within(combined_query(index, &terms, &searchable_fields(index))), limit, &request.cancel)? {
+        if !notes.contains(&note) {
+            notes.push(note);
+        }
     }
-    let query = BooleanQuery::new(clauses);
+    let has_more = notes.len() > limit;
+    notes.truncate(limit);
+    let results = hits::results(&searcher, index.fields, &terms, &notes, request.metadata, &request.cancel)?;
+    Ok(Found { terms, results, has_more })
+}
+
+fn top_notes(searcher: &Searcher, index: &SearchIndex, query: &BooleanQuery, limit: usize, cancel: &Cancel) -> Result<Vec<String>, SearchError> {
     let mut wanted = limit + 1;
-    let mut notes = loop {
-        let top = searcher.search(&query, &TopDocs::with_limit(wanted).order_by_score())?;
-        if request.cancel.is_cancelled() {
+    loop {
+        let top = searcher.search(query, &TopDocs::with_limit(wanted).order_by_score())?;
+        if cancel.is_cancelled() {
             return Err(SearchError::Cancelled);
         }
         let found = top.len();
-        let notes = hits::group(&searcher, index.fields, top.into_iter().map(|(_, address)| address))?;
+        let notes = hits::group(searcher, index.fields, top.into_iter().map(|(_, address)| address))?;
         if notes.len() > limit || found < wanted {
-            break notes;
+            return Ok(notes);
         }
         wanted *= 4;
-    };
-    let has_more = notes.len() > limit;
-    notes.truncate(limit);
-    let results = hits::results(&searcher, index.fields, &terms, &notes, &request.cancel)?;
-    Ok(Found { terms, results, has_more })
+    }
 }
 
 fn folder_query(searcher: &Searcher, id: Field, folder: &Path) -> Result<TermSetQuery, SearchError> {
@@ -97,13 +108,13 @@ fn searchable_fields(index: &SearchIndex) -> [Field; 3] {
     [index.fields.title, index.fields.path, index.fields.body]
 }
 
-fn combined_query(index: &SearchIndex, terms: &[String]) -> BooleanQuery {
+fn combined_query(index: &SearchIndex, terms: &[String], fields: &[Field]) -> BooleanQuery {
     let mut term_clauses = Vec::<(Occur, Box<dyn Query>)>::with_capacity(terms.len());
     let mut exact_clauses = Vec::<(Occur, Box<dyn Query>)>::new();
 
     for text in terms {
-        let mut field_matches = Vec::<(Occur, Box<dyn Query>)>::with_capacity(3);
-        for field in searchable_fields(index) {
+        let mut field_matches = Vec::<(Occur, Box<dyn Query>)>::with_capacity(fields.len());
+        for &field in fields {
             let term = Term::from_field_text(field, text);
             let boost = field_boost(index, field);
             field_matches.push((

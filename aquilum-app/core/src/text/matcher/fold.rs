@@ -30,7 +30,7 @@ fn ascii_folds() -> &'static HashMap<char, Box<[char]>> {
     })
 }
 
-fn expand(original: char, fold: Fold, mut push: impl FnMut(char)) {
+pub(super) fn expand(original: char, fold: Fold, mut push: impl FnMut(char)) {
     match fold {
         Fold::Exact => push(original),
         Fold::Lower => push(original.to_lowercase().next().unwrap_or(original)),
@@ -43,6 +43,28 @@ fn expand(original: char, fold: Fold, mut push: impl FnMut(char)) {
             }
         }
     }
+}
+
+pub(super) fn sources(folded: char, fold: Fold) -> &'static [char] {
+    static LOWER: OnceLock<HashMap<char, Vec<char>>> = OnceLock::new();
+    static ASCII: OnceLock<HashMap<char, Vec<char>>> = OnceLock::new();
+    let build = || {
+        let mut sources: HashMap<char, Vec<char>> = HashMap::new();
+        for original in (0..=char::MAX as u32).filter_map(char::from_u32) {
+            expand(original, fold, |part| {
+                if part != original {
+                    sources.entry(part).or_default().push(original);
+                }
+            });
+        }
+        sources
+    };
+    let sources = match fold {
+        Fold::Exact => return &[],
+        Fold::Lower => LOWER.get_or_init(build),
+        Fold::Ascii => ASCII.get_or_init(build),
+    };
+    sources.get(&folded).map_or(&[], Vec::as_slice)
 }
 
 fn table(fold: Fold) -> &'static [char] {
@@ -78,11 +100,11 @@ pub struct Folded<'a> {
 
 impl<'a> Folded<'a> {
     pub fn new(text: &'a str, fold: Fold) -> Self {
-        Self { text, at: 0, fold, table: table(fold), expansion: ['\0'; EXPANSION], len: 0, pos: 0, start: 0 }
+        Self::at(text, 0, fold)
     }
 
-    pub fn skip_rest_of_char(&mut self) {
-        self.pos = self.len;
+    pub(super) fn at(text: &'a str, at: usize, fold: Fold) -> Self {
+        Self { text, at, fold, table: table(fold), expansion: ['\0'; EXPANSION], len: 0, pos: 0, start: at }
     }
 
     fn single(&self, original: char) -> Option<char> {

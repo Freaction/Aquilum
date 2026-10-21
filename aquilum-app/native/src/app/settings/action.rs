@@ -16,6 +16,21 @@ impl App {
         let Some(Popup::Settings { mut dialog, menu }) = self.popup.take() else { return Outcome::default() };
         let mut effect = Effect::None;
 
+        if let Some((confirm, wipe)) = dialog.confirm.take() {
+            let Some(answer) = confirm.answer(id, action) else {
+                dialog.confirm = Some((confirm, wipe));
+                self.popup = Some(Popup::Settings { dialog, menu });
+                return Outcome::default();
+            };
+            crate::ui::dialog::close(root, confirm.layer);
+            root.focus_on(Some(dialog.layer));
+            if answer == DialogAnswer::Confirm {
+                self.wipe(root, wipe);
+                effect = Effect::Content;
+            }
+            return self.keep(dialog, menu, effect, root);
+        }
+
         if let Some(picked) = action.downcast_ref::<Picked>() {
             let Some(menu) = menu else {
                 self.popup = Some(Popup::Settings { dialog, menu: None });
@@ -103,7 +118,7 @@ impl App {
             && let Some(Binding::Button(button)) = dialog.bindings.get(&id)
         {
             let button = button.clone();
-            effect = self.press(&mut dialog, button);
+            effect = self.press(root, &mut dialog, button);
         }
         self.keep(dialog, menu, effect, root)
     }

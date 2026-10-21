@@ -6,6 +6,6 @@ pub use char_edits::{apply_edits, TextEdit};
 pub use merge::merge_external_change;
 
 #[cfg(test)]
-mod random_tests;
+pub(crate) mod random_tests;
 #[cfg(test)]
 mod tests;

@@ -17,14 +17,6 @@ pub struct FileItem {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FileSnapshot {
-    pub content: String,
-    pub hash: String,
-    pub text_hash: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct FileWriteResult {
     pub hash: String,
 }

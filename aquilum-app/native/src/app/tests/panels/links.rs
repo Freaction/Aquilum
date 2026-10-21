@@ -50,7 +50,7 @@ fn backlinks_panel_lists_and_opens_mentions() {
 
 #[test]
 fn history_panel_opens_version_and_reverts_it() {
-    use aquilum_core::files::document::read_file_snapshot_impl;
+    use aquilum_core::files::document::hash_file;
     use aquilum_core::files::gate;
     use aquilum_core::history::Source;
 
@@ -58,7 +58,7 @@ fn history_panel_opens_version_and_reverts_it() {
     let note = h.vault.path().join("a.md");
     h.open(note.clone());
     for (text, source) in [("один\nдва\n", Source::Me), ("один\nдва\nтри\n", Source::Agent)] {
-        let hash = read_file_snapshot_impl(&note).unwrap().hash;
+        let hash = hash_file(&note).unwrap();
         gate::write(&h.app.workspace.core, &note, text, Some(&hash), source, None).unwrap();
     }
     let history_button = h.app.chrome.as_ref().unwrap().panel_parts.modes.last().unwrap().0.id();

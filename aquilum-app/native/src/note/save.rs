@@ -41,7 +41,7 @@ fn write(core: &Core, path: &PathBuf, text: &crop::Rope, job: &Job, disk: &Mutex
             Outcome::Saved
         }
         Err(FileCommandError::Conflict { .. }) => {
-            let report = ConflictReport { cause: ConflictCause::Diverged, disk_hash: None, synced_hash: Some(expected) };
+            let report = ConflictReport { cause: ConflictCause::Diverged, synced_hash: Some(expected) };
             let Some(copy) = preserve_copy(core, path, &content, report, crate::dates::offset_seconds()) else { return Outcome::Unsaved };
             let current = read(path).ok().map(|loaded| lock(disk).adopt(loaded));
             Outcome::Copied { copy: copy.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(), disk: current }

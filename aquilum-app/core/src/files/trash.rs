@@ -43,8 +43,8 @@ pub fn trash_path(workspace: &Path) -> PathBuf {
 
 pub fn trash_state_impl(workspace: &Path) -> Result<TrashState, FileCommandError> {
     let path = trash_path(workspace);
-    let (count, bytes) = trashed_notes(&path)
-        .fold((0, 0), |(count, bytes), (_, metadata)| (count + 1, bytes + metadata.len()));
+    let (count, bytes) = files_in(&path)
+        .fold((0, 0), |(count, bytes), (file, metadata)| (count + u64::from(note(&path, &file)), bytes + metadata.len()));
     Ok(TrashState {
         path: path.to_string_lossy().into_owned(),
         count,
@@ -62,7 +62,7 @@ pub fn cleanup_trash_impl(
     }
     let lifetime = Duration::from_secs(u64::from(retention_days) * 24 * 60 * 60);
     let now = SystemTime::now();
-    let expired = trashed_files(&trash)
+    let expired = files_in(&trash)
         .filter(|(_, metadata)| {
             metadata
                 .modified()
@@ -82,7 +82,7 @@ pub fn empty_trash_impl(workspace: &Path) -> Result<u64, FileCommandError> {
     if !trash.is_dir() {
         return Ok(0);
     }
-    let files = trashed_files(&trash).map(|(path, _)| path).collect::<Vec<_>>();
+    let files = files_in(&trash).map(|(path, _)| path).collect::<Vec<_>>();
     let removed = remove_files(&files);
     remove_empty_folders(&trash);
     Ok(removed)
@@ -190,14 +190,15 @@ fn is_copy_marker(component: &Component<'_>) -> bool {
 }
 
 pub fn trashed_notes(trash: &Path) -> impl Iterator<Item = (PathBuf, fs::Metadata)> + '_ {
-    trashed_files(trash).filter(move |(path, _)| {
-        let original = original_path(trash, path);
-        !original.starts_with(AQUILUM_FOLDER)
-    })
+    files_in(trash).filter(move |(path, _)| note(trash, path))
 }
 
-fn trashed_files(trash: &Path) -> impl Iterator<Item = (PathBuf, fs::Metadata)> {
-    WalkDir::new(trash)
+fn note(trash: &Path, path: &Path) -> bool {
+    !original_path(trash, path).starts_with(AQUILUM_FOLDER)
+}
+
+pub(crate) fn files_in(dir: &Path) -> impl Iterator<Item = (PathBuf, fs::Metadata)> {
+    WalkDir::new(dir)
         .min_depth(1)
         .into_iter()
         .filter_map(Result::ok)
@@ -267,6 +268,18 @@ mod tests {
 
         assert_eq!(cleanup_trash_impl(directory.path(), 0).unwrap(), 0);
         assert_eq!(trash_state_impl(directory.path()).unwrap().count, 1);
+    }
+
+    #[test]
+    fn the_size_includes_the_history_of_deleted_notes() {
+        let directory = workspace();
+        let trash = trash_path(directory.path());
+        aged_file(&trash.join("Идея.md"), 1);
+        aged_file(&trash.join(".aquilum").join("history").join("Идея.md").join("1_dev_me.md"), 1);
+
+        let state = trash_state_impl(directory.path()).unwrap();
+
+        assert_eq!((state.count, state.bytes), (1, 2 * "мусор".len() as u64));
     }
 
     #[test]

@@ -14,14 +14,14 @@ impl<'a> Lines<'a> {
         Self { matcher, cancel, offset: 0, found: Vec::new() }
     }
 
-    pub fn feed(&mut self, line: &str) -> bool {
+    pub fn feed(&mut self, text: &str) -> bool {
         let (base, limit, found) = (self.offset, self.matcher.limit(), &mut self.found);
         let more = found.len() < limit
-            && self.matcher.each(line, |range| {
+            && self.matcher.each(text, |range| {
                 found.push(base + range.start..base + range.end);
                 found.len() < limit
             });
-        self.offset += line.len() + 1;
+        self.offset += text.len() + 1;
         more && !self.cancel.is_cancelled()
     }
 

@@ -1,4 +1,4 @@
-use super::http::{refused, Connection, Failure, Head, Response};
+use crate::http::{refused, Connection, Failure, Head, Response};
 use super::protocol;
 use serde_json::Value;
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
