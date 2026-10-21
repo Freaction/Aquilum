@@ -1,7 +1,7 @@
 use crate::app_core::{Core, CoreEvent, EventSink};
 use crate::files::gate;
 use crate::history::Source;
-use crate::search::paths::is_hidden;
+use crate::search::paths::{canonical_path, is_hidden};
 use crate::settings::models::SyncSettings;
 use crate::sync::scan::{relative, stamp, stat};
 use crate::sync::{run, Large, Outcome, Progress, Records, Remote, Size, SyncError, Vault, Watch};
@@ -51,6 +51,7 @@ impl Device {
         let (root, data) = (directory.path().join("vault"), directory.path().join("data"));
         fs::create_dir_all(&root).unwrap();
         fs::create_dir_all(&data).unwrap();
+        let root = canonical_path(&root);
         let events: Arc<dyn EventSink> = Arc::new(|_: CoreEvent| {});
         let core = Core::open(&data, events);
         Self { records: Records::memory().unwrap(), core, root, directory, scope: Cell::new(scope), allow_deletions: Cell::new(false), allowed: RefCell::new(Vec::new()), measured: RefCell::default(), until: Cell::new(None), done: Cell::new(0) }
