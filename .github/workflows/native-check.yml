@@ -151,11 +151,17 @@ jobs:
           sleep 3
           import -window root shots/linux-maximized.png || true
           wmctrl -lG | tee -a shots/wmctrl.txt
-          kill $pid 2>/dev/null || true
           echo "--- app.log"; grep -E 'SurfaceResized|Moved' shots/app.log | tail -10 || true
           widest=$(grep -o 'SurfaceResized(PhysicalSize { width: [0-9]*' shots/app.log | grep -oE '[0-9]+$' | sort -n | tail -1)
           echo "widest surface: ${widest:-none}"
-          if [ "${widest:-0}" -le 1000 ]; then echo "window did not stretch to the screen"; status=1; fi
+          if [ "${widest:-0}" -le 1000 ]; then
+            echo "window did not stretch to the screen"; status=1
+            { pgrep -a openbox || echo "openbox is not running"; xwininfo -root -tree; } > shots/x11.txt 2>&1 || true
+            sudo apt-get install -y gdb > /dev/null 2>&1 || true
+            sudo gdb -p $pid -batch -ex "info threads" -ex "thread apply all bt 16" > shots/stacks.txt 2>&1 || true
+            cat shots/x11.txt; head -200 shots/stacks.txt
+          fi
+          kill $pid 2>/dev/null || true
           exit $status
 
       - name: Crash log
