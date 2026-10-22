@@ -7,7 +7,7 @@ use crate::files::error::FileCommandError;
 use crate::files::models::FileWriteResult;
 use crate::history::delta::single;
 use crate::history::{Change, NoteWrite, Source};
-use crate::search::paths::{is_markdown, is_note};
+use crate::search::paths::is_note;
 use crate::text::content::{Content, Splice};
 use std::fs;
 use std::ops::Range;
@@ -79,9 +79,7 @@ fn note_write(
         }
     };
     record(core, path, NoteWrite { text, hash: &result.hash, source, name, change, original });
-    if is_markdown(path) {
-        core.search.notify_content_path(path.to_path_buf());
-    }
+    core.search.queue(&[path.to_path_buf()], false);
     Ok(result)
 }
 

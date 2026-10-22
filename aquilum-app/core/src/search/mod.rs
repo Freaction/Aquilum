@@ -31,11 +31,9 @@ pub mod worker;
 
 pub use analyzer::ANALYZER_VERSION;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 pub use models::IndexRevision;
 
 pub use service::SearchService;
-pub type ChangeNotifier = Arc<dyn Fn(Vec<PathBuf>) + Send + Sync>;
 pub type IndexNotifier = Arc<dyn Fn(IndexRevision) + Send + Sync>;

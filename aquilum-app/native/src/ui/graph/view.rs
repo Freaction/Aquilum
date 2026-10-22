@@ -46,6 +46,7 @@ impl GraphView {
             status_lines: Vec::new(),
             notice: [Line::default(), Line::default()],
             action_rect: None,
+            over_action: false,
             action_line: Line::default(),
             settings,
             panel: Rect::ZERO,

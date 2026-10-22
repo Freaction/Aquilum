@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use super::{Inner, indexed};
+use super::Inner;
 
 #[derive(Default)]
 pub(super) struct Links {
@@ -40,7 +40,7 @@ fn spawn(inner: &Arc<Inner>, targets: Vec<String>) {
     std::thread::spawn(move || {
         let found = {
             let _zone = aq_trace::zone("фон: вики-ссылки");
-            indexed(|| inner.core.search.resolve_wiki_links(&inner.workspace(), &inner.source(), &targets))
+            inner.core.search.resolve_wiki_links(&inner.workspace(), &inner.source(), &targets)
         };
         let mut links = inner.links.lock().unwrap_or_else(|e| e.into_inner());
         for (i, target) in targets.into_iter().enumerate() {

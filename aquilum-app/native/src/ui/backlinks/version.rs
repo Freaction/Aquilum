@@ -10,7 +10,7 @@ use crate::history::Change;
 use crate::i18n::t;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{Font, Label, Leading, LinkButton, MaxWidth, Rule, Wrap};
+use crate::ui::widgets::{Font, Label, Leading, MaxWidth, Rule, TextButton, Variant, Wrap};
 use crate::ui::{style, theme};
 
 pub struct VersionView {
@@ -23,12 +23,12 @@ pub fn version_view(heading: &str, can_revert: bool, can_restore: bool, lines: &
     let mut buttons: Vec<NewWidget<dyn Widget>> = Vec::new();
     let mut revert = None;
     if can_revert {
-        let button = LinkButton::new(&t("history.revert"));
+        let button = NewWidget::new(TextButton::new(t("history.revert"), Variant::Link));
         revert = Some(button.id());
         buttons.push(button.erased());
     }
-    let restore = LinkButton::new(&t("history.restore")).disabled(!can_restore);
-    let back = LinkButton::new(&t("history.back"));
+    let restore = NewWidget::new(TextButton::new(t("history.restore"), Variant::Link)).disabled(!can_restore);
+    let back = NewWidget::new(TextButton::new(t("history.back"), Variant::Link));
     let (restore_id, back_id) = (restore.id(), back.id());
     buttons.push(restore.erased());
     buttons.push(back.erased());

@@ -397,7 +397,6 @@ fn a_query_from_once_is_answered_without_an_index() {
 
     let service = SearchService::new(
         PathBuf::from("."),
-        Arc::new(|_: Vec<PathBuf>| {}),
         Arc::new(|_: IndexRevision| {}),
     );
     let output = service

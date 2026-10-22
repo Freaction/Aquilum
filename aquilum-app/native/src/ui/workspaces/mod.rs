@@ -2,6 +2,8 @@ mod row;
 
 use std::path::{Path, PathBuf};
 
+use aquilum_core::search::paths::same_path;
+
 use masonry::accesskit::Role;
 use masonry::core::{NewWidget, PropertySet, WidgetId};
 use masonry::kurbo::{Axis, Size};
@@ -44,7 +46,7 @@ pub fn dialog(workspaces: &[(uuid::Uuid, String)], current: Option<&Path>, error
     let list = NewWidget::new(list).with_props(
         PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))).with(Padding::all(Length::px(size::DIALOG_PADDING))),
     );
-    let open = NewWidget::new(TextButton::new(t("common.openFolder"), Variant::Primary).with_icon(icons::FOLDER_OPEN));
+    let open = open_folder();
     let open_id = open.id();
     let footer = NewWidget::new(Flex::row().main_axis_alignment(MainAxisAlignment::End).with_fixed(open))
         .with_props(PropertySet::new().with(Padding::all(Length::px(size::DIALOG_PADDING))));
@@ -71,14 +73,13 @@ fn card_size(room: Size) -> Size {
 }
 
 pub fn no_vault(error: Option<&str>) -> (NewWidget<Flex>, WidgetId) {
-    let open = NewWidget::new(TextButton::new(t("common.openFolder"), Variant::Primary).with_icon(icons::FOLDER_OPEN));
+    let open = open_folder();
     let id = open.id();
     (search::empty_state_with(icons::FOLDER_OPEN, &t("fileTree.noFolder"), error, Some(open.erased())), id)
 }
 
-pub fn same_path(a: &Path, b: &Path) -> bool {
-    let norm = |p: &Path| p.to_string_lossy().replace('\\', "/").trim_end_matches('/').to_lowercase();
-    norm(a) == norm(b)
+fn open_folder() -> NewWidget<TextButton> {
+    NewWidget::new(TextButton::new(t("common.openFolder"), Variant::Primary).icon_before(icons::FOLDER_OPEN))
 }
 
 pub fn forget_texts(path: &Path) -> (String, String) {

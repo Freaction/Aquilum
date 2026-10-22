@@ -5,7 +5,7 @@ pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     let scale = ctx.scale;
     let scale_row = bound(
         t("settings.ui.scale"),
-        Some(t_with("settings.ui.scaleHint", &[("reset", &keymap::label(keymap::Scope::Global, keymap::Command::ZoomReset))])),
+        Some(t_with("settings.ui.scaleHint", &[("mod", keymap::action_key()), ("reset", &keymap::label(keymap::Scope::Global, keymap::Command::ZoomReset))])),
         Control::Number(Number {
             value: (scale * 100.0).round(),
             min: MIN_SCALE * 100.0,

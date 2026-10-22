@@ -27,13 +27,9 @@ impl App {
         }
         let core = Arc::clone(&self.workspace.core);
         std::thread::spawn(move || {
-            let mut result = core.search.resolve_wiki_links(&workspace, &workspace, std::slice::from_ref(&page));
-            for _ in 0..600 {
-                if !matches!(result, Err(aquilum_core::search::error::SearchError::Unavailable { .. })) {
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(100));
-                result = core.search.resolve_wiki_links(&workspace, &workspace, std::slice::from_ref(&page));
+            let result = core.search.resolve_wiki_links(&workspace, &workspace, std::slice::from_ref(&page));
+            if matches!(result, Err(aquilum_core::search::error::SearchError::Unavailable { .. })) {
+                return;
             }
             let path = result
                 .map_err(|error| report!("домашняя страница не найдена: {error:?}"))

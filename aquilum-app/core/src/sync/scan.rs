@@ -1,6 +1,6 @@
 use crate::files::trash::TRASH_FOLDER;
 use crate::history::store::{millis, AQUILUM_FOLDER, HISTORY_FOLDER};
-use crate::search::paths::is_hidden;
+use crate::search::paths::{is_hidden, is_visible_entry};
 use crate::settings::models::SyncSettings;
 use std::collections::HashMap;
 use std::fs::{self, Metadata};
@@ -42,7 +42,7 @@ pub fn service(relative: &str) -> bool {
 
 pub fn scan(root: &Path, scope: SyncSettings) -> io::Result<HashMap<String, LocalFile>> {
     let mut files = HashMap::new();
-    walk(root, root, |entry| !is_hidden(root, entry.path()), |_| true, &mut files)?;
+    walk(root, root, is_visible_entry, |_| true, &mut files)?;
     for area in scope.areas(root).iter().filter(|area| area.is_dir()) {
         walk(root, area, |_| true, |relative| scope.included(root, relative), &mut files)?;
     }

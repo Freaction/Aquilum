@@ -8,7 +8,7 @@ use super::paths::{canonical_path, canonical_workspace, same_path};
 use super::progress::IndexProgress;
 use super::query::Request;
 use super::worker::WorkerHandle;
-use super::{ChangeNotifier, IndexNotifier};
+use super::IndexNotifier;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -20,7 +20,6 @@ pub struct SearchService {
     pub active: Arc<RwLock<Option<OpenIndex>>>,
     pub guest: Arc<RwLock<Option<Guest>>>,
     pub prepare_lock: Arc<Mutex<()>>,
-    notifier: ChangeNotifier,
     index_notifier: IndexNotifier,
     pub analysis_graph: Arc<RwLock<Option<CachedGraph>>>,
     pub render_lock: Arc<Mutex<()>>,
@@ -55,14 +54,11 @@ impl OpenIndex {
     }
 
     fn queue(&self, paths: &[PathBuf], rescan: bool) {
-        let inside = paths
-            .iter()
-            .filter(|path| path.starts_with(&self.root))
-            .cloned()
-            .collect::<Vec<_>>();
         if rescan {
-            self.worker.queue_rescan(inside);
-        } else if !inside.is_empty() {
+            return self.worker.queue_rescan();
+        }
+        let inside = paths.iter().filter(|path| path.starts_with(&self.root)).cloned().collect::<Vec<_>>();
+        if !inside.is_empty() {
             self.worker.queue_paths(inside);
         }
     }
@@ -71,7 +67,6 @@ impl OpenIndex {
 impl SearchService {
     pub fn new(
         base_directory: PathBuf,
-        notifier: ChangeNotifier,
         index_notifier: IndexNotifier,
     ) -> Self {
         Self {
@@ -79,7 +74,6 @@ impl SearchService {
             active: Arc::new(RwLock::new(None)),
             guest: Arc::new(RwLock::new(None)),
             prepare_lock: Arc::new(Mutex::new(())),
-            notifier,
             index_notifier,
             analysis_graph: Arc::new(RwLock::new(None)),
             render_lock: Arc::new(Mutex::new(())),
@@ -267,45 +261,13 @@ impl SearchService {
         .unwrap_or_else(SearchIndexStatus::idle)
     }
 
-    pub fn notify_paths(&self, paths: Vec<PathBuf>) {
-        self.queue_paths(paths, true);
-    }
-
-    pub fn notify_content_path(&self, path: PathBuf) {
-        self.queue_paths(vec![path], false);
-    }
-
-    pub fn ingest_watch(&self, paths: Vec<PathBuf>, rescan: bool) {
-        let paths = paths.iter().map(|path| canonical_path(path)).collect::<Vec<_>>();
-        if let Ok(active) = self.active.read() {
-            if let Some(active) = active.as_ref() {
-                active.queue(&paths, rescan);
-            }
-        }
-    }
-
-    fn queue_paths(&self, paths: Vec<PathBuf>, notify_sidebar: bool) {
+    pub fn queue(&self, paths: &[PathBuf], rescan: bool) {
         let canonical = paths.iter().map(|path| canonical_path(path)).collect::<Vec<_>>();
-        if let Ok(active) = self.active.read() {
-            if let Some(active) = active.as_ref() {
-                if notify_sidebar {
-                    let shown = paths
-                        .iter()
-                        .zip(&canonical)
-                        .filter(|(_, path)| path.starts_with(&active.root))
-                        .map(|(path, _)| path.clone())
-                        .collect::<Vec<_>>();
-                    if !shown.is_empty() {
-                        (self.notifier)(shown);
-                    }
-                }
-                active.queue(&canonical, false);
-            }
+        if let Some(active) = self.active.read().ok().as_deref().and_then(Option::as_ref) {
+            active.queue(&canonical, rescan);
         }
-        if let Ok(guest) = self.guest.read() {
-            if let Some(guest) = guest.as_ref() {
-                guest.index.queue(&canonical, false);
-            }
+        if let Some(guest) = self.guest.read().ok().as_deref().and_then(Option::as_ref) {
+            guest.index.queue(&canonical, rescan);
         }
     }
 

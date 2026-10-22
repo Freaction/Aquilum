@@ -170,6 +170,10 @@ impl Widget for Segmented {
         self.draw(ctx, painter);
     }
 
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        CursorIcon::Pointer
+    }
+
     fn accessibility_role(&self) -> Role {
         Role::RadioGroup
     }

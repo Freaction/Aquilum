@@ -48,7 +48,7 @@ pub const REFRESH_CW: Icon = Icon::lucide(&[
     Shape::Path("M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"),
     Shape::Path("M8 16H3v5"),
 ]);
-pub const POWER: Icon = Icon::lucide(&[Shape::Path("M12 2v10"), Shape::Path("M18.4 6.6a9 9 0 1 1-12.77.04")]);
+pub const POWER: Icon =Icon::lucide(&[Shape::Path("M12 2v10"), Shape::Path("M18.4 6.6a9 9 0 1 1-12.77.04")]);
 pub const KEYBOARD: Icon = Icon::lucide(&[
     Shape::Path("M10 8h.01"),
     Shape::Path("M12 12h.01"),

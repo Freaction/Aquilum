@@ -52,33 +52,34 @@
   --q-button-height: var(--q-size-36);
   --q-button-gap: var(--q-space-12);
   --q-button-padding-y: var(--q-space-8);
-  --q-button-padding-x: var(--q-space-12);
-  --q-button-radius: var(--q-rounded-lg);
+  --q-button-padding-x: var(--q-space-8);
+  --q-button-radius: var(--q-rounded-xl);
   --q-button-font-size: var(--q-font-size-ui-base);
   --q-button-line-height: 1.25rem;
-  --q-button-icon-size: var(--q-size-16);
+  --q-button-label-padding-x: var(--q-space-6);
+  --q-button-icon-size: var(--q-size-20);
+  --q-button-icon-stroke: 1.2;
   --q-button-secondary-bg: var(--q-bg-surface-overlay);
   --q-button-secondary-bg-hover: var(--q-bg-surface-active);
   --q-button-secondary-text: var(--q-text-tertiary);
-  --q-button-secondary-text-hover: var(--q-text-secondary);
 
   --q-button-s-height: calc(var(--q-button-s-padding-y) * 2 + var(--q-button-s-line-height));
   --q-button-s-padding-y: var(--q-padding-xs);
-  --q-button-s-padding-x: var(--q-padding-md);
+  --q-button-s-padding-x: var(--q-padding-xs);
   --q-button-s-radius: var(--q-rounded-xl);
   --q-button-s-gap: var(--q-space-8);
   --q-button-s-line-height: var(--q-size-20);
 
   --q-button-xs-height: var(--q-size-24);
   --q-button-xs-padding-y: var(--q-padding-4xs);
-  --q-button-xs-padding-x: calc(var(--q-padding-2xs) + var(--q-padding-xs));
+  --q-button-xs-padding-x: var(--q-padding-2xs);
   --q-button-xs-radius: var(--q-rounded-xl);
   --q-button-xs-gap: var(--q-space-6);
   --q-button-xs-line-height: var(--q-size-20);
-  --q-button-highlight-width: 1.5px;
+  --q-button-highlight-width: 1px;
   --q-button-shine-fill-default: 0.14;
-  --q-button-shine-fill-hover: 0.24;
-  --q-button-shine-ring-default: 0.24;
+  --q-button-shine-fill-hover: 0.3;
+  --q-button-shine-ring-default: 0.22;
   --q-button-shine-ring-hover: 0.32;
 
   --q-editor-bg: var(--q-bg-primary);

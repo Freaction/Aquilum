@@ -40,25 +40,9 @@ pub fn probe(path: &Path, known: &mut HashMap<PathKey, FileState>, force: bool) 
     classify(previous, metadata::fingerprint(&file_metadata), created::from_file_metadata(&file_metadata), force)
 }
 
-pub fn apply_path(
-    root: &Path,
-    index: &SearchIndex,
-    writer: &IndexWriter,
-    transaction: &Transaction<'_>,
-    path: &Path,
-) -> Result<bool, SearchError> {
-    let key = path.to_string_lossy();
-    if !path.is_file() {
-        remove_note(index, writer, transaction, &key)?;
-        return Ok(true);
-    }
-
-    let file_metadata = path.metadata()?;
-    let fingerprint = metadata::fingerprint(&file_metadata);
-    let Some(probe) = classify(metadata::current(transaction, &key)?, fingerprint, created::from_file_metadata(&file_metadata), false) else {
-        return Ok(false);
-    };
-    apply(root, index, writer, transaction, path, probe)
+pub fn probe_one(transaction: &Transaction<'_>, path: &Path, found: &std::fs::Metadata) -> Result<Option<Probe>, SearchError> {
+    let previous = metadata::current(transaction, &path.to_string_lossy())?;
+    Ok(classify(previous, metadata::fingerprint(found), created::from_file_metadata(found), false))
 }
 
 pub fn remove_note(index: &SearchIndex, writer: &IndexWriter, transaction: &Transaction<'_>, key: &str) -> Result<(), SearchError> {

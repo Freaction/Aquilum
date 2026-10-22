@@ -8,7 +8,7 @@ use super::metrics::{COVER_H, COVER_RADIUS, COVER_W};
 use super::panel::PAD;
 use super::{Drawing, Font, Item, Spec, Tone};
 use crate::i18n::{t, t_with};
-use crate::ui::tokens::{number, size};
+use crate::ui::tokens::size;
 
 const ELLIPSIS: &str = "…";
 
@@ -48,8 +48,9 @@ fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>
     let done = book.pages.is_some_and(|(a, b)| b > 0 && a >= b);
     let progress = make(&Spec::plain(&progress_text, Font::Ui(ui), if done { SUCCESS } else { MUTED }));
     let label = t("book.read");
-    let button = book.linked.then(|| make(&Spec { weight: Some(number::FONT_WEIGHT_UI_MEDIUM as f32), ..Spec::plain(&label, Font::Ui(size::BUTTON_FONT_SIZE as u8), ON_ACCENT) }));
-    let button_w = button.as_ref().map_or(0.0, |b| f64::from(b.width()) + size::BUTTON_XS_PADDING_X * 2.0);
+    let button = book.linked.then(|| make(&Spec::plain(&label, Font::Ui(size::BUTTON_FONT_SIZE as u8), ON_ACCENT)));
+    let inset = size::BUTTON_XS_PADDING_X + size::BUTTON_LABEL_PADDING_X;
+    let button_w = button.as_ref().map_or(0.0, |b| f64::from(b.width()) + inset * 2.0);
     let right = available - pad;
     let side = button_w.max(f64::from(progress.width()));
     let text_x = pad + COVER_W + pad;
@@ -74,7 +75,7 @@ fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>
         if let Some(file) = &book.file {
             hits.push((rect, super::Action::Read { file: file.clone(), page: book.page.clone(), title: book.title.clone() }, None));
         }
-        let text = Item::Text(Point::new(rect.x0 + size::BUTTON_XS_PADDING_X, label_y), button, label);
+        let text = Item::Text(Point::new(rect.x0 + inset, label_y), button, label);
         items.push(if book.file.is_some() { text } else { Item::Dim(Box::new(text)) });
     }
     let py = top + pad + COVER_H - f64::from(progress.height());

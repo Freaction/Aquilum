@@ -91,8 +91,7 @@ impl App {
         if !dir.is_dir() {
             return Vec::new();
         }
-        let mut list = Vec::new();
-        scan::scan_dir(&dir, &dir, &mut list);
+        let mut list = scan::scan(&dir);
         list.sort_by(|a, b| a.relative.to_lowercase().cmp(&b.relative.to_lowercase()));
         list
     }

@@ -22,28 +22,23 @@ pub(super) fn update_row(status: &crate::updater::Status) -> Row {
 }
 
 pub(super) fn system(config: &AppConfig, ctx: &Context) -> Vec<Block> {
-    let mut updates = vec![row(
-        t("settings.system.autoUpdate"),
-        Some(t("settings.system.autoUpdateHint")),
-        Control::Switch(config.updates.auto),
-        |c, v| c.updates.auto = flag(v),
-    )];
-    if !config.updates.auto {
-        updates.push(match &ctx.update {
-            Some(status) => update_row(status),
-            None => info(
-                t("settings.system.manualUpdate"),
-                Some(t(if cfg!(feature = "installed") { "settings.system.updatesByPackage" } else { "settings.system.updatesUnavailable" })),
-                Control::Buttons(vec![Button::new(t("settings.system.checkUpdates"), Action::CheckUpdates).enabled(false)]),
-            ),
-        });
-    }
+    let updates = match &ctx.update {
+        Some(status) => {
+            let auto = row(t("settings.system.autoUpdate"), Some(t("settings.system.autoUpdateHint")), Control::Switch(config.updates.auto), |c, v| c.updates.auto = flag(v));
+            let manual = (!config.updates.auto).then(|| update_row(status));
+            std::iter::once(auto).chain(manual).collect()
+        }
+        None => {
+            let reason = t(if cfg!(feature = "installed") { "settings.system.updatesByPackage" } else { "settings.system.updatesUnavailable" });
+            vec![info(t("settings.system.autoUpdate"), Some(reason), Control::Locked(false))]
+        }
+    };
     vec![
         Block { title: t("settings.system.updates"), rows: updates },
         Block {
             title: t("settings.system.autostart"),
             rows: vec![match ctx.autostart {
-                Some(on) => bound(t("settings.system.launch"), Some(t("settings.system.launchHint")), Control::Switch(on), Setter::Autostart),
+                Some(on) => bound(t("settings.system.launch"), None, Control::Switch(on), Setter::Autostart),
                 None => info(t("settings.system.launch"), Some(t("settings.system.launchUnavailable")), Control::Locked(false)),
             }],
         },

@@ -12,7 +12,7 @@ pub use versions::{restore_version, retrying, revert_version};
 pub use write::{copy, create, create_binary, edit, name_version, save, write, Saving};
 
 use super::attachments::forget_attachments_if_touched;
-use crate::app_core::{Core, CoreEvent};
+use crate::app_core::{path_names, Core, CoreEvent};
 use crate::history::NoteWrite;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -43,7 +43,8 @@ fn record(core: &Core, note: &Path, write: NoteWrite<'_>) {
 
 fn paths_changed(core: &Core, paths: Vec<PathBuf>) {
     forget_attachments_if_touched(&paths);
-    core.search.notify_paths(paths);
+    core.emit(CoreEvent::WorkspaceChanged(path_names(&paths)));
+    core.search.queue(&paths, false);
 }
 
 fn announce(core: &Core, relocation: Relocation) {

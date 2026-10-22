@@ -1,9 +1,9 @@
 use super::error::SearchError;
 use super::index::SearchIndex;
-use super::index_document::{apply, apply_path, probe, remove_note};
+use super::index_document::{apply, probe, probe_one, remove_note};
 use super::metadata::{self, FileState, PathKey};
 use super::pages;
-use super::paths::{is_hidden, is_markdown, is_visible_entry};
+use super::paths::{is_hidden, is_markdown, markdown_files};
 use super::progress::IndexProgress;
 use rusqlite::{Connection, Transaction};
 use std::collections::{HashMap, HashSet};
@@ -11,7 +11,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tantivy::IndexWriter;
-use walkdir::WalkDir;
 
 pub const INDEX_MEMORY_BUDGET: usize = 40_000_000;
 const INDEX_THREADS: usize = 2;
@@ -42,18 +41,15 @@ impl IndexSynchronizer {
         let force = pages::count(&self.connection)? != output.index.document_count();
         let mut transaction = self.connection.transaction()?;
         let mut processed = 0;
-        for entry in WalkDir::new(&output.root).follow_links(false).into_iter().filter_entry(is_visible_entry).filter_map(Result::ok) {
+        for path in markdown_files(&output.root) {
             if cancelled.load(Ordering::Relaxed) {
                 return Ok(());
             }
-            if !entry.file_type().is_file() || !is_markdown(entry.path()) {
-                continue;
-            }
             output.progress.scanned_one();
             processed += 1;
-            if let Some(probe) = probe(entry.path(), &mut known, force) {
+            if let Some(probe) = probe(&path, &mut known, force) {
                 let writer = ensure_writer(&mut output.writer, &output.index)?;
-                output.pending |= apply(&output.root, &output.index, writer, &transaction, entry.path(), probe)?;
+                output.pending |= apply(&output.root, &output.index, writer, &transaction, &path, probe)?;
             }
             if processed >= COMMIT_BATCH_SIZE {
                 output.commit()?;
@@ -84,10 +80,19 @@ impl IndexSynchronizer {
     pub fn apply_paths(&mut self, paths: HashSet<PathBuf>) -> Result<bool, SearchError> {
         let output = &mut self.output;
         let transaction = self.connection.transaction()?;
-        for path in paths {
-            if path.starts_with(&output.root) && is_markdown(&path) && !is_hidden(&output.root, &path) {
-                let writer = ensure_writer(&mut output.writer, &output.index)?;
-                output.pending |= apply_path(&output.root, &output.index, writer, &transaction, &path)?;
+        let root = output.root.clone();
+        for path in paths.into_iter().filter(|path| path.starts_with(&root) && !is_hidden(&root, path)) {
+            match path.metadata() {
+                Ok(found) if found.is_dir() => {
+                    for note in markdown_files(&path) {
+                        if let Ok(found) = note.metadata() {
+                            output.update(&transaction, &note, &found)?;
+                        }
+                    }
+                }
+                Ok(found) if is_markdown(&path) => output.update(&transaction, &path, &found)?,
+                Ok(_) => {}
+                Err(_) => output.forget(&transaction, &path)?,
             }
         }
         let changed = output.pending;
@@ -102,6 +107,21 @@ impl IndexSynchronizer {
 }
 
 impl Output {
+    fn update(&mut self, transaction: &Transaction<'_>, path: &Path, found: &std::fs::Metadata) -> Result<(), SearchError> {
+        let Some(probe) = probe_one(transaction, path, found)? else { return Ok(()) };
+        let writer = ensure_writer(&mut self.writer, &self.index)?;
+        self.pending |= apply(&self.root, &self.index, writer, transaction, path, probe)?;
+        Ok(())
+    }
+
+    fn forget(&mut self, transaction: &Transaction<'_>, path: &Path) -> Result<(), SearchError> {
+        for gone in metadata::paths_under(transaction, &path.to_string_lossy())? {
+            remove_note(&self.index, ensure_writer(&mut self.writer, &self.index)?, transaction, &gone)?;
+            self.pending = true;
+        }
+        Ok(())
+    }
+
     fn remove_stale(&mut self, transaction: &Transaction<'_>, known: &HashMap<PathKey, FileState>) -> Result<(), SearchError> {
         let mut cursor = String::new();
         loop {

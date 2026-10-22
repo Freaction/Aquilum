@@ -1,7 +1,7 @@
 use crate::app_core::{Core, CoreEvent, EventSink};
 use crate::files::gate;
 use crate::history::Source;
-use crate::search::paths::{canonical_path, is_hidden};
+use crate::search::paths::{canonical_path, is_visible_entry};
 use crate::settings::models::SyncSettings;
 use crate::sync::scan::{relative, stamp, stat};
 use crate::sync::{run, Large, Outcome, Progress, Records, Remote, Size, SyncError, Vault, Watch};
@@ -142,7 +142,7 @@ impl Device {
     pub fn files(&self) -> Vec<String> {
         let mut files: Vec<String> = WalkDir::new(&self.root)
             .into_iter()
-            .filter_entry(|entry| !is_hidden(&self.root, entry.path()))
+            .filter_entry(is_visible_entry)
             .filter_map(Result::ok)
             .filter(|entry| entry.file_type().is_file())
             .map(|entry| relative(&self.root, entry.path()))

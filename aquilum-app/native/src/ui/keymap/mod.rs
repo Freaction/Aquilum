@@ -5,7 +5,7 @@ mod tests;
 
 use masonry::core::keyboard::{Key, Modifiers};
 
-pub use chord::{action, typing};
+pub use chord::{action, action_key, typing};
 use table::BINDINGS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

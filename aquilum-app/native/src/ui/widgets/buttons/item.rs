@@ -1,6 +1,6 @@
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
-    AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx,
+    AccessCtx, AccessEvent, CursorIcon, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update, UpdateCtx,
     Widget, WidgetMut, render_text,
 };
 use masonry::imaging::Painter;
@@ -95,6 +95,10 @@ impl Widget for ItemButton {
         let layout = self.line.layout(ctx, &self.text, available, text::Style::ui(slot));
         let origin = Affine::translate((bounds.x0 + text_x, bounds.center().y - slot / 2.0));
         render_text(painter, origin, layout, &[t.sidebar_text.into()], true);
+    }
+
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        CursorIcon::Pointer
     }
 
     fn accessibility_role(&self) -> Role {

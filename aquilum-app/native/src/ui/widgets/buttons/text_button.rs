@@ -1,24 +1,24 @@
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
-    AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx,
-    Widget, WidgetMut, render_text,
+    AccessCtx, AccessEvent, CursorIcon, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update, UpdateCtx,
+    Widget, WidgetMut,
 };
 use masonry::imaging::{Composite, GroupRef, PaintSink, Painter};
-use masonry::kurbo::{Affine, Axis, Point, RoundedRect, Size};
+use masonry::kurbo::{Axis, Point, Size};
 use masonry::layout::{LenReq, Length};
 use masonry::peniko::BlendMode;
 
-use super::{ButtonSize, Variant, paint_primary};
+use super::{ButtonSize, Look, Variant, paint_button};
 use crate::ui::icons::Icon;
-use crate::ui::tokens::{number, size};
+use crate::ui::tokens::number;
 use crate::ui::widgets::{Press, Pressed};
-use crate::ui::{text, theme};
+use crate::ui::text;
 
 pub struct TextButton {
     label: String,
     variant: Variant,
     pressed: bool,
-    icon: Option<Icon>,
+    icons: [Option<Icon>; 2],
     line: text::Line,
     press: Press,
     size: ButtonSize,
@@ -26,7 +26,7 @@ pub struct TextButton {
 
 impl TextButton {
     pub fn new(label: impl Into<String>, variant: Variant) -> Self {
-        TextButton { label: label.into(), variant, pressed: false, icon: None, line: text::Line::default(), press: Press::default(), size: ButtonSize::S }
+        TextButton { label: label.into(), variant, pressed: false, icons: [None, None], line: text::Line::default(), press: Press::default(), size: ButtonSize::S }
     }
 
     pub fn size(mut self, size: ButtonSize) -> Self {
@@ -50,58 +50,28 @@ impl TextButton {
         this.ctx.request_paint_only();
     }
 
-    pub fn with_icon(mut self, icon: Icon) -> Self {
-        self.icon = Some(icon);
+    pub fn icon_before(mut self, icon: Icon) -> Self {
+        self.icons[0] = Some(icon);
         self
     }
 
-    fn icon_width(&self) -> f64 {
-        if self.icon.is_some() { size::SIZE_16 + size::SPACE_6 } else { 0.0 }
+    pub fn icon_after(mut self, icon: Icon) -> Self {
+        self.icons[1] = Some(icon);
+        self
+    }
+
+    fn chrome(&self) -> f64 {
+        self.size.chrome(self.icons.iter().flatten().count())
     }
 
     fn draw<S: PaintSink + ?Sized>(&mut self, ctx: &mut PaintCtx<'_>, painter: &mut Painter<'_, S>) {
-        let t = theme::current();
         let bounds = ctx.content_box();
-        let shape = RoundedRect::from_rect(bounds, self.size.radius());
         let enabled = !ctx.is_disabled();
         let hovered = ctx.is_hovered() && enabled;
-        let active = hovered || (self.press.down && enabled) || self.pressed;
-        let color = match self.variant {
-            Variant::Primary => {
-                let shadow = if self.size == ButtonSize::Xs { t.shadow_action_xs } else { t.shadow_action };
-                paint_primary(painter, shape, hovered, shadow);
-                t.text_on_accent
-            }
-            Variant::Secondary => {
-                painter.fill(shape, if active { t.button_secondary_bg_hover } else { t.button_secondary_bg }).draw();
-                if active { t.button_secondary_text_hover } else { t.button_secondary_text }
-            }
-            Variant::Ghost => {
-                if active {
-                    painter.fill(shape, t.bg_surface_overlay).draw();
-                }
-                t.text_tertiary
-            }
-        };
-        let style = self.style();
-        let icon_width = self.icon_width();
-        let available = (bounds.width() - self.size.padding() * 2.0 - icon_width).max(0.0);
-        let layout = self.line.layout(ctx, &self.label, available, style);
-        let x = bounds.x0 + (bounds.width() - f64::from(layout.width()) - icon_width) / 2.0;
-        let y = bounds.y0 + (bounds.height() - style.line_height) / 2.0;
-        if let Some(icon) = &self.icon {
-            let glyph = size::SIZE_16;
-            icon.draw(painter, Point::new(x, bounds.center().y - glyph / 2.0), glyph, 1.6, color);
-        }
-        render_text(painter, Affine::translate((x + icon_width, y)), layout, &[color.into()], true);
-    }
-
-    fn style(&self) -> text::Style {
-        let weight = match self.variant {
-            Variant::Primary => number::FONT_WEIGHT_UI_MEDIUM,
-            Variant::Secondary | Variant::Ghost => number::FONT_WEIGHT_UI_BASE,
-        };
-        text::Style { size: size::BUTTON_FONT_SIZE as f32, weight: weight as f32, line_height: self.size.line_height() }
+        let look = Look { variant: self.variant, size: self.size, hovered, active: hovered || (self.press.down && enabled) || self.pressed };
+        let available = (bounds.width() - self.chrome()).max(0.0);
+        let layout = self.line.layout(ctx, &self.label, available, self.size.text());
+        paint_button(painter, bounds, look, layout, &self.icons);
     }
 }
 
@@ -137,8 +107,8 @@ impl Widget for TextButton {
         match axis {
             Axis::Vertical => Length::px(self.size.height()),
             Axis::Horizontal => {
-                let width = text::measure(ctx, &self.label, self.style());
-                Length::px(width.ceil() + self.icon_width() + self.size.padding() * 2.0)
+                let width = text::measure(ctx, &self.label, self.size.text());
+                Length::px(width.ceil() + self.chrome())
             }
         }
     }
@@ -152,6 +122,10 @@ impl Widget for TextButton {
         } else {
             self.draw(ctx, painter);
         }
+    }
+
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        CursorIcon::Pointer
     }
 
     fn accessibility_role(&self) -> Role {

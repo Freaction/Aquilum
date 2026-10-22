@@ -161,15 +161,19 @@ fn a_failed_upload_keeps_the_cursor_and_the_next_sync_finishes() {
 }
 
 #[test]
-fn hidden_folders_stay_on_their_device() {
+fn service_folders_stay_on_their_device_and_dot_folders_sync() {
     let remote = FakeRemote::default();
     remote.put(".obsidian/app.json", "{}");
+    remote.put(".архив/Старое.md", "из облака");
     let device = Device::new();
     device.write(".aquilum/заметка.md", "служебное");
+    device.write(".DS_Store", "finder");
+    device.write(".заметки/Идея.md", "с точкой");
     device.write("Видимая.md", "текст");
 
     device.sync(&remote);
 
-    assert_eq!(remote.paths(), vec![".obsidian/app.json".to_owned(), "Видимая.md".to_owned()]);
+    assert_eq!(remote.paths(), [".obsidian/app.json", ".архив/Старое.md", ".заметки/Идея.md", "Видимая.md"]);
     assert!(device.read(".obsidian/app.json").is_none());
+    assert_eq!(device.read(".архив/Старое.md").as_deref(), Some("из облака"));
 }

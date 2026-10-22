@@ -91,6 +91,7 @@ fn only_real_edits_count_as_touched() {
     let (laptop, phone, remote, folder) = (Device::new(), Device::new(), Arc::new(FakeRemote::default()), tempfile::tempdir().unwrap());
     laptop.write("Заметка.md", "из облака");
     laptop.write("Удалить.md", "лишнее");
+    laptop.write("Папка/Вложенная.md", "в папке");
     laptop.sync(remote.as_ref());
     let service = started(&phone, &remote, folder.path());
     until("проход завершился", || synced(&service));
@@ -103,7 +104,8 @@ fn only_real_edits_count_as_touched() {
     phone.write("Заметка.md", "правка здесь");
     phone.write("Новая.md", "новая");
     fs::remove_file(phone.root.join("Удалить.md")).unwrap();
-    assert!(touched("Заметка.md") && touched("Новая.md") && touched("Удалить.md"));
+    fs::remove_dir_all(phone.root.join("Папка")).unwrap();
+    assert!(touched("Заметка.md") && touched("Новая.md") && touched("Удалить.md") && touched("Папка"));
     assert!(service.touched(&[], true), "пересканирование папки — всегда проход");
     finish(service);
 }

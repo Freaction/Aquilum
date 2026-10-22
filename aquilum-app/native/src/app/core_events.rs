@@ -46,14 +46,7 @@ impl App {
                 CoreEvent::WorkspaceRescanned => rescan = true,
                 CoreEvent::WorkspaceChanged(paths) => changed.extend(paths.into_iter().map(PathBuf::from)),
                 CoreEvent::ContentChanged(paths) => edited.extend(paths.into_iter().map(PathBuf::from)),
-                CoreEvent::LinksChanged(_) => {
-                    links_changed = true;
-                    if let Some(embeds) = &self.embeds {
-                        embeds.forget_queries();
-                    }
-                    self.refresh_home();
-                    self.graph_links_changed();
-                }
+                CoreEvent::LinksChanged(_) => links_changed = true,
                 CoreEvent::NoteHistoryChanged(changed) => {
                     history_changed |= self.tabs.active().path.as_deref() == Some(Path::new(&changed.path));
                 }
@@ -94,11 +87,16 @@ impl App {
                 Navigation::Workspace { path } => self.switch_workspace(root, PathBuf::from(path)).title,
             };
         }
-        if links_changed && self.panel_mode() != crate::links::Mode::History {
-            self.request_panel(root);
-        }
         if links_changed {
+            if let Some(embeds) = &self.embeds {
+                embeds.forget_queries();
+            }
+            self.refresh_home();
+            self.graph_links_changed();
             self.search_index_changed();
+            if self.panel_mode() != crate::links::Mode::History {
+                self.request_panel(root);
+            }
         }
         if history_changed {
             self.refresh_history(root);

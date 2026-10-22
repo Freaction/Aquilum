@@ -1,7 +1,7 @@
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
-    AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
-    PointerButton, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update,
+    AccessCtx, AccessEvent, CursorIcon, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
+    PointerButton, PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update,
     UpdateCtx, Widget, render_text,
 };
 use masonry::imaging::Painter;
@@ -111,6 +111,10 @@ impl Widget for DocumentItem {
         let width = (right - bounds.x0 - pad).max(0.0);
         let layout = self.line.layout(ctx, &self.label, width, style);
         render_text(painter, Affine::translate((bounds.x0 + pad, y)), layout, &[t.text_link.into()], true);
+    }
+
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        CursorIcon::Pointer
     }
 
     fn accessibility_role(&self) -> Role {

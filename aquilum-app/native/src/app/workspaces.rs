@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use aquilum_core::search::paths::same_path;
 use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, WidgetId};
 use masonry::kurbo::Point;
@@ -42,7 +43,7 @@ impl App {
                 let mut unique: Vec<(uuid::Uuid, String)> = Vec::new();
                 for w in known {
                     let path = crate::workspace::normalize(std::path::Path::new(&w.path));
-                    if !unique.iter().any(|(_, p)| workspaces::same_path(std::path::Path::new(p), &path)) {
+                    if !unique.iter().any(|(_, p)| same_path(Path::new(p), &path)) {
                         unique.push((w.id, path.to_string_lossy().into_owned()));
                     }
                 }
@@ -162,7 +163,7 @@ impl App {
             return failed(self, root);
         }
         self.close_workspaces(root);
-        if self.tree.root().is_some_and(|current| workspaces::same_path(current, &path)) {
+        if self.tree.root().is_some_and(|current| same_path(current, &path)) {
             return Outcome::default();
         }
         self.leave_note();

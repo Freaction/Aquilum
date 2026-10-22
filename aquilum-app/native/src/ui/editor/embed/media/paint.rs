@@ -1,12 +1,13 @@
 use masonry::imaging::Painter;
-use masonry::kurbo::{Affine, BezPath, Circle, Point, Rect, RoundedRect, Stroke, Vec2};
+use masonry::kurbo::{Affine, BezPath, Circle, Rect, RoundedRect, Stroke, Vec2};
 use masonry::parley::Alignment;
 use masonry::peniko::Color;
 
-use super::{BUTTON, HANDLE, MediaHit, MediaOverlay, MediaView, PLAY};
+use super::{HANDLE, MediaHit, MediaOverlay, MediaView, PLAY};
 use crate::ui::icons::{self, Icon};
 use crate::ui::menu::box_shadow;
 use crate::ui::theme;
+use crate::ui::widgets::paint_glyph;
 
 const RADIUS: f64 = 8.0;
 const BAR_RADIUS: f64 = 8.0;
@@ -112,23 +113,16 @@ impl MediaView {
                     None => painter.fill(RoundedRect::from_rect(rect, 2.0), tm.icon_quiet).draw(),
                     Some(hit) => {
                         let active = overlay.hover == Some(hit) || (hit == MediaHit::Crop && overlay.crop.is_some());
-                        if active {
-                            painter.fill(RoundedRect::from_rect(rect, BUTTON_RADIUS), tm.bg_surface_overlay).draw();
-                        }
                         let color = if active { tm.icon_primary } else { tm.icon_secondary };
-                        let origin = Point::new(rect.x0 + (BUTTON - ICON) / 2.0, rect.y0 + (BUTTON - ICON) / 2.0);
-                        icon_for(self, hit).draw(painter, origin, ICON, ICON_STROKE, color);
+                        paint_glyph(painter, rect, icon_for(self, hit), active.then_some(tm.bg_surface_overlay), color, ICON, ICON_STROKE);
                     }
                 }
             }
-            let grip = RoundedRect::from_rect(self.grip() + at, BUTTON_RADIUS);
-            box_shadow(painter, grip, tm.shadow_action);
-            painter.fill(grip, tm.bg_scrim).draw();
-            if overlay.hover == Some(MediaHit::Grip) {
-                painter.fill(grip, tm.bg_surface_overlay).draw();
-            }
-            let g = self.grip() + at;
-            icons::MOVE_DIAGONAL.draw(painter, Point::new(g.x0 + (BUTTON - ICON) / 2.0, g.y0 + (BUTTON - ICON) / 2.0), ICON, ICON_STROKE, tm.icon_muted);
+            let grip = self.grip() + at;
+            box_shadow(painter, RoundedRect::from_rect(grip, BUTTON_RADIUS), tm.shadow_action);
+            painter.fill(RoundedRect::from_rect(grip, BUTTON_RADIUS), tm.bg_scrim).draw();
+            let hovered = overlay.hover == Some(MediaHit::Grip);
+            paint_glyph(painter, grip, icons::MOVE_DIAGONAL, hovered.then_some(tm.bg_surface_overlay), tm.icon_muted, ICON, ICON_STROKE);
         }
     }
 }

@@ -84,6 +84,10 @@ impl Widget for DropdownButton {
         glyph.draw(painter, chevron, icon, 1.2, t.icon_faint);
     }
 
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        CursorIcon::Pointer
+    }
+
     fn accessibility_role(&self) -> Role {
         Role::ComboBox
     }
@@ -132,6 +136,10 @@ impl Widget for Swatch {
         let shape = RoundedRect::from_rect(ctx.content_box(), size::RADIUS_MD);
         painter.fill(shape, t.bg_accent).draw();
         ring(painter, shape, t.border_default);
+    }
+
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        CursorIcon::Pointer
     }
 
     fn accessibility_role(&self) -> Role {

@@ -65,8 +65,8 @@ pub(super) fn trash(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     let state = ctx.workspace.as_deref().and_then(|w| trash_state_impl(w).ok());
     let clearable = state.as_ref().is_some_and(|state| state.bytes > 0);
     let description = match state {
-        Some(state) => format!("{}, {}", plural("settings.trash.files", state.count), format_size(state.bytes)),
-        None => t("settings.trash.emptyHint"),
+        Some(state) if state.count > 0 => format!("{}, {}", plural("settings.trash.files", state.count), format_size(state.bytes)),
+        _ => t("settings.trash.emptyHint"),
     };
     let mut blocks = vec![Block {
         title: t("settings.trash.section"),

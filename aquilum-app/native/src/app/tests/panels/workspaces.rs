@@ -1,6 +1,7 @@
 use super::*;
 use crate::ui::widgets::Pressed;
-use crate::ui::workspaces::{RowAction, same_path};
+use crate::ui::workspaces::RowAction;
+use aquilum_core::search::paths::same_path;
 
 impl Harness {
     pub(super) fn workspace_rows(&self) -> Vec<(masonry::core::WidgetId, std::path::PathBuf)> {

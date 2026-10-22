@@ -122,6 +122,14 @@ pub fn paths_after(transaction: &Transaction<'_>, after: &str, limit: usize) -> 
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+pub fn paths_under(transaction: &Transaction<'_>, path: &str) -> Result<Vec<String>, SearchError> {
+    let separator = std::path::MAIN_SEPARATOR;
+    let (from, to) = (format!("{path}{separator}"), format!("{path}{}", char::from(separator as u8 + 1)));
+    let mut statement = transaction.prepare("SELECT path FROM documents WHERE path = ?1 OR (path > ?2 AND path < ?3)")?;
+    let rows = statement.query_map((path, from, to), |row| row.get(0))?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 pub fn key(path: &str) -> PathKey {
     let hash = blake3::hash(path.as_bytes());
     std::array::from_fn(|index| hash.as_bytes()[index])

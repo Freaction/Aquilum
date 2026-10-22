@@ -13,7 +13,7 @@
     --q-bg-surface: var(--q-gray-850);
     --q-bg-surface-active: var(--q-white-alpha-10);
     --q-bg-surface-hover: var(--q-white-alpha-08);
-    --q-bg-surface-overlay: var(--q-white-alpha-10);
+    --q-bg-surface-overlay: var(--q-white-alpha-06);
     --q-bg-surface-raised: var(--q-gray-800);
     --q-bg-surface-subtle: var(--q-white-alpha-06);
     --q-border-contrast: var(--q-white-alpha-70);

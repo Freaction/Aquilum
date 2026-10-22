@@ -79,6 +79,10 @@ impl Records {
         self.connection.query_row(&format!("{SELECT} WHERE path = ?1"), [path], record).optional()
     }
 
+    pub fn holds_under(&self, folder: &str) -> rusqlite::Result<bool> {
+        self.connection.query_row("SELECT EXISTS(SELECT 1 FROM records WHERE path > ?1 AND path < ?2)", [format!("{folder}/"), format!("{folder}0")], |row| row.get(0))
+    }
+
     pub fn put(&self, record: &Record) -> rusqlite::Result<()> {
         let remote = &record.remote;
         self.connection.prepare_cached("INSERT OR REPLACE INTO records VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)")?.execute(

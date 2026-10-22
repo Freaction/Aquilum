@@ -9,28 +9,22 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
-
-const EVENT_QUEUE_CAPACITY: usize = 2_048;
-const EVENT_BATCH_WINDOW: Duration = Duration::from_millis(80);
 
 pub struct WorkerHandle {
-    sender: mpsc::SyncSender<WorkerMessage>,
-    dirty: Arc<AtomicBool>,
+    sender: mpsc::Sender<WorkerMessage>,
     cancelled: Arc<AtomicBool>,
-    thread: Option<JoinHandle<()>>,
+    thread: JoinHandle<()>,
 }
 
 enum WorkerMessage {
     Paths(Vec<PathBuf>),
-    Rescan(Vec<PathBuf>),
+    Rescan,
 }
 
 struct WorkerContext {
     root: PathBuf,
     index: Arc<SearchIndex>,
     metadata_path: PathBuf,
-    dirty: Arc<AtomicBool>,
     cancelled: Arc<AtomicBool>,
     progress: Arc<IndexProgress>,
     generation: u64,
@@ -46,14 +40,12 @@ impl WorkerHandle {
         generation: u64,
         index_notifier: IndexNotifier,
     ) -> Result<Self, SearchError> {
-        let (sender, receiver) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
-        let dirty = Arc::new(AtomicBool::new(false));
+        let (sender, receiver) = mpsc::channel();
         let cancelled = Arc::new(AtomicBool::new(false));
         let context = WorkerContext {
             root,
             index,
             metadata_path,
-            dirty: Arc::clone(&dirty),
             cancelled: Arc::clone(&cancelled),
             progress: Arc::clone(&progress),
             generation,
@@ -77,27 +69,22 @@ impl WorkerHandle {
             .map_err(|error| SearchError::Task {
                 message: error.to_string(),
             })?;
-        Ok(Self {
-            sender,
-            dirty,
-            cancelled,
-            thread: Some(thread),
-        })
+        Ok(Self { sender, cancelled, thread })
     }
 
     pub fn queue_paths(&self, paths: Vec<PathBuf>) {
-        enqueue(&self.sender, &self.dirty, WorkerMessage::Paths(paths));
+        let _ = self.sender.send(WorkerMessage::Paths(paths));
     }
 
-    pub fn queue_rescan(&self, paths: Vec<PathBuf>) {
-        enqueue(&self.sender, &self.dirty, WorkerMessage::Rescan(paths));
+    pub fn queue_rescan(&self) {
+        let _ = self.sender.send(WorkerMessage::Rescan);
     }
 
-    pub fn stop(mut self) {
-        self.cancelled.store(true, Ordering::Relaxed);
-        if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
-        }
+    pub fn stop(self) {
+        let WorkerHandle { sender, cancelled, thread } = self;
+        cancelled.store(true, Ordering::Relaxed);
+        drop(sender);
+        let _ = thread.join();
     }
 }
 
@@ -111,30 +98,29 @@ fn run(
         &context.metadata_path,
         Arc::clone(&context.progress),
     )?;
-    synchronizer.full_scan(&context.cancelled)?;
-    notify_index(context);
-
-    while !context.cancelled.load(Ordering::Relaxed) {
-        if context.dirty.swap(false, Ordering::Relaxed) {
-            synchronizer.full_scan(&context.cancelled)?;
-            notify_index(context);
-            continue;
-        }
-        match receiver.recv_timeout(Duration::from_millis(300)) {
-            Ok(message) => {
-                let (paths, rescan) = collect_batch(message, &receiver);
-                if rescan {
-                    synchronizer.full_scan(&context.cancelled)?;
-                    notify_index(context);
-                } else if synchronizer.apply_paths(paths)? {
+    let stopped = || context.cancelled.load(Ordering::Relaxed);
+    let mut message = WorkerMessage::Rescan;
+    loop {
+        let (paths, rescan) = collect_batch(message, &receiver);
+        let outcome = if rescan { synchronizer.full_scan(&context.cancelled).map(|()| true) } else { synchronizer.apply_paths(paths) };
+        let retry = match outcome {
+            Ok(changed) => {
+                if changed && !stopped() {
                     notify_index(context);
                 }
+                false
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
-        }
+            Err(error) => {
+                context.progress.failed(&error);
+                true
+            }
+        };
+        message = match receiver.recv() {
+            Ok(_) if retry && !stopped() => WorkerMessage::Rescan,
+            Ok(next) if !stopped() => next,
+            _ => return Ok(()),
+        };
     }
-    Ok(())
 }
 
 fn notify_index(context: &WorkerContext) {
@@ -147,34 +133,17 @@ fn notify_index(context: &WorkerContext) {
 }
 
 fn collect_batch(
-    initial: WorkerMessage,
+    first: WorkerMessage,
     receiver: &mpsc::Receiver<WorkerMessage>,
 ) -> (HashSet<PathBuf>, bool) {
-    let deadline = Instant::now() + EVENT_BATCH_WINDOW;
-    let (initial, mut rescan) = match initial {
-        WorkerMessage::Paths(paths) => (paths, false),
-        WorkerMessage::Rescan(paths) => (paths, true),
-    };
-    let mut paths = initial.into_iter().collect::<HashSet<_>>();
-    loop {
-        let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
-            return (paths, rescan);
-        };
-        match receiver.recv_timeout(remaining) {
-            Ok(WorkerMessage::Paths(next)) => paths.extend(next),
-            Ok(WorkerMessage::Rescan(next)) => {
-                paths.extend(next);
-                rescan = true;
-            }
-            Err(_) => return (paths, rescan),
+    let (mut paths, mut rescan) = (HashSet::new(), false);
+    for message in std::iter::once(first).chain(receiver.try_iter()) {
+        match message {
+            WorkerMessage::Paths(next) => paths.extend(next),
+            WorkerMessage::Rescan => rescan = true,
         }
     }
-}
-
-fn enqueue(sender: &mpsc::SyncSender<WorkerMessage>, dirty: &AtomicBool, message: WorkerMessage) {
-    if sender.try_send(message).is_err() {
-        dirty.store(true, Ordering::Relaxed);
-    }
+    (paths, rescan)
 }
 
 fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
@@ -183,4 +152,29 @@ fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
         .map(|text| (*text).to_owned())
         .or_else(|| payload.downcast_ref::<String>().cloned())
         .unwrap_or_else(|| "без сообщения".to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn an_idle_worker_stops_at_once() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = crate::search::paths::canonical_path(directory.path()).join("vault");
+        std::fs::create_dir_all(&root).unwrap();
+        let index = Arc::new(SearchIndex::open(&directory.path().join("index")).unwrap());
+        let (scanned, done) = mpsc::channel();
+        let notifier: IndexNotifier = Arc::new(move |_| {
+            let _ = scanned.send(());
+        });
+        let worker = WorkerHandle::spawn(root, index, directory.path().join("documents.sqlite3"), Arc::new(IndexProgress::new(0, 1)), 1, notifier).unwrap();
+        done.recv_timeout(Duration::from_secs(20)).expect("первый проход завершился");
+
+        let started = Instant::now();
+        worker.stop();
+
+        assert!(started.elapsed() < Duration::from_millis(100), "остановка ждала {:?}", started.elapsed());
+    }
 }

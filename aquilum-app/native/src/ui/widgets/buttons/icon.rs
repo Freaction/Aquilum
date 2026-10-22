@@ -1,10 +1,10 @@
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
-    AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx,
+    AccessCtx, AccessEvent, CursorIcon, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update, UpdateCtx,
     Widget, WidgetMut,
 };
 use masonry::imaging::Painter;
-use masonry::kurbo::{Axis, Rect, RoundedRect, Size, Stroke, Vec2};
+use masonry::kurbo::{Axis, Point, Rect, RoundedRect, Size, Stroke, Vec2};
 use masonry::peniko::Color;
 use masonry::layout::{LenReq, Length};
 
@@ -123,6 +123,10 @@ impl Widget for IconButton {
         paint_glyph(painter, bounds, self.icon, background, color, glyph, stroke);
     }
 
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        CursorIcon::Pointer
+    }
+
     fn accessibility_role(&self) -> Role {
         Role::Button
     }
@@ -137,7 +141,7 @@ impl Widget for IconButton {
     }
 }
 
-fn paint_glyph(painter: &mut Painter<'_>, bounds: Rect, icon: Icon, background: Option<Color>, color: Color, glyph: f64, stroke: f64) {
+pub fn paint_glyph(painter: &mut Painter<'_>, bounds: Rect, icon: Icon, background: Option<Color>, color: Color, glyph: f64, stroke: f64) {
     if let Some(bg) = background {
         painter.fill(RoundedRect::from_rect(bounds, size::ROUNDED_LG), bg).draw();
     }

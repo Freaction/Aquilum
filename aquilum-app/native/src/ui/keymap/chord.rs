@@ -2,6 +2,10 @@ use masonry::core::keyboard::{Key, Modifiers, NamedKey};
 
 const MAC: bool = cfg!(target_os = "macos");
 
+pub fn action_key() -> &'static str {
+    if MAC { "⌘" } else { "Ctrl" }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Name {
     Char(char),
@@ -99,7 +103,7 @@ impl Chord {
     pub fn label(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
         if self.action {
-            parts.push(if MAC { "⌘" } else { "Ctrl" }.into());
+            parts.push(action_key().into());
         }
         if self.ctrl && (MAC || !self.action) {
             parts.push("Ctrl".into());

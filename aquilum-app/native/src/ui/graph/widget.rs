@@ -137,10 +137,10 @@ impl Widget for GraphView {
         }
     }
 
-    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, pos: Point) -> CursorIcon {
         if self.drag.as_ref().is_some_and(|d| d.travelled > DRAG_THRESHOLD) {
             CursorIcon::Grabbing
-        } else if self.hovered.is_some() {
+        } else if self.hovered.is_some() || self.action_rect.is_some_and(|r| r.contains(pos)) {
             CursorIcon::Pointer
         } else {
             CursorIcon::Default

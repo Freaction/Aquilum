@@ -1,4 +1,4 @@
-use crate::search::paths::{is_visible_entry, slash_path};
+use crate::search::paths::{is_hidden_name, is_visible_entry, slash_path};
 use notify::event::ModifyKind;
 use notify::{Event, EventKind};
 use std::collections::HashMap;
@@ -83,10 +83,7 @@ fn is_structural(kind: &EventKind) -> bool {
 }
 
 fn may_hold_attachments(path: &Path) -> bool {
-    let hidden = path
-        .file_name()
-        .is_some_and(|name| name.to_string_lossy().starts_with('.'));
-    !hidden && (is_media(path) || path.extension().is_none() || path.is_dir())
+    !path.file_name().is_some_and(is_hidden_name) && (is_media(path) || path.extension().is_none() || path.is_dir())
 }
 
 pub fn resolve_attachments_impl(root: &Path, names: Vec<String>) -> Vec<Option<String>> {

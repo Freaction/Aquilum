@@ -11,7 +11,7 @@ use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::style;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{DocumentItem, LinkButton};
+use crate::ui::widgets::{DocumentItem, TextButton, Variant};
 
 pub struct HistoryRow {
     pub label: String,
@@ -73,7 +73,7 @@ pub fn history_body(current_selected: bool, days: Vec<(String, Vec<(usize, Histo
     }
     let mut more_id = None;
     if more {
-        let button = LinkButton::new(&t("history.more"));
+        let button = NewWidget::new(TextButton::new(t("history.more"), Variant::Link));
         more_id = Some(button.id());
         list = list.with_fixed(NewWidget::new(Flex::row().with_fixed(button)));
     }

@@ -76,7 +76,7 @@ pub fn edited(root: &Path, scope: SyncSettings, records: &Records, path: &str) -
     }
     match local_change(root, path, local, record.as_ref()) {
         Ok((Side::Same, _)) => false,
-        Ok((Side::Absent, _)) => record.is_some(),
+        Ok((Side::Absent, _)) => record.is_some() || records.holds_under(path).unwrap_or(true),
         _ => true,
     }
 }

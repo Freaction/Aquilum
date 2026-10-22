@@ -1,3 +1,4 @@
+mod buttons;
 mod hero;
 mod panels;
 mod search_dialog;
@@ -47,6 +48,7 @@ fn snapshot_tree_menu_dialog() {
         let mode = if dark { "dark" } else { "light" };
         theme::apply_setting(mode, false, "");
         let scene = Scene { vault: vault.path(), data: data.path(), suffix };
+        buttons::snapshot(&scene);
         tree::snapshots(&scene);
         panels::snapshots(&scene);
         search_dialog::snapshot(&scene);

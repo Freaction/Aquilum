@@ -98,6 +98,10 @@ impl Widget for Switch {
         painter.fill(handle, t.bg_static_white.multiply_alpha(alpha)).draw();
     }
 
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        if self.enabled { CursorIcon::Pointer } else { CursorIcon::Default }
+    }
+
     fn accessibility_role(&self) -> Role {
         Role::Switch
     }

@@ -15,27 +15,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use aquilum_core::Core;
-use aquilum_core::search::error::SearchError;
 use aquilum_core::search::paths::is_markdown;
 
 use crate::ui::editor::resolve::{Book, Fetch, Grid, Media, Request, Resolver};
 use cache::{Cache, Entry, claim, commit, settle};
-
-const INDEX_WAIT: Duration = Duration::from_millis(100);
-const INDEX_TRIES: usize = 600;
-
-fn indexed<T>(mut run: impl FnMut() -> Result<T, SearchError>) -> Result<T, SearchError> {
-    let mut result = run();
-    for _ in 0..INDEX_TRIES {
-        if !matches!(result, Err(SearchError::Unavailable { .. })) {
-            break;
-        }
-        std::thread::sleep(INDEX_WAIT);
-        result = run();
-    }
-    result
-}
-
 
 struct Inner {
     core: Arc<Core>,

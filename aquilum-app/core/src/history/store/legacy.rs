@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
 
-const QUANTUM_FOLDER: &str = ".quantum";
+pub const QUANTUM_FOLDER: &str = ".quantum";
 
 pub fn adopt_quantum_history(base: &Path) {
     let legacy = base.join(QUANTUM_FOLDER);

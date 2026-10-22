@@ -5,13 +5,13 @@ use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::widgets::Flex;
 
 use super::tokens::size;
-use super::widgets::LinkButton;
+use super::widgets::{TextButton, Variant};
 use crate::i18n;
 
 pub(super) fn new_tab_view() -> (NewWidget<Flex>, WidgetId, WidgetId, WidgetId) {
-    let create = LinkButton::new(&i18n::t("editor.createNote"));
-    let open = LinkButton::new(&i18n::t("editor.openFile"));
-    let close = LinkButton::new(&i18n::t("editor.close"));
+    let create = NewWidget::new(TextButton::new(i18n::t("editor.createNote"), Variant::Link));
+    let open = NewWidget::new(TextButton::new(i18n::t("editor.openFile"), Variant::Link));
+    let close = NewWidget::new(TextButton::new(i18n::t("editor.close"), Variant::Link));
     let (create_id, open_id, close_id) = (create.id(), open.id(), close.id());
     let column = Flex::column()
         .main_axis_alignment(MainAxisAlignment::Center)

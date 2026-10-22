@@ -14,7 +14,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub use legacy::adopt_quantum_history;
+pub use legacy::{adopt_quantum_history, QUANTUM_FOLDER};
 pub use names::{names, remove_version_and_names, write_name};
 pub use retention::{clear, remove_expired, usage, Usage};
 

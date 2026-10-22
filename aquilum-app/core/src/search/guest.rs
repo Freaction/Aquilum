@@ -140,7 +140,6 @@ mod tests {
             let sink = Arc::clone(&announced);
             let service = SearchService::new(
                 root.join("indexes"),
-                Arc::new(|_: Vec<PathBuf>| {}),
                 Arc::new(move |event: IndexRevision| {
                     sink.lock().unwrap().push(event.workspace_path);
                 }),
@@ -274,7 +273,7 @@ mod tests {
 
         let note = Path::new(&other).join("Новая.md");
         fs::write(&note, "# Новая\n\nпродолжение").unwrap();
-        fixture.service.notify_paths(vec![note]);
+        fixture.service.queue(&[note], false);
 
         let deadline = Instant::now() + Duration::from_secs(20);
         while !fixture.finds(&other, "продолжение") {

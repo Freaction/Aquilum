@@ -13,7 +13,9 @@ fn tree() -> (tempfile::TempDir, TreeModel) {
     std::fs::write(root.join("Проекты/Aquilum.md"), "").unwrap();
     std::fs::write(root.join("README.md"), "").unwrap();
     std::fs::write(root.join("картинка.png"), "").unwrap();
-    std::fs::write(root.join(".скрытый.md"), "").unwrap();
+    std::fs::write(root.join("._README.md"), "").unwrap();
+    std::fs::create_dir_all(root.join(".obsidian")).unwrap();
+    std::fs::write(root.join(".obsidian/настройки.md"), "").unwrap();
     let model = TreeModel::new(Some(root.to_path_buf()), []);
     (dir, model)
 }

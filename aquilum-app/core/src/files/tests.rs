@@ -113,7 +113,9 @@ fn workspace_filters_and_sorts_entries() {
     fs::write(directory.path().join("doc.pdf"), "").expect("pdf fixture");
     fs::write(directory.path().join("novel.epub"), "").expect("epub fixture");
     fs::write(directory.path().join("notes.txt"), "").expect("text fixture");
-    fs::write(directory.path().join(".hidden.md"), "").expect("hidden fixture");
+    fs::write(directory.path().join("._alpha.md"), "").expect("macOS fixture");
+    fs::create_dir(directory.path().join(".Архив")).expect("dot folder fixture");
+    fs::create_dir(directory.path().join(".git")).expect("git fixture");
 
     let items = read_directory_impl(directory.path()).expect("workspace");
     let names: Vec<_> = items.iter().map(|item| item.name.as_str()).collect();
@@ -121,6 +123,7 @@ fn workspace_filters_and_sorts_entries() {
     assert_eq!(
         names,
         vec![
+            ".Архив",
             "Folder",
             "alpha",
             "Beta",
@@ -131,8 +134,8 @@ fn workspace_filters_and_sorts_entries() {
             "photo.png"
         ]
     );
-    assert_eq!(items[0].item_type, FileItemType::Folder);
-    assert_eq!(items[1].item_type, FileItemType::File);
+    assert_eq!(items[1].item_type, FileItemType::Folder);
+    assert_eq!(items[2].item_type, FileItemType::File);
 }
 
 #[test]

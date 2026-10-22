@@ -8,7 +8,7 @@ use masonry::widgets::{Flex, SizedBox};
 
 use super::Binding;
 use super::controls::{DropdownButton, InputBox, Segmented, Swatch, Switch};
-use super::schema::{self, ButtonIcon, Control, Indicator, Row, Tone};
+use super::schema::{self, Action, ButtonIcon, Control, Indicator, Row, Tone};
 use crate::i18n::t;
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
@@ -96,7 +96,11 @@ fn buttons_row(buttons: &[schema::Button], indicator: Option<Indicator>, binding
                 };
                 NewWidget::new(IconButton::new(icon, &button.label)).disabled(!button.enabled).erased()
             }
-            None => NewWidget::new(TextButton::new(&button.label, Variant::Secondary)).disabled(!button.enabled).erased(),
+            None => {
+                let text = TextButton::new(&button.label, Variant::Secondary);
+                let text = if matches!(button.action, Action::OpenUrl(_)) { text.icon_after(icons::ARROW_UP_RIGHT) } else { text };
+                NewWidget::new(text).disabled(!button.enabled).erased()
+            }
         };
         bindings.insert(widget.id(), Binding::Button(button.action.clone()));
         flex = flex.with_fixed(widget);

@@ -11,6 +11,7 @@ use masonry::peniko::{Color, ImageBrush};
 use super::text::{Line, Style};
 use super::theme;
 use super::tokens::{number, size};
+use super::widgets::{ButtonSize, Look, Variant, paint_button};
 use crate::graph::camera::{Camera, approach};
 use crate::graph::raster::{self, Sprite, Stamp};
 use crate::graph::{self, Graph};
@@ -113,6 +114,7 @@ pub struct GraphView {
     status_lines: Vec<Line>,
     notice: [Line; 2],
     pub(super) action_rect: Option<Rect>,
+    over_action: bool,
     action_line: Line,
     settings: Option<WidgetPod<dyn Widget>>,
     panel: Rect,

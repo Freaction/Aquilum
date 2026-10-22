@@ -1,11 +1,11 @@
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
-    AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
-    PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update,
+    AccessCtx, AccessEvent, CursorIcon, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
+    PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update,
     UpdateCtx, Widget, render_text,
 };
 use masonry::imaging::Painter;
-use masonry::kurbo::{Affine, Axis, RoundedRect, Size};
+use masonry::kurbo::{Affine, Axis, Point, RoundedRect, Size};
 use masonry::layout::{LenReq, Length};
 use masonry::peniko::Color;
 
@@ -123,6 +123,10 @@ impl Widget for Chip {
         let width = (bounds.width() - size::SPACE_12 * 2.0).max(0.0);
         let layout = self.line.layout(ctx, &self.label, width, text::Style::ui(size::SIZE_20));
         render_text(painter, Affine::translate((bounds.x0 + size::SPACE_12, bounds.y0 + size::SPACE_4)), layout, &[color.into()], true);
+    }
+
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        CursorIcon::Pointer
     }
 
     fn accessibility_role(&self) -> Role {

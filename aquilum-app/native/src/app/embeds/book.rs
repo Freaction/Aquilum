@@ -4,7 +4,8 @@ use aquilum_core::files::document::read_head;
 use aquilum_core::search::paths::strip_markdown_extension;
 
 use super::media::locate;
-use super::{Inner, indexed, settle};
+use super::{Inner, settle};
+use aquilum_core::search::error::SearchError;
 use crate::frontmatter::{self, AUTHOR, BOOK_COVER, BOOK_FILE, PAGES};
 use crate::ui::editor::resolve::{Book, Fetch};
 
@@ -20,13 +21,14 @@ pub(super) fn drain(inner: &Inner) {
         };
         let targets: Vec<String> = batch.iter().map(|(target, _)| target.clone()).collect();
         let (workspace, document) = (inner.workspace(), inner.source());
-        let mut paths: Vec<Option<PathBuf>> = indexed(|| inner.core.search.resolve_wiki_links(&workspace, &document, &targets))
-            .map(|r| r.paths.into_iter().map(|p| p.map(PathBuf::from)).collect())
-            .unwrap_or_default();
+        let found = inner.core.search.resolve_wiki_links(&workspace, &document, &targets);
+        let waiting = matches!(found, Err(SearchError::Unavailable { .. }));
+        let mut paths: Vec<Option<PathBuf>> = found.map(|r| r.paths.into_iter().map(|p| p.map(PathBuf::from)).collect()).unwrap_or_default();
         paths.resize(targets.len(), None);
         let mut changed = false;
         for ((target, epoch), path) in batch.into_iter().zip(paths) {
-            changed |= settle(&inner.books, &target, epoch, load(inner, &target, path));
+            let book = if waiting { Fetch::Pending } else { load(inner, &target, path) };
+            changed |= settle(&inner.books, &target, epoch, book);
         }
         if changed {
             inner.touch();

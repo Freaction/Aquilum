@@ -1,7 +1,7 @@
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
-    AccessCtx, AccessEvent, BrushIndex, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget,
-    PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget,
+    AccessCtx, AccessEvent, CursorIcon, BrushIndex, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget,
+    PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update, UpdateCtx, Widget,
     render_text,
 };
 use masonry::imaging::Painter;
@@ -120,6 +120,10 @@ impl Widget for MetadataToggle {
         let layout = self.layout(font_cx, layout_cx);
         let x = bounds.x0 + size::SIZE_20 + size::SPACE_4;
         render_text(painter, Affine::translate((x, center - line / 2.0)), layout, &[tm.text_tertiary.into()], true);
+    }
+
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        CursorIcon::Pointer
     }
 
     fn accessibility_role(&self) -> Role {

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use aquilum_core::search::paths::{is_markdown, strip_markdown_extension};
+use aquilum_core::search::paths::{markdown_files, strip_markdown_extension};
 use aquilum_core::search::wiki::target::split;
 
 use crate::file_ops::sanitize_file_name;
@@ -11,20 +11,7 @@ pub fn find_note(workspace: &Path, target: &str) -> Option<PathBuf> {
     if name.is_empty() {
         return None;
     }
-    let mut folders = vec![workspace.to_path_buf()];
-    while let Some(folder) = folders.pop() {
-        let Ok(entries) = std::fs::read_dir(&folder) else { continue };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let hidden = entry.file_name().to_string_lossy().starts_with('.');
-            match entry.file_type() {
-                Ok(kind) if kind.is_dir() && !hidden => folders.push(path),
-                Ok(kind) if kind.is_file() && is_markdown(&path) && path.file_stem().is_some_and(|s| s.to_string_lossy().to_lowercase() == name) => return Some(path),
-                _ => {}
-            }
-        }
-    }
-    None
+    markdown_files(workspace).find(|path| path.file_stem().is_some_and(|stem| stem.to_string_lossy().to_lowercase() == name))
 }
 
 pub fn linked_file_path(workspace: &Path, target: &str) -> Option<PathBuf> {

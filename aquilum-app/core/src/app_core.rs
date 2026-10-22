@@ -4,8 +4,7 @@ use crate::history::HistoryService;
 use crate::mcp::active::ActiveNote;
 use crate::mcp::bridge::Navigation;
 use crate::mcp::{McpServer, McpStatus};
-use crate::search::paths::is_markdown;
-use crate::search::{ChangeNotifier, IndexNotifier, IndexRevision, SearchService};
+use crate::search::{IndexNotifier, IndexRevision, SearchService};
 use crate::settings::SettingsManager;
 use crate::sync::SyncService;
 use crate::ui_state::UiStateService;
@@ -71,10 +70,6 @@ impl Core {
     /// Opens all stores under `app_data_dir`, which the host picks.
     pub fn open(app_data_dir: &Path, events: Arc<dyn EventSink>) -> Arc<Self> {
         let core = Arc::new_cyclic(|this: &Weak<Core>| {
-            let changed = Arc::clone(&events);
-            let notifier: ChangeNotifier = Arc::new(move |paths| {
-                changed.emit(CoreEvent::WorkspaceChanged(path_names(&paths)));
-            });
             let indexed = Arc::clone(&events);
             let index_notifier: IndexNotifier = Arc::new(move |revision| {
                 indexed.emit(CoreEvent::LinksChanged(revision));
@@ -88,7 +83,7 @@ impl Core {
             Core {
                 settings: SettingsManager::new(app_data_dir),
                 ui_state: UiStateService::open(&app_data_dir.join("ui-state.sqlite3")),
-                search: SearchService::new(app_data_dir.join("search-v2"), notifier, index_notifier),
+                search: SearchService::new(app_data_dir.join("search-v2"), index_notifier),
                 history: HistoryService::new(app_data_dir),
                 wikixiv: WikixivService::new(),
                 watcher: WorkspaceWatcher::new(watch_sink),
@@ -135,18 +130,14 @@ impl Core {
         }
         match batch.scope {
             WatchScope::Content => self.emit(CoreEvent::ContentChanged(path_names(&batch.paths))),
-            WatchScope::Rescan if batch.paths.is_empty() => self.emit(CoreEvent::WorkspaceRescanned),
-            WatchScope::Listing | WatchScope::Structure | WatchScope::Rescan => self.emit(CoreEvent::WorkspaceChanged(path_names(&batch.paths))),
+            WatchScope::Rescan => self.emit(CoreEvent::WorkspaceRescanned),
+            WatchScope::Listing | WatchScope::Structure => self.emit(CoreEvent::WorkspaceChanged(path_names(&batch.paths))),
         }
-        let notes: Vec<PathBuf> = if rescan { batch.paths } else { batch.paths.into_iter().filter(|path| is_markdown(path)).collect() };
-        if notes.is_empty() && !rescan {
-            return;
-        }
-        self.search.ingest_watch(notes, rescan);
+        self.search.queue(&batch.paths, rescan);
     }
 }
 
-fn path_names(paths: &[PathBuf]) -> Vec<String> {
+pub(crate) fn path_names(paths: &[PathBuf]) -> Vec<String> {
     paths.iter().map(|path| path.to_string_lossy().into_owned()).collect()
 }
 

@@ -6,6 +6,15 @@ const NOTCH_PIXELS: f64 = 100.0;
 
 impl GraphView {
     pub(super) fn pointer(&mut self, ctx: &mut EventCtx<'_>, event: &PointerEvent) {
+        let over = match event {
+            PointerEvent::Move(update) => self.action_rect.is_some_and(|r| r.contains(ctx.local_position(update.current.position))),
+            PointerEvent::Leave(_) => false,
+            _ => self.over_action,
+        };
+        if over != self.over_action {
+            self.over_action = over;
+            ctx.request_paint_only();
+        }
         if self.graph.is_none() {
             if let PointerEvent::Down(down) = event
                 && down.button.is_none_or(|b| b == PointerButton::Primary)

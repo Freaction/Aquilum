@@ -48,13 +48,14 @@ impl GraphView {
             next_y += line + size::SPACE_8;
         }
         if let Some(action_label) = action {
-            let btn_layout = self.action_line.layout(ctx, action_label, width, Style::ui(line));
-            let btn_w = f64::from(btn_layout.width()) + size::SPACE_16 * 2.0;
-            let btn_h = line + size::SPACE_8 * 2.0;
-            let btn_rect = Rect::new(center.x - btn_w / 2.0, next_y + size::SPACE_8, center.x + btn_w / 2.0, next_y + size::SPACE_8 + btn_h);
-            painter.fill(RoundedRect::from_rect(btn_rect, size::ROUNDED_SM), tm.bg_accent).draw();
-            render_text(painter, Affine::translate((center.x - f64::from(btn_layout.width()) / 2.0, next_y + size::SPACE_8 + size::SPACE_8)), btn_layout, &[tm.text_on_accent.into()], true);
-            self.action_rect = Some(btn_rect);
+            let button = ButtonSize::S;
+            let layout = self.action_line.layout(ctx, action_label, width, button.text());
+            let half = (f64::from(layout.width()) + button.chrome(0)) / 2.0;
+            let top = next_y + size::SPACE_8;
+            let rect = Rect::new(center.x - half, top, center.x + half, top + button.height());
+            let look = Look { variant: Variant::Primary, size: button, hovered: self.over_action, active: self.over_action };
+            paint_button(painter, rect, look, layout, &[None, None]);
+            self.action_rect = Some(rect);
         } else {
             self.action_rect = None;
         }

@@ -1,6 +1,7 @@
 use aquilum_core::search::dataview::execute::{CellPart, QueryOutput};
 
-use super::{Inner, indexed};
+use super::Inner;
+use aquilum_core::search::error::SearchError;
 use crate::ui::editor::resolve::{Fetch, Grid, Part, Shape};
 
 fn parts(cell: &[CellPart]) -> Vec<Part> {
@@ -29,11 +30,12 @@ fn grid(output: QueryOutput) -> Grid {
 pub(super) fn run(inner: &Inner, query: &str) -> (Fetch<Grid>, Option<u32>) {
     let offset = crate::dates::offset_seconds() / 60;
     let (workspace, document) = (inner.workspace(), inner.source());
-    match indexed(|| inner.core.search.run_dataview_query(&workspace, &document, query, offset)) {
+    match inner.core.search.run_dataview_query(&workspace, &document, query, offset) {
         Ok(output) => {
             let refresh = output.refresh_seconds;
             (Fetch::Ready(grid(output)), refresh)
         }
+        Err(SearchError::Unavailable { .. }) => (Fetch::Pending, None),
         Err(error) => (Fetch::Missing(format!("{error}")), None),
     }
 }

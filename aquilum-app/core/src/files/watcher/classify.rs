@@ -1,6 +1,6 @@
 use super::batch::{WatchBatch, WatchScope};
 use crate::search::paths::{is_hidden, is_markdown, is_plain_text};
-use notify::event::{ModifyKind, RemoveKind};
+use notify::event::ModifyKind;
 use notify::{Event, EventKind};
 use std::path::Path;
 
@@ -11,33 +11,16 @@ pub fn classify(result: notify::Result<Event>, root: &Path) -> Option<WatchBatch
     if matches!(event.kind, EventKind::Access(_)) {
         return None;
     }
-    if needs_directory_rescan(&event) {
-        return Some(WatchBatch::new(event.paths, WatchScope::Rescan));
-    }
-
-    let scope = if is_structural(&event.kind) {
-        WatchScope::Structure
-    } else {
-        WatchScope::Content
+    let paths = event.paths.into_iter().filter(|path| !is_hidden(root, path)).collect::<Vec<_>>();
+    let notes = paths.iter().any(|path| is_markdown(path) || is_plain_text(path));
+    let scope = match (is_structural(&event.kind), notes) {
+        _ if paths.is_empty() => return None,
+        (true, true) => WatchScope::Structure,
+        (true, false) => WatchScope::Listing,
+        (false, true) => WatchScope::Content,
+        (false, false) => return None,
     };
-    let notes = event
-        .paths
-        .iter()
-        .filter(|path| is_markdown(path) || is_plain_text(path))
-        .cloned()
-        .collect::<Vec<_>>();
-    if !notes.is_empty() {
-        return Some(WatchBatch::new(notes, scope));
-    }
-    if scope != WatchScope::Structure {
-        return None;
-    }
-    let listed = event
-        .paths
-        .into_iter()
-        .filter(|path| !is_hidden(root, path))
-        .collect::<Vec<_>>();
-    (!listed.is_empty()).then(|| WatchBatch::new(listed, WatchScope::Listing))
+    Some(WatchBatch::new(paths, scope))
 }
 
 fn is_structural(kind: &EventKind) -> bool {
@@ -47,22 +30,10 @@ fn is_structural(kind: &EventKind) -> bool {
     )
 }
 
-fn needs_directory_rescan(event: &Event) -> bool {
-    match event.kind {
-        EventKind::Remove(RemoveKind::Folder) => true,
-        EventKind::Remove(_) => event
-            .paths
-            .iter()
-            .any(|path| !is_markdown(path) && path.extension().is_none()),
-        EventKind::Modify(ModifyKind::Name(_)) => event.paths.iter().any(|path| path.is_dir()),
-        _ => false,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use notify::event::{CreateKind, DataChange};
+    use notify::event::{CreateKind, DataChange, RemoveKind};
     use std::path::PathBuf;
 
     fn event(kind: EventKind, paths: &[&str]) -> notify::Result<Event> {
@@ -124,9 +95,17 @@ mod tests {
     }
 
     #[test]
-    fn a_removed_folder_asks_for_a_full_rescan() {
+    fn a_removed_folder_goes_to_the_index_as_a_path_not_a_rescan() {
         let batch = classify(event(EventKind::Remove(RemoveKind::Folder), &["Проекты"]), Path::new("")).unwrap();
-        assert_eq!(batch.scope, WatchScope::Rescan);
+        assert_eq!((batch.scope, batch.paths), (WatchScope::Listing, vec![PathBuf::from("Проекты")]));
+    }
+
+    #[test]
+    fn removals_inside_service_folders_are_ignored() {
+        let root = Path::new("/база");
+        for path in ["/база/.trash/Старое.md", "/база/.git/objects/ab", "/база/.aquilum/history/Идея.md/1_dev_me.md"] {
+            assert!(classify(event(EventKind::Remove(RemoveKind::Any), &[path]), root).is_none(), "{path}");
+        }
     }
 
     #[test]
@@ -143,6 +122,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(batch.scope, WatchScope::Structure);
-        assert_eq!(batch.paths, vec![PathBuf::from("Заметка.md")]);
+        assert!(batch.paths.contains(&PathBuf::from("Заметка.md")));
     }
 }
