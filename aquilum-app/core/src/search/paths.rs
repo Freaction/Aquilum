@@ -141,4 +141,3 @@ pub fn is_hidden(root: &Path, path: &Path) -> bool {
 #[cfg(test)]
 #[path = "paths_tests.rs"]
 mod tests;
-
