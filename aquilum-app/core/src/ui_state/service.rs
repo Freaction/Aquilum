@@ -2,6 +2,7 @@ use super::database::UiStateDatabase;
 use super::error::UiStateError;
 use super::models::{KnownWorkspace, LoadedSession, OpenSessionInput, SaveStateBatchInput};
 use super::validation::{validate_batch, validate_open_session};
+use crate::files::remove_matching;
 use crate::search::paths::{canonical_path, same_path};
 use crate::settings::models::SyncSettings;
 use std::path::{Path, PathBuf};
@@ -39,6 +40,12 @@ impl UiStateService {
         let set_aside = set_aside_database(&self.path, now_ms);
         *storage = open_storage(&self.path);
         set_aside
+    }
+
+    pub fn close(&self) {
+        if let Ok(mut storage) = self.storage.lock() {
+            *storage = Storage::Unavailable("закрыто".to_owned());
+        }
     }
 
     fn with_database<T>(
@@ -171,6 +178,10 @@ fn open_storage(path: &Path) -> Storage {
 }
 
 fn set_aside_database(path: &Path, now_ms: i64) -> Result<(), UiStateError> {
+    if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
+        let name = name.to_string_lossy();
+        remove_matching(dir, |entry| entry.starts_with(&*name) && entry.contains(".broken-"));
+    }
     for suffix in ["-wal", "-shm", ""] {
         let file = PathBuf::from(format!("{}{suffix}", path.display()));
         if file.exists() {

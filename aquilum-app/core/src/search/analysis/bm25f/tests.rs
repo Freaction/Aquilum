@@ -33,7 +33,6 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
         writer
             .add_document(doc!(
                 index.fields.id => path.to_string_lossy().as_ref(),
-                index.fields.path => path.to_string_lossy().as_ref(),
                 index.fields.title => title,
                 index.fields.body => body,
             ))
@@ -45,7 +44,6 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
         writer
             .add_document(doc!(
                 index.fields.id => path.to_string_lossy().as_ref(),
-                index.fields.path => path.to_string_lossy().as_ref(),
                 index.fields.title => title.as_str(),
                 index.fields.body => "unrelated background material",
             ))
@@ -92,7 +90,6 @@ fn reasons_show_surface_words_not_stems() {
         writer
             .add_document(doc!(
                 index.fields.id => path.to_string_lossy().as_ref(),
-                index.fields.path => path.to_string_lossy().as_ref(),
                 index.fields.title => title,
                 index.fields.body => body,
             ))

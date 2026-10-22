@@ -90,10 +90,11 @@ pub fn move_all(core: &Arc<Core>, sources: Vec<PathBuf>, target: PathBuf) {
     });
 }
 
-pub fn create_note(core: &Core, workspace: &Path, title: Option<&str>) -> Result<PathBuf, FileCommandError> {
+pub fn create_note(core: &Core, folder: &Path, title: Option<&str>) -> Result<PathBuf, FileCommandError> {
+    std::fs::create_dir_all(folder)?;
     let sanitized = title.map(sanitize_file_name).filter(|t| !t.is_empty());
     let base = sanitized.as_deref().unwrap_or(UNTITLED_NOTE);
-    first_free(|i| workspace.join(if i == 0 { format!("{base}.md") } else { format!("{base} {i}.md") }), |path| gate::create(core, path, &"", Source::Me, None))
+    first_free(|i| folder.join(if i == 0 { format!("{base}.md") } else { format!("{base} {i}.md") }), |path| gate::create(core, path, &"", Source::Me, None))
 }
 
 pub fn create_folder(parent: &Path) -> Result<PathBuf, FileCommandError> {

@@ -1,9 +1,12 @@
+pub const UPDATE_DIR: &str = "aquilum-update";
+
 #[cfg(target_os = "windows")]
 pub fn apply(payload: &[u8], before_exit: impl FnOnce()) -> Result<(), String> {
     use windows::Win32::UI::Shell::ShellExecuteW;
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOW;
     use windows::core::{HSTRING, w};
-    let dir = std::env::temp_dir().join(format!("aquilum-update-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(UPDATE_DIR);
+    let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let installer = dir.join("Aquilum-setup.exe");
     std::fs::write(&installer, payload).map_err(|e| e.to_string())?;
@@ -22,7 +25,7 @@ pub fn apply(payload: &[u8], before_exit: impl FnOnce()) -> Result<(), String> {
     let (bundle, _) = text.split_once(".app/Contents/MacOS/").ok_or("приложение запущено не из пакета .app")?;
     let bundle = std::path::PathBuf::from(format!("{bundle}.app"));
     let parent = bundle.parent().ok_or("нет каталога пакета")?;
-    let staging = parent.join(format!(".aquilum-update-{}", std::process::id()));
+    let staging = parent.join(format!(".{UPDATE_DIR}"));
     let _ = std::fs::remove_dir_all(&staging);
     std::fs::create_dir_all(&staging).map_err(|e| e.to_string())?;
     let gz = flate2::read::GzDecoder::new(payload);

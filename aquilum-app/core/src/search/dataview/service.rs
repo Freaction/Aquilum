@@ -43,31 +43,31 @@ impl SearchService {
         origin: &str,
         query: &Query,
     ) -> Result<Vec<Row>, SearchError> {
-        let (root, metadata_path) = self.index_paths(workspace)?;
         let origin = canonical_path(Path::new(origin));
-        let connection = Connection::open(metadata_path)?;
-        let mut paths = source::resolve(&connection, &root, &origin, query.source.as_ref())?;
-        if paths.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        if matches!(query.shape, Shape::Tasks { .. }) {
-            paths = filter_task_paths(&connection, paths, query)?;
+        self.with_metadata(workspace, |root, connection| {
+            let mut paths = source::resolve(connection, root, &origin, query.source.as_ref())?;
             if paths.is_empty() {
                 return Ok(Vec::new());
             }
-        } else {
-            paths = filter_candidate_paths(&connection, paths, query)?;
-            if paths.is_empty() {
-                return Ok(Vec::new());
-            }
-        }
 
-        let mut rows = rows::load(&connection, &root, &paths)?;
-        if matches!(query.shape, Shape::Tasks { .. }) {
-            rows::attach_tasks(&connection, &mut rows, &paths)?;
-        }
-        Ok(rows)
+            if matches!(query.shape, Shape::Tasks { .. }) {
+                paths = filter_task_paths(connection, paths, query)?;
+                if paths.is_empty() {
+                    return Ok(Vec::new());
+                }
+            } else {
+                paths = filter_candidate_paths(connection, paths, query)?;
+                if paths.is_empty() {
+                    return Ok(Vec::new());
+                }
+            }
+
+            let mut rows = rows::load(connection, root, &paths)?;
+            if matches!(query.shape, Shape::Tasks { .. }) {
+                rows::attach_tasks(connection, &mut rows, &paths)?;
+            }
+            Ok(rows)
+        })
     }
 }
 

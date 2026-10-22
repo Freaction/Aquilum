@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use release::{PUBLIC_KEY, Release, find, verify};
 
-pub use apply::apply;
+pub use apply::{UPDATE_DIR, apply};
 
 const CHUNK: usize = 64 * 1024;
 

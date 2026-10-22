@@ -105,7 +105,6 @@ impl Host {
 
 impl Drop for Host {
     fn drop(&mut self) {
-        self.app.shutdown();
         crate::clipboard::release();
         if self.args.size.is_none()
             && let Some(window) = &self.window

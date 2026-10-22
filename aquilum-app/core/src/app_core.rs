@@ -4,11 +4,13 @@ use crate::history::HistoryService;
 use crate::mcp::active::ActiveNote;
 use crate::mcp::bridge::Navigation;
 use crate::mcp::{McpServer, McpStatus};
+use crate::search::paths::cache_key;
 use crate::search::{IndexNotifier, IndexRevision, SearchService};
 use crate::settings::SettingsManager;
 use crate::sync::SyncService;
 use crate::ui_state::UiStateService;
 use crate::wikixiv::WikixivService;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
@@ -112,14 +114,23 @@ impl Core {
         self.mcp.apply(self, &self.settings.get_config().mcp)
     }
 
-    /// Stops background work before the host exits: MCP and the watcher stop.
     pub fn shutdown(&self) {
         self.mcp.shutdown();
-        self.watcher.stop();
+        self.watcher.close();
+        self.sync.close();
+        self.search.close();
+        self.ui_state.close();
     }
 
     pub fn known_roots(&self) -> Vec<PathBuf> {
         self.ui_state.workspace_roots().unwrap_or_default()
+    }
+
+    pub fn prune_caches(&self) {
+        let Ok(roots) = self.ui_state.workspace_roots() else { return };
+        let keep = roots.iter().map(|root| cache_key(root)).collect::<HashSet<_>>();
+        self.search.prune(&keep);
+        self.sync.prune(&keep);
     }
 
     fn ingest_watch(&self, batch: WatchBatch) {

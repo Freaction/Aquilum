@@ -1,6 +1,6 @@
 [package]
 name = "aquilum-core"
-version = "0.3.14"
+version = "0.3.15"
 description = "Aquilum core: documents, files, search, history and settings without any UI"
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"
@@ -15,6 +15,8 @@ blake3 = "1.8.5"
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 uuid = { version = "1.23.5", features = ["v4", "serde"] }
 tantivy = { version = "0.26.1", default-features = false, features = ["mmap", "lz4-compression", "stemmer"] }
+tantivy-fst = "0.5.0"
+levenshtein_automata = "0.2.1"
 rust-stemmers = "1.2.0"
 walkdir = "2.5.0"
 notify = "8.2.0"

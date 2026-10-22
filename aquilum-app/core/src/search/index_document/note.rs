@@ -1,10 +1,12 @@
 use super::{remove_note, upsert, Probe};
+use crate::markdown::fence::{self, INDENT_LIMIT};
+use crate::markdown::indent::Indent;
+use crate::markdown::line::heading;
 use crate::search::created;
 use crate::search::error::SearchError;
 use crate::search::fields;
 use crate::search::index::SearchIndex;
 use crate::search::pages::{self, Page, Pages};
-use crate::search::paths::relative_slash_path;
 use crate::search::tasks;
 use crate::search::wiki;
 use rusqlite::Transaction;
@@ -44,7 +46,7 @@ fn index_note(root: &Path, index: &SearchIndex, writer: &IndexWriter, transactio
             Some(id) => pages::place(transaction, id, ordinal, &page)?,
             None => {
                 store_page(transaction, path, &page_key, ordinal, &page)?;
-                add_page(root, index, writer, path, &page, &page_key)?;
+                add_page(index, writer, path, &page, &page_key)?;
                 changed = true;
             }
         }
@@ -66,13 +68,18 @@ pub(super) fn store_page(transaction: &Transaction<'_>, path: &Path, page_key: &
     fields::store(transaction, id, path, &fields::page_fields(&page.text, page.first))
 }
 
-pub(crate) fn add_page(root: &Path, index: &SearchIndex, writer: &IndexWriter, path: &Path, page: &Page, key: &str) -> Result<(), SearchError> {
+pub(crate) fn add_page(index: &SearchIndex, writer: &IndexWriter, path: &Path, page: &Page, key: &str) -> Result<(), SearchError> {
     let mut document = TantivyDocument::new();
     document.add_text(index.fields.id, path.to_string_lossy());
     document.add_text(index.fields.page, key);
     if page.first {
-        document.add_text(index.fields.path, relative_slash_path(root, path));
         document.add_text(index.fields.title, crate::search::paths::title(path));
+    }
+    for (_, line) in fence::outside(&page.text) {
+        let indent = Indent::of(line);
+        if let Some((_, marker)) = (indent.columns <= INDENT_LIMIT).then(|| heading(&line[indent.bytes..])).flatten() {
+            document.add_text(index.fields.headings, &line[indent.bytes + marker..]);
+        }
     }
     document.add_text(index.fields.body, &page.text);
     writer.add_document(document)?;

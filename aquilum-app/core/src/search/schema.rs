@@ -9,9 +9,9 @@ use tantivy::{Index, IndexReader, ReloadPolicy};
 pub fn build() -> Schema {
     let mut builder = Schema::builder();
     builder.add_text_field("id", STRING | STORED);
-    builder.add_text_field("path", text_options(false));
-    builder.add_text_field("title", text_options(true));
-    builder.add_text_field("body", text_options(false));
+    for name in ["title", "headings", "body"] {
+        builder.add_text_field(name, text_options());
+    }
     builder.add_text_field("page", STRING);
     builder.build()
 }
@@ -23,14 +23,6 @@ pub fn register_tokenizer(index: &Index) {
 }
 
 pub fn term_frequencies(text: &str) -> HashMap<String, u32> {
-    token_statistics(text).frequencies
-}
-
-pub struct TokenStatistics {
-    pub frequencies: HashMap<String, u32>,
-}
-
-pub fn token_statistics(text: &str) -> TokenStatistics {
     let mut frequencies = HashMap::new();
     indexing_tokenizer().token_stream(text).process(&mut |token| {
         if token.text.chars().count() >= 2 {
@@ -38,14 +30,14 @@ pub fn token_statistics(text: &str) -> TokenStatistics {
             *frequency = frequency.saturating_add(1);
         }
     });
-    TokenStatistics { frequencies }
+    frequencies
 }
 
 pub fn fields(schema: &Schema) -> Result<SearchFields, SearchError> {
     Ok(SearchFields {
         id: field(schema, "id")?,
-        path: field(schema, "path")?,
         title: field(schema, "title")?,
+        headings: field(schema, "headings")?,
         body: field(schema, "body")?,
         page: field(schema, "page")?,
     })
@@ -61,16 +53,8 @@ pub fn reader(index: &Index) -> Result<IndexReader, SearchError> {
         .try_into()?)
 }
 
-fn text_options(stored: bool) -> TextOptions {
-    let indexing = TextFieldIndexing::default()
-        .set_tokenizer(TOKENIZER_NAME)
-        .set_index_option(IndexRecordOption::WithFreqs);
-    let options = TextOptions::default().set_indexing_options(indexing);
-    if stored {
-        options.set_stored()
-    } else {
-        options
-    }
+fn text_options() -> TextOptions {
+    TextOptions::default().set_indexing_options(TextFieldIndexing::default().set_tokenizer(TOKENIZER_NAME).set_index_option(IndexRecordOption::WithFreqsAndPositions))
 }
 
 fn field(schema: &Schema, name: &str) -> Result<tantivy::schema::Field, SearchError> {

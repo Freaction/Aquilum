@@ -18,8 +18,7 @@ impl Harness {
     }
 
     pub(super) fn restarted(self, scale: f64) -> Self {
-        let Harness { mut app, root, vault, _data, _theme, .. } = self;
-        app.shutdown();
+        let Harness { app, root, vault, _data, _theme, .. } = self;
         drop((app, root));
         Self::assemble(vault, _data, _theme, None, scale)
     }

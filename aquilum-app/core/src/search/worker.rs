@@ -13,7 +13,7 @@ use std::thread::JoinHandle;
 pub struct WorkerHandle {
     sender: mpsc::Sender<WorkerMessage>,
     cancelled: Arc<AtomicBool>,
-    thread: JoinHandle<()>,
+    thread: Option<JoinHandle<()>>,
 }
 
 enum WorkerMessage {
@@ -69,7 +69,7 @@ impl WorkerHandle {
             .map_err(|error| SearchError::Task {
                 message: error.to_string(),
             })?;
-        Ok(Self { sender, cancelled, thread })
+        Ok(Self { sender, cancelled, thread: Some(thread) })
     }
 
     pub fn queue_paths(&self, paths: Vec<PathBuf>) {
@@ -80,11 +80,15 @@ impl WorkerHandle {
         let _ = self.sender.send(WorkerMessage::Rescan);
     }
 
-    pub fn stop(self) {
-        let WorkerHandle { sender, cancelled, thread } = self;
-        cancelled.store(true, Ordering::Relaxed);
-        drop(sender);
-        let _ = thread.join();
+}
+
+impl Drop for WorkerHandle {
+    fn drop(&mut self) {
+        self.cancelled.store(true, Ordering::Relaxed);
+        let _ = self.sender.send(WorkerMessage::Rescan);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
     }
 }
 
@@ -115,6 +119,9 @@ fn run(
                 true
             }
         };
+        if stopped() {
+            return Ok(());
+        }
         message = match receiver.recv() {
             Ok(_) if retry && !stopped() => WorkerMessage::Rescan,
             Ok(next) if !stopped() => next,
@@ -173,7 +180,7 @@ mod tests {
         done.recv_timeout(Duration::from_secs(20)).expect("первый проход завершился");
 
         let started = Instant::now();
-        worker.stop();
+        drop(worker);
 
         assert!(started.elapsed() < Duration::from_millis(100), "остановка ждала {:?}", started.elapsed());
     }

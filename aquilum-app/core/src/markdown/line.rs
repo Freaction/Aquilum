@@ -6,6 +6,16 @@ pub fn bounds(text: &str, at: usize) -> Range<usize> {
     start..end
 }
 
+pub fn heading(line: &str) -> Option<(u8, usize)> {
+    let level = line.bytes().take_while(|b| *b == b'#').count();
+    match line.as_bytes().get(level) {
+        _ if level == 0 || level > 6 => None,
+        None => Some((level as u8, level)),
+        Some(b' ') => Some((level as u8, level + 1)),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::bounds;

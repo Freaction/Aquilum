@@ -1,13 +1,10 @@
-use super::support::{index_vault, open_bench_index, record, BenchIndex};
+use super::support::{best, index_vault, ms, open_bench_index, record, BenchIndex};
 use crate::search::analysis::bm25f;
 use crate::search::analysis::graph::GraphSnapshot;
 use crate::search::paths::canonical_path;
 use crate::search::wiki;
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
-
-const RUNS: u32 = 3;
 
 #[test]
 #[ignore = "run with AQUILUM_BENCH_VAULT=<папка базы> or AQUILUM_BENCH_SIZES=1000 cargo test --release benchmark_link_pipeline -- --ignored --nocapture"]
@@ -83,21 +80,6 @@ fn run_case(mut bench: BenchIndex, label: &str, threads_before: usize) {
     );
     println!("BENCH-LINKS {line}");
     record("link_pipeline", &line);
-}
-
-fn best(mut run: impl FnMut()) -> Duration {
-    (0..RUNS)
-        .map(|_| {
-            let started = Instant::now();
-            run();
-            started.elapsed()
-        })
-        .min()
-        .unwrap_or_default()
-}
-
-fn ms(value: Duration) -> f64 {
-    value.as_secs_f64() * 1000.0
 }
 
 fn process_threads() -> usize {

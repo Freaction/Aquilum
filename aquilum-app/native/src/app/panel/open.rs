@@ -43,7 +43,8 @@ impl App {
         if let Some(path) = resolved.or_else(|| links::find_note(&workspace, raw)) {
             return Some(path);
         }
-        let path = links::linked_file_path(&workspace, raw)?;
+        let base = if split(raw).note.contains(['/', '\\']) { workspace } else { crate::vault_files::notes_dir(&self.workspace.core, &workspace) };
+        let path = links::linked_file_path(&base, raw)?;
         self.create_linked_note(root, &path).then_some(path)
     }
 

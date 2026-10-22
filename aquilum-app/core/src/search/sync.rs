@@ -29,6 +29,12 @@ struct Output {
     pending: bool,
 }
 
+impl Drop for IndexSynchronizer {
+    fn drop(&mut self) {
+        let _ = self.release_writer();
+    }
+}
+
 impl IndexSynchronizer {
     pub fn new(root: PathBuf, index: Arc<SearchIndex>, metadata_path: &Path, progress: Arc<IndexProgress>) -> Result<Self, SearchError> {
         Ok(Self { output: Output { root, index, writer: None, progress, pending: false }, connection: metadata::open(metadata_path)? })

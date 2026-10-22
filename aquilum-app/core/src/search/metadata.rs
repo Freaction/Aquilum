@@ -34,14 +34,7 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
     if auto_vacuum != 2 {
         connection.execute_batch("PRAGMA auto_vacuum=INCREMENTAL; VACUUM;")?;
     }
-    connection.execute_batch(
-        "PRAGMA journal_mode=WAL;
-         PRAGMA synchronous=NORMAL;
-         PRAGMA foreign_keys=ON;
-         PRAGMA busy_timeout=3000;
-         PRAGMA wal_autocheckpoint=1000;
-         PRAGMA journal_size_limit=33554432;",
-    )?;
+    connection.execute_batch(crate::SQLITE_PRAGMAS)?;
     if version < SCHEMA_VERSION {
         connection.execute_batch(&format!(
             "DROP TABLE IF EXISTS wiki_links;

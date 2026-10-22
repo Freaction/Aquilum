@@ -7,15 +7,7 @@ use super::super::super::embed::panel;
 use super::{Block, Callout};
 
 pub fn heading(line: &str) -> Option<Block> {
-    let n = line.bytes().take_while(|b| *b == b'#').count();
-    if n == 0 || n > 6 {
-        return None;
-    }
-    match line.as_bytes().get(n) {
-        None => Some(Block::Heading { level: n as u8, marker: n }),
-        Some(b' ') => Some(Block::Heading { level: n as u8, marker: n + 1 }),
-        _ => None,
-    }
+    aquilum_core::markdown::line::heading(line).map(|(level, marker)| Block::Heading { level, marker })
 }
 
 pub fn rule(line: &str) -> bool {

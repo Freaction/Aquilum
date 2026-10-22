@@ -28,7 +28,7 @@ pub fn select_terms(
 ) -> Result<Vec<QueryTerm>, SearchError> {
     let max_query_terms = max_query_terms.clamp(8, 128);
     let labels = stem_surface_labels(title, body);
-    let mut frequencies = schema::token_statistics(body).frequencies;
+    let mut frequencies = schema::term_frequencies(body);
     for (term, frequency) in schema::term_frequencies(title) {
         let value = frequencies.entry(term).or_insert(0);
         *value = value.saturating_add(frequency.saturating_mul(3));
@@ -59,7 +59,7 @@ pub fn select_terms(
     let mut terms = Vec::with_capacity(local.len());
     for (text, frequency, local_weight) in local {
         let document_frequency = term_document_frequency(searcher, index, &text)? as f64;
-        let idf = (1.0 + (documents - document_frequency + 0.5) / (document_frequency + 0.5)).ln();
+        let idf = idf(document_frequency, documents);
         if idf.is_finite() && idf > 0.0 {
             terms.push(QueryTerm {
                 text: text.clone(),
@@ -79,6 +79,10 @@ pub fn select_terms(
     });
     terms.truncate(max_query_terms);
     Ok(terms)
+}
+
+pub fn idf(document_frequency: f64, documents: f64) -> f64 {
+    (1.0 + (documents - document_frequency + 0.5) / (document_frequency + 0.5)).ln()
 }
 
 pub fn candidate_query(

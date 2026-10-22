@@ -3,12 +3,10 @@ use super::*;
 pub(super) fn files(config: &AppConfig) -> Vec<Block> {
     vec![Block {
         title: t("settings.files.section"),
-        rows: vec![row(
-            t("settings.files.folder"),
-            Some(t("settings.files.folderHint")),
-            Control::Text { value: config.files.folder.clone(), commit: false },
-            |c, v| c.files.folder = text(v),
-        )],
+        rows: vec![
+            row(t("settings.files.notes"), Some(t("settings.files.notesHint")), Control::Text { value: config.files.notes.clone(), commit: false }, |c, v| c.files.notes = text(v)),
+            row(t("settings.files.folder"), Some(t("settings.files.folderHint")), Control::Text { value: config.files.folder.clone(), commit: false }, |c, v| c.files.folder = text(v)),
+        ],
     }]
 }
 

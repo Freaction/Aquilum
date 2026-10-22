@@ -1,15 +1,10 @@
 use super::index::SearchIndex;
 use super::index_document::add_page;
 use super::pages::{Keys, Pages};
-use super::query::{analyzed_query_terms, Request};
+use super::query::Request;
 use std::path::Path;
 
-#[test]
-fn normalizes_case_and_deduplicates_query_terms() {
-    assert_eq!(analyzed_query_terms("Aquilum АКВИЛ aquilum"), vec!["aquilum".to_string(), "акв".to_string()]);
-}
-
-fn indexed(documents: &[(&str, &str)]) -> (tempfile::TempDir, SearchIndex) {
+pub(super) fn indexed(documents: &[(&str, &str)]) -> (tempfile::TempDir, SearchIndex) {
     let directory = tempfile::tempdir().unwrap();
     let index = SearchIndex::open(&directory.path().join("index")).unwrap();
     let mut writer = index.index.writer(15_000_000).unwrap();
@@ -19,7 +14,7 @@ fn indexed(documents: &[(&str, &str)]) -> (tempfile::TempDir, SearchIndex) {
         std::fs::write(&path, body).unwrap();
         let (mut pages, note, mut keys) = (Pages::open(&path).unwrap(), path.to_string_lossy().into_owned(), Keys::default());
         while let Some(page) = pages.next().unwrap() {
-            add_page(directory.path(), &index, &writer, &path, &page, &keys.next(&note, &page)).unwrap();
+            add_page(&index, &writer, &path, &page, &keys.next(&note, &page)).unwrap();
         }
     }
     writer.commit().unwrap();
@@ -27,7 +22,7 @@ fn indexed(documents: &[(&str, &str)]) -> (tempfile::TempDir, SearchIndex) {
     (directory, index)
 }
 
-fn search(index: &SearchIndex, text: &str) -> Vec<super::models::SearchResult> {
+pub(super) fn search(index: &SearchIndex, text: &str) -> Vec<super::models::SearchResult> {
     index.search(&Request::new(text)).unwrap().results
 }
 
@@ -104,30 +99,4 @@ fn a_cancelled_request_returns_no_results() {
     generation.stop();
     let request = Request { cancel, ..Request::new("кофе") };
     assert!(matches!(index.search(&request), Err(super::error::SearchError::Cancelled)));
-}
-
-#[test]
-fn a_multi_word_query_ranks_partial_matches_instead_of_returning_nothing() {
-    let (_guard, index) = indexed(&[
-        ("Камера.md", "# Ощущение камеры\n\nФизика тика влияет на кадр.\n"),
-        ("Свет.md", "# Освещение\n\nОдин источник на всю сцену.\n"),
-        ("Быстрота.md", "# Плавность\n\nКадр рисуется быстро.\n"),
-    ]);
-
-    let results = search(&index, "физика тика кадр плавность");
-    assert_eq!(results.len(), 2, "ни одна заметка не содержит все слова, но частичные совпадения возвращаются");
-    assert!(results[0].path.ends_with("Камера.md"), "заметка с большим числом совпавших слов идёт первой");
-    assert_eq!(results[0].matched_terms.len(), 3);
-    assert_eq!(results[1].matched_terms.len(), 2);
-    assert_eq!(results[0].heading.as_deref(), Some("Ощущение камеры"), "фрагмент подписан разделом, в котором нашлось совпадение");
-}
-
-#[test]
-fn a_title_match_comes_before_any_body_match() {
-    let body = "Конец дня, конец недели, конец месяца. ".repeat(50);
-    let (_guard, index) = indexed(&[("Дневник.md", body.as_str()), ("Конец года.md", "Итоги.")]);
-
-    let results = search(&index, "конец");
-    assert!(results[0].path.ends_with("Конец года.md"), "совпадение в названии — выше любого совпадения в тексте");
-    assert!(results[1].path.ends_with("Дневник.md"));
 }

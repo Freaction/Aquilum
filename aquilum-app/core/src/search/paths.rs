@@ -79,6 +79,10 @@ pub fn inside(root: &Path, path: &str) -> Result<PathBuf, SearchError> {
     }
 }
 
+pub fn cache_key(root: &Path) -> String {
+    crate::files::document::hash_bytes(root.to_string_lossy().as_bytes())
+}
+
 pub fn canonical_path(path: &Path) -> PathBuf {
     let resolved = fs::canonicalize(path).or_else(|error| match (path.parent(), path.file_name()) {
         (Some(parent), Some(name)) => fs::canonicalize(parent).map(|parent| parent.join(name)),

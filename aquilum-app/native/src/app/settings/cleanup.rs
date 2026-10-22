@@ -28,6 +28,7 @@ impl App {
             if let Err(error) = core.ui_state.cleanup(config.trash.retention_days, crate::dates::now_ms()) {
                 report!("состояние документов не очищено: {error:?}");
             }
+            core.prune_caches();
             done.store(true, std::sync::atomic::Ordering::Release);
             wake();
         });

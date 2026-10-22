@@ -163,7 +163,7 @@ mod tests {
 
     fn vault() -> (tempfile::TempDir, Vault) {
         let directory = tempfile::tempdir().unwrap();
-        let root = crate::search::paths::canonical_path(directory.path());
+        let root = crate::search::paths::canonical_path(directory.path()).join("vault");
         fs::create_dir_all(root.join("Проекты")).unwrap();
         fs::write(root.join("Проекты/Aquilum.md"), "заметка").unwrap();
         fs::write(root.join("Идея.md"), "другая").unwrap();

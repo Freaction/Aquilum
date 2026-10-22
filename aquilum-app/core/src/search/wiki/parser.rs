@@ -11,13 +11,51 @@ pub struct WikiLink {
 }
 
 pub fn extract(source: &str) -> Vec<WikiLink> {
+    let (mut found, mut prior, mut offset_utf16) = (Vec::new(), 0, 0);
+    scan(source, |cursor, end, embed| {
+        let inner = &source[cursor + 2..end];
+        let split = parts(inner);
+        let note = &inner[split.note.clone()];
+        if note.is_empty() || (embed && is_attachment(note)) {
+            return;
+        }
+        let target_end = split.anchor.as_ref().map_or(split.note.end, |anchor| anchor.end);
+        offset_utf16 += utf16_len(&source[prior..cursor]);
+        prior = cursor;
+        found.push(WikiLink {
+            target: inner[split.note.start..target_end].to_owned(),
+            note_range: cursor + 2 + split.note.start..cursor + 2 + split.note.end,
+            offset_utf16,
+        });
+    });
+    found
+}
+
+pub fn attachments(source: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    scan(source, |cursor, end, embed| {
+        let inner = &source[cursor + 2..end];
+        let note = &inner[parts(inner).note];
+        if embed && is_attachment(note) {
+            found.push(note.to_owned());
+        }
+    });
+    for event in Parser::new_ext(source, Options::all().difference(Options::ENABLE_WIKILINKS)) {
+        match event {
+            Event::Start(Tag::Image { dest_url, .. }) if !dest_url.contains(':') => found.push(dest_url.into_string()),
+            _ => {}
+        }
+    }
+    found
+}
+
+fn scan(source: &str, mut visit: impl FnMut(usize, usize, bool)) {
     if !source.contains("[[") {
-        return Vec::new();
+        return;
     }
     let excluded = excluded_ranges(source);
     let bytes = source.as_bytes();
-    let mut found = Vec::new();
-    let (mut cursor, mut excluded_at, mut prior, mut offset_utf16) = (0, 0, 0, 0);
+    let (mut cursor, mut excluded_at) = (0, 0);
     while cursor + 3 < bytes.len() {
         if bytes[cursor] != b'[' || bytes[cursor + 1] != b'[' || escaped(bytes, cursor) {
             cursor += 1;
@@ -27,31 +65,14 @@ pub fn extract(source: &str) -> Vec<WikiLink> {
             cursor += 2;
             continue;
         };
-        let full = cursor..end + 2;
-        while excluded_at < excluded.len() && excluded[excluded_at].end <= full.start {
+        while excluded_at < excluded.len() && excluded[excluded_at].end <= cursor {
             excluded_at += 1;
         }
-        let inside_code = excluded
-            .get(excluded_at)
-            .is_some_and(|range| overlaps(range, &full));
-        let embed = cursor > 0 && bytes[cursor - 1] == b'!' && !escaped(bytes, cursor - 1);
-        let inner = &source[cursor + 2..end];
-        let split = parts(inner);
-        let note = &inner[split.note.clone()];
-        let skipped = inside_code || note.is_empty() || (embed && is_attachment(note));
-        if !skipped {
-            let target_end = split.anchor.as_ref().map_or(split.note.end, |anchor| anchor.end);
-            offset_utf16 += utf16_len(&source[prior..cursor]);
-            prior = cursor;
-            found.push(WikiLink {
-                target: inner[split.note.start..target_end].to_owned(),
-                note_range: cursor + 2 + split.note.start..cursor + 2 + split.note.end,
-                offset_utf16,
-            });
+        if !excluded.get(excluded_at).is_some_and(|range| overlaps(range, &(cursor..end + 2))) {
+            visit(cursor, end, cursor > 0 && bytes[cursor - 1] == b'!' && !escaped(bytes, cursor - 1));
         }
         cursor = end + 2;
     }
-    found
 }
 
 fn excluded_ranges(source: &str) -> Vec<Range<usize>> {
@@ -146,5 +167,11 @@ mod tests {
     #[test]
     fn escaped_bang_keeps_a_plain_link() {
         assert_eq!(targets(r"\![[image.png]]"), ["image.png"]);
+    }
+
+    #[test]
+    fn attachments_are_embedded_files_and_local_images() {
+        let text = "![[кадр.png|300]] [[Заметка]] ![[Вставленная заметка]] ![a](<Files/схема 1.png>) ![b](https://x/y.png) `![[код.png]]`";
+        assert_eq!(super::attachments(text), ["кадр.png", "Files/схема 1.png"]);
     }
 }

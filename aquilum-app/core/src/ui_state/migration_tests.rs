@@ -294,4 +294,9 @@ fn reset_sets_aside_a_database_that_was_open_and_in_use() {
 
     assert!(service.list_workspaces().unwrap().is_empty());
     assert!(dir.path().join("ui-state.sqlite3.broken-42").exists());
+
+    service.reset(43).unwrap();
+
+    assert!(dir.path().join("ui-state.sqlite3.broken-43").exists());
+    assert!(!dir.path().join("ui-state.sqlite3.broken-42").exists(), "остаётся только последняя отложенная копия");
 }

@@ -20,3 +20,9 @@ pub mod web_agent;
 pub mod wikixiv;
 
 pub use app_core::{Core, CoreEvent, EventSink, TaskFailed};
+
+pub(crate) const SQLITE_PRAGMAS: &str = "PRAGMA journal_mode = WAL;
+     PRAGMA synchronous = NORMAL;
+     PRAGMA foreign_keys = ON;
+     PRAGMA busy_timeout = 3000;
+     PRAGMA journal_size_limit = 4194304;";

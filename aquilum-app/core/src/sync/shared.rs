@@ -1,8 +1,7 @@
 use super::records::Records;
 use super::state::State;
 use super::worker::Open;
-use crate::files::document::hash_bytes;
-use crate::search::paths::canonical_path;
+use crate::search::paths::{cache_key, canonical_path};
 use std::path::{Path, PathBuf};
 use std::sync::{Condvar, Mutex, MutexGuard};
 
@@ -32,8 +31,7 @@ impl Shared {
         if !self.connected() {
             return None;
         }
-        let key = hash_bytes(canonical_path(root).to_string_lossy().as_bytes());
-        Records::open(&self.folder.join(format!("{key}.sqlite3"))).ok()
+        Records::open(&self.folder.join(format!("{}.sqlite3", cache_key(&canonical_path(root))))).ok()
     }
 
     pub(super) fn change(&self, edit: impl FnOnce(&mut State)) {

@@ -23,11 +23,6 @@ node_modules/
 /aquilum-app/target/
 /aquilum-app/core/target/
 /aquilum-app/core/Cargo.lock
-/tauri-version/dist/
-/tauri-version/dist-ssr/
-/tauri-version/.build/
-/tauri-version/releases/
-/tauri-version/src-tauri/target/
 
 coverage/
 *.tsbuildinfo
@@ -42,9 +37,6 @@ coverage/
 
 # Сборка плагина Obsidian, лежит локально как справочный материал
 /dataview/
-
-# Отладочные черновики разбора frontmatter
-tauri-version/tmp-fm.*
 
 # История заметок Aquilum: локальная, в git не идёт
 .aquilum/

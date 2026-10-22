@@ -25,7 +25,6 @@ pub struct Page {
     pub start_line: usize,
     pub chars: Range<usize>,
     pub first: bool,
-    pub hash: blake3::Hash,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -83,7 +82,7 @@ impl<'a> Pages<'a> {
         let chars = text.chars().count();
         self.at = At { start: at.start + text.len(), utf16: at.utf16 + utf16_len(&text), line: at.line + memchr::memchr_iter(b'\n', text.as_bytes()).count(), chars: at.chars + chars };
         let first = std::mem::take(&mut self.first);
-        Ok(Some(Page { hash: blake3::hash(text.as_bytes()), text, start: at.start, start_utf16: at.utf16, start_line: at.line, chars: at.chars..self.at.chars, first }))
+        Ok(Some(Page { text, start: at.start, start_utf16: at.utf16, start_line: at.line, chars: at.chars..self.at.chars, first }))
     }
 
     fn line_end(&mut self) -> io::Result<Option<usize>> {
@@ -103,11 +102,7 @@ impl<'a> Pages<'a> {
     }
 
     fn fill(&mut self) -> io::Result<()> {
-        let start = self.buf.len();
-        self.buf.resize(start + BLOCK, 0);
-        let read = self.reader.read(&mut self.buf[start..])?;
-        self.buf.truncate(start + read);
-        self.ended = read == 0;
+        self.ended = self.reader.by_ref().take(BLOCK as u64).read_to_end(&mut self.buf)? < BLOCK;
         self.normalized = normalize_tail(&mut self.buf, self.normalized, self.ended);
         Ok(())
     }

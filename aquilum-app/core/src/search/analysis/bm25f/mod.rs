@@ -12,7 +12,7 @@ use self::terms::{candidate_query, select_terms, QueryTerm};
 use super::models::AnalysisResult;
 use crate::search::paths::identity;
 use crate::search::error::SearchError;
-use crate::search::index::{stored_text, SearchIndex};
+use crate::search::index::{FieldStats, SearchIndex};
 use crate::settings::models::{Bm25fParams, SearchIndexSettings};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
@@ -20,7 +20,8 @@ use std::path::Path;
 use tantivy::collector::{DocSetCollector, TopDocs};
 use tantivy::query::TermQuery;
 use tantivy::schema::IndexRecordOption;
-use tantivy::{DocAddress, DocId, Searcher, TantivyDocument, Term};
+use crate::search::hits::note_path;
+use tantivy::{DocAddress, DocId, Searcher, Term};
 
 struct Scored {
     raw_score: f64,
@@ -86,7 +87,7 @@ fn score(
     params: &Bm25fParams,
     by_segment: BTreeMap<u32, Vec<DocId>>,
 ) -> Result<Vec<Scored>, SearchError> {
-    let field_stats = index.field_stats()?;
+    let field_stats = FieldStats::of(searcher, index.fields)?;
     let mut scored = Vec::new();
     for (segment_ord, mut doc_ids) in by_segment {
         doc_ids.sort_unstable();
@@ -125,8 +126,7 @@ fn fetch(
         if results.len() == limit {
             break;
         }
-        let candidate = searcher.doc::<TantivyDocument>(address)?;
-        let path = stored_text(&candidate, index.fields.id).unwrap_or_default();
+        let path = note_path(searcher, index.fields, address)?.unwrap_or_default();
         let candidate_identity = identity(Path::new(&path));
         if path.is_empty() || candidate_identity == source_identity || !seen.insert(candidate_identity) {
             continue;

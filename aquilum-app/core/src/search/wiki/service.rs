@@ -14,9 +14,7 @@ use std::path::{Path, PathBuf};
 
 impl SearchService {
     pub fn backlinks(&self, workspace: &str, document: &str) -> Result<Vec<Backlink>, SearchError> {
-        let (root, metadata_path) = self.index_paths(workspace)?;
-        let document = inside(&root, document)?;
-        backlinks(&Connection::open(metadata_path)?, &root, &document)
+        self.with_metadata(workspace, |root, connection| backlinks(connection, root, &inside(root, document)?))
     }
 
     pub fn backlink_counts(
@@ -24,22 +22,22 @@ impl SearchService {
         workspace: &str,
         documents: &[String],
     ) -> Result<Vec<usize>, SearchError> {
-        let (root, metadata_path) = self.index_paths(workspace)?;
-        let connection = Connection::open(metadata_path)?;
-        documents
-            .iter()
-            .map(|document| {
-                let document = canonical_path(Path::new(document));
-                let own = document.to_string_lossy();
-                let links = backlinks(&connection, &root, &document)?;
-                Ok(links
-                    .iter()
-                    .map(|link| link.path.as_str())
-                    .filter(|path| *path != own)
-                    .collect::<HashSet<_>>()
-                    .len())
-            })
-            .collect()
+        self.with_metadata(workspace, |root, connection| {
+            documents
+                .iter()
+                .map(|document| {
+                    let document = canonical_path(Path::new(document));
+                    let own = document.to_string_lossy();
+                    let links = backlinks(connection, root, &document)?;
+                    Ok(links
+                        .iter()
+                        .map(|link| link.path.as_str())
+                        .filter(|path| *path != own)
+                        .collect::<HashSet<_>>()
+                        .len())
+                })
+                .collect()
+        })
     }
 
     pub fn outgoing_links(
@@ -47,9 +45,7 @@ impl SearchService {
         workspace: &str,
         document: &str,
     ) -> Result<Vec<OutgoingLink>, SearchError> {
-        let (root, metadata_path) = self.index_paths(workspace)?;
-        let document = inside(&root, document)?;
-        outgoing_links(&Connection::open(metadata_path)?, &root, &document)
+        self.with_metadata(workspace, |root, connection| outgoing_links(connection, root, &inside(root, document)?))
     }
 
     pub fn resolve_wiki_links(
@@ -58,20 +54,15 @@ impl SearchService {
         source: &str,
         targets: &[String],
     ) -> Result<WikiLinkResolution, SearchError> {
-        let (root, metadata_path, complete) = self.with_index(workspace, |open| {
-            Ok((
-                open.root.clone(),
-                open.metadata_path.clone(),
-                !open.progress.snapshot().updating,
-            ))
-        })?;
-        let source = inside(&root, source)?;
-        Ok(WikiLinkResolution {
-            paths: resolve_many(&Connection::open(metadata_path)?, &root, &source, targets)?
-                .into_iter()
-                .map(|path| path.map(|value| value.to_string_lossy().into_owned()))
-                .collect(),
-            complete,
+        self.with_index(workspace, |open| {
+            let source = inside(&open.root, source)?;
+            Ok(WikiLinkResolution {
+                paths: resolve_many(&Connection::open(&open.metadata_path)?, &open.root, &source, targets)?
+                    .into_iter()
+                    .map(|path| path.map(|value| value.to_string_lossy().into_owned()))
+                    .collect(),
+                complete: !open.progress.snapshot().updating,
+            })
         })
     }
 
@@ -83,46 +74,34 @@ impl SearchService {
         let old_path = canonical_path(old_path);
         let new_path = canonical_path(new_path);
         let found = self.with_index_containing(&old_path, |open| {
-            Ok((
-                open.root.clone(),
-                open.metadata_path.clone(),
-                open.progress.snapshot().updating,
-            ))
-        })?;
-        let Some((root, metadata_path, updating)) = found else {
-            if self.active_root().is_some() {
+            let root = &open.root;
+            if !new_path.starts_with(root) {
                 return Err(SearchError::invalid_workspace("Rename is outside workspace"));
             }
-            return Ok(Vec::new());
-        };
-        if !new_path.starts_with(&root) {
-            return Err(SearchError::invalid_workspace("Rename is outside workspace"));
+            let updating = open.progress.snapshot().updating;
+            let connection = Connection::open(&open.metadata_path)?;
+            let sources = if updating {
+                markdown_files(root).collect::<Vec<_>>()
+            } else {
+                candidate_sources(&connection, root, &old_path)?
+                    .into_iter()
+                    .map(PathBuf::from)
+                    .collect()
+            };
+            let fallback_candidates = updating.then(|| {
+                let old_title = title_key(&old_path);
+                sources
+                    .iter()
+                    .filter(|path| title_key(path) == old_title)
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+            });
+            plan_for_rename(&connection, root, &old_path, &new_path, sources, fallback_candidates.as_deref())
+        })?;
+        match found {
+            Some(plan) => Ok(plan),
+            None if self.active_root().is_some() => Err(SearchError::invalid_workspace("Rename is outside workspace")),
+            None => Ok(Vec::new()),
         }
-        let connection = Connection::open(metadata_path)?;
-        let sources = if updating {
-            markdown_files(&root).collect::<Vec<_>>()
-        } else {
-            candidate_sources(&connection, &root, &old_path)?
-                .into_iter()
-                .map(PathBuf::from)
-                .collect()
-        };
-        let fallback_candidates = updating.then(|| {
-            let old_title = title_key(&old_path);
-            sources
-                .iter()
-                .filter(|path| title_key(path) == old_title)
-                .map(|path| path.to_string_lossy().into_owned())
-                .collect::<Vec<_>>()
-        });
-        plan_for_rename(
-            &connection,
-            &root,
-            &old_path,
-            &new_path,
-            sources,
-            fallback_candidates.as_deref(),
-        )
     }
-
 }

@@ -15,7 +15,6 @@ pub const NOTES_ONLY: SyncSettings = SyncSettings { enabled: true, trash: false,
 pub const EVERYTHING: SyncSettings = SyncSettings { enabled: true, trash: true, history: true, interval: 300 };
 
 pub struct Device {
-    directory: tempfile::TempDir,
     pub core: Arc<Core>,
     pub root: PathBuf,
     pub records: Records,
@@ -25,6 +24,7 @@ pub struct Device {
     pub measured: RefCell<(Vec<Large>, Size)>,
     until: Cell<Option<usize>>,
     done: Cell<usize>,
+    directory: tempfile::TempDir,
 }
 
 impl Watch for Device {
@@ -70,7 +70,7 @@ impl Device {
 
     pub fn try_sync(&self, remote: &dyn Remote) -> Result<Outcome, SyncError> {
         self.done.set(0);
-        let staging = self.directory.path().join("staging");
+        let staging = self.staging();
         let vault = Vault {
             core: &self.core,
             root: &self.root,
@@ -84,6 +84,10 @@ impl Device {
             allowed: &self.allowed.borrow(),
         };
         run(&vault)
+    }
+
+    pub fn staging(&self) -> PathBuf {
+        self.directory.path().join("staging")
     }
 
     pub fn write(&self, path: &str, text: &str) {

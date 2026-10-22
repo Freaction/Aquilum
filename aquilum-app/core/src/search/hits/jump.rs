@@ -28,7 +28,7 @@ fn read(file: &mut File, page: &Placed, end: Option<usize>) -> Option<String> {
         None => file.read_to_end(&mut bytes).ok()?,
     };
     let text = text_from_bytes(bytes).ok()?;
-    (Some(blake3::hash(text.as_bytes())) == key_hash(&page.key)).then_some(text)
+    (page.start == 0 && end.is_none() || Some(blake3::hash(text.as_bytes())) == key_hash(&page.key)).then_some(text)
 }
 
 #[cfg(test)]

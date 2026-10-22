@@ -88,7 +88,12 @@ impl App {
             app.updater.install();
         }
         let remote = app.workspace.data_dir.join("remote");
-        std::thread::spawn(move || embeds::prune_remote(&remote));
+        std::thread::spawn(move || {
+            embeds::prune_remote(&remote);
+            if crate::updater::available() {
+                aquilum_core::files::remove_matching(&std::env::temp_dir(), |name| name.starts_with(crate::updater::UPDATE_DIR));
+            }
+        });
         app.refresh_home();
         app.cleanup_retention();
         app

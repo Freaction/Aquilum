@@ -11,7 +11,7 @@ fn tokens(text: &str) -> Vec<String> {
 
 #[test]
 fn analyzer_version_tracks_morphology_pipeline() {
-    assert_eq!(ANALYZER_VERSION, 13);
+    assert_eq!(ANALYZER_VERSION, 14);
 }
 
 #[test]
@@ -89,7 +89,6 @@ fn stemmed_query_matches_inflected_document() {
     writer
         .add_document(doc!(
             index.fields.id => path.to_string_lossy().as_ref(),
-            index.fields.path => path.to_string_lossy().as_ref(),
             index.fields.title => "сети",
             index.fields.body => "про нейронные сети",
         ))

@@ -46,7 +46,7 @@ fn an_edit_moves_only_the_pages_around_it() {
             let mut edited = text.clone();
             edited.insert_str(at, "вставка ");
             let (after, _) = read_all(&edited);
-            let same = after.iter().filter(|page| before.iter().any(|old| old.hash == page.hash)).count();
+            let same = after.iter().filter(|page| before.iter().any(|old| old.text == page.text)).count();
             assert!(after.len() > 4 && after.len() - same <= 3, "изменилось {} из {}", after.len() - same, after.len());
         }
     }

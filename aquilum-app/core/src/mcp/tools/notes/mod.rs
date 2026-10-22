@@ -79,14 +79,15 @@ pub fn definitions() -> Vec<Value> {
         ),
         tool(
             "move_note",
-            "Переместить заметку в другую папку или в другую базу знаний.",
+            "Переместить заметку или пачку заметок (notes) в другую папку или в другую базу знаний. При переносе между базами вставленные картинки и файлы едут вместе с заметками: свои переносятся, общие с другими заметками копируются. brokenLinks — заметки исходной базы, чьи ссылки на перенесённые оборвутся (ссылки внутри пачки не считаются).",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "notes": { "type": "array", "items": { "type": "string" }, "description": "Несколько заметок за один вызов; вместо note" },
                 "folder": { "type": "string", "description": "Папка назначения, пусто — корень базы" },
                 "workspace": workspace_property(),
                 "toWorkspace": { "type": "string", "description": "База назначения для переноса между базами: путь или имя из list_workspaces" },
             }),
-            &["note"],
+            &[],
         ),
         tool(
             "delete_note",
@@ -155,6 +156,9 @@ mod moves;
 mod read;
 #[cfg(test)]
 mod tests;
+mod transfer;
+#[cfg(test)]
+mod transfer_tests;
 
 use create::*;
 use edit::*;

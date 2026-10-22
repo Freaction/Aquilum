@@ -103,3 +103,15 @@ fn a_truncated_base_version_never_reaches_the_note() {
 
     assert_eq!(phone.read("Заметка.md").as_deref(), Some("ОДИН\nдва\nтри!\n"));
 }
+
+#[test]
+fn a_download_left_by_a_crash_is_cleared_by_the_next_pass() {
+    let remote = FakeRemote::default();
+    let device = Device::new();
+    std::fs::create_dir_all(device.staging()).unwrap();
+    std::fs::write(device.staging().join("оборванная загрузка"), "часть файла").unwrap();
+
+    device.sync(&remote);
+
+    assert!(!device.staging().join("оборванная загрузка").exists());
+}

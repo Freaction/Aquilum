@@ -133,8 +133,15 @@ impl App {
         }
         if let Some(payload) = self.updater.take_ready() {
             let _ = root.redraw();
-            if let Err(error) = crate::updater::apply(&payload, || self.shutdown()) {
+            let mut closed = false;
+            if let Err(error) = crate::updater::apply(&payload, || {
+                self.shutdown();
+                closed = true;
+            }) {
                 report!("обновление не установлено: {error}");
+                if closed {
+                    std::process::exit(1);
+                }
                 self.updater.fail(error);
             }
         }

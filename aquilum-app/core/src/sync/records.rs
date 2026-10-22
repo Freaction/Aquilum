@@ -49,11 +49,9 @@ impl Records {
     }
 
     fn prepare(connection: Connection) -> rusqlite::Result<Self> {
+        connection.execute_batch(crate::SQLITE_PRAGMAS)?;
         connection.execute_batch(
-            "PRAGMA journal_mode = WAL;
-             PRAGMA synchronous = NORMAL;
-             PRAGMA busy_timeout = 2000;
-             CREATE TABLE IF NOT EXISTS records (
+            "CREATE TABLE IF NOT EXISTS records (
                  path TEXT PRIMARY KEY,
                  hash TEXT NOT NULL,
                  size INTEGER NOT NULL,

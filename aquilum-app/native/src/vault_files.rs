@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use aquilum_core::Core;
 use aquilum_core::files::gate;
@@ -6,13 +6,17 @@ use aquilum_core::files::error::FileCommandError;
 
 use crate::file_ops::{first_free, sanitize_file_name};
 
-pub fn normalize_folder(folder: &str) -> String {
+pub fn normalize_folder(folder: &str, fallback: &str) -> String {
     let segments: Vec<&str> = folder
         .split(['/', '\\'])
         .map(str::trim)
         .filter(|s| !s.is_empty() && *s != "." && *s != ".." && !s.contains(':'))
         .collect();
-    if segments.is_empty() { "Files".to_owned() } else { segments.join("/") }
+    if segments.is_empty() { fallback.to_owned() } else { segments.join("/") }
+}
+
+pub fn notes_dir(core: &Core, workspace: &Path) -> PathBuf {
+    crate::paths::absolute(workspace, &normalize_folder(&core.settings.get_config().files.notes, ""))
 }
 
 fn split_name(name: &str, fallback_ext: &str) -> (String, String) {
@@ -32,7 +36,7 @@ pub enum Source<'a> {
 }
 
 pub fn import(core: &Core, workspace: &Path, source: Source<'_>, fallback_name: &str, fallback_ext: &str) -> Result<String, FileCommandError> {
-    let folder = normalize_folder(&core.settings.get_config().files.folder);
+    let folder = normalize_folder(&core.settings.get_config().files.folder, "Files");
     std::fs::create_dir_all(workspace.join(&folder))?;
     let original = match &source {
         Source::Path(path) => path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
@@ -70,8 +74,8 @@ mod tests {
 
     #[test]
     fn folder_and_names() {
-        assert_eq!(normalize_folder(" a / ../b\\c: /"), "a/b");
-        assert_eq!(normalize_folder(""), "Files");
+        assert_eq!(normalize_folder(" a / ../b\\c: /", "Files"), "a/b");
+        assert_eq!((normalize_folder("", "Files"), normalize_folder(" / ", "")), ("Files".into(), String::new()));
         assert_eq!(split_name("Обложка.PNG", "jpg"), ("Обложка".into(), "png".into()));
         assert_eq!(split_name(".hidden", "jpg"), (".hidden".into(), "jpg".into()));
         let root = Path::new("C:/vault");

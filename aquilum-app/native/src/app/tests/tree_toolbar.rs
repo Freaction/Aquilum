@@ -144,3 +144,23 @@ fn search_button_in_the_rail_opens_the_omni_search() {
     press(&mut h, search);
     assert!(matches!(h.app.popup, Some(Popup::Search(_))), "омнипоиск не открылся");
 }
+
+#[test]
+fn new_notes_go_to_the_folder_from_settings() {
+    let mut h = Harness::new();
+    let mut config = h.config();
+    config.files.notes = " Входящие/ ".into();
+    h.app.workspace.core.settings.update_config(config).unwrap();
+    let (vault, inbox) = (h.vault.path().to_path_buf(), h.vault.path().join("Входящие"));
+
+    assert!(h.app.new_note(&mut h.root));
+    let [new_note, ..] = h.app.tree.toolbar_ids().unwrap();
+    press(&mut h, new_note);
+    h.app.open_target(&mut h.root, crate::links::Target::Wiki("Идея".into()), false);
+    h.app.open_target(&mut h.root, crate::links::Target::Wiki("Проекты/План".into()), false);
+
+    for created in [inbox.join("Без названия.md"), inbox.join("Без названия 1.md"), inbox.join("Идея.md"), vault.join("Проекты").join("План.md")] {
+        assert!(created.is_file(), "{}", created.display());
+    }
+    assert!(!vault.join("Без названия.md").exists() && !vault.join("Идея.md").exists(), "заметка попала в корень");
+}

@@ -4,7 +4,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use aquilum_core::search::hits::query_matcher;
-use aquilum_core::search::query::{Request, analyzed_query_terms};
+use aquilum_core::search::query::{Request, stems};
 use aquilum_core::text::matcher::{IGNORE_CASE, Matcher};
 
 use crate::memory_probe::heap;
@@ -27,7 +27,7 @@ fn core_query(core: &aquilum_core::Core, workspace: &str, query: &str) {
 
 fn breakdown(note: &Path, query: &str) {
     let body = aquilum_core::files::document::read_text(note).unwrap();
-    let matcher = query_matcher(&analyzed_query_terms(query));
+    let matcher = query_matcher(&stems(query));
     let (matches, all_ms, all_peak) = measured(|| matcher.find_all(&body));
     let (first, first_ms) = clock(|| matcher.first(&body).map_or(0, |found| found.start));
     let (heading, heading_ms, heading_peak) = measured(|| aquilum_core::search::headings::heading_at(&body, first));

@@ -1,7 +1,7 @@
 use super::locate;
 use crate::search::hits::query_matcher;
 use crate::search::pages::{Keys, Pages, Placed};
-use crate::search::query::analyzed_query_terms;
+use crate::search::query::stems;
 use crate::text::utf16::utf16_len;
 use std::collections::HashSet;
 use std::path::Path;
@@ -39,7 +39,7 @@ fn the_matching_page_is_read_directly_with_its_offset_and_section() {
     let (pages, hits) = placed(&path);
     assert!(pages.len() > 2, "заметка из нескольких страниц, страниц {}", pages.len());
 
-    let found = locate(&path, &pages, &hits, &query_matcher(&analyzed_query_terms(WORD))).expect("прыжок к странице");
+    let found = locate(&path, &pages, &hits, &query_matcher(&stems(WORD))).expect("прыжок к странице");
     assert_eq!(found.utf16, utf16_len(&text[..text.find(WORD).unwrap()]));
     assert_eq!(found.heading.as_deref(), Some("Финал"));
     assert!(found.snippet.contains(WORD));
@@ -48,7 +48,7 @@ fn the_matching_page_is_read_directly_with_its_offset_and_section() {
 #[test]
 fn a_shifted_or_changed_file_is_not_trusted() {
     let directory = tempfile::tempdir().unwrap();
-    let matcher = query_matcher(&analyzed_query_terms(WORD));
+    let matcher = query_matcher(&stems(WORD));
     let crlf = directory.path().join("Windows.md");
     std::fs::write(&crlf, note("\r\n")).unwrap();
     let (pages, hits) = placed(&crlf);

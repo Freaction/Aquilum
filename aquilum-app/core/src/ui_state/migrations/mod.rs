@@ -36,12 +36,7 @@ const STEPS: [Step; 8] = [
 const LATEST_VERSION: i64 = STEPS.len() as i64 + 1;
 
 pub fn migrate(connection: &Connection) -> Result<(), UiStateError> {
-    connection.execute_batch(
-        "PRAGMA foreign_keys = ON;
-         PRAGMA journal_mode = WAL;
-         PRAGMA synchronous = NORMAL;
-         PRAGMA busy_timeout = 2000;",
-    )?;
+    connection.execute_batch(crate::SQLITE_PRAGMAS)?;
     let version = connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
     let from = match version {
         0 => {

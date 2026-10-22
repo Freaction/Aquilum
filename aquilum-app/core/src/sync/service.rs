@@ -7,10 +7,11 @@ use super::state::{State, SyncStatus};
 use super::worker::{dropbox, work, Open};
 use super::{Account, Tokens};
 use crate::app_core::{Core, CoreEvent};
-use crate::files::missing_ok;
+use crate::files::{missing_ok, remove_matching};
 use crate::search::paths::canonical_path;
 use crate::settings::models::SyncSettings;
 use crate::web_agent::web_agent;
+use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -156,13 +157,21 @@ impl SyncService {
             let _ = waiting.join();
         }
     }
+
+    pub fn close(&self) {
+        self.stop_login();
+        self.shared.lock().closed = true;
+        self.shared.signal.notify_all();
+    }
+
+    pub fn prune(&self, keep: &HashSet<String>) {
+        remove_matching(&self.shared.folder, |name| name.split_once(".sqlite3").is_some_and(|(key, _)| !keep.contains(key)));
+    }
 }
 
 impl Drop for SyncService {
     fn drop(&mut self) {
-        self.stop_login();
-        self.shared.lock().closed = true;
-        self.shared.signal.notify_all();
+        self.close();
     }
 }
 

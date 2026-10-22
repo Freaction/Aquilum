@@ -18,9 +18,10 @@ pub struct Keys(HashMap<blake3::Hash, usize>);
 
 impl Keys {
     pub fn next(&mut self, path: &str, page: &Page) -> String {
-        let repeat = self.0.entry(page.hash).or_insert(0);
+        let hash = blake3::hash(page.text.as_bytes());
+        let repeat = self.0.entry(hash).or_insert(0);
         *repeat += 1;
-        format!("{path}\u{1f}{}\u{1f}{}{}", page.hash.to_hex(), *repeat - 1, if page.first { "^" } else { "" })
+        format!("{path}\u{1f}{}\u{1f}{}{}", hash.to_hex(), *repeat - 1, if page.first { "^" } else { "" })
     }
 }
 

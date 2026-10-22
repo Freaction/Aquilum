@@ -73,7 +73,7 @@
     "unavailable": "Search is unavailable",
     "unavailableHint": "Could not open the search index",
     "title": "Search the knowledge base",
-    "titleHint": "Type a note name or its text",
+    "titleHint": "A note name or its text. \"phrase\" — exact, -word — without it, #word — in a heading",
     "indexing": "Building the search index",
     "indexingHint": "Notes processed: {{count}}",
     "createHint": "{{shortcut}} — create a note",
@@ -318,6 +318,8 @@
     },
     "files": {
       "section": "Files and attachments",
+      "notes": "New notes folder",
+      "notesHint": "A path inside the knowledge base; empty — the root",
       "folder": "Attachments folder",
       "folderHint": "Folder in the knowledge base for pasted images, videos, covers and books"
     },

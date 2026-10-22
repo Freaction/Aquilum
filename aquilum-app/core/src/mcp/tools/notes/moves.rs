@@ -15,40 +15,25 @@ pub(super) fn rename_note(core: &Core, arguments: &Value) -> Result<Value, Strin
 pub(super) fn move_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note_argument(arguments)?;
-    let file_name = note
-        .file_name()
-        .ok_or("Не удалось определить имя файла")?
-        .to_owned();
-    let folder = optional_text(arguments, "folder").unwrap_or_default();
-
+    let notes = match optional_names(arguments, "notes")? {
+        Some(many) => many.iter().map(|name| vault.note(name)).collect::<Result<Vec<_>, _>>()?,
+        None => vec![vault.note_argument(arguments)?],
+    };
     let destination = match optional_text(arguments, "toWorkspace") {
         Some(input) => workspace_vault(core, &input)?,
         None => vault.clone(),
     };
-    let target = destination.folder(&folder)?.join(&file_name);
-    if destination.root == vault.root {
-        return relocate(core, &vault, &note, target, "moved");
+    let into = destination.folder(&optional_text(arguments, "folder").unwrap_or_default())?;
+    let targets = notes.iter().map(|note| note.file_name().map(|name| into.join(name)).ok_or("Не удалось определить имя файла")).collect::<Result<Vec<_>, _>>()?;
+    if destination.root != vault.root {
+        let mut moved = transfer::across(core, &vault, &destination, &notes, &targets)?;
+        if let [target] = targets.as_slice() {
+            moved["path"] = json!(destination.relative(target));
+        }
+        return Ok(moved);
     }
-    free(&destination, &target)?;
-
-    let broken = core
-        .search
-        .backlinks(&vault.root.to_string_lossy(), &note.to_string_lossy())
-        .map(|links| {
-            links
-                .iter()
-                .map(|link| vault.relative(Path::new(&link.path)))
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-
-    gate::move_across(core, &note, &target).map_err(|error| error.to_string())?;
-    Ok(json!({
-        "path": destination.relative(&target),
-        "workspace": destination.root.to_string_lossy(),
-        "brokenLinks": broken,
-    }))
+    let mut moved = notes.iter().zip(targets).map(|(note, target)| relocate(core, &vault, note, target, "moved")).collect::<Result<Vec<_>, _>>()?;
+    Ok(if moved.len() == 1 { moved.remove(0) } else { json!({ "moved": moved }) })
 }
 
 fn relocate(core: &Core, vault: &Vault, note: &Path, target: PathBuf, done: &str) -> Result<Value, String> {

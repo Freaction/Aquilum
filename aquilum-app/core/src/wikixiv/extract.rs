@@ -26,8 +26,7 @@ pub fn extract_queries(text: &str, document_path: Option<&str>) -> ExtractedQuer
     let body = strip_leading_heading(text);
     let labels = stem_surface_labels(title.as_deref().unwrap_or(""), &body);
 
-    let mut ranked: Vec<(String, u32)> = schema::token_statistics(&body)
-        .frequencies
+    let mut ranked: Vec<(String, u32)> = schema::term_frequencies(&body)
         .into_iter()
         .map(|(stem, frequency)| {
             let label = labels.get(&stem).cloned().unwrap_or_else(|| stem.clone());
@@ -211,8 +210,7 @@ fn looks_like_date_or_time(value: &str) -> bool {
 }
 
 fn significant_word_count(text: &str) -> usize {
-    schema::token_statistics(text)
-        .frequencies
+    schema::term_frequencies(text)
         .values()
         .map(|&count| count as usize)
         .sum()

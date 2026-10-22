@@ -66,9 +66,7 @@ impl SegmentTerms {
             }
             let query_tf = term.frequency as f64;
             let query_factor = (params.k3 as f64 + 1.0) * query_tf / (params.k3 as f64 + query_tf);
-            score += term.idf
-                * ((params.k1 as f64 + 1.0) * field_tf / (params.k1 as f64 + field_tf))
-                * query_factor;
+            score += term.idf * saturate(field_tf, params.k1 as f64) * query_factor;
         }
         (score, reasons)
     }
@@ -86,6 +84,10 @@ fn term_postings(
         postings.push(inverted.read_postings(&tantivy_term, IndexRecordOption::WithFreqs)?);
     }
     Ok(postings)
+}
+
+pub fn saturate(field_tf: f64, k1: f64) -> f64 {
+    (k1 + 1.0) * field_tf / (k1 + field_tf)
 }
 
 pub fn normalized_tf(tf: f64, length: u32, average_length: f64, b: f64) -> f64 {

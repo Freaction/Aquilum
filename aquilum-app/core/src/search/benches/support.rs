@@ -6,7 +6,24 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+const RUNS: u32 = 3;
+
+pub fn best(mut run: impl FnMut()) -> Duration {
+    (0..RUNS)
+        .map(|_| {
+            let started = Instant::now();
+            run();
+            started.elapsed()
+        })
+        .min()
+        .unwrap_or_default()
+}
+
+pub fn ms(value: Duration) -> f64 {
+    value.as_secs_f64() * 1000.0
+}
 
 pub fn write_note(vault: &Path, index: usize, paragraphs: usize) {
     let mut content = format!(
@@ -34,12 +51,12 @@ pub fn seed_vault(vault: &Path, document_count: usize) {
 }
 
 pub struct BenchIndex {
-    pub directory: tempfile::TempDir,
     pub vault: PathBuf,
     pub search_index: Arc<SearchIndex>,
     pub synchronizer: IndexSynchronizer,
     pub cancelled: AtomicBool,
     pub metadata: PathBuf,
+    pub directory: tempfile::TempDir,
 }
 
 pub fn open_bench_index(document_count: usize) -> BenchIndex {

@@ -92,8 +92,9 @@ impl App {
     }
 
     pub(super) fn create_note_titled(&mut self, root: &mut RenderRoot, title: Option<&str>) -> bool {
-        let Some(workspace) = self.tree.root().map(Path::to_path_buf) else { return false };
-        match file_ops::create_note(&self.workspace.core, &workspace, title) {
+        let Some(workspace) = self.tree.root() else { return false };
+        let folder = crate::vault_files::notes_dir(&self.workspace.core, workspace);
+        match file_ops::create_note(&self.workspace.core, &folder, title) {
             Ok(path) => {
                 self.tree.paths_changed(root, std::slice::from_ref(&path));
                 self.open(root, path)
@@ -106,7 +107,11 @@ impl App {
     }
 
     pub(super) fn create_note_in(&mut self, root: &mut RenderRoot, folder: &Path) -> bool {
-        match file_ops::create_note(&self.workspace.core, folder, None) {
+        let folder = match self.tree.root() {
+            Some(vault) if vault == folder => crate::vault_files::notes_dir(&self.workspace.core, vault),
+            _ => folder.to_path_buf(),
+        };
+        match file_ops::create_note(&self.workspace.core, &folder, None) {
             Ok(path) => {
                 self.tree.paths_changed(root, std::slice::from_ref(&path));
                 self.tree.reveal(root, &path);

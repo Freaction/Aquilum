@@ -57,6 +57,7 @@ pub struct Outcome {
 }
 
 pub fn run(vault: &Vault<'_>) -> Result<Outcome, SyncError> {
+    let _ = std::fs::remove_dir_all(vault.staging);
     let remote = Halt { inner: vault.remote, watch: vault.watch };
     let vault = &Vault { remote: &remote, ..*vault };
     let records = vault.records.all()?;

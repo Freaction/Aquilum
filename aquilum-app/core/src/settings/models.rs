@@ -241,11 +241,12 @@ impl Default for TemplateSettings {
 #[serde(rename_all = "camelCase", default)]
 pub struct FilesSettings {
     pub folder: String,
+    pub notes: String,
 }
 
 impl Default for FilesSettings {
     fn default() -> Self {
-        Self { folder: "Files".to_string() }
+        Self { folder: "Files".to_string(), notes: String::new() }
     }
 }
 
