@@ -59,7 +59,7 @@ jobs:
           Move-Item "$($setup.FullName).sig" "$dist\$name.sig"
           Get-ChildItem $dist
 
-      - name: Update over 0.2.6, launch, close, uninstall
+      - name: Update over the previous release, launch, close, uninstall
         timeout-minutes: 10
         shell: pwsh
         env:
@@ -79,11 +79,13 @@ jobs:
           $uninstall = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
           $data = "$env:APPDATA\com.dmitriy.aquilum-app"
 
-          gh release download v0.2.6 -R Freaction/Aquilum -p 'Aquilum_0.2.6_x64-setup.exe' -D old
-          (Start-Process old\Aquilum_0.2.6_x64-setup.exe -ArgumentList '/S' -PassThru).WaitForExit()
+          $previous = gh release view -R Freaction/Aquilum --json tagName --jq .tagName
+          gh release download $previous -R Freaction/Aquilum -p '*_x64-setup.exe' -D old
+          $old = Get-ChildItem old\*_x64-setup.exe | Select-Object -First 1
+          (Start-Process $old.FullName -ArgumentList '/S' -PassThru).WaitForExit()
           $installed = (Get-ItemProperty "$uninstall\Aquilum").DisplayVersion
           "installed before update: $installed"
-          if ($installed -ne '0.2.6') { throw "0.2.6 is not installed" }
+          if ("v$installed" -ne $previous) { throw "$previous is not installed" }
           Add-Content -Path "$env:SystemRoot\System32\drivers\etc\hosts" -Value "127.0.0.1 github.com`n127.0.0.1 api.github.com`n127.0.0.1 objects.githubusercontent.com"
           Start-Process "$dir\aquilum-app.exe" | Out-Null
           Start-Sleep -Seconds 10
@@ -341,7 +343,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download v0.2.6 -R Freaction/Aquilum -p 'Aquilum_0.2.6_amd64.deb' -D old
+          previous=$(gh release view -R Freaction/Aquilum --json tagName --jq .tagName)
+          gh release download "$previous" -R Freaction/Aquilum -p '*_amd64.deb' -D old
           cat > check.sh <<'EOF'
           set -e
           missing=$(ldd /usr/bin/aquilum-app | grep 'not found' || true)
@@ -361,14 +364,22 @@ jobs:
           kill $pid
           echo "runs on $(. /etc/os-release; echo $PRETTY_NAME)"
           EOF
+          pids=()
           for image in ubuntu:22.04 ubuntu:24.04; do
             docker run --rm -v "$PWD/dist:/dist" -v "$PWD/check.sh:/check.sh" -e DEBIAN_FRONTEND=noninteractive "$image" bash -c \
-              "apt-get update -qq && apt-get install -y -qq /dist/Aquilum_${VERSION}_amd64.deb xvfb >/dev/null && dpkg-query -W aquilum && bash /check.sh"
+              "apt-get update -qq && apt-get install -y -qq /dist/Aquilum_${VERSION}_amd64.deb xvfb >/dev/null && dpkg-query -W aquilum && bash /check.sh" > "log-${image/:/-}.txt" 2>&1 &
+            pids+=($!)
           done
           docker run --rm -v "$PWD/dist:/dist" -v "$PWD/old:/old" -e DEBIAN_FRONTEND=noninteractive ubuntu:22.04 bash -c \
-            "apt-get update -qq && apt-get install -y -qq /old/Aquilum_0.2.6_amd64.deb >/dev/null && dpkg-query -W aquilum && apt-get install -y -qq /dist/Aquilum_${VERSION}_amd64.deb >/dev/null && dpkg-query -W aquilum | grep -q '${VERSION}' && echo 'deb upgrade from 0.2.6 ok'"
+            "apt-get update -qq && apt-get install -y -qq /old/*_amd64.deb >/dev/null && dpkg-query -W aquilum && apt-get install -y -qq /dist/Aquilum_${VERSION}_amd64.deb >/dev/null && dpkg-query -W aquilum | grep -q '${VERSION}' && echo 'deb upgrade from $previous ok'" > log-upgrade.txt 2>&1 &
+          pids+=($!)
           docker run --rm -v "$PWD/dist:/dist" -v "$PWD/check.sh:/check.sh" fedora:latest bash -c \
-            "dnf install -y -q /dist/Aquilum-${VERSION}-1.x86_64.rpm xorg-x11-server-Xvfb >/dev/null && rpm -q aquilum && bash /check.sh"
+            "dnf install -y -q /dist/Aquilum-${VERSION}-1.x86_64.rpm xorg-x11-server-Xvfb >/dev/null && rpm -q aquilum && bash /check.sh" > log-fedora.txt 2>&1 &
+          pids+=($!)
+          failed=0
+          for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
+          for log in log-*.txt; do echo "== $log"; cat "$log"; done
+          exit $failed
 
       - uses: actions/upload-artifact@v7
         with:
