@@ -352,6 +352,11 @@ jobs:
           for lib in libxkbcommon.so.0 libxkbcommon-x11.so.0 libX11.so.6 libX11-xcb.so.1 libXcursor.so.1 libXrandr.so.2 libXi.so.6 libxcb.so.1 libwayland-client.so.0; do
             ldconfig -p | grep -q "$lib" || { echo "missing $lib"; exit 1; }
           done
+          if command -v dpkg > /dev/null 2>&1; then
+            dpkg -l xdg-desktop-portal | grep -q '^ii' || { echo "xdg-desktop-portal not installed as dependency"; exit 1; }
+          elif command -v rpm > /dev/null 2>&1; then
+            rpm -q xdg-desktop-portal || { echo "xdg-desktop-portal not installed as dependency"; exit 1; }
+          fi
           mkdir -p /tmp/vault /tmp/data
           printf '# Test\n' > /tmp/vault/Test.md
           Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
