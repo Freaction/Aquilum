@@ -31,14 +31,14 @@ fn circuit_breaker_stops_loop_and_requires_manual_download() {
     assert_eq!(u1.status(), Status::Idle);
 
     // 2. Симулируем попытку применения обновления (попытка 1)
-    u1.record_attempt("0.3.17", "https://github.com/Freaction/Aquilum/releases/download/v0.3.17/setup.exe");
+    u1.record_attempt("99.0.0", "https://github.com/Freaction/Aquilum/releases/download/v99.0.0/setup.exe");
 
     // 3. Перезапуск всё ещё на старой версии (попытка 1 < MAX_ATTEMPTS)
     let u2 = Updater::new(data_dir.clone(), Arc::clone(&wake));
     assert_eq!(u2.status(), Status::Idle);
 
     // 4. Вторая попытка применения обновления (попытка 2)
-    u2.record_attempt("0.3.17", "https://github.com/Freaction/Aquilum/releases/download/v0.3.17/setup.exe");
+    u2.record_attempt("99.0.0", "https://github.com/Freaction/Aquilum/releases/download/v99.0.0/setup.exe");
 
     // 5. Перезапуск снова на старой версии: срабатывает предохранитель цикла (Circuit Breaker)!
     let u3 = Updater::new(data_dir.clone(), Arc::clone(&wake));
@@ -46,8 +46,8 @@ fn circuit_breaker_stops_loop_and_requires_manual_download() {
     assert_eq!(
         status,
         Status::ManualRequired {
-            version: "0.3.17".into(),
-            url: "https://github.com/Freaction/Aquilum/releases/download/v0.3.17/setup.exe".into(),
+            version: "99.0.0".into(),
+            url: "https://github.com/Freaction/Aquilum/releases/download/v99.0.0/setup.exe".into(),
         }
     );
 
@@ -56,8 +56,8 @@ fn circuit_breaker_stops_loop_and_requires_manual_download() {
     assert_eq!(
         u3.status(),
         Status::ManualRequired {
-            version: "0.3.17".into(),
-            url: "https://github.com/Freaction/Aquilum/releases/download/v0.3.17/setup.exe".into(),
+            version: "99.0.0".into(),
+            url: "https://github.com/Freaction/Aquilum/releases/download/v99.0.0/setup.exe".into(),
         }
     );
     assert_eq!(u3.take_ready(), None);

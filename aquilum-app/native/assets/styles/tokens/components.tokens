@@ -97,6 +97,9 @@
   --q-editor-list-indent-width: var(--q-space-24);
   --q-editor-list-padding-inline-start: var(--q-space-12);
   --q-editor-list-marker-color: var(--q-text-muted);
+  --q-editor-list-guide-gap: var(--q-space-12);
+  --q-editor-list-guide-width: var(--q-border-1);
+  --q-editor-list-guide-color: color-mix(in srgb, var(--q-editor-list-marker-color) 35%, transparent);
   --q-editor-table-border: var(--q-border-solid);
   --q-editor-table-cell-padding: var(--q-space-8);
   --q-editor-table-add-bg: var(--q-bg-surface);
