@@ -1,3 +1,4 @@
+mod cloud;
 mod row;
 
 use std::path::{Path, PathBuf};
@@ -13,13 +14,15 @@ use masonry::properties::{Gap, Padding};
 use masonry::widgets::Flex;
 
 use super::dialog::{CardSize, Modal, header};
+use super::handle::Handle;
 use super::scroll::ScrollArea;
 use super::text::selectable;
 use super::tokens::size;
-use super::widgets::{IconButton, Leading, Rule, TextButton, Variant};
+use super::widgets::{IconButton, Leading, Rule, Slot, TextButton, Variant};
 use super::{icons, search, theme};
 use crate::i18n::{t, t_with};
 
+pub use cloud::{Cloud, section as cloud_section};
 pub use row::{RowAction, WorkspaceRow};
 
 pub struct WorkspaceDialog {
@@ -27,9 +30,10 @@ pub struct WorkspaceDialog {
     pub close: WidgetId,
     pub open_folder: WidgetId,
     pub rows: Vec<(WidgetId, PathBuf, uuid::Uuid)>,
+    pub cloud: Option<Handle<Slot>>,
 }
 
-pub fn dialog(workspaces: &[(uuid::Uuid, String)], current: Option<&Path>, error: Option<&str>) -> (NewWidget<Modal>, WorkspaceDialog) {
+pub fn dialog(workspaces: &[(uuid::Uuid, String)], current: Option<&Path>, error: Option<&str>, cloud: bool) -> (NewWidget<Modal>, WorkspaceDialog) {
     let close = NewWidget::new(IconButton::new(icons::X, t("workspaces.close")));
     let close_id = close.id();
     let mut list = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch);
@@ -42,6 +46,11 @@ pub fn dialog(workspaces: &[(uuid::Uuid, String)], current: Option<&Path>, error
         let row = WorkspaceRow::new(path, is_current);
         rows.push((row.id(), PathBuf::from(path), *id));
         list = list.with_fixed(row);
+    }
+    let cloud = cloud.then(|| Slot::fit(cloud_section(Cloud::Loading).0));
+    let cloud_slot = cloud.as_ref().map(Handle::of);
+    if let Some(cloud) = cloud {
+        list = list.with_fixed(cloud);
     }
     let list = NewWidget::new(list).with_props(
         PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))).with(Padding::all(Length::px(size::DIALOG_PADDING))),
@@ -64,7 +73,7 @@ pub fn dialog(workspaces: &[(uuid::Uuid, String)], current: Option<&Path>, error
     }
     let card = card.with_fixed(border()).with_fixed(footer);
     let layer = Modal::new(NewWidget::new(card), &t("workspaces.title"), CardSize::Window(card_size), Role::Dialog, false);
-    let ids = WorkspaceDialog { layer: layer.id(), close: close_id, open_folder: open_id, rows };
+    let ids = WorkspaceDialog { layer: layer.id(), close: close_id, open_folder: open_id, rows, cloud: cloud_slot };
     (layer, ids)
 }
 

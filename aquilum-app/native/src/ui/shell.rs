@@ -1,3 +1,7 @@
+mod scrim;
+mod stage;
+
+use masonry::app::RenderRoot;
 use masonry::core::{NewWidget, Widget, WidgetId};
 use masonry::properties::types::CrossAxisAlignment;
 use masonry::widgets::{Flex, IndexedStack, SizedBox};
@@ -10,6 +14,8 @@ use super::sidebar::sidebar;
 use super::titlebar::TabStrip;
 use super::widgets::{Collapse, Slot, Visible};
 use super::{backlinks, style, workspaces};
+use crate::interface::Screen;
+use stage::Stage;
 
 pub struct Chrome {
     pub toggle_sidebar: WidgetId,
@@ -40,6 +46,18 @@ pub struct Chrome {
     pub graph_button: Option<WidgetId>,
     pub focus_hidden: Vec<Handle<Visible>>,
     pub focus_shown: Handle<Visible>,
+    pub drawer: WidgetId,
+    pub scrim: WidgetId,
+    drawer_shown: Handle<Visible>,
+    stage: Handle<Stage>,
+}
+
+impl Chrome {
+    pub fn set_screen(&self, root: &mut RenderRoot, screen: Screen) {
+        self.stage.edit(root, |mut stage| Stage::set_screen(&mut stage, screen));
+        self.drawer_shown.edit(root, |mut shown| Visible::set_shown(&mut shown, screen.compact));
+        self.tab_strip.edit(root, |mut strip| TabStrip::set_compact(&mut strip, screen.compact));
+    }
 }
 
 pub struct RootParts<'a> {
@@ -62,17 +80,18 @@ pub struct RootParts<'a> {
     pub home: bool,
     pub graph: Option<NewWidget<dyn Widget>>,
     pub graph_active: bool,
+    pub screen: Screen,
 }
 
 pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<impl Widget>, Chrome) {
-    let RootParts { workspace_name, note, sidebar_open, sidebar_from, sidebar_width, panel_width, tabs, active_tab, empty_tab, vault_open, vault_error, panel_open, panel_from, panel_mode, has_analysis, focus_mode, home, graph, graph_active } = parts;
+    let RootParts { workspace_name, note, sidebar_open, sidebar_from, sidebar_width, panel_width, tabs, active_tab, empty_tab, vault_open, vault_error, panel_open, panel_from, panel_mode, has_analysis, focus_mode, home, graph, graph_active, screen } = parts;
 
     let rail = rail(sidebar_open, home, focus_mode);
     let sidebar = sidebar(tree, workspace_name, sidebar_width, sidebar_open && !focus_mode, sidebar_from);
 
     let note_page = Slot::new(note);
     let note_handle = Handle::of(&note_page);
-    let titlebar = titlebar(tabs, active_tab, panel_open, panel_from, focus_mode);
+    let titlebar = titlebar(tabs, active_tab, panel_open, panel_from, focus_mode, screen.compact);
     let focus_hidden = vec![titlebar.toggle_shown];
     let (panel, panel_handle, panel_parts) = backlinks::panel(panel_mode, has_analysis, panel_width, panel_open, panel_from);
     let (empty, create_note, open_file, close_tab) = new_tab_view();
@@ -96,12 +115,10 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
         .with_fixed(titlebar.widget)
         .with(pages, 1.0);
 
-    let window = Flex::row()
-        .cross_axis_alignment(CrossAxisAlignment::Stretch)
-        .with_fixed(rail.widget)
-        .with_fixed(sidebar.widget)
-        .with(NewWidget::new(main).with_class(style::CANVAS), 1.0)
-        .with_fixed(panel);
+    let main = NewWidget::new(main).with_class(style::CANVAS).erased();
+    let stage = Stage::new(main, [rail.widget.erased(), sidebar.widget.erased(), panel.erased()], screen);
+    let scrim = stage.widget.scrim();
+    let stage_handle = Handle::of(&stage);
     let chrome = Chrome {
         toggle_sidebar: rail.toggle_sidebar,
         settings: sidebar.settings,
@@ -131,6 +148,10 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
         graph_button: rail.graph_button,
         focus_hidden,
         focus_shown: titlebar.settings_shown,
+        drawer: titlebar.drawer,
+        scrim,
+        drawer_shown: titlebar.drawer_shown,
+        stage: stage_handle,
     };
-    (NewWidget::new(window), chrome)
+    (NewWidget::new(SizedBox::new(stage)).with_class(style::TABS), chrome)
 }

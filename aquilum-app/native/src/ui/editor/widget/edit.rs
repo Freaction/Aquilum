@@ -90,6 +90,18 @@ impl TextEditor {
         }
     }
 
+    pub(super) fn delete_to_line_start(&mut self) {
+        let range = self.selection();
+        if !range.is_empty() {
+            self.replace(range, "", Kind::Other);
+            return;
+        }
+        let (target, _) = self.line_edge(false);
+        if target < self.focus {
+            self.replace(target..self.focus, "", Kind::Other);
+        }
+    }
+
     pub(super) fn undo(&mut self, redo: bool) -> bool {
         self.leave_table();
         let Some(step) = self.history.take(redo) else { return false };
@@ -137,5 +149,14 @@ mod tests {
         assert_eq!(editor.doc.whole(), "Xab\nXcd\nXef");
         editor.undo(false);
         assert_eq!(editor.doc.whole(), "ab\ncd\nef");
+    }
+
+    #[test]
+    fn delete_to_line_start_removes_text_from_line_beginning_to_caret() {
+        let mut editor = TextEditor::new("первая строка\nвторая строка");
+        let at = "первая строка\nвторая ".len();
+        (editor.anchor, editor.focus) = (at, at);
+        editor.delete_to_line_start();
+        assert_eq!(editor.doc.whole(), "первая строка\nстрока");
     }
 }

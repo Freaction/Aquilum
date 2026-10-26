@@ -73,5 +73,9 @@ pub fn blend(under: u32, color: [f32; 4], coverage: f32) -> u32 {
         let dest = ((under >> shift) & 0xff) as f32;
         ((dest * (1.0 - a) + value * 255.0 * coverage).round().clamp(0.0, 255.0) as u32) << shift
     };
-    0xff00_0000 | channel(16, color[0]) | channel(8, color[1]) | channel(0, color[2])
+    #[cfg(target_os = "android")]
+    let (r_shift, b_shift) = (0, 16);
+    #[cfg(not(target_os = "android"))]
+    let (r_shift, b_shift) = (16, 0);
+    0xff00_0000 | channel(r_shift, color[0]) | channel(8, color[1]) | channel(b_shift, color[2])
 }

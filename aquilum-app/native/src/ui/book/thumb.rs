@@ -69,17 +69,16 @@ impl Widget for Thumbnail {
         if key.state != KeyState::Down {
             return;
         }
-        let paste = keymap::command(&[Scope::Text], &key.key, key.modifiers) == Some(Command::Paste);
-        match &key.key {
-            _ if paste => {
+        match keymap::command(&[Scope::Text, Scope::Image], &key.key, key.modifiers) {
+            Some(Command::Paste) => {
                 ctx.submit_action::<ThumbAction>(ThumbAction::Paste);
                 ctx.set_handled();
             }
-            Key::Named(NamedKey::Backspace | NamedKey::Delete) => {
+            Some(Command::ImageDelete) => {
                 ctx.submit_action::<ThumbAction>(ThumbAction::Remove);
                 ctx.set_handled();
             }
-            Key::Named(NamedKey::Escape) => {
+            Some(Command::Close) => {
                 ctx.resign_focus();
                 ctx.set_handled();
             }

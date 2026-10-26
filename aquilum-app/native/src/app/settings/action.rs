@@ -99,18 +99,22 @@ impl App {
         }
 
         let closing = (id == dialog.layer && matches!(action.downcast_ref::<DialogAnswer>(), Some(DialogAnswer::Cancel)))
-            || (id == dialog.close && action.downcast_ref::<Pressed>().is_some());
+            || (dialog.is_close(id) && action.downcast_ref::<Pressed>().is_some());
         if closing {
             crate::ui::dialog::close(root, dialog.layer);
             return Outcome::default();
         }
 
-        if action.downcast_ref::<Pressed>().is_some()
-            && let Some(&(_, section)) = dialog.nav.iter().find(|(nav, _)| *nav == id)
-        {
-            self.select_section(root, &mut dialog, section);
-            self.popup = Some(Popup::Settings { dialog, menu: None });
-            return Outcome::default();
+        if action.downcast_ref::<Pressed>().is_some() {
+            let section = dialog.nav.iter().find(|(nav, _)| *nav == id).map(|&(_, section)| section);
+            if let Some(section) = section {
+                self.select_section(root, &mut dialog, section);
+            }
+            if section.is_some() || id == dialog.back {
+                dialog.show_list(root, section.is_none());
+                self.popup = Some(Popup::Settings { dialog, menu: None });
+                return Outcome::default();
+            }
         }
 
         let (mut effect, menu) = self.on_binding(root, &mut dialog.bindings, id, action);

@@ -1,5 +1,6 @@
 mod graph;
 mod metadata;
+mod screen;
 #[cfg(test)]
 mod tests;
 
@@ -9,6 +10,7 @@ use aquilum_core::files::document::write_content_atomic;
 use serde::{Deserialize, Serialize};
 
 pub use graph::GraphPrefs;
+pub use screen::{Screen, WidthClass, drawer_width};
 
 pub const MIN_SCALE: f64 = 0.7;
 pub const MAX_SCALE: f64 = 1.5;
@@ -64,6 +66,7 @@ impl Default for State {
 pub struct Interface {
     path: PathBuf,
     state: State,
+    screen: Screen,
 }
 
 impl Interface {
@@ -76,7 +79,7 @@ impl Interface {
         if !(MIN_SCALE..=MAX_SCALE).contains(&state.scale) {
             state.scale = 1.0;
         }
-        Interface { path, state }
+        Interface { path, state, screen: Screen::default() }
     }
 
     pub fn right_open(&self) -> bool {
@@ -141,7 +144,7 @@ impl Interface {
     }
 
     pub fn focus_mode(&self) -> bool {
-        self.state.focus_mode
+        self.state.focus_mode && !self.screen.compact
     }
 
     pub fn set_focus_mode(&mut self, focus: bool) {

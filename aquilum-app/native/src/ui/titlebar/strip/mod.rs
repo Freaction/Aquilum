@@ -15,10 +15,11 @@ pub struct TabStrip {
     settle: Option<(usize, f64)>,
     active: usize,
     follow: bool,
+    compact: bool,
 }
 
 impl TabStrip {
-    pub fn new(tabs: Vec<NewWidget<dyn Widget>>, active: usize) -> NewWidget<Self> {
+    pub fn new(tabs: Vec<NewWidget<dyn Widget>>, active: usize, compact: bool) -> NewWidget<Self> {
         NewWidget::new(TabStrip {
             tabs: tabs.into_iter().map(NewWidget::to_pod).collect(),
             pan: Pan::default(),
@@ -28,7 +29,16 @@ impl TabStrip {
             settle: None,
             active,
             follow: true,
+            compact,
         })
+    }
+
+    pub fn set_compact(this: &mut WidgetMut<'_, Self>, compact: bool) {
+        if this.widget.compact != compact {
+            this.widget.compact = compact;
+            this.widget.follow = true;
+            this.ctx.request_layout();
+        }
     }
 
     pub fn set_tabs(this: &mut WidgetMut<'_, Self>, tabs: Vec<NewWidget<dyn Widget>>, active: usize) {
@@ -57,10 +67,10 @@ impl Widget for TabStrip {
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         match event {
             PointerEvent::Scroll(PointerScrollEvent { delta, .. }) => self.pan.wheel(ctx, delta),
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
+            PointerEvent::Down(e) if pointer::press(e.button) => {
                 let x = ctx.local_position(e.state.position).x + self.pan.offset;
                 match self.boxes.iter().position(|&(left, width)| x >= left && x < left + width) {
-                    Some(from) => self.reorder = Some(Reorder::new(from, x)),
+                    Some(from) => self.reorder = Some(Reorder::new(from, x, pointer::drag_slop(e.pointer.pointer_type))),
                     None => drag_or_maximize(ctx, event),
                 }
             }
@@ -99,12 +109,13 @@ impl Widget for TabStrip {
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
-        let mut widths = Vec::with_capacity(self.tabs.len());
-        for tab in &mut self.tabs {
-            let context = LayoutSize::maybe(Axis::Vertical, Some(Length::px(size_.height)));
-            let width = ctx.compute_length(tab, LenReq::MaxContent.into(), context, Axis::Horizontal, Some(Length::px(size_.height))).get();
-            widths.push(width);
-        }
+        let height = Some(Length::px(size_.height));
+        let compact = self.compact;
+        let widths: Vec<f64> = self
+            .tabs
+            .iter_mut()
+            .map(|tab| if compact { size_.width } else { ctx.compute_length(tab, LenReq::MaxContent.into(), LayoutSize::maybe(Axis::Vertical, height), Axis::Horizontal, height).get() })
+            .collect();
         self.follow |= self.pan.resize(widths.iter().sum(), size_.width);
         self.boxes = widths.iter().scan(0.0, |x, &width| Some((std::mem::replace(x, *x + width), width))).collect();
         if let Some(&(left, width)) = self.boxes.get(self.active).filter(|_| std::mem::take(&mut self.follow)) {

@@ -76,7 +76,7 @@ pub fn footer() -> NewWidget<Flex> {
 }
 
 pub fn template_footer() -> NewWidget<Flex> {
-    hints(&[(arrows(), t("search.navigate")), (key(Command::ListOpen), t("search.open")), (key(Command::Close), t("templateDialog.close"))])
+    hints(&[(arrows(), t("search.navigate")), (key(Command::ListOpen), t("search.open")), (keymap::label(Scope::Dialog, Command::Close), t("templateDialog.close"))])
 }
 
 pub fn dialog_card(head: NewWidget<Flex>, body: NewWidget<Slot>, footer: NewWidget<Flex>) -> NewWidget<Flex> {

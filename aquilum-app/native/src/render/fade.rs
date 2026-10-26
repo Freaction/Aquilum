@@ -6,7 +6,7 @@ use masonry::imaging::Painter as Sink;
 use masonry::imaging::record::replay_transformed;
 use masonry::kurbo::{Affine, Rect};
 use masonry::peniko::{Color, ImageBrush};
-use vello_cpu::{PixelFormat, Pixmap, PixmapMut, RasterizerSettings, TargetInit};
+use vello_cpu::{Pixmap, PixmapMut, RasterizerSettings, TargetInit};
 
 use super::paint::PaintError;
 use super::renderer::Renderer;
@@ -21,20 +21,38 @@ pub struct Fade {
     pub alpha: f32,
 }
 
-thread_local! {
-    static FADES: RefCell<HashMap<u64, Fade>> = RefCell::new(HashMap::new());
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub struct LayerState {
+    pub fade: Option<Fade>,
+    pub covers: bool,
 }
 
-pub fn publish(id: u64, fade: Fade) {
-    FADES.with_borrow_mut(|f| f.insert(id, fade));
+thread_local! {
+    static LAYERS: RefCell<HashMap<u64, LayerState>> = RefCell::new(HashMap::new());
+}
+
+pub fn publish_fade(id: u64, fade: Fade) {
+    LAYERS.with_borrow_mut(|m| {
+        let entry = m.entry(id).or_default();
+        entry.fade = Some(fade);
+        entry.covers = false;
+    });
+}
+
+pub fn publish_covers(id: u64, covers: bool) {
+    LAYERS.with_borrow_mut(|m| {
+        let entry = m.entry(id).or_default();
+        entry.fade = None;
+        entry.covers = covers;
+    });
 }
 
 pub fn forget(id: u64) {
-    FADES.with_borrow_mut(|f| f.remove(&id));
+    LAYERS.with_borrow_mut(|m| m.remove(&id));
 }
 
-pub(super) fn get(id: u64) -> Option<Fade> {
-    FADES.with_borrow(|f| f.get(&id).copied())
+pub(super) fn get(id: u64) -> LayerState {
+    LAYERS.with_borrow(|m| m.get(&id).copied().unwrap_or_default())
 }
 
 pub(super) struct Cached {
@@ -79,7 +97,7 @@ impl Renderer {
             stamps.save(&mut target, window);
             let Target { pixels, width, height } = target;
             let pixmap = PixmapMut::new(width, height, bytemuck::cast_slice_mut(&mut *pixels)).expect("холст вывода");
-            let settings = RasterizerSettings { target_init: TargetInit::SrcOver, pixel_format: PixelFormat::Bgra8, offset: (0, 0) };
+            let settings = RasterizerSettings { target_init: TargetInit::SrcOver, pixel_format: crate::render::PIXEL_FORMAT, offset: (0, 0) };
             painter.ctx.render_with(pixmap, &mut painter.resources, settings);
         });
         Ok(Some(window))

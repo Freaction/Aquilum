@@ -5,13 +5,18 @@ use super::table::BINDINGS;
 use super::{Command, Scope, command};
 
 const WIDGETS: &[&[Scope]] = &[
-    &[Scope::Text, Scope::Editor, Scope::Navigation],
-    &[Scope::Text, Scope::Navigation, Scope::Table],
+    &[Scope::Text, Scope::Editor, Scope::Navigation, Scope::Caret],
+    &[Scope::Text, Scope::Navigation, Scope::Table, Scope::Caret],
     &[Scope::Image],
+    &[Scope::Text, Scope::Image],
     &[Scope::List, Scope::Navigation],
     &[Scope::List],
     &[Scope::Find],
     &[Scope::Text, Scope::Reader],
+    &[Scope::Dialog],
+    &[Scope::Slider],
+    &[Scope::Choice],
+    &[Scope::Number],
 ];
 
 fn press(chord: &Chord) -> (Key, Modifiers) {
@@ -58,8 +63,13 @@ fn every_shortcut_is_listed_in_settings_with_both_translations() {
         for key in &listed {
             assert!(json["settings"]["shortcuts"][key].is_string(), "нет перевода settings.shortcuts.{key}");
         }
+        for binding in BINDINGS {
+            if !binding.chords.is_empty() {
+                assert!(json["settings"]["shortcuts"][binding.label].is_string(), "нет перевода settings.shortcuts.{}", binding.label);
+            }
+        }
     }
-    assert!(BINDINGS.iter().all(|b| !b.chords.is_empty()));
+    assert!(BINDINGS.iter().all(|b| !b.chords.is_empty() || !b.hidden.is_empty() || !b.gestures.is_empty()));
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -77,4 +87,40 @@ fn insert_and_delete_chords_work_like_ctrl_letters() {
     assert_eq!(text(&letter("c"), Modifiers::CONTROL | Modifiers::ALT), None, "AltGr не должен копировать");
     assert_eq!(super::label(Scope::Text, Command::Copy), "Ctrl + C / Ctrl + Insert");
     assert_eq!(super::label(Scope::Global, Command::FocusMode), "Ctrl + Shift + F");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn mac_navigation_chords() {
+    use masonry::core::keyboard::NamedKey;
+    let named = |key| Key::Named(key);
+    let editor = |key: &Key, modifiers| command(&[Scope::Text, Scope::Editor, Scope::Navigation, Scope::Caret], key, modifiers);
+    let meta = Modifiers::META;
+    let alt = Modifiers::ALT;
+    // ⌥←/→ — по словам
+    assert_eq!(editor(&named(NamedKey::ArrowLeft), alt), Some(Command::WordLeft));
+    assert_eq!(editor(&named(NamedKey::ArrowRight), alt), Some(Command::WordRight));
+    assert_eq!(editor(&named(NamedKey::ArrowLeft), alt | Modifiers::SHIFT), Some(Command::WordLeft));
+    assert_eq!(editor(&named(NamedKey::ArrowRight), alt | Modifiers::SHIFT), Some(Command::WordRight));
+    // ⌘←/→ — начало/конец строки
+    assert_eq!(editor(&named(NamedKey::ArrowLeft), meta), Some(Command::LineStart));
+    assert_eq!(editor(&named(NamedKey::ArrowRight), meta), Some(Command::LineEnd));
+    assert_eq!(editor(&named(NamedKey::ArrowLeft), meta | Modifiers::SHIFT), Some(Command::LineStart));
+    assert_eq!(editor(&named(NamedKey::ArrowRight), meta | Modifiers::SHIFT), Some(Command::LineEnd));
+    // ⌘↑/↓ — начало/конец заметки
+    assert_eq!(editor(&named(NamedKey::ArrowUp), meta), Some(Command::DocumentStart));
+    assert_eq!(editor(&named(NamedKey::ArrowDown), meta), Some(Command::DocumentEnd));
+    assert_eq!(editor(&named(NamedKey::ArrowUp), meta | Modifiers::SHIFT), Some(Command::DocumentStart));
+    // ⌥⌫ — удалить слово, ⌘⌫ — удалить до начала строки
+    assert_eq!(editor(&named(NamedKey::Backspace), alt), Some(Command::DeleteWord));
+    assert_eq!(editor(&named(NamedKey::Backspace), meta), Some(Command::LineDeleteBackward));
+    // ⌥⌦ — удалить слово вперёд
+    assert_eq!(editor(&named(NamedKey::Delete), alt), Some(Command::DeleteWordForward));
+    // ⌘ не заменяет Ctrl для переключения вкладок
+    assert_eq!(command(&[Scope::Global], &named(NamedKey::Tab), Modifiers::CONTROL), Some(Command::NextTab));
+    assert_eq!(command(&[Scope::Global], &named(NamedKey::Tab), meta), None);
+    // Подпись сочетаний на Mac
+    assert_eq!(super::label(Scope::Global, Command::FocusMode), "⌘ + Shift + F");
+    assert_eq!(super::label(Scope::Navigation, Command::WordLeft), "⌥ + ←");
+    assert_eq!(super::label(Scope::Navigation, Command::DocumentStart), "⌘ + ↑");
 }

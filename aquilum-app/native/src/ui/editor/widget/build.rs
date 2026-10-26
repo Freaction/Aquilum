@@ -32,6 +32,7 @@ impl TextEditor {
             painted: (0.0, 0.0),
             blink_start: std::time::Instant::now(),
             single_line: false,
+            wraps: false,
             centered: false,
             scroll_x: 0.0,
             focused: false,
@@ -60,6 +61,11 @@ impl TextEditor {
     pub fn single_line(text: &str) -> Self {
         let text = text.replace(['\r', '\n'], " ");
         TextEditor { single_line: true, ..TextEditor::new(&text) }
+    }
+
+    pub fn wrapping(mut self) -> Self {
+        self.wraps = true;
+        self
     }
 
     pub fn centered(mut self) -> Self {

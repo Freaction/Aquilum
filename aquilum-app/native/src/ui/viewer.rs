@@ -1,5 +1,5 @@
 use masonry::accesskit::{Node, Role};
-use masonry::core::keyboard::{Key, KeyState, NamedKey};
+use masonry::core::keyboard::KeyState;
 use masonry::core::{
     AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update, UpdateCtx, Widget,
 };
@@ -50,7 +50,7 @@ impl Widget for Viewer {
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
         if let TextEvent::Keyboard(k) = event
             && k.state == KeyState::Down
-            && k.key == Key::Named(NamedKey::Escape)
+            && crate::ui::keymap::command(&[crate::ui::keymap::Scope::Dialog], &k.key, k.modifiers) == Some(crate::ui::keymap::Command::Close)
         {
             ctx.submit_action::<ViewerClosed>(ViewerClosed);
         }

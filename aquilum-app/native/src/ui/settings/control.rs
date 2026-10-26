@@ -107,11 +107,12 @@ fn buttons_row(buttons: &[schema::Button], indicator: Option<Indicator>, binding
     }
     if let Some(indicator) = indicator {
         let (icon, color): (_, fn() -> masonry::peniko::Color) = match indicator {
-            Indicator::Syncing => (icons::REFRESH_CW, || theme::current().icon_muted),
+            Indicator::Syncing => (icons::REFRESH_CW, || theme::current().icon_warning),
             Indicator::Synced => (icons::CHECK, || theme::current().icon_success),
             Indicator::Failed => (icons::TRIANGLE_ALERT, || theme::current().icon_muted),
         };
-        flex = flex.with_fixed(IconView::new(icon, size::SIZE_32, size::SIZE_20, 1.2, color));
+        let view = IconView::new(icon, size::SIZE_32, size::SIZE_20, 1.2, color);
+        flex = flex.with_fixed(if indicator == Indicator::Syncing { IconView::spinning(view) } else { view });
     }
     NewWidget::new(flex).with_props(PropertySet::new().with(Gap::new(Length::px(size::GAP_MD)))).erased()
 }

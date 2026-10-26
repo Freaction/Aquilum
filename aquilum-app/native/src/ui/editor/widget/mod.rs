@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use masonry::accesskit::{Node, Role};
-pub(super) use masonry::core::keyboard::{Key, KeyState, NamedKey};
+pub(super) use masonry::core::keyboard::{Key, KeyState};
 pub(super) use masonry::core::Ime;
 pub(super) use masonry::imaging::Painter;
 pub(super) use masonry::kurbo::{Affine, Axis, BezPath, Cap, Circle, Join, Point, Rect, RoundedRect, Size, Stroke, Vec2};
@@ -37,6 +37,7 @@ pub use matching::Search;
 mod format;
 mod geometry;
 use geometry::{rect, visible};
+mod ime;
 mod keys;
 mod lifecycle;
 mod links;

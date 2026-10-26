@@ -1,24 +1,26 @@
 use super::remote::RemoteError;
 use crate::history::store::millis;
-use crate::http::{Connection, Response};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 use std::io::{self, ErrorKind};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::time::{Duration, SystemTime};
+use std::sync::mpsc::Receiver;
+use std::time::SystemTime;
 use ureq::Agent;
-use url::Url;
+use url::{form_urlencoded, Url};
+
+mod link;
+mod loopback;
 
 const ADDRESS: &str = "127.0.0.1:47219";
 
 #[derive(Clone, Copy)]
 pub struct Client {
     pub authorize: &'static str,
+    pub connect: &'static str,
     pub token: &'static str,
     pub id: &'static str,
     pub secret: &'static str,
@@ -39,31 +41,57 @@ struct Grant {
     expires_in: Option<u64>,
 }
 
+enum Answer {
+    Loopback(TcpListener),
+    Link(Receiver<String>),
+}
+
 pub struct Login {
     pub url: String,
     client: Client,
-    listener: TcpListener,
+    answer: Answer,
     verifier: String,
     state: String,
 }
 
 impl Client {
-    pub fn login(&self) -> io::Result<Login> {
-        let listener = TcpListener::bind(ADDRESS)?;
-        listener.set_nonblocking(true)?;
+    pub fn login(&self, links: Option<Receiver<String>>) -> io::Result<Login> {
         let (verifier, state) = (random()?, random()?);
-        let mut url = Url::parse(self.authorize).map_err(|error| io::Error::new(ErrorKind::InvalidInput, error))?;
+        let (url, answer) = match links {
+            None => {
+                let listener = TcpListener::bind(ADDRESS)?;
+                listener.set_nonblocking(true)?;
+                (self.loopback_url(&verifier, &state)?, Answer::Loopback(listener))
+            }
+            Some(links) => (self.link_url(&verifier, &state)?, Answer::Link(links)),
+        };
+        Ok(Login { url, client: *self, answer, verifier, state })
+    }
+
+    fn loopback_url(&self, verifier: &str, state: &str) -> io::Result<String> {
+        let mut url = parse(self.authorize)?;
         url.query_pairs_mut()
             .extend_pairs([
                 ("response_type", "code"),
                 ("client_id", self.id),
                 ("redirect_uri", &redirect()),
-                ("code_challenge", &challenge(&verifier)),
+                ("code_challenge", &challenge(verifier)),
                 ("code_challenge_method", "S256"),
-                ("state", &state),
+                ("state", state),
             ])
             .extend_pairs(self.params);
-        Ok(Login { url: url.into(), client: *self, listener, verifier, state })
+        Ok(url.into())
+    }
+
+    fn link_url(&self, verifier: &str, state: &str) -> io::Result<String> {
+        let extra = form_urlencoded::Serializer::new(String::new())
+            .extend_pairs([("code_challenge", challenge(verifier).as_str()), ("code_challenge_method", "S256")])
+            .extend_pairs(self.params)
+            .append_pair("response_type", "code")
+            .finish();
+        let mut url = parse(self.connect)?;
+        url.query_pairs_mut().extend_pairs([("k", self.id), ("n", "0"), ("state", state), ("extra_query_params", &extra)]);
+        Ok(url.into())
     }
 
     pub fn refresh(&self, agent: &Agent, refresh: &str) -> Result<Tokens, RemoteError> {
@@ -79,6 +107,7 @@ impl Client {
         let grant: Grant = match agent.post(self.token).send_form(&form) {
             Ok(response) => serde_json::from_reader(response.into_reader()).map_err(io::Error::from)?,
             Err(ureq::Error::Status(400 | 401, _)) => return Err(RemoteError::Auth),
+            Err(ureq::Error::Transport(transport)) => return Err(RemoteError::transport(transport)),
             Err(error) => return Err(RemoteError::Failed(error.to_string())),
         };
         Ok(Tokens {
@@ -92,44 +121,30 @@ impl Client {
 impl Login {
     pub fn finish(self, agent: &Agent, cancel: &AtomicBool) -> Result<Tokens, RemoteError> {
         let code = self.code(cancel)?;
-        let form = [("grant_type", "authorization_code"), ("code", &code), ("redirect_uri", &redirect()), ("code_verifier", &self.verifier)];
+        let redirect = redirect();
+        let mut form = vec![("grant_type", "authorization_code"), ("code", code.as_str()), ("code_verifier", self.verifier.as_str())];
+        if let Answer::Loopback(_) = self.answer {
+            form.push(("redirect_uri", &redirect));
+        }
         self.client.grant(agent, &form, "")
     }
 
     fn code(&self, cancel: &AtomicBool) -> Result<String, RemoteError> {
         while !cancel.load(Ordering::Relaxed) {
-            match self.listener.accept() {
-                Ok((stream, _)) => {
-                    if let Some(code) = self.answer(&stream)? {
-                        return Ok(code);
-                    }
-                }
-                Err(error) if error.kind() == ErrorKind::WouldBlock => thread::sleep(Duration::from_millis(100)),
-                Err(error) => return Err(error.into()),
+            let code = match &self.answer {
+                Answer::Loopback(listener) => loopback::poll(listener, &self.state)?,
+                Answer::Link(links) => link::poll(links, &self.state)?,
+            };
+            if let Some(code) = code {
+                return Ok(code);
             }
         }
         Err(RemoteError::Failed("вход отменён".into()))
     }
+}
 
-    fn answer(&self, stream: &TcpStream) -> Result<Option<String>, RemoteError> {
-        stream.set_nonblocking(false)?;
-        let mut connection = Connection::new(stream)?;
-        let Ok(head) = connection.read_head() else {
-            return Ok(None);
-        };
-        let query: HashMap<String, String> = Url::parse(&format!("http://{ADDRESS}{}", head.target))
-            .map(|url| url.query_pairs().into_owned().collect())
-            .unwrap_or_default();
-        let (message, outcome) = match (query.get("code"), query.get("error")) {
-            (Some(code), _) if query.get("state") == Some(&self.state) => ("Вход выполнен, вкладку можно закрыть.", Ok(Some(code.clone()))),
-            (Some(_), _) => ("Вход не удался, вернитесь в Aquilum.", Err(RemoteError::Failed("ответ входа не совпал с запросом".into()))),
-            (None, Some(error)) => ("Вход не удался, вернитесь в Aquilum.", Err(RemoteError::Failed(format!("облако отказало во входе: {error}")))),
-            (None, None) => ("", Ok(None)),
-        };
-        connection.send(&Response::text(200, message), false)?;
-        connection.hang_up();
-        outcome
-    }
+fn parse(url: &str) -> io::Result<Url> {
+    Url::parse(url).map_err(|error| io::Error::new(ErrorKind::InvalidInput, error))
 }
 
 fn redirect() -> String {

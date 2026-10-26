@@ -2,11 +2,13 @@ mod device;
 mod fake;
 mod large;
 mod live;
+mod order;
 mod random;
 mod recovery;
 mod safety;
 mod scope;
 mod service;
+mod status;
 
 use device::Device;
 use fake::FakeRemote;

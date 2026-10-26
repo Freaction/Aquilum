@@ -103,6 +103,12 @@ impl Core {
         self.events.emit(event);
     }
 
+    pub(crate) fn synced(&self, paths: Vec<std::path::PathBuf>) {
+        if !paths.is_empty() {
+            self.ingest_watch(WatchBatch::new(paths, WatchScope::Structure));
+        }
+    }
+
     pub fn settle(&self) {
         let (done, settled) = std::sync::mpsc::sync_channel(1);
         self.emit(CoreEvent::Settle(done));

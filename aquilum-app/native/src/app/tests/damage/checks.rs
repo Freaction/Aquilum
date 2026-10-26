@@ -82,3 +82,52 @@ fn caret_repaints_only_what_the_reveal_changes() {
     let widest = marker.rects.iter().map(|r| f64::from(r.2)).fold(0.0, f64::max);
     assert!(widest < column.width() / 2.0, "каретка у номера пункта перерисовала всю строку: {:?}", marker.rects);
 }
+
+#[test]
+fn settings_editor_scroll_shifts_pixels() {
+    let mut h = sized(FIXED, None);
+    h.app.open_settings(&mut h.root);
+    h.settle();
+    let nav = h.root.get_widget(h.nav(Section::Editor)).unwrap().ctx().bounding_box();
+    h.click(nav.center().x, nav.center().y);
+    h.settle();
+    for _ in 0..10 {
+        h.anim(std::time::Duration::from_millis(16));
+        h.settle();
+    }
+    let mut frames = fixed_frames(&mut h);
+    let content_id = match &h.app.popup {
+        Some(Popup::Settings { dialog, .. }) => dialog.content.id(),
+        _ => panic!("настройки не открылись"),
+    };
+    let content_rect = rect_of(&h, content_id, FIXED.scale);
+    h.scroll((content_rect.center().x, content_rect.center().y), FIXED.scale, (0.0, -30.0));
+    h.anim(std::time::Duration::from_millis(16));
+    let report = frames.draw(&mut h);
+    assert!(!report.moved.is_empty(), "прокрутка настроек не сдвигает пиксели!");
+}
+
+#[test]
+fn phone_settings_editor_scroll_shifts_pixels() {
+    const PHONE: Spec = Spec { scale: 2.625, width: 1080, height: 1600 };
+    let mut h = sized(PHONE, None);
+    h.app.open_settings(&mut h.root);
+    h.settle();
+    h.open_section(Section::Editor);
+    h.settle();
+    for _ in 0..15 {
+        h.anim(std::time::Duration::from_millis(16));
+        h.settle();
+    }
+    let mut frames = Frames::new(&mut h, PHONE, true);
+    let content_id = match &h.app.popup {
+        Some(Popup::Settings { dialog, .. }) => dialog.content.id(),
+        _ => panic!("настройки не открылись"),
+    };
+    let content_rect = rect_of(&h, content_id, PHONE.scale);
+    h.scroll((content_rect.center().x, content_rect.center().y), PHONE.scale, (0.0, -30.0));
+    h.anim(std::time::Duration::from_millis(16));
+    let report = frames.draw(&mut h);
+    assert!(!report.moved.is_empty(), "прокрутка настроек на телефоне не сдвигает пиксели!");
+}
+

@@ -24,7 +24,7 @@ impl TextEditor {
         let _zone = aq_trace::zone("редактор: вёрстка");
         self.width = width;
         let compose = self.compose.as_ref().map(|(text, _)| (self.focus, text.as_str()));
-        let wrap = (!self.single_line).then(|| (width - size::CARET_WIDTH * 2.0).max(0.0) as f32);
+        let wrap = (!self.single_line || self.wraps).then(|| (width - size::CARET_WIDTH * 2.0).max(0.0) as f32);
         let selection = self.selection();
         self.doc.source = self.doc.source.filter(|&source| {
             let p = self.doc.paragraph(self.doc.at_offset(source));

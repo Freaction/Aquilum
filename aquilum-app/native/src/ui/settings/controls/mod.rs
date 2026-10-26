@@ -15,7 +15,7 @@ pub use picker::{ColorPicker, Picked};
 use masonry::accesskit::{Action, Node, Role, Toggled};
 use masonry::core::{
     AccessCtx, AccessEvent, ChildrenIds, CursorIcon, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
-    PointerButton, PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update, UpdateCtx, Widget,
+    PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update, UpdateCtx, Widget,
     WidgetMut, WidgetPod, render_text,
 };
 use masonry::imaging::Painter;

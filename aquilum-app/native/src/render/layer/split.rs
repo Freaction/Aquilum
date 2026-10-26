@@ -1,7 +1,7 @@
 use masonry::imaging::record::Glyph;
 use masonry::imaging::{BlurredRoundedRect, ClipRef, FillRef, GlyphRunRef, GroupRef, PaintSink, StrokeRef};
 use masonry::peniko::BrushRef;
-use vello_cpu::{PixelFormat, PixmapMut, RasterizerSettings};
+use vello_cpu::{PixmapMut, RasterizerSettings};
 
 use crate::render::paint::{PaintError, Painter};
 use crate::render::renderer::{Frame, Renderer};
@@ -79,7 +79,7 @@ impl Renderer {
         self.painter.finish()?;
         let mut pixels = vec![0u32; usize::from(w) * usize::from(h)];
         let pixmap = PixmapMut::new(w, h, bytemuck::cast_slice_mut(&mut pixels)).expect("кэш слоя");
-        let settings = RasterizerSettings { pixel_format: PixelFormat::Bgra8, ..Default::default() };
+        let settings = RasterizerSettings { pixel_format: crate::render::PIXEL_FORMAT, ..Default::default() };
         self.painter.ctx.render_with(pixmap, &mut self.painter.resources, settings);
         Ok(pixels)
     }

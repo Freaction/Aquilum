@@ -1,5 +1,5 @@
 use super::records::Memory;
-use super::{Outcome, Progress, SyncError};
+use super::{Outcome, Progress, RemoteError, SyncError};
 use crate::history::store::millis;
 use crate::settings::models::SyncSettings;
 use std::path::PathBuf;
@@ -15,6 +15,8 @@ pub enum SyncStatus {
     Ready,
     Running(Progress),
     Deletions { planned: usize, synced: usize },
+    Offline,
+    Unsynced { files: usize, first: String },
     Failed(String),
 }
 
@@ -23,8 +25,7 @@ pub struct State {
     pub vault: Option<(PathBuf, SyncSettings, i64)>,
     pub memory: Memory,
     pub running: Option<Progress>,
-    pub error: Option<String>,
-    pub deletions: Option<(usize, usize)>,
+    pub problem: Option<SyncStatus>,
     pub allow_deletions: bool,
     pub due: Option<Instant>,
     pub epoch: u64,
@@ -37,35 +38,45 @@ impl State {
         if self.login.is_some() {
             SyncStatus::Login
         } else if !connected {
-            SyncStatus::Off(self.error.clone())
+            SyncStatus::Off(match &self.problem {
+                Some(SyncStatus::Failed(error)) => Some(error.clone()),
+                _ => None,
+            })
         } else if let Some(progress) = self.running {
             SyncStatus::Running(progress)
-        } else if let Some((planned, synced)) = self.deletions {
-            SyncStatus::Deletions { planned, synced }
-        } else if let Some(error) = &self.error {
-            SyncStatus::Failed(error.clone())
         } else {
-            SyncStatus::Ready
+            self.problem.clone().unwrap_or(SyncStatus::Ready)
         }
     }
 
     pub fn restart(&mut self) {
         self.epoch += 1;
-        (self.memory, self.running, self.error, self.deletions) = (Memory::default(), None, None, None);
+        (self.memory, self.running, self.problem) = (Memory::default(), None, None);
         self.due = Some(Instant::now());
     }
 
     pub fn settle(&mut self, passed: Result<Outcome, SyncError>) {
         self.running = None;
-        (self.error, self.deletions) = match passed {
+        self.problem = match passed {
             Ok(outcome) if outcome.stopped => return,
             Ok(outcome) if outcome.failed.is_empty() => {
                 self.memory.done = Some(millis(SystemTime::now()));
-                (None, None)
+                None
             }
-            Ok(outcome) => (Some(outcome.failed.iter().map(|(path, error)| format!("{path}: {error}")).collect::<Vec<_>>().join("\n")), None),
-            Err(SyncError::Deletions { planned, synced }) => (None, Some((planned, synced))),
-            Err(error) => (Some(error.to_string()), None),
+            Ok(outcome) => match outcome.failed.iter().find(|(_, error)| !offline(error)) {
+                Some((path, error)) => {
+                    let first = format!("{path}: {error}").lines().next().unwrap_or_default().to_owned();
+                    Some(SyncStatus::Unsynced { files: outcome.failed.len(), first })
+                }
+                None => Some(SyncStatus::Offline),
+            },
+            Err(SyncError::Deletions { planned, synced }) => Some(SyncStatus::Deletions { planned, synced }),
+            Err(error) if offline(&error) => Some(SyncStatus::Offline),
+            Err(error) => Some(SyncStatus::Failed(error.to_string())),
         };
     }
+}
+
+fn offline(error: &SyncError) -> bool {
+    matches!(error, SyncError::Remote(RemoteError::Offline(_)))
 }

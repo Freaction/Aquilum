@@ -1,6 +1,6 @@
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerButton, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget,
+    AccessCtx, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget,
     WidgetMut,
 };
 use masonry::imaging::Painter;
@@ -79,11 +79,11 @@ impl Widget for Pinned {
                     ctx.request_paint_only();
                 }
             }
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
+            PointerEvent::Down(e) if crate::ui::keymap::pointer::press(e.button) => {
                 self.pressed = self.at(ctx.local_position(e.state.position).y);
                 ctx.capture_pointer();
             }
-            PointerEvent::Up(e) if e.button == Some(PointerButton::Primary) => {
+            PointerEvent::Up(e) if crate::ui::keymap::pointer::press(e.button) => {
                 let at = self.at(ctx.local_position(e.state.position).y);
                 if let Some(held) = at.filter(|_| at == self.pressed).and_then(|at| self.held.get(at)) {
                     ctx.submit_action::<Unpin>(Unpin(held.index));

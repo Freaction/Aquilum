@@ -40,12 +40,16 @@ impl App {
         self.commit_note();
     }
 
-    pub fn shutdown(&mut self) {
+    pub fn persist(&mut self) {
         self.flush_view();
         match &mut self.note {
             Some(note) => note.flush(&self.workspace.core, &self.text),
             None => crate::disk::wait(),
         }
+    }
+
+    pub fn shutdown(&mut self) {
+        self.persist();
         self.workspace.core.shutdown();
     }
 

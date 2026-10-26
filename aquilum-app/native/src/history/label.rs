@@ -11,7 +11,7 @@ fn source_name(source: &Source) -> String {
         Source::Agent => "agent",
         Source::External => "external",
         Source::Links => "links",
-        Source::Start | Source::Reading => "start",
+        Source::Start | Source::Reading | Source::Synced => "start",
         Source::Restore(_) => "restore",
         Source::Revert(_) => "revert",
     };

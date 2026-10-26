@@ -128,6 +128,15 @@ impl App {
                 }
                 None => self.popup = Some(Popup::Delete { dialog, targets }),
             },
+            Some(Popup::ResetGraph(dialog)) => match dialog.answer(id, action) {
+                Some(answer) => {
+                    crate::ui::dialog::close(root, dialog.layer);
+                    if answer == DialogAnswer::Confirm {
+                        self.reset_graph_settings(root);
+                    }
+                }
+                None => self.popup = Some(Popup::ResetGraph(dialog)),
+            },
             Some(Popup::VersionMenu { layer, index, commands }) => self.on_version_menu(root, layer, index, commands, action),
             Some(Popup::TableMenu { layer, commands }) => self.on_table_menu(root, layer, commands, action),
             Some(Popup::EditorMenu { layer, commands }) => self.on_editor_menu(root, layer, commands, action),

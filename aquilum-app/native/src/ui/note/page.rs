@@ -24,6 +24,7 @@ pub struct NoteView<'a> {
     pub can_back: bool,
     pub can_forward: bool,
     pub focus_mode: bool,
+    pub compact: bool,
     pub wide: bool,
     pub hero: Option<crate::ui::book::HeroView>,
     pub resolver: Option<std::sync::Arc<dyn crate::ui::editor::resolve::Resolver>>,
@@ -36,6 +37,7 @@ pub struct NoteIds {
     pub forward: WidgetId,
     pub focus: WidgetId,
     pub focus_button: Handle<TextButton>,
+    pub focus_shown: Handle<Visible>,
     pub focus_hidden: Vec<Handle<Visible>>,
     pub search: WidgetId,
     pub more: WidgetId,
@@ -48,6 +50,7 @@ pub struct NoteIds {
     pub hero: Option<(Handle<crate::ui::book::Hero>, crate::ui::book::HeroIds)>,
     pub hero_slot: Handle<Slot>,
     pub spacer: Handle<SizedBox>,
+    pub wrapper: Handle<Flex>,
     pub column: Handle<EditorColumn>,
     pub scroll: Handle<ScrollArea<Flex>>,
     pub find: Handle<Slot>,
@@ -83,6 +86,8 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let focus = NewWidget::new(TextButton::new(t("editor.focusMode"), Variant::Ghost).size(ButtonSize::Xs).pressed(view.focus_mode));
     let focus_id = focus.id();
     let focus_button = Handle::of(&focus);
+    let focus = Visible::new(focus, !view.compact);
+    let focus_shown = Handle::of(&focus);
     let search = NewWidget::new(IconButton::new(icons::SEARCH, t("editor.findInNote")));
     let search_id = search.id();
     let search = Visible::new(search, !view.focus_mode);
@@ -105,7 +110,7 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let error_slot = Slot::fit(NewWidget::new(SizedBox::empty()).erased());
     let error_slot_handle = Handle::of(&error_slot);
 
-    let title_area = NewWidget::new(TextEditor::single_line(view.title).styled(style::editor_title)).with_class(style::EDITOR_TEXT);
+    let title_area = NewWidget::new(TextEditor::single_line(view.title).wrapping().styled(style::editor_title)).with_class(style::EDITOR_TEXT);
     let title = Handle::of(&title_area);
     let title_field = TitleField::new(title_area, view.title.is_empty());
     let title_box = Handle::of(&title_field);
@@ -138,8 +143,19 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let spacer_handle = Handle::of(&spacer);
     let column = EditorColumn::new(NewWidget::new(content), parts.inset, view.wide);
     let column_handle = Handle::of(&column);
+    let (pad_left, pad_right) = if view.compact {
+        (size::SPACE_12, size::SPACE_4)
+    } else {
+        (size::EDITOR_PADDING_X, size::EDITOR_PADDING_X)
+    };
     let wrapper = NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(spacer).with(column, 1.0))
-        .with_props(PropertySet::new().with(Padding::horizontal(Length::px(size::EDITOR_PADDING_X))));
+        .with_props(PropertySet::new().with(Padding {
+            left: Length::px(pad_left),
+            right: Length::px(pad_right),
+            top: Length::ZERO,
+            bottom: Length::ZERO,
+        }));
+    let wrapper_handle = Handle::of(&wrapper);
     let scroller = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(hero_slot).with(wrapper, 1.0);
     let scroller = NewWidget::new(scroller);
     let scroll = NewWidget::new(ScrollArea::new(scroller).fill(true));
@@ -157,6 +173,7 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
         forward: forward_id,
         focus: focus_id,
         focus_button,
+        focus_shown,
         focus_hidden,
         search: search_id,
         more: more_id,
@@ -169,6 +186,7 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
         hero,
         hero_slot: hero_slot_handle,
         spacer: spacer_handle,
+        wrapper: wrapper_handle,
         column: column_handle,
         scroll: scroll_handle,
         find: find_handle,

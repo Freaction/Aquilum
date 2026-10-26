@@ -222,6 +222,7 @@ impl TextEvent {
             Self::Ime(Ime::Disabled) => "Ime::Disabled",
             Self::Ime(Ime::Enabled) => "Ime::Enabled",
             Self::Ime(Ime::Commit(_)) => "Ime::Commit",
+            Self::Ime(Ime::DeleteSurrounding { .. }) => "Ime::DeleteSurrounding",
             Self::Ime(Ime::Preedit(s, _)) if s.is_empty() => "Ime::Preedit(\"\")",
             Self::Ime(Ime::Preedit(_, _)) => "Ime::Preedit(\"...\")",
             Self::WindowFocusChange(_) => "WindowFocusChange",
@@ -376,6 +377,11 @@ pub enum Ime {
     ///
     /// Right before this event winit will send empty [`Self::Preedit`] event.
     Commit(String),
+
+    DeleteSurrounding {
+        before_bytes: usize,
+        after_bytes: usize,
+    },
 
     /// Notifies when the IME was disabled.
     ///

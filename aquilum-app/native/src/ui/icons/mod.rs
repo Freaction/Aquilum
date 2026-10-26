@@ -24,15 +24,20 @@ pub enum Shape {
 pub struct Icon {
     shapes: &'static [Shape],
     grid: f64,
+    turn: f64,
 }
 
 impl Icon {
     pub const fn lucide(shapes: &'static [Shape]) -> Self {
-        Icon { shapes, grid: 24.0 }
+        Icon { shapes, grid: 24.0, turn: 0.0 }
     }
 
     pub const fn on_grid(shapes: &'static [Shape], grid: f64) -> Self {
-        Icon { shapes, grid }
+        Icon { shapes, grid, turn: 0.0 }
+    }
+
+    pub fn turned(self, turn: f64) -> Self {
+        Icon { turn, ..self }
     }
 
     pub fn draw(
@@ -44,7 +49,8 @@ impl Icon {
         color: Color,
     ) {
         let scale = size / self.grid;
-        let transform = Affine::translate(origin.to_vec2()) * Affine::scale(scale);
+        let center = Point::new(self.grid / 2.0, self.grid / 2.0);
+        let transform = Affine::translate(origin.to_vec2()) * Affine::scale(scale) * Affine::rotate_about(self.turn, center);
         let stroke = Stroke::new(stroke_width * scale).with_caps(Cap::Round).with_join(Join::Round);
         let mut outline = BezPath::new();
         for shape in self.shapes {

@@ -1,5 +1,5 @@
 use std::path::Path;
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(any(target_os = "windows", target_os = "android")))]
 use std::process::Command;
 
 #[cfg(target_os = "windows")]
@@ -13,7 +13,29 @@ pub fn open(target: &str) {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "android")]
+pub use crate::android::{leave, login_links, open, set_dark_theme, show_sync, vaults_home};
+
+#[cfg(not(target_os = "android"))]
+pub fn leave() {}
+
+#[cfg(not(target_os = "android"))]
+pub fn set_dark_theme(_: bool) {}
+
+#[cfg(not(target_os = "android"))]
+pub fn show_sync(_: &aquilum_core::sync::SyncService) {}
+
+#[cfg(not(target_os = "android"))]
+pub fn vaults_home() -> Option<std::path::PathBuf> {
+    None
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn login_links() -> Option<std::sync::mpsc::Receiver<String>> {
+    None
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "android")))]
 pub fn open(target: &str) {
     let program = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
     if let Err(error) = Command::new(program).arg(target).spawn() {
@@ -52,7 +74,10 @@ pub fn reveal(path: &Path) {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "android")]
+pub fn reveal(_: &Path) {}
+
+#[cfg(not(any(target_os = "windows", target_os = "android")))]
 pub fn reveal(path: &Path) {
     let mut command = if cfg!(target_os = "macos") {
         let mut command = Command::new("open");

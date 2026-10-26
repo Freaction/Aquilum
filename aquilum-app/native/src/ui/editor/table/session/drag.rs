@@ -3,8 +3,7 @@ use masonry::kurbo::Point;
 use super::{Drag, Outcome, Session, caret_in};
 use crate::ui::editor::table::model::{MIN_COL, MIN_ROW, Range2, Table};
 use crate::ui::editor::table::view::{Hit, Line, TableView};
-
-const DRAG_THRESHOLD: f64 = 4.0;
+use crate::ui::keymap::gesture::DRAG_SLOP;
 
 impl Session {
     pub fn moved(&mut self, view: &TableView, p: Point) -> Outcome {
@@ -22,7 +21,7 @@ impl Session {
     fn track(&mut self, view: &TableView, p: Point) -> (Outcome, Line) {
         match self.drag {
             Drag::Cells { from, at, moved } => {
-                let far = moved || (p - at).hypot() >= DRAG_THRESHOLD;
+                let far = moved || (p - at).hypot() >= DRAG_SLOP;
                 if let Hit::Cell(r, c, local) = view.hit(p, self.scroll_x) {
                     if far && (r, c) != from {
                         self.drag = Drag::Cells { from, at, moved: true };
@@ -40,7 +39,7 @@ impl Session {
                 (Outcome::None, Line::None)
             }
             Drag::Strip { rows, block, at, moved, .. } => {
-                let far = moved || (p - at).hypot() >= DRAG_THRESHOLD;
+                let far = moved || (p - at).hypot() >= DRAG_SLOP;
                 if !far {
                     return (Outcome::None, Line::None);
                 }

@@ -1,6 +1,6 @@
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, ChildrenIds, CursorIcon, EventCtx, LayoutCtx, MeasureCtx, NewWidget, NoAction, PaintCtx, PointerButton, PointerEvent, PropertiesMut, PropertiesRef, QueryCtx,
+    AccessCtx, ChildrenIds, CursorIcon, EventCtx, LayoutCtx, MeasureCtx, NewWidget, NoAction, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, QueryCtx,
     RegisterCtx, Widget, WidgetPod,
 };
 use masonry::imaging::Painter;
@@ -85,7 +85,7 @@ impl Widget for Sash {
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         let x = |position: masonry::dpi::PhysicalPosition<f64>, ctx: &EventCtx<'_>| position.x / ctx.scale_factor();
         match event {
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
+            PointerEvent::Down(e) if crate::ui::keymap::pointer::press(e.button) => {
                 if e.state.count >= 2 {
                     ctx.submit_action::<SashAction>(SashAction::Reset);
                 } else {

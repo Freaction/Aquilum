@@ -1,5 +1,5 @@
 use masonry::accesskit::{Node, Role};
-use masonry::core::keyboard::{Key, KeyState, NamedKey};
+use masonry::core::keyboard::KeyState;
 use masonry::core::{
     AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update,
     UpdateCtx, Widget, WidgetPod,
@@ -10,6 +10,7 @@ use masonry::widgets::Flex;
 use masonry::layout::{LenReq, Length};
 
 use super::{CardSize, DialogAnswer, Modal};
+use crate::ui::keymap::{self, Command, Scope};
 use crate::render::fade::Fade;
 use crate::ui::menu::{box_shadow, shadow_reach};
 use crate::ui::theme;
@@ -26,9 +27,9 @@ impl Widget for Modal {
             && k.state == KeyState::Down
             && !self.closing
         {
-            match k.key {
-                Key::Named(NamedKey::Escape) => ctx.submit_action::<DialogAnswer>(DialogAnswer::Cancel),
-                Key::Named(NamedKey::Enter) if self.enter_confirms => {
+            match keymap::command(&[Scope::Dialog], &k.key, k.modifiers) {
+                Some(Command::Close) => ctx.submit_action::<DialogAnswer>(DialogAnswer::Cancel),
+                Some(Command::Confirm) if self.enter_confirms => {
                     ctx.submit_action::<DialogAnswer>(DialogAnswer::Confirm);
                 }
                 _ => {}
@@ -93,12 +94,17 @@ impl Widget for Modal {
         };
         ctx.run_layout(&mut self.card, card);
         self.card_rect = Rect::from_origin_size(Self::centered(size, anchor).origin(), card);
+        let fullscreen = self.card_rect.width() >= size.width - 1.0 && self.card_rect.height() >= size.height - 1.0;
+        if fullscreen && self.intro.running() {
+            self.intro.finish();
+        }
         ctx.place_child(&mut self.card, self.card_rect.origin());
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
         let t = theme::current();
         let window = ctx.content_box();
+        let fullscreen = self.card_rect.width() >= window.width() - 1.0 && self.card_rect.height() >= window.height() - 1.0;
         match self.id.filter(|_| self.intro.running() || self.closing) {
             Some(id) => {
                 let v = if self.closing { self.intro.reversed() } else { self.intro.value() };
@@ -106,20 +112,26 @@ impl Widget for Modal {
                 let scale = 1.0 - SHRINK * (1.0 - v);
                 let transform = Affine::translate((0.0, LIFT * (1.0 - v))) * Affine::translate(center) * Affine::scale(scale) * Affine::translate(-center);
                 let bounds = self.card_rect.inflate(shadow_reach(t.dialog_shadow), shadow_reach(t.dialog_shadow));
-                crate::render::fade::publish(id, Fade { backdrop: t.dialog_overlay_bg.multiply_alpha(v as f32), bounds, transform, alpha: v as f32 });
+                crate::render::fade::publish_fade(id, Fade { backdrop: t.dialog_overlay_bg.multiply_alpha(v as f32), bounds, transform, alpha: v as f32 });
             }
             None => {
                 if let Some(id) = self.id {
-                    crate::render::fade::forget(id);
+                    crate::render::fade::publish_covers(id, fullscreen);
                 }
-                painter.fill(window, t.dialog_overlay_bg).draw();
+                if !fullscreen {
+                    painter.fill(window, t.dialog_overlay_bg).draw();
+                }
             }
         }
-        let shape = RoundedRect::from_rect(self.card_rect, size::DIALOG_RADIUS);
-        box_shadow(painter, shape, t.dialog_shadow);
-        painter.fill(shape, t.dialog_bg).draw();
-        let border = RoundedRect::from_rect(self.card_rect.inflate(-0.5, -0.5), size::DIALOG_RADIUS - 0.5);
-        painter.stroke(&border, &Stroke::new(size::BORDER_1), t.dialog_border).draw();
+        if fullscreen {
+            painter.fill(self.card_rect, t.dialog_bg).draw();
+        } else {
+            let shape = RoundedRect::from_rect(self.card_rect, size::DIALOG_RADIUS);
+            box_shadow(painter, shape, t.dialog_shadow);
+            painter.fill(shape, t.dialog_bg).draw();
+            let border = RoundedRect::from_rect(self.card_rect.inflate(-0.5, -0.5), size::DIALOG_RADIUS - 0.5);
+            painter.stroke(&border, &Stroke::new(size::BORDER_1), t.dialog_border).draw();
+        }
     }
 
     fn accessibility_role(&self) -> Role {

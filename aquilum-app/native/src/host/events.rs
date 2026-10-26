@@ -2,7 +2,25 @@ use super::*;
 
 impl ApplicationHandler for Host {
     fn can_create_surfaces(&mut self, event_loop: &dyn ActiveEventLoop) {
-        self.create_window(event_loop);
+        match self.window.clone() {
+            Some(window) => {
+                self.occluded = false;
+                self.attach_output(event_loop, window);
+                self.request_redraw();
+            }
+            None => self.create_window(event_loop),
+        }
+    }
+
+    fn destroy_surfaces(&mut self, _: &dyn ActiveEventLoop) {
+        self.occluded = true;
+        self.output = None;
+        self.layers = None;
+    }
+
+    fn suspended(&mut self, _: &dyn ActiveEventLoop) {
+        self.app.persist();
+        self.trim();
     }
 
     fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
@@ -73,6 +91,7 @@ impl Host {
                 }
             }
         }
+        self.touch_due(now);
         self.handle_signals(event_loop);
         if self.app.hold_due(now) {
             self.request_redraw();
@@ -81,7 +100,7 @@ impl Host {
         self.replay_scroll(event_loop, now);
         #[cfg(feature = "memory-probe")]
         self.probe_step(event_loop, now);
-        if self.touchpad.as_ref().is_some_and(crate::touchpad::Touchpad::active) {
+        if self.touchpad.as_ref().is_some_and(crate::touchpad::Touchpad::active) || self.touch.active() {
             self.vsync.request();
         }
         if self.live_at.is_some_and(|t| now >= t) {
@@ -91,6 +110,7 @@ impl Host {
         if let Some(vblank) = vblank {
             let previous = self.last_vblank.replace(vblank);
             self.touchpad_scroll(event_loop, vblank);
+            self.touch_frame(event_loop, vblank);
             if std::mem::take(&mut self.anim_pending) {
                 self.anim_tick(event_loop, vblank, previous);
             }
@@ -103,7 +123,7 @@ impl Host {
                 self.request_redraw();
             }
         }
-        let wake = [self.app.deadline(), self.wake(), self.live_at, ui::timer::next()].into_iter().flatten().min();
+        let wake = [self.app.deadline(), self.wake(), self.live_at, ui::timer::next(), self.touch.deadline()].into_iter().flatten().min();
         event_loop.set_control_flow(match wake {
             _ if event_loop.exiting() => ControlFlow::Poll,
             Some(t) => ControlFlow::WaitUntil(t),

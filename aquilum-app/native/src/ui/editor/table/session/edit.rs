@@ -46,6 +46,17 @@ impl Session {
         self.insert(view, "")
     }
 
+    pub fn delete_around(&mut self, view: &TableView, before: usize, after: usize) -> Outcome {
+        self.edit(view, |value, caret, anchor| {
+            let (a, b) = ((*caret).min(*anchor), (*caret).max(*anchor));
+            let start = value.floor_char_boundary(a.saturating_sub(before));
+            let end = value.floor_char_boundary((b + after).min(value.len()));
+            value.replace_range(b..end, "");
+            value.replace_range(start..a, "");
+            (*caret, *anchor) = (*caret - (a - start), *anchor - (a - start));
+        })
+    }
+
     pub fn range_text(&self, view: &TableView) -> Option<String> {
         let range = self.range?;
         let row = |r: usize| (range.left..=range.right).map(|c| view.model.value(r, c).to_owned()).collect::<Vec<_>>().join("\t");

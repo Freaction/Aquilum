@@ -1,8 +1,6 @@
 use super::*;
-
-const PINCH_RESPONSE: f64 = 0.01;
-const WHEEL_RESPONSE: f64 = 0.0018;
-const NOTCH_PIXELS: f64 = 100.0;
+use crate::ui::keymap::gesture::{PINCH_ZOOM, WHEEL_ZOOM};
+use crate::ui::keymap::pointer;
 
 impl GraphView {
     pub(super) fn pointer(&mut self, ctx: &mut EventCtx<'_>, event: &PointerEvent) {
@@ -17,7 +15,7 @@ impl GraphView {
         }
         if self.graph.is_none() {
             if let PointerEvent::Down(down) = event
-                && down.button.is_none_or(|b| b == PointerButton::Primary)
+                && pointer::press(down.button)
             {
                 let p = ctx.local_position(down.state.position);
                 if self.action_rect.is_some_and(|r| r.contains(p)) && matches!(self.status, Status::Failed(_)) {
@@ -28,7 +26,7 @@ impl GraphView {
         }
         let in_panel = |p: Point| self.settings.is_some() && self.panel.contains(p);
         match event {
-            PointerEvent::Down(down) if down.button.is_none_or(|b| b == PointerButton::Primary) => {
+            PointerEvent::Down(down) if pointer::press(down.button) => {
                 let p = ctx.local_position(down.state.position);
                 if in_panel(p) {
                     return;
@@ -42,7 +40,7 @@ impl GraphView {
                     ctx.request_anim_frame();
                     return;
                 }
-                self.drag = Some(Drag { last: p, travelled: 0.0 });
+                self.drag = Some(Drag { last: p, travelled: 0.0, slop: pointer::drag_slop(down.pointer.pointer_type) });
                 ctx.capture_pointer();
             }
             PointerEvent::Move(update) => {
@@ -51,7 +49,7 @@ impl GraphView {
                     let delta = p - drag.last;
                     drag.last = p;
                     drag.travelled += delta.x.abs() + delta.y.abs();
-                    if drag.travelled > DRAG_THRESHOLD {
+                    if drag.panning() {
                         self.camera.pan_by(delta.x, delta.y);
                         self.hover(None);
                         self.moved();
@@ -73,7 +71,7 @@ impl GraphView {
             }
             PointerEvent::Up(up) => {
                 let Some(drag) = self.drag.take() else { return };
-                if drag.travelled <= DRAG_THRESHOLD
+                if !drag.panning()
                     && let Some(node) = self.node_at(ctx.local_position(up.state.position))
                     && let Some(path) = self.graph.as_ref().map(|g| g.paths[node].clone())
                 {
@@ -94,8 +92,8 @@ impl GraphView {
                 let (cx, cy) = (p.x - self.size.width / 2.0, p.y - self.size.height / 2.0);
                 let scale = ctx.scale_factor().max(0.1);
                 match delta {
-                    ScrollDelta::LineDelta(_, y) => self.camera.zoom_by((f64::from(*y) * NOTCH_PIXELS * WHEEL_RESPONSE).exp(), cx, cy),
-                    ScrollDelta::PixelDelta(_) if state.modifiers.ctrl() || state.modifiers.meta() => self.camera.zoom_by((crate::ui::scroll::pixels(delta, scale, 0.0).y * PINCH_RESPONSE).exp(), cx, cy),
+                    ScrollDelta::LineDelta(_, y) => self.camera.zoom_by((f64::from(*y) * WHEEL_ZOOM).exp(), cx, cy),
+                    ScrollDelta::PixelDelta(_) if pointer::zoom(state.modifiers) => self.camera.zoom_by((crate::ui::scroll::pixels(delta, scale, 0.0).y * PINCH_ZOOM).exp(), cx, cy),
                     ScrollDelta::PixelDelta(_) => {
                         let d = crate::ui::scroll::pixels(delta, scale, 0.0);
                         self.camera.pan_by(d.x, d.y);

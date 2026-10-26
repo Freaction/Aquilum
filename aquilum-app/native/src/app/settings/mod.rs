@@ -5,7 +5,7 @@ use aquilum_core::files::gate;
 use crate::ui::editor::TextEditor;
 use aquilum_core::files::trash::{cleanup_trash_impl, empty_trash_impl, ensure_trash_impl};
 use masonry::app::RenderRoot;
-use masonry::core::keyboard::{Key, NamedKey};
+use masonry::core::keyboard::{Key, Modifiers};
 use masonry::core::{ErasedAction, WidgetId};
 use masonry::kurbo::Point;
 use crate::ui::editor::TextAction;
@@ -23,6 +23,7 @@ use crate::i18n::t;
 use crate::ui::dialog::ConfirmDialog;
 use crate::ui::menu::Menu;
 use crate::ui::settings::controls::{Changed, ColorPicker, Committed, DropdownButton, Switch};
+use crate::ui::keymap::{self, Command, Scope};
 use crate::ui::theme;
 use crate::ui::tokens::size;
 use crate::ui::settings::schema::{self, Action, Context, Section, Setter, Value, Wipe};
@@ -80,6 +81,14 @@ impl App {
         root.add_layer(layer, Point::ORIGIN);
         root.focus_on(Some(dialog.layer));
         self.popup = Some(Popup::Settings { dialog, menu: None });
+        self.fit_settings(root);
+    }
+
+    pub(in crate::app) fn fit_settings(&mut self, root: &mut RenderRoot) {
+        let screen = self.interface.screen();
+        if let Some(Popup::Settings { dialog, .. }) = &mut self.popup {
+            dialog.fit(root, screen);
+        }
     }
 
     pub(super) fn rebuild(&mut self, root: &mut RenderRoot) {
@@ -120,10 +129,10 @@ impl App {
         }
     }
 
-    pub fn settings_key(&mut self, root: &mut RenderRoot, key: &Key) -> Option<Outcome> {
-        let direction = match key {
-            Key::Named(NamedKey::ArrowUp) => 1.0,
-            Key::Named(NamedKey::ArrowDown) => -1.0,
+    pub fn settings_key(&mut self, root: &mut RenderRoot, key: &Key, modifiers: Modifiers) -> Option<Outcome> {
+        let direction = match keymap::command(&[Scope::Number], key, modifiers)? {
+            Command::Increase => 1.0,
+            Command::Decrease => -1.0,
             _ => return None,
         };
         let field = root.focused_widget()?;

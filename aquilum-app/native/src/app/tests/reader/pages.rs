@@ -53,10 +53,10 @@ fn arrow_keys_step_the_font_size_inside_the_reader() {
     h.click(field.center().x, field.center().y);
     let before = h.config().reader.font.font_size_base;
     for key in [NamedKey::ArrowUp, NamedKey::ArrowUp] {
-        assert!(h.app.settings_key(&mut h.root, &Key::Named(key)).is_some(), "стрелка в поле размера шрифта читалки не обработана");
+        assert!(h.app.settings_key(&mut h.root, &Key::Named(key), Modifiers::empty()).is_some(), "стрелка в поле размера шрифта читалки не обработана");
     }
     assert_eq!(h.config().reader.font.font_size_base, before + 2, "стрелка вверх не увеличила размер шрифта читалки");
-    assert!(h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowDown)).is_some());
+    assert!(h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowDown), Modifiers::empty()).is_some());
     assert_eq!(h.config().reader.font.font_size_base, before + 1, "стрелка вниз не уменьшила размер шрифта читалки");
     assert!(h.reader(), "стрелки закрыли читалку");
 }
@@ -83,13 +83,13 @@ fn changing_the_font_size_back_and_forth_keeps_the_reading_place() {
     h.click(area.center().x, area.center().y);
     let size = h.config().reader.font.font_size_base;
     for _ in 0..4 {
-        h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowUp));
+        h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowUp), Modifiers::empty());
         let _ = h.root.redraw();
         h.deliver();
     }
     assert_eq!(h.config().reader.font.font_size_base, size + 4);
     for _ in 0..4 {
-        h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowDown));
+        h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowDown), Modifiers::empty());
         let _ = h.root.redraw();
         h.deliver();
     }

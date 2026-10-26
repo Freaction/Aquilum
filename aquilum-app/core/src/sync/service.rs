@@ -1,11 +1,11 @@
 use super::decide::edited;
-use super::dropbox::CLIENT;
+use super::dropbox::{self, CLIENT};
 use super::records::{Large, Size};
 use super::scan::relative;
 use super::shared::{Shared, ACCOUNT};
 use super::state::{State, SyncStatus};
 use super::worker::{dropbox, work, Open};
-use super::{Account, Tokens};
+use super::{Account, SyncError, Tokens};
 use crate::app_core::{Core, CoreEvent};
 use crate::files::{missing_ok, remove_matching};
 use crate::search::paths::canonical_path;
@@ -16,6 +16,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -56,7 +57,7 @@ impl SyncService {
 
     pub fn due(&self) -> Option<Instant> {
         let state = self.shared.lock();
-        let waiting = state.vault.is_some() && matches!(state.status(self.shared.connected()), SyncStatus::Ready | SyncStatus::Failed(_));
+        let waiting = state.vault.is_some() && matches!(state.status(self.shared.connected()), SyncStatus::Ready | SyncStatus::Offline | SyncStatus::Unsynced { .. } | SyncStatus::Failed(_));
         state.due.filter(|_| waiting)
     }
 
@@ -116,9 +117,9 @@ impl SyncService {
         });
     }
 
-    pub fn connect(&self, core: &Arc<Core>) -> io::Result<String> {
+    pub fn connect(&self, core: &Arc<Core>, links: Option<Receiver<String>>) -> io::Result<String> {
         self.stop_login();
-        let login = CLIENT.login()?;
+        let login = CLIENT.login(links)?;
         let url = login.url.clone();
         let cancel = Arc::new(AtomicBool::new(false));
         let (shared, core, stop) = (Arc::clone(&self.shared), Arc::downgrade(core), Arc::clone(&cancel));
@@ -131,14 +132,14 @@ impl SyncService {
                 match connected {
                     Ok(()) => state.restart(),
                     Err(_) if stop.load(Ordering::Relaxed) => {}
-                    Err(error) => state.error = Some(error),
+                    Err(error) => state.problem = Some(SyncStatus::Failed(error)),
                 }
             });
             if let Some(core) = core.upgrade() {
                 core.emit(CoreEvent::SyncChanged);
             }
         });
-        state.error = None;
+        state.problem = None;
         state.login = Some((cancel, waiting));
         Ok(url)
     }
@@ -166,6 +167,10 @@ impl SyncService {
 
     pub fn prune(&self, keep: &HashSet<String>) {
         remove_matching(&self.shared.folder, |name| name.split_once(".sqlite3").is_some_and(|(key, _)| !keep.contains(key)));
+    }
+
+    pub fn vaults(&self) -> Result<Vec<String>, SyncError> {
+        Ok(dropbox::vaults(super::worker::account(&self.shared.folder)?, web_agent("sync"))?)
     }
 }
 

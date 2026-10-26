@@ -46,6 +46,7 @@ impl App {
             can_back: self.navigation.can_back(),
             can_forward: self.navigation.can_forward(),
             focus_mode: self.interface.focus_mode(),
+            compact: self.compact(),
             wide: self.interface.wide(),
             hero: self.hero_view(),
             smart: crate::ui::editor::Smart::from_config(&self.workspace.core.settings.get_config()),

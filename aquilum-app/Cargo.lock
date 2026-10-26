@@ -150,6 +150,7 @@ dependencies = [
  "ndk-context",
  "ndk-sys",
  "num_enum",
+ "simd_cesu8",
  "thiserror 2.0.18",
 ]
 
@@ -185,8 +186,16 @@ name = "aq_trace"
 version = "0.1.0"
 
 [[package]]
-name = "aquilum-core"
+name = "aquilum-android"
 version = "0.3.15"
+dependencies = [
+ "aquilum-native",
+ "jni",
+]
+
+[[package]]
+name = "aquilum-core"
+version = "0.3.16"
 dependencies = [
  "atomic-write-file",
  "base64",
@@ -215,7 +224,7 @@ dependencies = [
 
 [[package]]
 name = "aquilum-native"
-version = "0.3.15"
+version = "0.3.16"
 dependencies = [
  "accesskit_macos",
  "accesskit_unix",
@@ -234,10 +243,13 @@ dependencies = [
  "gstreamer-app",
  "gstreamer-video",
  "image",
+ "jni",
  "jpeg-decoder",
  "krilla",
  "masonry",
  "minisign-verify",
+ "ndk",
+ "ndk-sys",
  "objc2 0.6.5",
  "objc2-av-foundation",
  "objc2-core-foundation",
@@ -5584,12 +5596,11 @@ dependencies = [
 [[package]]
 name = "winit-android"
 version = "0.31.0-beta.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5d60d944a564986b9311e325334cc22e7e4cf726dd0ff7475fd925404215af4"
 dependencies = [
  "android-activity",
  "bitflags",
  "dpi",
+ "jni",
  "ndk",
  "raw-window-handle",
  "smol_str",

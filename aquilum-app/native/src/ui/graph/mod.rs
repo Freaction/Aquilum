@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use masonry::core::{BrushIndex, EventCtx, PaintCtx, PointerButton, PointerEvent, PointerScrollEvent, ScrollDelta, Widget, WidgetPod, render_text};
+use masonry::core::{BrushIndex, EventCtx, PaintCtx, PointerEvent, PointerScrollEvent, ScrollDelta, Widget, WidgetPod, render_text};
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Point, Rect, RoundedRect, Size, Vec2};
 use masonry::parley::{FontContext, FontWeight, Layout, LayoutContext, StyleProperty};
@@ -30,7 +30,6 @@ mod widget;
 
 use labels::Label;
 
-const DRAG_THRESHOLD: f64 = 2.0;
 const LABEL_GAP: f64 = 4.0;
 const MAX_EDGES: usize = 600_000;
 const FADE: f64 = 0.07;
@@ -81,6 +80,13 @@ pub enum Status {
 struct Drag {
     last: Point,
     travelled: f64,
+    slop: f64,
+}
+
+impl Drag {
+    fn panning(&self) -> bool {
+        self.travelled > self.slop
+    }
 }
 
 pub struct GraphView {

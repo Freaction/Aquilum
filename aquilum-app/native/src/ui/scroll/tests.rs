@@ -82,7 +82,7 @@ fn wheel_glide_lands_exactly_and_stays_in_bounds() {
     let mut trace = Vec::new();
     scroll(&mut root, ScrollDelta::LineDelta(0.0, -3.0));
     frames(&mut root, 40, &mut trace);
-    assert_eq!(offset(&root), 3.0 * super::LINE);
+    assert_eq!(offset(&root), 3.0 * crate::ui::keymap::gesture::WHEEL_LINE);
     assert!(trace.windows(2).all(|w| w[1] >= w[0]), "доведение колесом пошло назад: {trace:?}");
     scroll(&mut root, ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, 100_000.0)));
     assert_eq!(offset(&root), 0.0);

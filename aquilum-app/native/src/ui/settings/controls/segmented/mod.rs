@@ -25,6 +25,15 @@ impl Segmented {
         Self::build(options, selected, true)
     }
 
+    pub fn set(this: &mut WidgetMut<'_, Self>, selected: usize) {
+        if selected < this.widget.options.len() && this.widget.selected != selected {
+            this.widget.selected = selected;
+            this.ctx.request_anim_frame();
+            this.ctx.request_paint_only();
+            this.ctx.request_accessibility_update();
+        }
+    }
+
     fn build(options: Vec<String>, selected: usize, stretch: bool) -> NewWidget<Self> {
         let lines = options.iter().map(|_| text::Line::default()).collect();
         NewWidget::new(Segmented { options, selected, hovered: None, lines, rects: Vec::new(), stretch, shown: selected as f64 })
@@ -82,7 +91,7 @@ impl Widget for Segmented {
                 self.hovered = None;
                 ctx.request_paint_only();
             }
-            PointerEvent::Down(e) if e.button.is_none_or(|b| b == PointerButton::Primary) => {
+            PointerEvent::Down(e) if crate::ui::keymap::pointer::press(e.button) => {
                 if let Some(index) = self.segment_at(ctx.local_position(e.state.position)) {
                     self.choose(ctx, index);
                 }
@@ -93,17 +102,18 @@ impl Widget for Segmented {
     }
 
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &masonry::core::TextEvent) {
-        use masonry::core::keyboard::{Key, KeyState, NamedKey};
+        use crate::ui::keymap::{self, Command, Scope};
+        use masonry::core::keyboard::KeyState;
         let masonry::core::TextEvent::Keyboard(k) = event else { return };
         if k.state != KeyState::Down {
             return;
         }
         let last = self.options.len().saturating_sub(1);
-        let index = match &k.key {
-            Key::Named(NamedKey::ArrowLeft | NamedKey::ArrowUp) => self.selected.saturating_sub(1),
-            Key::Named(NamedKey::ArrowRight | NamedKey::ArrowDown) => (self.selected + 1).min(last),
-            Key::Named(NamedKey::Home) => 0,
-            Key::Named(NamedKey::End) => last,
+        let index = match keymap::command(&[Scope::Choice], &k.key, k.modifiers) {
+            Some(Command::Decrease) => self.selected.saturating_sub(1),
+            Some(Command::Increase) => (self.selected + 1).min(last),
+            Some(Command::First) => 0,
+            Some(Command::Last) => last,
             _ => return,
         };
         self.choose(ctx, index);

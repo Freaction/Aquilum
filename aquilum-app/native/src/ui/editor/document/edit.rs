@@ -8,6 +8,14 @@ impl Document {
         self.edits = Some(Vec::new());
     }
 
+    pub fn composed(&self, at: usize, compose: &str) -> Option<String> {
+        self.edits.is_none().then(|| {
+            let mut text = self.whole();
+            text.insert_str(at, compose);
+            text
+        })
+    }
+
     pub fn changed(&mut self) -> TextAction {
         let front = self.front;
         match self.edits.as_mut() {

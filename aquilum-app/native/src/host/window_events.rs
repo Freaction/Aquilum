@@ -6,6 +6,9 @@ fn masonry_ime(ime: Ime) -> Option<MasonryIme> {
         Ime::Disabled => Some(MasonryIme::Disabled),
         Ime::Preedit(text, cursor) => Some(MasonryIme::Preedit(text, cursor)),
         Ime::Commit(text) => Some(MasonryIme::Commit(text)),
+        Ime::DeleteSurrounding { before_bytes, after_bytes } => {
+            Some(MasonryIme::DeleteSurrounding { before_bytes, after_bytes })
+        }
         _ => None,
     }
 }
@@ -38,7 +41,7 @@ impl Host {
             accessibility.window_event(&*window, &event);
         }
         match event {
-            WindowEvent::CloseRequested => {
+            WindowEvent::CloseRequested | WindowEvent::Destroyed => {
                 self.close(event_loop);
                 return;
             }
@@ -86,9 +89,13 @@ impl Host {
                 let Some(ime) = masonry_ime(ime) else { return };
                 self.text_event(TextEvent::Ime(ime));
             }
+            WindowEvent::PointerEntered { kind: winit::event::PointerKind::Touch(_), .. } => {}
             WindowEvent::PointerEntered { .. } => self.pointer_event(PointerEvent::Enter(PRIMARY_MOUSE)),
+            WindowEvent::PointerLeft { kind: winit::event::PointerKind::Touch(finger), .. } => self.touch_left(finger),
             WindowEvent::PointerLeft { .. } => self.pointer_event(PointerEvent::Leave(PRIMARY_MOUSE)),
+            WindowEvent::PointerMoved { source: winit::event::PointerSource::Touch { finger_id, .. }, position, .. } => self.touch_moved(finger_id, position),
             WindowEvent::PointerMoved { position, .. } => self.pointer_moved(position),
+            WindowEvent::PointerButton { button: winit::event::ButtonSource::Touch { finger_id, .. }, state, position, .. } => self.touch_button(finger_id, state, position),
             WindowEvent::PointerButton { state, position, button, .. } => {
                 if state == ElementState::Pressed
                     && button.clone().mouse_button() == Some(MouseButton::Left)
@@ -100,7 +107,7 @@ impl Host {
                 self.pointer_button(state, position, button);
             }
             WindowEvent::PinchGesture { delta, .. } => self.pinch(delta),
-            WindowEvent::MouseWheel { delta, .. } if (self.modifiers.ctrl() || self.modifiers.meta()) && !self.app.graph_shown() => {
+            WindowEvent::MouseWheel { delta, .. } if crate::ui::keymap::pointer::zoom(self.modifiers) && !self.app.graph_shown() => {
                 let Some(up) = wheel_up(delta) else { return };
                 self.wheel_zoom(up);
             }
@@ -116,12 +123,11 @@ impl Host {
 
     fn surface_resized(&mut self, window: &dyn Window, size: winit::dpi::PhysicalSize<u32>) {
         let maximized = window.is_maximized();
-        let logical = self.logical_size();
         if let Some(root) = &mut self.root {
             self.app.set_maximized(root, maximized);
             root.handle_window_event(MasonryWindowEvent::Resize(size));
-            self.app.window_resized(root, logical);
         }
+        self.fit_window();
         if self.args.size.is_none()
             && let Some(window) = &self.window
         {

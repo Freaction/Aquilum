@@ -26,8 +26,10 @@ pub struct Accessibility {
     adapter: accesskit_windows::SubclassingAdapter,
     #[cfg(target_os = "macos")]
     adapter: accesskit_macos::SubclassingAdapter,
-    #[cfg(all(unix, not(target_os = "macos")))]
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "android"))))]
     adapter: accesskit_unix::Adapter,
+    #[cfg(target_os = "android")]
+    adapter: std::convert::Infallible,
     requests: Receiver<Request>,
 }
 
@@ -83,12 +85,14 @@ impl Accessibility {
             let winit::raw_window_handle::RawWindowHandle::AppKit(handle) = handle else { return None };
             unsafe { accesskit_macos::SubclassingAdapter::new(handle.ns_view.as_ptr(), activation, action) }
         };
-        #[cfg(all(unix, not(target_os = "macos")))]
+        #[cfg(all(unix, not(any(target_os = "macos", target_os = "android"))))]
         let adapter = {
             let _ = window;
             let deactivation = Forward { sender: activation.sender.clone(), proxy: activation.proxy.clone() };
             accesskit_unix::Adapter::new(activation, action, deactivation)
         };
+        #[cfg(target_os = "android")]
+        let adapter = no_adapter(window, activation, action)?;
         Some(Accessibility { adapter, requests })
     }
 
@@ -102,8 +106,10 @@ impl Accessibility {
         if let Some(events) = self.adapter.update_if_active(|| update) {
             events.raise();
         }
-        #[cfg(all(unix, not(target_os = "macos")))]
+        #[cfg(all(unix, not(any(target_os = "macos", target_os = "android"))))]
         self.adapter.update_if_active(|| update);
+        #[cfg(target_os = "android")]
+        let _ = (update, self.adapter);
     }
 
     pub fn window_event(&mut self, window: &dyn Window, event: &WindowEvent) {
@@ -113,7 +119,7 @@ impl Accessibility {
         {
             events.raise();
         }
-        #[cfg(all(unix, not(target_os = "macos")))]
+        #[cfg(all(unix, not(any(target_os = "macos", target_os = "android"))))]
         match event {
             WindowEvent::Focused(focused) => self.adapter.update_window_focus_state(*focused),
             WindowEvent::Moved(_) | WindowEvent::SurfaceResized(_) => {
@@ -126,7 +132,12 @@ impl Accessibility {
             }
             _ => {}
         }
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "android"))]
         let _ = (window, event);
     }
+}
+
+#[cfg(target_os = "android")]
+fn no_adapter(_: &dyn Window, _: Forward, _: Forward) -> Option<std::convert::Infallible> {
+    None
 }

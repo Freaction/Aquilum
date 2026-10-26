@@ -24,7 +24,7 @@ impl App {
         root.focus_on(field);
     }
 
-    fn close_find(&mut self, root: &mut RenderRoot) {
+    pub(in crate::app) fn close_find(&mut self, root: &mut RenderRoot) {
         let (Some(_), Some(ids)) = (self.find.take(), &self.note_ids) else { return };
         ids.find.edit(root, |mut slot| Slot::clear(&mut slot));
         ids.body.edit(root, |mut body| TextEditor::find(&mut body, ""));

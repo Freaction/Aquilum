@@ -7,12 +7,15 @@ pub mod dropbox;
 mod halt;
 mod measure;
 mod oauth;
+mod progress;
 mod records;
 mod remote;
 mod scan;
 mod service;
 mod shared;
 mod state;
+mod transfer;
+pub(crate) use transfer::TRANSFERS;
 mod view;
 mod worker;
 
@@ -20,7 +23,8 @@ mod worker;
 mod tests;
 
 pub use account::Account;
-pub use cycle::{run, Outcome, Progress, Vault, Watch, LARGE};
+pub use cycle::{run, Outcome, Vault, Watch, LARGE};
+pub use progress::{Count, Progress, Stage};
 pub use oauth::{Client, Login, Tokens};
 pub use records::{Large, Memory, Records, Size};
 pub use remote::{Delta, Remote, RemoteError, RemoteFile, RemoteResult};

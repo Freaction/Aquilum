@@ -15,7 +15,7 @@ mod data;
 mod mcp;
 mod section;
 mod support;
-mod sync;
+pub mod sync;
 mod system;
 #[cfg(test)]
 mod tests;

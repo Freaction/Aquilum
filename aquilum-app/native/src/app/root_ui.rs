@@ -1,4 +1,5 @@
 use super::*;
+use crate::interface::Side;
 
 impl App {
     pub fn root_widget(&mut self, system_dark: bool) -> NewWidget<dyn Widget> {
@@ -7,7 +8,12 @@ impl App {
     }
 
     pub(in crate::app) fn visible_panels(&self) -> (bool, bool) {
-        (self.interface.sidebar_open() && !self.interface.focus_mode(), self.panel_visible())
+        let screen = self.interface.screen();
+        if screen.compact {
+            return (screen.drawer == Some(Side::Sidebar), screen.drawer == Some(Side::Panel));
+        }
+        let focus = self.interface.focus_mode();
+        (self.interface.sidebar_open() && !focus, self.interface.right_open() && !focus)
     }
 
     pub(in crate::app) fn replace_root(&mut self, root: &mut RenderRoot) {
@@ -63,8 +69,8 @@ impl App {
             note,
             sidebar_open: target.0,
             sidebar_from: from.0,
-            sidebar_width: self.panel_width(crate::interface::Side::Sidebar),
-            panel_width: self.panel_width(crate::interface::Side::Panel),
+            sidebar_width: self.panel_width(Side::Sidebar),
+            panel_width: self.panel_width(Side::Panel),
             focus_mode: self.interface.focus_mode(),
             home: self.home.is_some(),
             tabs,
@@ -78,6 +84,7 @@ impl App {
             has_analysis: !self.panel_methods().is_empty(),
             graph,
             graph_active,
+            screen: self.interface.screen(),
         };
         let (widget, chrome) = ui::root(self.tree.widget(), parts);
         self.chrome = Some(chrome);

@@ -33,6 +33,13 @@ impl TextEditor {
         Some((session, view))
     }
 
+    pub(super) fn table_cell(&self) -> Option<(&str, usize, usize)> {
+        let session = self.table.as_ref()?;
+        let (row, col) = session.active?;
+        let (_, view) = self.doc.table_at(session.start)?;
+        Some((view.model.value(row, col), session.caret, session.anchor))
+    }
+
     pub(super) fn table_scroll_x(&self, start: usize) -> f64 {
         match &self.table {
             Some(session) if session.start == start => session.scroll_x,

@@ -36,6 +36,7 @@ contents:
 overrides:
   deb:
     depends:
+      - xdg-desktop-portal
       - libc6
       - libgcc-s1
       - libglib2.0-0 | libglib2.0-0t64
@@ -56,6 +57,7 @@ overrides:
       - libwayland-client0
   rpm:
     depends:
+      - xdg-desktop-portal
       - libglib-2.0.so.0()(64bit)
       - libgobject-2.0.so.0()(64bit)
       - libgio-2.0.so.0()(64bit)

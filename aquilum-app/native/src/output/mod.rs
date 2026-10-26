@@ -2,12 +2,16 @@
 mod device;
 #[cfg(target_os = "windows")]
 mod dxgi;
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "android")]
+mod android;
+#[cfg(not(any(target_os = "windows", target_os = "android")))]
 mod soft;
 
 #[cfg(target_os = "windows")]
 pub use dxgi::Output;
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "android")]
+pub use android::Output;
+#[cfg(not(any(target_os = "windows", target_os = "android")))]
 pub use soft::Output;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -18,8 +22,10 @@ pub struct Area {
     pub h: u32,
 }
 
+#[cfg(not(target_os = "android"))]
 const MAX_RECTS: usize = 8;
 
+#[cfg(not(target_os = "android"))]
 pub fn merge(areas: &mut Vec<Area>) {
     areas.retain(|a| a.w > 0 && a.h > 0);
     while areas.len() > 1 {
@@ -42,6 +48,7 @@ pub fn merge(areas: &mut Vec<Area>) {
 }
 
 impl Area {
+    #[cfg(not(target_os = "android"))]
     fn size(self) -> i64 {
         i64::from(self.w) * i64::from(self.h)
     }

@@ -27,6 +27,7 @@ impl App {
         self.on_retention_done(root);
         self.undo_failed_renames(root);
         self.poll_find(root);
+        title |= self.on_cloud_events(root);
         let mut links_changed = false;
         let mut history_changed = false;
         let mut changed = Vec::new();
@@ -36,7 +37,10 @@ impl App {
         for event in self.workspace.drain_events() {
             match event {
                 CoreEvent::Navigate(navigation) => navigations.push(navigation),
-                CoreEvent::SyncChanged => self.refresh_section(root, crate::ui::settings::schema::Section::Sync),
+                CoreEvent::SyncChanged => {
+                    self.refresh_section(root, crate::ui::settings::schema::Section::Sync);
+                    crate::system::show_sync(&self.workspace.core.sync);
+                }
                 CoreEvent::Settle(done) => {
                     if let Some(note) = &mut self.note {
                         note.flush(&self.workspace.core, &self.text);

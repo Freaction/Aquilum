@@ -1,6 +1,6 @@
 use super::*;
 use aquilum_core::settings::models::SyncSettings;
-use aquilum_core::sync::{Large, Progress};
+use aquilum_core::sync::{Large, Progress, Stage};
 
 const INTERVALS: [u64; 5] = [0, 30, 60, 300, 600];
 
@@ -20,8 +20,16 @@ fn set_interval(sync: &mut SyncSettings, value: &Value) {
     }
 }
 
+fn clock(key: &str, seconds: u64) -> String {
+    t_with(key, &[("time", &format!("{}:{:02}", seconds / 60, seconds % 60))])
+}
+
 fn next_sync(seconds: u64) -> String {
-    t_with("settings.sync.next", &[("time", &format!("{}:{:02}", seconds / 60, seconds % 60))])
+    clock("settings.sync.next", seconds)
+}
+
+fn offline_retry(seconds: u64) -> String {
+    clock("settings.sync.offlineRetry", seconds)
 }
 
 fn intervals(vault: SyncSettings) -> Control {
@@ -44,6 +52,8 @@ fn status(ctx: &Context) -> String {
         SyncStatus::Off(Some(error)) | SyncStatus::Failed(error) => error.clone(),
         SyncStatus::Login => t("settings.sync.login"),
         SyncStatus::Deletions { planned, synced } => t_with("settings.sync.deletions", &[("planned", &planned.to_string()), ("synced", &synced.to_string())]),
+        SyncStatus::Offline => t("settings.sync.offline"),
+        SyncStatus::Unsynced { files, first } => t_with("settings.sync.unsynced", &[("files", &plural("settings.trash.files", *files as u64)), ("error", first)]),
         SyncStatus::Running(_) | SyncStatus::Ready => match ctx.sync_last {
             Some(at) => t_with("settings.sync.done", &[("time", &crate::dates::date_time(at))]),
             None => t("settings.sync.connected"),
@@ -51,10 +61,19 @@ fn status(ctx: &Context) -> String {
     }
 }
 
+pub fn stage(progress: &Progress) -> (String, usize, usize) {
+    let (key, count) = match progress.stage() {
+        Stage::Download(count) => ("settings.sync.downloading", count),
+        Stage::Upload(count) => ("settings.sync.uploading", count),
+        Stage::Other(count) => ("settings.sync.syncing", count),
+    };
+    (t(key), count.done, count.total)
+}
+
 fn running(progress: &Progress) -> String {
-    match progress.total {
-        0 => t("settings.sync.running"),
-        total => t_with("settings.sync.progress", &[("done", &progress.done.to_string()), ("total", &total.to_string())]),
+    match stage(progress) {
+        (_, _, 0) => t("settings.sync.running"),
+        (stage, done, total) => t_with("settings.sync.progress", &[("stage", &stage), ("done", &done.to_string()), ("total", &total.to_string())]),
     }
 }
 
@@ -66,7 +85,8 @@ fn provider(ctx: &Context, enabled: bool) -> Control {
         SyncStatus::Deletions { .. } => return Control::Buttons(vec![button("allowDeletions", Action::SyncAllowDeletions), disconnect()]),
         SyncStatus::Running(_) => Some(Indicator::Syncing),
         SyncStatus::Ready => ctx.sync_last.map(|_| Indicator::Synced),
-        SyncStatus::Failed(_) => Some(Indicator::Failed),
+        SyncStatus::Offline => None,
+        SyncStatus::Unsynced { .. } | SyncStatus::Failed(_) => Some(Indicator::Failed),
     };
     match indicator.filter(|_| enabled) {
         Some(indicator) => Control::Indicated(vec![disconnect()], indicator),
@@ -91,7 +111,11 @@ fn files(ctx: &Context) -> Option<Block> {
 
 pub(super) fn sync(_config: &AppConfig, ctx: &Context) -> Vec<Block> {
     let enabled = ctx.vault_sync.is_some_and(|vault| vault.enabled);
-    let dropbox = info(t("settings.sync.dropbox"), Some(status(ctx)), provider(ctx, enabled));
+    let mut dropbox = info(t("settings.sync.dropbox"), Some(status(ctx)), provider(ctx, enabled));
+    if ctx.sync == SyncStatus::Offline && let Some(due) = ctx.sync_due {
+        dropbox.description = None;
+        dropbox.countdown = Some((due, offline_retry as fn(u64) -> String));
+    }
     let mut blocks = vec![Block { title: t("settings.sync.providers"), rows: vec![dropbox] }];
     let connected = !matches!(ctx.sync, SyncStatus::Off(_) | SyncStatus::Login);
     let Some(vault) = ctx.vault_sync.filter(|_| connected) else { return blocks };

@@ -1,5 +1,6 @@
 [workspace]
-members = ["core", "native"]
+members = ["core", "native", "android"]
+default-members = ["core", "native"]
 resolver = "2"
 
 [profile.release]
@@ -65,3 +66,4 @@ masonry = { path = "native/vendor/masonry" }
 ratex-parser = { path = "native/vendor/ratex-parser" }
 krilla = { path = "native/vendor/krilla" }
 subsetter = { path = "native/vendor/subsetter" }
+winit-android = { path = "native/vendor/winit-android" }

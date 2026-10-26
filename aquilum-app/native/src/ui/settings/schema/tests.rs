@@ -94,8 +94,17 @@ fn sync_is_turned_on_per_vault_after_connecting() {
     };
     assert_eq!(countdown(&ctx), Some(t_with("settings.sync.next", &[("time", "1:30")])));
 
+    let description = |ctx: &Context| {
+        let rows = blocks(Section::Sync, &config, ctx).into_iter().flat_map(|b| b.rows);
+        rows.filter(|r| r.label == t("settings.sync.enabled")).find_map(|r| r.description)
+    };
     ctx.sync = SyncStatus::Running(aquilum_core::sync::Progress::default());
-    let rows = blocks(Section::Sync, &config, &ctx).into_iter().flat_map(|b| b.rows);
-    let description = rows.filter(|r| r.label == t("settings.sync.enabled")).find_map(|r| r.description);
-    assert_eq!(description, Some(t("settings.sync.running")), "во время прохода вместо отсчёта — «Синхронизация…»");
+    assert_eq!(description(&ctx), Some(t("settings.sync.running")), "во время прохода вместо отсчёта — «Синхронизация…»");
+
+    let count = |done, total| aquilum_core::sync::Count { done, total };
+    let stage = |key: &str, done: usize, total: usize| t_with("settings.sync.progress", &[("stage", &t(key)), ("done", &done.to_string()), ("total", &total.to_string())]);
+    ctx.sync = SyncStatus::Running(aquilum_core::sync::Progress { done: 1, total: 4, down: count(1, 2), up: count(0, 1) });
+    assert_eq!(description(&ctx), Some(stage("settings.sync.downloading", 1, 2)));
+    ctx.sync = SyncStatus::Running(aquilum_core::sync::Progress { done: 2, total: 4, down: count(2, 2), up: count(0, 1) });
+    assert_eq!(description(&ctx), Some(stage("settings.sync.uploading", 0, 1)));
 }

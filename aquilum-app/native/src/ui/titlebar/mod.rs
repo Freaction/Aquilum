@@ -13,6 +13,7 @@ use uuid::Uuid;
 
 use super::handle::Handle;
 use super::icons;
+use super::keymap::pointer;
 use super::widgets::Press;
 use super::tokens::size;
 use super::{text, theme};
@@ -40,13 +41,13 @@ pub enum TitlebarAction {
 }
 
 const CLOSE_SIZE: f64 = 24.0;
-const DRAG_THRESHOLD: f64 = 4.0;
 const EDGE: f64 = 48.0;
 const EDGE_STEP: f64 = 14.0;
 
 pub(super) fn drag_or_maximize(ctx: &mut EventCtx<'_>, event: &PointerEvent) {
-    if let PointerEvent::Down(e) = event
-        && e.button == Some(PointerButton::Primary)
+    if WINDOW_CHROME
+        && let PointerEvent::Down(e) = event
+        && pointer::press(e.button)
     {
         let action = if e.state.count >= 2 { TitlebarAction::ToggleMaximize } else { TitlebarAction::Drag };
         ctx.submit_action::<TitlebarAction>(action);

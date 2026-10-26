@@ -20,7 +20,7 @@ impl App {
     pub(in crate::app) fn export_pdf(&mut self, _root: &mut RenderRoot) {
         let Some(note) = &self.note else { return };
         let title = note.path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-        let Some(dest) = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).set_file_name(format!("{title}.pdf")).save_file() else { return };
+        let Some(dest) = crate::native_dialog::save_file("PDF", &["pdf"], &format!("{title}.pdf")) else { return };
         let body = self.body();
         let smart = Smart::from_config(&self.workspace.core.settings.get_config());
         let embeds = self.tree.root().map(|root| Embeds::new(Arc::clone(&self.workspace.core), root.to_path_buf(), note.path.clone(), self.workspace.data_dir.join("remote"), Arc::new(|| {})));

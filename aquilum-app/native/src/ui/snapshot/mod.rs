@@ -32,6 +32,7 @@ fn parts(text: &str) -> RootParts<'_> {
             can_back: true,
             can_forward: false,
             focus_mode: false,
+            compact: false,
             wide: false,
             hero: None,
             resolver: None,
@@ -57,6 +58,7 @@ fn parts(text: &str) -> RootParts<'_> {
         panel_from: true,
         panel_mode: crate::links::Mode::Backlinks,
         has_analysis: true,
+        screen: crate::interface::Screen::default(),
     }
 }
 

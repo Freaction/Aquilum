@@ -9,6 +9,8 @@ use masonry::app::RenderRoot;
 use masonry::core::WidgetId;
 
 use super::App;
+#[cfg(test)]
+use super::Popup;
 use crate::graph::Graph;
 use crate::i18n::t;
 use crate::ui::graph::{Display, GraphView, Heat, Status};
@@ -16,7 +18,7 @@ use crate::ui::handle::Handle;
 use crate::ui::widgets::Slot;
 
 struct Controls {
-    refresh: WidgetId,
+    reset: WidgetId,
     node_size: WidgetId,
     spread: WidgetId,
     depth: WidgetId,
@@ -153,6 +155,34 @@ impl App {
     #[cfg(test)]
     pub(super) fn graph_released(&self) -> bool {
         self.graph.data.is_none() && self.graph.view.is_none()
+    }
+
+    #[cfg(test)]
+    pub(super) fn graph_reset_button(&self) -> Option<WidgetId> {
+        self.graph.controls.as_ref().map(|c| c.reset)
+    }
+
+    #[cfg(test)]
+    pub(super) fn is_reset_graph_dialog_open(&self) -> bool {
+        matches!(self.popup, Some(Popup::ResetGraph(_)))
+    }
+
+    #[cfg(test)]
+    pub(super) fn reset_graph_dialog_layer(&self) -> Option<WidgetId> {
+        match &self.popup {
+            Some(Popup::ResetGraph(dialog)) => Some(dialog.layer),
+            _ => None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn graph_share(&self) -> f64 {
+        self.graph.share
+    }
+
+    #[cfg(test)]
+    pub(super) fn set_graph_share(&mut self, share: f64) {
+        self.graph.share = share;
     }
 
     #[cfg(not(feature = "installed"))]

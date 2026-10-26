@@ -58,15 +58,15 @@ fn arrows_step_number_fields_like_tauri() {
     let field = h.binding("поле размера шрифта", |b| matches!(b, Binding::Number { number, .. } if number.blank));
     let before = h.config().ui.font.font_size_base;
     h.root.focus_on(Some(field));
-    assert!(h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowUp)).is_some());
+    assert!(h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowUp), Modifiers::empty()).is_some());
     assert_eq!(h.config().ui.font.font_size_base, before + 1);
     let _ = h.root.redraw();
     let field = h.root.focused_widget().expect("фокус остался в поле");
     h.root.focus_on(Some(field));
-    h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowDown));
-    h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowDown));
+    h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowDown), Modifiers::empty());
+    h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowDown), Modifiers::empty());
     assert_eq!(h.config().ui.font.font_size_base, before - 1);
-    assert!(h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowLeft)).is_none());
+    assert!(h.app.settings_key(&mut h.root, &Key::Named(NamedKey::ArrowLeft), Modifiers::empty()).is_none());
 }
 
 #[test]

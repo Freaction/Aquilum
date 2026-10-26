@@ -1,3 +1,5 @@
+mod adaptive;
+mod compact_focus;
 mod damage;
 mod dialogs;
 mod external;

@@ -7,7 +7,7 @@ fn large_text() -> String {
 }
 
 fn listed(device: &Device) -> Vec<Large> {
-    device.measured.borrow().0.clone()
+    device.probe.measured.lock().unwrap().0.clone()
 }
 
 fn large(path: &str, size: u64, kept: bool) -> Large {
@@ -86,7 +86,7 @@ fn the_cloud_share_leaves_large_files_out() {
 
     device.sync(&remote);
 
-    let size = device.measured.borrow().1;
+    let size = device.probe.measured.lock().unwrap().1;
     assert_eq!((size.synced, size.files), (10, 1));
 }
 
@@ -101,7 +101,7 @@ fn history_and_trash_out_of_scope_stay_out_of_the_size_and_the_list() {
 
     device.sync(&remote);
 
-    assert_eq!(device.measured.borrow().1.synced, 10);
+    assert_eq!(device.probe.measured.lock().unwrap().1.synced, 10);
     assert!(listed(&device).is_empty());
 }
 

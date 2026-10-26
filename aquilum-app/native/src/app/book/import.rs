@@ -46,7 +46,7 @@ impl App {
         let sender = self.picked_tx.clone();
         let wake = Arc::clone(&self.workspace.wake);
         std::thread::spawn(move || {
-            let picked = rfd::FileDialog::new().add_filter("Books", &BOOK_EXTENSIONS).pick_file();
+            let picked = crate::native_dialog::pick_file("Books", &BOOK_EXTENSIONS);
             if sender.send(Picked::Book(note, picked)).is_ok() {
                 wake();
             }
@@ -76,7 +76,7 @@ impl App {
         let sender = self.picked_tx.clone();
         let wake = Arc::clone(&self.workspace.wake);
         std::thread::spawn(move || {
-            let picked = rfd::FileDialog::new().add_filter("Images", &crate::images::EXTENSIONS).pick_file();
+            let picked = crate::native_dialog::pick_file("Images", &crate::images::EXTENSIONS);
             if let Some(file) = picked {
                 let message = if page_cover { Picked::PageCover(note, file) } else { Picked::BookCover(note, file) };
                 if sender.send(message).is_ok() {

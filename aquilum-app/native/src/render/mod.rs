@@ -24,6 +24,11 @@ pub use pixels::{brush, from_rgba};
 pub use renderer::Renderer;
 pub use surface::Surfaces;
 
+#[cfg(target_os = "android")]
+pub const PIXEL_FORMAT: vello_cpu::PixelFormat = vello_cpu::PixelFormat::Rgba8;
+#[cfg(not(target_os = "android"))]
+pub const PIXEL_FORMAT: vello_cpu::PixelFormat = vello_cpu::PixelFormat::Bgra8;
+
 thread_local! {
     static TRIM: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }

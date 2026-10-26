@@ -169,6 +169,7 @@
   "settings": {
     "title": "Settings",
     "close": "Close settings",
+    "back": "Back to sections",
     "nav": {
       "ui": "Interface",
       "editor": "Editor",
@@ -385,6 +386,9 @@
       "running": "Syncing…",
       "connected": "Connected",
       "done": "Synced {{time}}",
+      "offline": "No connection to Dropbox",
+      "offlineRetry": "No connection to Dropbox · retrying in {{time}}",
+      "unsynced": "Not synced: {{files}} · {{error}}",
       "enabled": "Sync this knowledge base",
       "next": "Next sync in {{time}}",
       "every": {
@@ -396,7 +400,10 @@
       },
       "trash": "Sync trash",
       "history": "Sync history",
-      "progress": "Syncing… {{done}} of {{total}}",
+      "progress": "{{stage}} {{done}} of {{total}}",
+      "downloading": "Downloading",
+      "uploading": "Uploading",
+      "syncing": "Syncing",
       "reveal": "Show in folder",
       "toTrash": "Move to trash",
       "deletions": "Sync stopped: {{planned}} of {{synced}} files would be deleted. If intended, press “Delete anyway”",
@@ -419,6 +426,7 @@
       "previousTab": "Previous tab",
       "back": "Back",
       "forward": "Forward",
+      "contextMenu": "Context menu",
       "globalSearch": "Search the knowledge base",
       "newFromTemplate": "New note from template",
       "pageSearch": "Find in note",
@@ -453,6 +461,7 @@
       "scrollLineDown": "Scroll one line down",
       "deleteWord": "Delete word to the left",
       "deleteWordForward": "Delete word to the right",
+      "lineDeleteBackward": "Delete to the start of the line",
       "tables": "Tables",
       "nextCell": "Next cell",
       "previousCell": "Previous cell",
@@ -469,6 +478,8 @@
       "searchOpenNewPane": "Open in a new tab",
       "searchCreate": "Create note",
       "closeWindow": "Close window",
+      "windows": "Windows and menus",
+      "confirm": "Confirm",
       "pageSearchWindow": "Find in note",
       "closeSearch": "Close find",
       "reader": "Reader",
@@ -580,6 +591,10 @@
     "settings": "Graph settings",
     "title": "Graph",
     "refresh": "Rebuild the graph",
+    "reset": "Reset settings",
+    "resetTitle": "Reset graph settings?",
+    "resetDescription": "All graph display options will be restored to their default values.",
+    "resetConfirm": "Reset",
     "nodeSize": "Node size",
     "spread": "Distance between nodes",
     "depth": "Highlight depth",
@@ -659,6 +674,10 @@
     "forgetDescription": "The “{{name}}” folder stays on disk, but Aquilum forgets its open tabs and caret positions.",
     "forgetConfirm": "Remove",
     "forgetPending": "Removing…",
-    "listFailed": "Could not read the list of knowledge bases: {{reason}}"
+    "listFailed": "Could not read the list of knowledge bases: {{reason}}",
+    "cloud": "In the cloud",
+    "cloudLoading": "Loading…",
+    "cloudHint": "Download from Dropbox",
+    "cloudFailed": "Could not get the list of bases from Dropbox: {{reason}}"
   }
 }

@@ -14,7 +14,7 @@ pub struct Metadata {
 #[serde(tag = ".tag", rename_all = "lowercase")]
 pub enum Entry {
     File(Metadata),
-    Folder {},
+    Folder { name: String },
     Deleted { path_display: String, path_lower: String },
 }
 

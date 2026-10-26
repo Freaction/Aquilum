@@ -1,18 +1,23 @@
 mod api;
+mod hash;
 mod types;
 
-use self::api::{content_hash, json, Api, Body, CONTENT};
-use self::types::{Cursor, Entry, Metadata, Page, Session};
+use self::api::{copy, json, Api, Body, CONTENT};
+use self::hash::content_hash;
+use self::types::{Cursor, Entry, Metadata, Session};
 use super::{Account, Client, Delta, Remote, RemoteError, RemoteFile, RemoteResult};
 use crate::search::note_date::{parse_at, to_civil_at};
+use crate::search::paths::is_hidden_name;
 use crate::text::content::Content;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
+use std::ffi::OsStr;
 use std::io::{self, Write};
 use ureq::Agent;
 
 pub const CLIENT: Client = Client {
     authorize: "https://www.dropbox.com/oauth2/authorize",
+    connect: "https://www.dropbox.com/1/connect",
     token: "https://api.dropboxapi.com/oauth2/token",
     id: "ytvmy13es5psczr",
     secret: "",
@@ -30,6 +35,11 @@ pub struct Dropbox {
 impl Dropbox {
     pub fn new(account: Account, agent: Agent, folder: &str) -> Self {
         Self { api: Api::new(account, agent), root: format!("/{folder}") }
+    }
+
+    #[cfg(test)]
+    pub fn remove(&self) -> RemoteResult<()> {
+        self.api.rpc::<serde_json::Value>("files/delete_v2", &json!({ "path": self.root })).map(drop)
     }
 
     fn file(&self, metadata: Metadata) -> Option<RemoteFile> {
@@ -53,18 +63,6 @@ impl Dropbox {
         (!relative.is_empty()).then_some(relative)
     }
 
-    fn pages(&self, mut page: Page, mut visit: impl FnMut(Entry) -> RemoteResult<()>) -> RemoteResult<String> {
-        loop {
-            for entry in page.entries {
-                visit(entry)?;
-            }
-            if !page.has_more {
-                return Ok(page.cursor);
-            }
-            page = self.api.rpc("files/list_folder/continue", &json!({ "cursor": page.cursor }))?;
-        }
-    }
-
     fn upload_parts(&self, content: &dyn Content, commit: Value) -> RemoteResult<Metadata> {
         let url = |route: &str| format!("{CONTENT}files/upload_session/{route}");
         let length = content.byte_len();
@@ -86,8 +84,10 @@ impl Remote for Dropbox {
         let latest = |api: &Api| api.rpc::<Cursor>("files/list_folder/get_latest_cursor", &json!({ "path": self.root, "recursive": true }));
         let cursor = match latest(&self.api) {
             Err(RemoteError::Missing) => {
-                self.api.rpc::<Value>("files/create_folder_v2", &json!({ "path": self.root }))?;
-                latest(&self.api)?
+                match self.api.rpc::<Value>("files/create_folder_v2", &json!({ "path": self.root })) {
+                    Ok(_) | Err(RemoteError::Stale) => latest(&self.api)?,
+                    Err(error) => return Err(error),
+                }
             }
             cursor => cursor?,
         };
@@ -97,7 +97,7 @@ impl Remote for Dropbox {
     fn list(&self) -> RemoteResult<Vec<RemoteFile>> {
         let mut files = Vec::new();
         let first = self.api.rpc("files/list_folder", &json!({ "path": self.root, "recursive": true }))?;
-        self.pages(first, |entry| {
+        self.api.pages(first, |entry| {
             if let Entry::File(metadata) = entry {
                 files.extend(self.file(metadata));
             }
@@ -113,7 +113,7 @@ impl Remote for Dropbox {
         };
         let root = self.root.to_lowercase();
         let (mut changed, mut removed) = (BTreeMap::new(), Vec::new());
-        let cursor = self.pages(first, |entry| {
+        let cursor = self.api.pages(first, |entry| {
             match entry {
                 Entry::File(metadata) => {
                     if let Some(file) = self.file(metadata) {
@@ -130,7 +130,7 @@ impl Remote for Dropbox {
                         removed.push(path);
                     }
                 }
-                Entry::Folder {} => {}
+                Entry::Folder { .. } => {}
             }
             Ok(())
         })?;
@@ -140,8 +140,7 @@ impl Remote for Dropbox {
     fn download(&self, file: &RemoteFile, out: &mut dyn Write) -> RemoteResult<()> {
         let arg = json!({ "path": format!("rev:{}", file.rev) });
         let response = self.api.call(&format!("{CONTENT}files/download"), Some(&arg), Body::Empty)?;
-        io::copy(&mut response.into_reader(), out)?;
-        Ok(())
+        copy(&mut response.into_reader(), out)
     }
 
     fn upload(&self, path: &str, content: &dyn Content, modified: u64, replaces: Option<&RemoteFile>) -> RemoteResult<RemoteFile> {
@@ -167,6 +166,24 @@ impl Remote for Dropbox {
     fn checksum(&self, content: &dyn Content) -> io::Result<String> {
         content_hash(content)
     }
+}
+
+pub fn vaults(account: Account, agent: Agent) -> RemoteResult<Vec<String>> {
+    folders(&Api::new(account, agent))
+}
+
+fn folders(api: &Api) -> RemoteResult<Vec<String>> {
+    let mut names = Vec::new();
+    let first = api.rpc("files/list_folder", &json!({ "path": "", "recursive": false }))?;
+    api.pages(first, |entry| {
+        match entry {
+            Entry::Folder { name } if !is_hidden_name(OsStr::new(&name)) => names.push(name),
+            _ => {}
+        }
+        Ok(())
+    })?;
+    names.sort_by_key(|name| name.to_lowercase());
+    Ok(names)
 }
 
 fn timestamp(modified: u64) -> String {

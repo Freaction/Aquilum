@@ -7,9 +7,10 @@ impl TextEditor {
         if event.state != KeyState::Down || self.compose.is_some() {
             return;
         }
-        let shift = event.modifiers.shift();
+        let extend = keymap::extend(event.modifiers);
         let typed = keymap::typing(event.modifiers);
-        let vertical = matches!(event.key, Key::Named(NamedKey::ArrowUp | NamedKey::ArrowDown | NamedKey::PageUp | NamedKey::PageDown));
+        let command = keymap::command(&[Scope::Text, Scope::Editor, Scope::Navigation, Scope::Caret], &event.key, event.modifiers);
+        let vertical = matches!(command, Some(Command::LineUp | Command::LineDown | Command::PageUp | Command::PageDown | Command::ScrollLineUp | Command::ScrollLineDown));
         if !vertical {
             self.column = None;
         }
@@ -24,9 +25,8 @@ impl TextEditor {
             }
             return;
         }
-        let command = keymap::command(&[Scope::Text, Scope::Editor, Scope::Navigation], &event.key, event.modifiers);
         let rich = !self.single_line && self.doc.markdown.is_some();
-        let typing = matches!(&event.key, Key::Character(_) | Key::Named(NamedKey::Backspace | NamedKey::Delete)) && typed && command.is_none();
+        let typing = typed && (matches!(&event.key, Key::Character(_)) && command.is_none() || matches!(command, Some(Command::DeleteBackward | Command::DeleteForward)));
         let mut edited = false;
         match (command, &event.key) {
             (Some(Command::Cut), _) => {
@@ -57,7 +57,7 @@ impl TextEditor {
             }
             (Some(Command::Indent | Command::Outdent), _) if rich => edited = self.indent(command == Some(Command::Indent)),
             (Some(Command::PageUp | Command::PageDown), _) if !self.single_line => {
-                ctx.submit_action::<TextAction>(TextAction::Page { down: command == Some(Command::PageDown), extend: shift });
+                ctx.submit_action::<TextAction>(TextAction::Page { down: command == Some(Command::PageDown), extend });
                 ctx.set_handled();
                 self.close_suggest();
                 return;
@@ -67,54 +67,61 @@ impl TextEditor {
                 ctx.set_handled();
                 return;
             }
-            (_, Key::Named(NamedKey::ArrowLeft | NamedKey::ArrowRight)) => {
-                let forward = matches!(event.key, Key::Named(NamedKey::ArrowRight));
-                let word = matches!(command, Some(Command::WordLeft | Command::WordRight));
+            (Some(step @ (Command::CharLeft | Command::CharRight | Command::WordLeft | Command::WordRight)), _) => {
+                let forward = matches!(step, Command::CharRight | Command::WordRight);
+                let word = matches!(step, Command::WordLeft | Command::WordRight);
                 let range = self.selection();
-                if !shift && !word && !range.is_empty() {
+                if !extend && !word && !range.is_empty() {
                     let edge = if forward { range.end } else { range.start };
                     self.move_to((edge, Affinity::Downstream), false);
                 } else {
                     let target = self.step(forward, word);
-                    self.move_to(target, shift);
+                    self.move_to(target, extend);
                     self.skip_tables(forward);
                 }
             }
-            (_, Key::Named(NamedKey::ArrowUp | NamedKey::ArrowDown)) => {
-                let target = self.vertical(matches!(event.key, Key::Named(NamedKey::ArrowDown)));
-                self.move_to(target, shift);
-                self.skip_tables(matches!(event.key, Key::Named(NamedKey::ArrowDown)));
+            (Some(line @ (Command::LineUp | Command::LineDown)), _) => {
+                let down = line == Command::LineDown;
+                let target = self.vertical(down);
+                self.move_to(target, extend);
+                self.skip_tables(down);
             }
-            (_, Key::Named(NamedKey::Home | NamedKey::End)) => {
-                let target = match command {
-                    Some(Command::DocumentStart) => (0, Affinity::Downstream),
-                    Some(Command::DocumentEnd) => (self.doc.len(), Affinity::Downstream),
-                    _ => self.line_edge(matches!(event.key, Key::Named(NamedKey::End))),
+            (Some(edge @ (Command::LineStart | Command::LineEnd | Command::DocumentStart | Command::DocumentEnd)), _) => {
+                let target = match edge {
+                    Command::DocumentStart => (0, Affinity::Downstream),
+                    Command::DocumentEnd => (self.doc.len(), Affinity::Downstream),
+                    _ => self.line_edge(edge == Command::LineEnd),
                 };
-                self.move_to(target, shift);
+                self.move_to(target, extend);
             }
-            (_, Key::Named(NamedKey::Backspace)) => {
+            (Some(delete @ (Command::DeleteBackward | Command::DeleteWord)), _) => {
                 if !self.apply_multicursor_delete(false) && !self.handle_pair_backspace() {
-                    self.delete(false, command == Some(Command::DeleteWord));
+                    self.delete(false, delete == Command::DeleteWord);
                 }
                 edited = true;
             }
-            (_, Key::Named(NamedKey::Delete)) => {
+            (Some(Command::LineDeleteBackward), _) => {
+                if !self.apply_multicursor_delete(false) {
+                    self.delete_to_line_start();
+                }
+                edited = true;
+            }
+            (Some(delete @ (Command::DeleteForward | Command::DeleteWordForward)), _) => {
                 if !self.apply_multicursor_delete(true) {
-                    self.delete(true, command == Some(Command::DeleteWordForward));
+                    self.delete(true, delete == Command::DeleteWordForward);
                 }
                 edited = true;
             }
-            (_, Key::Named(NamedKey::Enter)) if self.single_line => {
+            (Some(Command::NewLine | Command::LineBreak), _) if self.single_line => {
                 ctx.submit_action::<TextAction>(TextAction::Entered(self.doc.whole()));
             }
-            (_, Key::Named(NamedKey::Enter)) => {
-                if self.doc.markdown.is_none() || !self.newline(command == Some(Command::LineBreak)) {
+            (Some(newline @ (Command::NewLine | Command::LineBreak)), _) => {
+                if self.doc.markdown.is_none() || !self.newline(newline == Command::LineBreak) {
                     self.insert("\n", Kind::Other);
                 }
                 edited = true;
             }
-            (_, Key::Named(NamedKey::Escape)) => {
+            (Some(Command::Close), _) => {
                 if self.clear_extra_cursors() {
                     ctx.set_handled();
                     self.refresh(ctx);
@@ -144,38 +151,6 @@ impl TextEditor {
             self.update_suggest(ctx.widget_id());
         } else {
             self.close_suggest();
-        }
-    }
-
-    pub(super) fn ime(&mut self, ctx: &mut EventCtx<'_>, ime: &Ime) {
-        let mut edited = false;
-        match ime {
-            Ime::Enabled => {}
-            Ime::Disabled => self.compose = None,
-            Ime::Preedit(text, _) if text.is_empty() => self.compose = None,
-            Ime::Preedit(text, cursor) => {
-                if !self.selection().is_empty() {
-                    self.insert("", Kind::Other);
-                    edited = true;
-                }
-                self.compose = Some((text.clone(), *cursor));
-            }
-            Ime::Commit(text) => {
-                self.compose = None;
-                self.insert(text, Kind::Other);
-                edited = true;
-            }
-        }
-        if edited {
-            self.update_suggest(ctx.widget_id());
-        }
-        self.doc.invalidate(self.focus);
-        ctx.set_handled();
-        if edited {
-            self.changed(ctx);
-        } else {
-            ctx.request_layout();
-            ctx.request_render();
         }
     }
 }

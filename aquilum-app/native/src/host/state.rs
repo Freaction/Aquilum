@@ -11,11 +11,10 @@ impl Host {
 
     pub(super) fn rescale(&mut self) {
         let scale = self.scale();
-        let window = self.logical_size();
         if let Some(root) = &mut self.root {
             ui::rescale(root, scale);
-            self.app.window_resized(root, window);
         }
+        self.fit_window();
         self.request_redraw();
     }
 
@@ -23,6 +22,24 @@ impl Host {
         let w = self.window();
         let size = w.surface_size().to_logical::<f64>(w.scale_factor() * self.app.scale());
         masonry::kurbo::Size::new(size.width, size.height)
+    }
+
+    fn safe_area(&self) -> masonry::kurbo::Insets {
+        let window = self.window();
+        #[cfg(target_os = "android")]
+        let area = crate::android::safe_area();
+        #[cfg(not(target_os = "android"))]
+        let area = window.safe_area();
+        let area = area.to_logical::<f64>(window.scale_factor() * self.app.scale());
+        masonry::kurbo::Insets::new(area.left, area.top, area.right, area.bottom)
+    }
+
+    pub(super) fn fit_window(&mut self) {
+        let (window, insets) = (self.logical_size(), self.safe_area());
+        if let Some(root) = &mut self.root {
+            self.app.window_resized(root, window);
+            self.app.safe_area_changed(root, insets);
+        }
     }
 
     pub(super) fn restore_maximized(&self, window: &dyn Window) {

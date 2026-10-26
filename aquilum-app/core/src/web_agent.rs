@@ -11,6 +11,7 @@ pub fn agent(purpose: &str, timeout: Duration) -> Agent {
     AgentBuilder::new()
         .timeout_connect(TIMEOUT)
         .timeout_read(timeout)
+        .max_idle_connections_per_host(crate::sync::TRANSFERS)
         .user_agent(&format!(
             "Aquilum/{} (local-first notes; {purpose})",
             env!("CARGO_PKG_VERSION")

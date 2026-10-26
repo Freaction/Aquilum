@@ -10,6 +10,7 @@ node_modules/
 
 # Cursor / agents
 /.agents/
+/.claude/
 
 # All build outputs (dev + release Cargo caches, Vite dist, packaged releases)
 /.artifacts/
@@ -23,6 +24,7 @@ node_modules/
 /aquilum-app/target/
 /aquilum-app/core/target/
 /aquilum-app/core/Cargo.lock
+/aquilum-app/native/vendor/winit-android/Cargo.lock
 
 coverage/
 *.tsbuildinfo

@@ -24,10 +24,10 @@ impl App {
         }
         let prefs = self.interface.graph();
         let title = label(&t("graph.title"), |t| t.text_primary, Some(number::FONT_WEIGHT_UI_STRONG as f32), Leading::Times(number::FONT_LINE_HEIGHT_NORMAL as f32));
-        let refresh = NewWidget::new(IconButton::new(icons::ROTATE_CCW, t("graph.refresh")));
+        let reset = NewWidget::new(IconButton::new(icons::ROTATE_CCW, t("graph.reset")));
         let head = Flex::row().main_axis_alignment(MainAxisAlignment::SpaceBetween).cross_axis_alignment(CrossAxisAlignment::Center);
-        let refresh_id = refresh.id();
-        let head = head.with(title, 1.0).with_fixed(refresh);
+        let reset_id = reset.id();
+        let head = head.with(title, 1.0).with_fixed(reset);
         let node_size = Slider::new(&t("graph.nodeSize"), prefs.node_size, 0.4, 2.5, 0.05, &format!("{:.2}×", prefs.node_size));
         let spread = Slider::new(&t("graph.spread"), prefs.spread, graph::MIN_SPREAD, 2.5, 0.05, &format!("{:.2}×", prefs.spread));
         let depth = Slider::new(&t("graph.depth"), prefs.highlight_depth as f64, 1.0, 3.0, 1.0, &depth_hint(prefs.highlight_depth));
@@ -47,7 +47,7 @@ impl App {
             .with_fixed(heat);
         let choice = NewWidget::new(choice).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_8))));
         let controls = Controls {
-            refresh: refresh_id,
+            reset: reset_id,
             node_size: node_size.id(),
             spread: spread.id(),
             depth: depth.id(),

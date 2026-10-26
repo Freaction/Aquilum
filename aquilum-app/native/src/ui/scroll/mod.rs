@@ -11,14 +11,13 @@ mod tests;
 pub use area::ScrollArea;
 pub use pan::{HScroll, Pan};
 
-pub const LINE: f64 = 48.0;
 pub const PAGE: f64 = 0.875;
 
 pub fn pixels(delta: &masonry::core::ScrollDelta, scale: f64, page: f64) -> masonry::kurbo::Vec2 {
     use masonry::core::ScrollDelta;
     use masonry::kurbo::Vec2;
     match *delta {
-        ScrollDelta::LineDelta(x, y) => Vec2::new(f64::from(x), f64::from(y)) * LINE,
+        ScrollDelta::LineDelta(x, y) => Vec2::new(f64::from(x), f64::from(y)) * crate::ui::keymap::gesture::WHEEL_LINE,
         ScrollDelta::PixelDelta(p) => Vec2::new(p.x, p.y) / scale,
         ScrollDelta::PageDelta(x, y) => Vec2::new(f64::from(x), f64::from(y)) * page,
     }

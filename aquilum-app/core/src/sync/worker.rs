@@ -6,9 +6,8 @@ use super::{run, Account, Outcome, Progress, Remote, RemoteError, SyncError, Vau
 use crate::app_core::{Core, CoreEvent};
 use crate::settings::models::SyncSettings;
 use crate::web_agent::{agent, web_agent};
-use std::cell::Cell;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 
 pub type Open = Box<dyn Fn(&Path, &str) -> Result<Arc<dyn Remote>, SyncError> + Send + Sync>;
@@ -30,7 +29,7 @@ struct Pass<'a> {
     shared: &'a Shared,
     core: &'a Core,
     epoch: u64,
-    shown: Cell<Instant>,
+    shown: Mutex<Instant>,
 }
 
 impl Watch for Pass<'_> {
@@ -49,8 +48,9 @@ impl Watch for Pass<'_> {
             state.running = Some(progress);
         }
         drop(state);
-        if progress.done == progress.total || self.shown.get().elapsed() >= SHOW_EVERY {
-            self.shown.set(Instant::now());
+        let mut shown = self.shown.lock().expect("время показа хода");
+        if progress.done == progress.total || shown.elapsed() >= SHOW_EVERY {
+            *shown = Instant::now();
             self.core.emit(CoreEvent::SyncChanged);
         }
     }
@@ -65,7 +65,7 @@ pub fn work(shared: &Shared, core: &Weak<Core>) {
     while let Some(job) = wait(shared) {
         let Some(core) = core.upgrade() else { return };
         core.emit(CoreEvent::SyncChanged);
-        let watch = Pass { shared, core: &core, epoch: job.epoch, shown: Cell::new(Instant::now()) };
+        let watch = Pass { shared, core: &core, epoch: job.epoch, shown: Mutex::new(Instant::now()) };
         let passed = pass(shared, &core, &job, &watch);
         shared.change(|state| {
             if state.epoch == job.epoch {
@@ -116,7 +116,10 @@ fn pass(shared: &Shared, core: &Core, job: &Job, watch: &dyn Watch) -> Result<Ou
     run(&vault)
 }
 
+pub fn account(folder: &Path) -> Result<Account, SyncError> {
+    Ok(Account::open(CLIENT, web_agent("sync"), folder.join(ACCOUNT))?.ok_or(RemoteError::Auth)?)
+}
+
 pub fn dropbox(folder: &Path, name: &str) -> Result<Arc<dyn Remote>, SyncError> {
-    let account = Account::open(CLIENT, web_agent("sync"), folder.join(ACCOUNT))?.ok_or(RemoteError::Auth)?;
-    Ok(Arc::new(Dropbox::new(account, agent("sync", TRANSFER_TIMEOUT), name)))
+    Ok(Arc::new(Dropbox::new(account(folder)?, agent("sync", TRANSFER_TIMEOUT), name)))
 }

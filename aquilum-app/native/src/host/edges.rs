@@ -37,7 +37,8 @@ fn edge_at(position: winit::dpi::PhysicalPosition<f64>, size: winit::dpi::Physic
 impl Host {
     pub(super) fn update_resize_edge(&mut self, position: winit::dpi::PhysicalPosition<f64>) {
         let window = self.window();
-        let edge = if NATIVE_FRAME || window.is_maximized() { None } else { edge_at(position, window.surface_size(), window.scale_factor()) };
+        let framed = NATIVE_FRAME || !ui::titlebar::WINDOW_CHROME || window.is_maximized();
+        let edge = if framed { None } else { edge_at(position, window.surface_size(), window.scale_factor()) };
         if edge != self.resize_edge {
             self.resize_edge = edge;
             let cursor = edge.map_or(self.cursor, CursorIcon::from);

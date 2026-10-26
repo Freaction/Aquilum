@@ -1,4 +1,5 @@
 mod actions;
+mod back;
 mod caches;
 
 pub(crate) use caches::Moment;
@@ -65,7 +66,7 @@ use crate::tabs::Tabs;
 use crate::workspace::Workspace;
 use uuid::Uuid;
 
-enum Popup {
+pub(in crate::app) enum Popup {
     FileMenu { layer: WidgetId, targets: Vec<PathBuf>, clicked: PathBuf, tab: Option<Uuid> },
     Delete { dialog: DialogIds, targets: Vec<PathBuf> },
     Settings { dialog: SettingsDialog, menu: Option<settings::OpenMenu> },
@@ -80,6 +81,7 @@ enum Popup {
     Search(search::SearchState),
     Templates(templates::TemplatesState),
     Workspaces(workspaces::WorkspacesState),
+    ResetGraph(DialogIds),
 }
 
 #[derive(Default)]

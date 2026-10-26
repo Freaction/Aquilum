@@ -1,11 +1,14 @@
 mod chord;
+pub mod gesture;
+pub mod pointer;
 mod table;
 #[cfg(test)]
 mod tests;
 
 use masonry::core::keyboard::{Key, Modifiers};
 
-pub use chord::{action, action_key, typing};
+pub use chord::{action, action_key, extend, typing};
+pub use gesture::Gesture;
 use table::BINDINGS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -14,11 +17,16 @@ pub enum Scope {
     Text,
     Editor,
     Navigation,
+    Caret,
     Table,
     Image,
     List,
     Find,
     Reader,
+    Dialog,
+    Slider,
+    Choice,
+    Number,
 }
 
 impl Scope {
@@ -33,6 +41,8 @@ impl Scope {
             Scope::List => "searchWindow",
             Scope::Find => "pageSearchWindow",
             Scope::Reader => "reader",
+            Scope::Dialog => "windows",
+            Scope::Caret | Scope::Slider | Scope::Choice | Scope::Number => "controls",
         }
     }
 }
@@ -46,6 +56,7 @@ pub enum Command {
     PreviousTab,
     Back,
     Forward,
+    ContextMenu,
     QuickOpen,
     Templates,
     FindInNote,
@@ -77,6 +88,16 @@ pub enum Command {
     ScrollLineDown,
     DeleteWord,
     DeleteWordForward,
+    LineDeleteBackward,
+    CharLeft,
+    CharRight,
+    LineUp,
+    LineDown,
+    LineStart,
+    LineEnd,
+    DeleteBackward,
+    DeleteForward,
+    NewLine,
     NextCell,
     PreviousCell,
     CellBelow,
@@ -92,6 +113,15 @@ pub enum Command {
     NextPage,
     PreviousPage,
     Close,
+    Confirm,
+    Increase,
+    Decrease,
+    First,
+    Last,
+    #[cfg(not(feature = "installed"))]
+    PaintFlashing,
+    #[cfg(not(feature = "installed"))]
+    LiveMetrics,
 }
 
 impl Command {
@@ -106,6 +136,10 @@ pub fn command(scopes: &[Scope], key: &Key, modifiers: Modifiers) -> Option<Comm
         .filter(|binding| scopes.contains(&binding.scope))
         .find(|binding| binding.chords.iter().chain(binding.hidden).any(|chord| chord.matches(key, modifiers)))
         .map(|binding| binding.command)
+}
+
+pub fn gesture(scopes: &[Scope], gesture: Gesture) -> Option<Command> {
+    BINDINGS.iter().filter(|binding| scopes.contains(&binding.scope)).find(|binding| binding.gestures.contains(&gesture)).map(|binding| binding.command)
 }
 
 pub fn label(scope: Scope, command: Command) -> String {

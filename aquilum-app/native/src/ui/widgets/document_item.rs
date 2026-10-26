@@ -1,7 +1,7 @@
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
     AccessCtx, AccessEvent, CursorIcon, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
-    PointerButton, PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update,
+    PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update,
     UpdateCtx, Widget, render_text,
 };
 use masonry::imaging::Painter;
@@ -51,13 +51,13 @@ impl Widget for DocumentItem {
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         if let PointerEvent::Down(e) = event
-            && e.button == Some(PointerButton::Secondary)
+            && crate::ui::keymap::pointer::context(e.button)
         {
             let at = ctx.to_window(ctx.local_position(e.state.position));
             ctx.submit_action::<ItemAction>(ItemAction::Menu(at));
         } else if let Some(e) = self.press.click(ctx, event) {
             let m = e.state.modifiers;
-            ctx.submit_action::<ItemAction>(ItemAction::Open { new_tab: crate::ui::keymap::action(m) });
+            ctx.submit_action::<ItemAction>(ItemAction::Open { new_tab: crate::ui::keymap::pointer::new_tab(m) });
         }
     }
 

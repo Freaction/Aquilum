@@ -20,6 +20,7 @@ pub enum Source {
     Links,
     Start,
     Reading,
+    Synced,
     Restore(u64),
     Revert(u64),
 }
@@ -33,6 +34,7 @@ impl Source {
             Self::Links => "links",
             Self::Start => "start",
             Self::Reading => "reading",
+            Self::Synced => "synced",
             Self::Restore(_) => RESTORE_LABEL,
             Self::Revert(_) => REVERT_LABEL,
         }
@@ -67,7 +69,7 @@ impl Source {
     }
 
     pub fn is_quiet(self) -> bool {
-        matches!(self, Self::Reading)
+        matches!(self, Self::Reading | Self::Synced)
     }
 }
 

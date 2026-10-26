@@ -84,7 +84,7 @@ impl Widget for ResultCard {
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         if let Some(e) = self.press.click(ctx, event) {
             let m = e.state.modifiers;
-            ctx.submit_action::<CardAction>(CardAction::Open { new_tab: crate::ui::keymap::action(m) });
+            ctx.submit_action::<CardAction>(CardAction::Open { new_tab: crate::ui::keymap::pointer::new_tab(m) });
         }
     }
 

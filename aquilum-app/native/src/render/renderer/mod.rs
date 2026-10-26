@@ -25,13 +25,16 @@ pub(super) struct Frame<'a> {
     base: &'a Scene,
     overlays: Vec<(&'a Scene, Affine)>,
     pub(super) fading: Option<(&'a Scene, Affine, super::fade::Fade, u64)>,
+    pub(super) occluded: bool,
 }
 
 impl Frame<'_> {
     pub(super) fn paint_into(&self, sink: &mut dyn PaintSink) {
-        Sink::new(sink).fill_rect(Rect::new(0.0, 0.0, f64::from(self.width), f64::from(self.height)), self.background);
         let scale = Affine::scale(self.scale);
-        replay_transformed(self.base, sink, scale);
+        if !self.occluded {
+            Sink::new(sink).fill_rect(Rect::new(0.0, 0.0, f64::from(self.width), f64::from(self.height)), self.background);
+            replay_transformed(self.base, sink, scale);
+        }
         for (scene, transform) in &self.overlays {
             replay_transformed(scene, sink, scale * *transform);
         }
@@ -111,15 +114,23 @@ impl Renderer {
         let Some(VisualLayerKind::Scene(base)) = layers.root_layer().map(|l| &l.kind) else { return None };
         let mut fading = None;
         let mut overlays = Vec::new();
+        let mut occluded = false;
         for layer in layers.overlay_layers() {
             let VisualLayerKind::Scene(scene) = &layer.kind else { continue };
             let id = layer.widget_id.to_raw();
-            match super::fade::get(id) {
-                Some(fade) if fading.is_none() => fading = Some((scene, layer.transform, fade, id)),
-                _ => overlays.push((scene, layer.transform)),
+            let state = super::fade::get(id);
+            if let Some(fade) = state.fade {
+                if fading.is_none() {
+                    fading = Some((scene, layer.transform, fade, id));
+                }
+            } else {
+                overlays.push((scene, layer.transform));
+                if state.covers {
+                    occluded = true;
+                }
             }
         }
-        Some(Frame { width, height, scale, background, base, overlays, fading })
+        Some(Frame { width, height, scale, background, base, overlays, fading, occluded })
     }
 
     pub fn trim(&mut self) {

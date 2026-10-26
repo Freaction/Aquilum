@@ -23,13 +23,14 @@ pub fn reorder_layout(boxes: &[(f64, f64)], from: usize, offset: f64) -> (usize,
 pub(super) struct Reorder {
     from: usize,
     start: f64,
+    slop: f64,
     dragging: bool,
     target: usize,
 }
 
 impl Reorder {
-    pub(super) fn new(from: usize, start: f64) -> Self {
-        Reorder { from, start, dragging: false, target: from }
+    pub(super) fn new(from: usize, start: f64, slop: f64) -> Self {
+        Reorder { from, start, slop, dragging: false, target: from }
     }
 }
 
@@ -59,7 +60,7 @@ impl TabStrip {
 
     pub(super) fn drag_move(&mut self, ctx: &mut EventCtx<'_>, x: f64) {
         let Some(reorder) = &self.reorder else { return };
-        if !reorder.dragging && (x + self.pan.offset - reorder.start).abs() < DRAG_THRESHOLD {
+        if !reorder.dragging && (x + self.pan.offset - reorder.start).abs() < reorder.slop {
             return;
         }
         if x < EDGE {

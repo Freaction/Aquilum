@@ -1,18 +1,17 @@
+mod drawer;
 mod open;
+mod screen;
 
 use std::sync::Arc;
 
 use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, WidgetId};
-use masonry::kurbo::{Point, Size};
 
 use aquilum_core::files::document::head;
 
 use super::{App, Outcome};
 use crate::links::{self, Listing, Method, Mode, Request};
 use crate::ui::backlinks;
-use crate::ui::titlebar::window_controls;
-use crate::ui::tokens::size;
 use crate::ui::widgets::{IconButton, ItemAction, Pressed, Slot};
 
 impl App {
@@ -38,7 +37,7 @@ impl App {
     }
 
     pub(super) fn panel_visible(&self) -> bool {
-        self.interface.right_open() && !self.interface.focus_mode()
+        self.visible_panels().1
     }
 
     pub(super) fn panel_methods(&self) -> Vec<Method> {
@@ -59,6 +58,9 @@ impl App {
     pub(super) fn request_panel(&mut self, root: &mut RenderRoot) {
         self.panel_generation += 1;
         let key = self.tabs.active().path.clone().map(|path| (path, self.panel_mode(), self.panel_method()));
+        if key.as_ref().map(|k| &k.0) != self.panel_key.as_ref().map(|k| &k.0) {
+            self.set_drawer(root, None);
+        }
         let refresh = self.listing.is_some() && key.is_some() && key == self.panel_key && self.panel_visible();
         self.panel_key = key;
         if !refresh {
@@ -119,20 +121,19 @@ impl App {
     }
 
     fn toggle_panel(&mut self, root: &mut RenderRoot) {
-        let open = !self.interface.right_open();
-        self.interface.set_right_open(open);
-        if let Some(chrome) = &self.chrome {
-            chrome.panel.edit(root, |mut panel| crate::ui::widgets::Collapse::set_open(&mut panel, open));
-            self.shown = Some(self.visible_panels());
-            chrome.controls_inset.edit(root, |mut spacer| crate::ui::widgets::Collapse::set_open(&mut spacer, !open));
-            let label = crate::i18n::t(crate::ui::panel_label(open));
-            root.edit_widget(chrome.panel_toggle, |mut w| crate::ui::widgets::IconButton::set_label(&mut w.downcast(), &label));
+        if self.compact() {
+            self.toggle_drawer(root, crate::interface::Side::Panel);
+        } else {
+            self.interface.set_right_open(!self.interface.right_open());
+            self.apply_panels(root);
         }
-        self.apply_widths(root);
         self.request_panel(root);
     }
 
     pub(super) fn on_panel_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Option<Outcome> {
+        if self.on_drawer_action(root, id, action) {
+            return Some(Outcome::default());
+        }
         let chrome = self.chrome.as_ref()?;
         if action.downcast_ref::<Pressed>().is_some() {
             if id == chrome.panel_toggle {
@@ -169,29 +170,4 @@ impl App {
         None
     }
 
-    pub fn attach_window_controls(&mut self, root: &mut RenderRoot, window: Size) {
-        if cfg!(target_os = "macos") {
-            return;
-        }
-        if let Some((layer, _)) = self.controls.take() {
-            root.remove_layer(layer);
-        }
-        let (widget, maximize) = window_controls(self.maximized);
-        let layer = widget.id();
-        root.add_layer(widget, Point::new(window.width - size::TITLEBAR_CONTROLS_INSET, 0.0));
-        self.controls = Some((layer, maximize));
-        self.window = window;
-        self.apply_widths(root);
-    }
-
-    pub fn window_resized(&mut self, root: &mut RenderRoot, window: Size) {
-        self.window = window;
-        self.apply_widths(root);
-        if let Some((layer, _)) = self.controls {
-            root.reposition_layer(layer, Point::new(window.width - size::TITLEBAR_CONTROLS_INSET, 0.0));
-        }
-        if let Some((hero, _)) = self.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()) {
-            hero.edit(root, |mut hero| crate::ui::book::Hero::set_viewport(&mut hero, window.height));
-        }
-    }
 }

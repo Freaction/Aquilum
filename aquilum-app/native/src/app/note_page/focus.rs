@@ -5,8 +5,15 @@ use crate::ui::widgets::{Collapse, TextButton, Visible};
 
 impl App {
     pub fn toggle_focus_mode(&mut self, root: &mut RenderRoot) {
-        let focus = !self.interface.focus_mode();
-        self.interface.set_focus_mode(focus);
+        if self.compact() {
+            return;
+        }
+        self.interface.set_focus_mode(!self.interface.focus_mode());
+        self.apply_focus(root);
+    }
+
+    pub(in crate::app) fn apply_focus(&mut self, root: &mut RenderRoot) {
+        let focus = self.interface.focus_mode();
         let (sidebar, panel) = self.visible_panels();
         self.shown = Some((sidebar, panel));
         if let Some(chrome) = &mut self.chrome {
@@ -24,6 +31,7 @@ impl App {
                 shown.edit(root, |mut v| Visible::set_shown(&mut v, !focus));
             }
             ids.focus_button.edit(root, |mut b| TextButton::set_pressed(&mut b, focus));
+            ids.focus_shown.edit(root, |mut v| Visible::set_shown(&mut v, !self.compact()));
         }
         self.apply_widths(root);
         if panel {

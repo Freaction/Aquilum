@@ -60,7 +60,7 @@ impl App {
                     body.edit(root, |mut editor| TextEditor::page(&mut editor, down, dy, extend));
                 }
                 Some(TextAction::Line { down }) => {
-                    let line = if *down { crate::ui::scroll::LINE } else { -crate::ui::scroll::LINE };
+                    let line = if *down { crate::ui::keymap::gesture::WHEEL_LINE } else { -crate::ui::keymap::gesture::WHEEL_LINE };
                     scroll.edit(root, |mut area| ScrollArea::scroll_by(&mut area, line));
                 }
                 Some(TextAction::Edited(edits)) => self.body_edited(root, edits),

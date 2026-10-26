@@ -103,7 +103,7 @@ impl ReaderView {
                     return;
                 }
                 self.wheel += if dx.abs() > dy.abs() { -dx } else { -dy };
-                if self.wheel.abs() >= WHEEL_STEP {
+                if self.wheel.abs() >= crate::ui::keymap::gesture::WHEEL_PAGE_TURN {
                     let side = if self.wheel > 0.0 { Side::Next } else { Side::Prev };
                     self.wheel = 0.0;
                     self.turn(ctx, side);

@@ -8,7 +8,7 @@ impl Widget for PageCover {
             return;
         }
         match event {
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
+            PointerEvent::Down(e) if crate::ui::keymap::pointer::press(e.button) => {
                 self.drag = Some((ctx.local_position(e.state.position).y, self.position));
                 ctx.capture_pointer();
             }

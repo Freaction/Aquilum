@@ -83,7 +83,7 @@ impl PaintSink for Tracker {
             for region in self.regions.iter_mut().filter(|r| !r.started) {
                 let vp = region.viewport;
                 let middle = (vp.y0 + vp.y1) / 2.0;
-                if cover.x0 <= vp.x0 && cover.x1 >= vp.x1 && y0 <= middle && y1 >= middle {
+                if cover.x0 <= vp.x0 + 0.5 && cover.x1 + 0.5 >= vp.x1 && y0 <= middle && y1 >= middle {
                     region.occlude(y0, y1);
                 }
             }

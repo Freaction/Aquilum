@@ -41,6 +41,7 @@ mod pointer;
 mod replay;
 mod signals;
 mod state;
+mod touch;
 mod window;
 mod window_events;
 
@@ -96,4 +97,6 @@ struct Host {
     live_at: Option<Instant>,
     drop_at: winit::dpi::LogicalPosition<f64>,
     click: Option<(PointerButton, Instant, winit::dpi::PhysicalPosition<f64>, u8)>,
+    touch: touch::Touch,
+    ime_text: Option<winit::window::ImeSurroundingText>,
 }

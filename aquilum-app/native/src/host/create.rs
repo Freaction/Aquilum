@@ -43,20 +43,26 @@ impl Host {
         self.app.attach_window_controls(&mut root, masonry::kurbo::Size::new(logical.width, logical.height));
         self.app.restore(&mut root);
         let window: std::rc::Rc<dyn Window> = std::rc::Rc::from(window);
-        match crate::output::Output::new(event_loop.owned_display_handle(), window.clone()) {
-            Ok(output) => self.output = Some(output),
-            Err(err) => report(&format!("вывод кадра: {err}")),
-        }
+        self.attach_output(event_loop, window.clone());
         self.touchpad = crate::touchpad::Touchpad::attach(&*window);
         self.window = Some(window);
         if let Some(note) = self.args.open.clone() {
             self.app.open(&mut root, note);
         }
         self.root = Some(root);
+        self.fit_window();
         self.on_wake(event_loop);
         self.redraw();
         if self.output.is_none() {
             self.reveal();
         }
+    }
+
+    pub(super) fn attach_output(&mut self, event_loop: &dyn ActiveEventLoop, window: std::rc::Rc<dyn Window>) {
+        match crate::output::Output::new(event_loop.owned_display_handle(), window) {
+            Ok(output) => self.output = Some(output),
+            Err(err) => report(&format!("вывод кадра: {err}")),
+        }
+        self.full_next = true;
     }
 }

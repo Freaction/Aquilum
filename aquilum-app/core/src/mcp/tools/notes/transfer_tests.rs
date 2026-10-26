@@ -7,10 +7,16 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 struct Vaults {
-    _directory: tempfile::TempDir,
     core: Arc<Core>,
     from: PathBuf,
     to: PathBuf,
+    _directory: tempfile::TempDir,
+}
+
+impl Drop for Vaults {
+    fn drop(&mut self) {
+        self.core.shutdown();
+    }
 }
 
 fn vaults() -> Vaults {
@@ -32,7 +38,7 @@ fn vaults() -> Vaults {
     write(&from, "Общая.md", "[[Созвон]]\n\n![[схема.png]]\n");
     write(&from, "Files/кадр.png", "png");
     write(&from, "Files/схема.png", "png");
-    Vaults { _directory: directory, core, from, to }
+    Vaults { core, from, to, _directory: directory }
 }
 
 fn write(root: &Path, path: &str, text: &str) {

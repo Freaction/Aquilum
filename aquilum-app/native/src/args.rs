@@ -28,8 +28,8 @@ pub struct Args {
     pub probe_notes: Vec<PathBuf>,
 }
 
-pub fn parse() -> Result<Args, String> {
-    let mut args = Args {
+pub fn defaults() -> Args {
+    Args {
         vault: None,
         data_dir: None,
         size: None,
@@ -50,7 +50,12 @@ pub fn parse() -> Result<Args, String> {
         memory_probe: None,
         #[cfg(feature = "memory-probe")]
         probe_notes: Vec::new(),
-    };
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn parse() -> Result<Args, String> {
+    let mut args = defaults();
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
         let mut value = || it.next().ok_or_else(|| format!("{flag}: нет значения"));

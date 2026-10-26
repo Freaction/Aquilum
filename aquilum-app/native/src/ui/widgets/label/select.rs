@@ -1,5 +1,5 @@
 use masonry::core::keyboard::KeyState;
-use masonry::core::{BrushIndex, EventCtx, PointerButton, PointerButtonEvent, PointerEvent, PointerUpdate, TextEvent};
+use masonry::core::{BrushIndex, EventCtx, PointerButtonEvent, PointerEvent, PointerUpdate, TextEvent};
 use masonry::imaging::Painter;
 use masonry::kurbo::{Rect, Vec2};
 use masonry::parley::{Affinity, Cursor, Layout, Selection};
@@ -36,7 +36,7 @@ impl Label {
             (point.x as f32, point.y as f32)
         };
         match event {
-            PointerEvent::Down(PointerButtonEvent { button: None | Some(PointerButton::Primary), state, .. }) => {
+            PointerEvent::Down(PointerButtonEvent { button, state, .. }) if crate::ui::keymap::pointer::press(*button) => {
                 let (x, y) = local(state.position);
                 self.selection = match state.count {
                     1 => Selection::from_point(layout, x, y),

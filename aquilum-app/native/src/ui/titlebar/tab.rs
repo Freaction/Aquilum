@@ -18,7 +18,7 @@ pub struct TabButton {
     icon: Option<icons::Icon>,
     line: text::Line,
     close_hovered: bool,
-    down: Option<(PointerButton, f64)>,
+    down: Option<(Option<PointerButton>, f64)>,
 }
 
 impl TabButton {
@@ -65,28 +65,23 @@ impl Widget for TabButton {
             }
             PointerEvent::Down(e) => {
                 let at = ctx.local_position(e.state.position);
-                match e.button {
-                    Some(button @ (PointerButton::Primary | PointerButton::Auxiliary)) => {
-                        self.down = Some((button, at.x));
-                        ctx.capture_pointer();
-                        ctx.request_paint_only();
-                    }
-                    Some(PointerButton::Secondary) if self.document => {
-                        ctx.set_handled();
-                        ctx.submit_action::<TitlebarAction>(TitlebarAction::Menu(self.id, ctx.to_window(at)));
-                    }
-                    _ => {}
+                if pointer::press(e.button) || pointer::close(e.button) {
+                    self.down = Some((e.button, at.x));
+                    ctx.capture_pointer();
+                    ctx.request_paint_only();
+                } else if pointer::context(e.button) && self.document {
+                    ctx.set_handled();
+                    ctx.submit_action::<TitlebarAction>(TitlebarAction::Menu(self.id, ctx.to_window(at)));
                 }
             }
-            PointerEvent::Up(e) if self.down.is_some_and(|(button, _)| e.button == Some(button)) => {
+            PointerEvent::Up(e) if self.down.is_some_and(|(button, _)| e.button == button) => {
                 let Some((button, start)) = self.down.take() else { return };
                 ctx.request_paint_only();
                 let at = ctx.local_position(e.state.position);
-                if !ctx.is_hovered() || (at.x - start).abs() >= DRAG_THRESHOLD {
+                if !ctx.is_hovered() || (at.x - start).abs() >= pointer::drag_slop(e.pointer.pointer_type) {
                     return;
                 }
-                let close = button == PointerButton::Auxiliary
-                    || (self.close_visible(true) && self.close_rect(bounds).contains(at));
+                let close = pointer::close(button) || (self.close_visible(true) && self.close_rect(bounds).contains(at));
                 let action = if close { TitlebarAction::Close(self.id) } else { TitlebarAction::Select(self.id) };
                 ctx.submit_action::<TitlebarAction>(action);
             }

@@ -1,4 +1,5 @@
-use masonry::core::{EventCtx, Ime, PointerButton, PointerButtonEvent, PointerEvent, PointerUpdate, PropertiesMut, TextEvent, UpdateCtx};
+use masonry::core::{EventCtx, Ime, PointerButtonEvent, PointerEvent, PointerUpdate, PropertiesMut, TextEvent, UpdateCtx};
+use crate::ui::keymap::pointer;
 use super::Kind;
 use super::paste;
 use super::TextEditor;
@@ -62,11 +63,11 @@ impl TextEditor {
             return;
         }
         match event {
-            PointerEvent::Down(PointerButtonEvent { button: None | Some(PointerButton::Primary), state, .. }) => {
+            PointerEvent::Down(PointerButtonEvent { button, state, .. }) if pointer::press(*button) => {
                 self.close_suggest();
                 let point = ctx.local_position(state.position);
-                let new_tab = crate::ui::keymap::action(state.modifiers);
-                if self.table_press(ctx, point, state.modifiers.shift(), new_tab, state.count)
+                let new_tab = pointer::new_tab(state.modifiers);
+                if self.table_press(ctx, point, crate::ui::keymap::extend(state.modifiers), new_tab, state.count)
                     || self.media_press(ctx, point, state.count)
                     || self.code_press(ctx, point)
                     || self.card_click(ctx, point, new_tab)
@@ -75,10 +76,10 @@ impl TextEditor {
                 {
                     return;
                 }
-                if state.modifiers.alt() {
+                if pointer::add_cursor(state.modifiers) {
                     let (offset, _) = self.hit(point);
                     self.add_cursor_at(offset);
-                } else if !state.modifiers.shift() {
+                } else if !crate::ui::keymap::extend(state.modifiers) {
                     self.clear_extra_cursors();
                     self.select_at(point, state.count, false);
                 } else {
@@ -98,7 +99,7 @@ impl TextEditor {
                 self.drag_select(point);
                 self.refresh(ctx);
             }
-            PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Secondary), state, .. }) => {
+            PointerEvent::Down(PointerButtonEvent { button, state, .. }) if pointer::context(*button) => {
                 let point = ctx.local_position(state.position);
                 if !self.table_context(ctx, point) {
                     if let Some(resolver) = &self.doc.resolver {
@@ -127,7 +128,7 @@ impl TextEditor {
             PointerEvent::Scroll(scroll) => {
                 let point = ctx.local_position(scroll.state.position);
                 let d = crate::ui::scroll::pixels(&scroll.delta, ctx.scale_factor(), ctx.content_box().width());
-                let dx = crate::ui::scroll::sideways(d, scroll.state.modifiers.shift());
+                let dx = crate::ui::scroll::sideways(d, pointer::sideways(scroll.state.modifiers));
                 if dx != 0.0 && (self.table_scroll(ctx, point, -dx) || self.code_scroll(ctx, point, -dx)) {
                     ctx.set_handled();
                 }
@@ -148,6 +149,7 @@ impl TextEditor {
                 }
             }
             TextEvent::Ime(Ime::Commit(text)) if self.table_text(ctx, text) => {}
+            TextEvent::Ime(Ime::DeleteSurrounding { before_bytes, after_bytes }) if self.table_delete(ctx, *before_bytes, *after_bytes) => {}
             TextEvent::Ime(ime) => self.ime(ctx, ime),
             TextEvent::ClipboardPaste(text) if self.table_text(ctx, text) => {}
             TextEvent::ClipboardPaste(text) => {

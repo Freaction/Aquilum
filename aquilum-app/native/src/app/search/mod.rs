@@ -25,7 +25,7 @@ use crate::ui::widgets::Slot;
 pub(super) use worker::Found;
 
 pub(super) struct SearchState {
-    layer: WidgetId,
+    pub(super) layer: WidgetId,
     field: Handle<TextEditor>,
     placeholder: Handle<Placeholder>,
     clear: Handle<crate::ui::widgets::IconButton>,

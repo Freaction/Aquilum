@@ -6,7 +6,7 @@ use crate::ui::keymap::Command;
 impl App {
     pub fn command(&mut self, root: &mut RenderRoot, command: Command) -> Option<Outcome> {
         let zoom = matches!(command, Command::ZoomIn | Command::ZoomOut | Command::ZoomReset);
-        if self.popup.is_some() && !zoom {
+        if self.popup.is_some() && !zoom && command != Command::Back {
             return None;
         }
         let done = Outcome::default();
@@ -16,7 +16,7 @@ impl App {
             Command::CloseTab => self.close_active_tab(root),
             Command::NextTab => self.cycle_tab(root, true),
             Command::PreviousTab => self.cycle_tab(root, false),
-            Command::Back => self.navigate(root, -1),
+            Command::Back => self.back(root),
             Command::Forward => self.navigate(root, 1),
             Command::QuickOpen => {
                 self.open_search(root);

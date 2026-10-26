@@ -786,6 +786,19 @@ impl<const EDITABLE: bool> Widget for TextArea<EDITABLE> {
                             .insert_or_replace_selection(text);
                         edited = true;
                     }
+                    Ime::DeleteSurrounding {
+                        before_bytes,
+                        after_bytes,
+                    } => {
+                        let mut driver = self.editor.driver(fctx, lctx);
+                        if let Some(after) = std::num::NonZeroUsize::new(*after_bytes) {
+                            driver.delete_bytes_after_selection(after);
+                        }
+                        if let Some(before) = std::num::NonZeroUsize::new(*before_bytes) {
+                            driver.delete_bytes_before_selection(before);
+                        }
+                        edited = true;
+                    }
                     Ime::Enabled => {}
                 }
 

@@ -7,7 +7,7 @@ use crate::ui::editor::TextEditor;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::settings::schema::Section;
 use crate::ui::settings::{self, Binding, SettingsDialog};
-use crate::ui::widgets::ItemButton;
+use crate::ui::widgets::{ItemButton, Label};
 
 impl App {
     pub(super) fn reload_settings(&mut self, root: &mut RenderRoot) {
@@ -21,13 +21,14 @@ impl App {
         let ctx = self.settings_context(dialog.copied, dialog.trash_page);
         let (card, finish) = settings::card(&config, &ctx, dialog.section);
         root.edit_widget(dialog.layer, |mut w| Modal::set_card(&mut w.downcast(), card, &crate::i18n::t("settings.title")));
-        let fresh = finish(dialog.layer);
+        let fresh = SettingsDialog { listing: dialog.listing, ..finish(dialog.layer) };
         root.focus_on(Some(fresh.layer));
         if let Some(offset) = offset {
             fresh.content.edit(root, |mut area| ScrollArea::set_offset(&mut area, offset));
         }
         resume_switches(root, &fresh.bindings, &switches);
         self.popup = Some(Popup::Settings { dialog: fresh, menu: None });
+        self.fit_settings(root);
         self.refocus(root);
     }
 
@@ -56,6 +57,7 @@ impl App {
         for &(nav, item) in &dialog.nav {
             root.edit_widget(nav, |mut w| ItemButton::set_active(&mut w.downcast(), item == section));
         }
+        dialog.title.edit(root, |mut title| Label::set_text(&mut title, &section.label()));
         dialog.section = section;
         dialog.copied = None;
         dialog.trash_page = 0;

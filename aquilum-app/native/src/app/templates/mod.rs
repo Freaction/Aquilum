@@ -113,10 +113,6 @@ impl App {
                     Some(Outcome::default())
                 }
             }
-            Command::Close => {
-                self.close_templates(root);
-                Some(Outcome::default())
-            }
             _ => None,
         }
     }

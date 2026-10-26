@@ -48,6 +48,10 @@ pub fn action(modifiers: Modifiers) -> bool {
     if MAC { modifiers.meta() } else { modifiers.ctrl() }
 }
 
+pub fn extend(modifiers: Modifiers) -> bool {
+    modifiers.shift()
+}
+
 pub fn typing(modifiers: Modifiers) -> bool {
     !action(modifiers) || !MAC && modifiers.alt()
 }

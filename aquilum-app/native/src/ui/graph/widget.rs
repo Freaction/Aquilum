@@ -12,7 +12,7 @@ use masonry::layout::{LenReq, Length};
 use crate::ui::text::Line;
 use crate::ui::theme;
 use crate::ui::tokens::size;
-use super::{CAMERA_SETTLE, DRAG_THRESHOLD, DRAFT_BUDGET, GraphAction, GraphView, SETTINGS_WIDTH, Status};
+use super::{CAMERA_SETTLE, DRAFT_BUDGET, Drag, GraphAction, GraphView, SETTINGS_WIDTH, Status};
 use crate::i18n::t;
 
 impl Widget for GraphView {
@@ -41,7 +41,7 @@ impl Widget for GraphView {
             let node = self.node_at(p);
             busy |= self.hover(node);
         }
-        let moving = busy || self.drag.as_ref().is_some_and(|d| d.travelled > DRAG_THRESHOLD);
+        let moving = busy || self.drag.as_ref().is_some_and(Drag::panning);
         self.draft = moving && (self.draft || self.cost > DRAFT_BUDGET);
         if busy || self.moved_at.is_some() || std::mem::take(&mut self.animating) {
             ctx.request_anim_frame();
@@ -138,7 +138,7 @@ impl Widget for GraphView {
     }
 
     fn get_cursor(&self, _ctx: &QueryCtx<'_>, pos: Point) -> CursorIcon {
-        if self.drag.as_ref().is_some_and(|d| d.travelled > DRAG_THRESHOLD) {
+        if self.drag.as_ref().is_some_and(Drag::panning) {
             CursorIcon::Grabbing
         } else if self.hovered.is_some() || self.action_rect.is_some_and(|r| r.contains(pos)) {
             CursorIcon::Pointer

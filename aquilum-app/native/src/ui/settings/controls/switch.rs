@@ -33,6 +33,15 @@ impl Switch {
         }
     }
 
+    pub fn set(this: &mut WidgetMut<'_, Self>, on: bool) {
+        if this.widget.on != on {
+            this.widget.on = on;
+            this.ctx.request_anim_frame();
+            this.ctx.request_paint_only();
+            this.ctx.request_accessibility_update();
+        }
+    }
+
     fn toggle(&mut self, ctx: &mut EventCtx<'_>) {
         if !self.enabled {
             return;
@@ -94,7 +103,7 @@ impl Widget for Switch {
         let handle = Circle::new((x + r, bounds.center().y), r);
         let rect = RoundedRect::from_rect(Rect::from_center_size(handle.center, Size::new(r * 2.0, r * 2.0)), r);
         let glow = |blur, color: masonry::peniko::Color| Shadow { x: 0.0, y: 0.0, blur, spread: 0.0, color: color.multiply_alpha(alpha) };
-        box_shadow(painter, rect, &[glow(1.0, t.shadow_sm), glow(4.0, t.shadow_sm), glow(44.0, t.shadow_md)]);
+        box_shadow(painter, rect, &[glow(1.0, t.shadow_sm), glow(3.0, t.shadow_md)]);
         painter.fill(handle, t.bg_static_white.multiply_alpha(alpha)).draw();
     }
 

@@ -1,15 +1,14 @@
-use masonry::core::{EventCtx, PointerButton, PointerEvent};
+use masonry::core::{EventCtx, PointerEvent};
 use masonry::kurbo::Point;
 
 use super::{RowAction, TreeRow};
 use crate::ui::file_tree::model::Modifiers;
-
-const DRAG_THRESHOLD: f64 = 5.0;
+use crate::ui::keymap::pointer;
 
 impl TreeRow {
     pub(super) fn pointer(&mut self, ctx: &mut EventCtx<'_>, event: &PointerEvent) {
         match event {
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
+            PointerEvent::Down(e) if pointer::press(e.button) => {
                 self.pressed = true;
                 self.dragging = false;
                 self.down_at = Some(logical(e.state.position, e.state.scale_factor));
@@ -17,9 +16,10 @@ impl TreeRow {
             }
             PointerEvent::Move(update) if self.pressed => {
                 let at = logical(update.current.position, update.current.scale_factor);
+                let slop = pointer::drag_slop(update.pointer.pointer_type);
                 if !self.dragging
                     && let Some(start) = self.down_at
-                    && ((at.x - start.x).abs() >= DRAG_THRESHOLD || (at.y - start.y).abs() >= DRAG_THRESHOLD)
+                    && ((at.x - start.x).abs() >= slop || (at.y - start.y).abs() >= slop)
                 {
                     self.dragging = true;
                     ctx.submit_action::<RowAction>(RowAction::DragStart(at));
@@ -28,21 +28,20 @@ impl TreeRow {
                     ctx.submit_action::<RowAction>(RowAction::DragMove(at));
                 }
             }
-            PointerEvent::Up(e) if e.button == Some(PointerButton::Primary) && self.pressed && self.dragging => {
+            PointerEvent::Up(e) if pointer::press(e.button) && self.pressed && self.dragging => {
                 self.pressed = false;
                 self.dragging = false;
                 let at = logical(e.state.position, e.state.scale_factor);
                 ctx.submit_action::<RowAction>(RowAction::Drop(at));
             }
-            PointerEvent::Up(e) if e.button == Some(PointerButton::Primary) && self.pressed => {
+            PointerEvent::Up(e) if pointer::press(e.button) && self.pressed => {
                 self.pressed = false;
                 if ctx.is_hovered() {
                     let m = e.state.modifiers;
-                    let action = crate::ui::keymap::action(m);
-                    ctx.submit_action::<RowAction>(RowAction::Press(Modifiers { action, shift: m.shift() }));
+                    ctx.submit_action::<RowAction>(RowAction::Press(Modifiers { action: pointer::toggle(m), shift: crate::ui::keymap::extend(m) }));
                 }
             }
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Secondary) => {
+            PointerEvent::Down(e) if pointer::context(e.button) => {
                 let at = logical(e.state.position, e.state.scale_factor);
                 ctx.submit_action::<RowAction>(RowAction::ContextMenu(at));
             }

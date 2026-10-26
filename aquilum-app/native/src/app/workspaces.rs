@@ -8,16 +8,17 @@ use uuid::Uuid;
 
 use super::{App, Outcome, Popup};
 use crate::i18n::{t, t_with};
-use crate::session::Session;
-use crate::tabs::Tabs;
 use crate::ui::dialog::{ConfirmDialog, DialogAnswer, DialogIds};
-use crate::ui::file_tree::FileTree;
 use crate::ui::widgets::Pressed;
 use crate::ui::workspaces::{self, RowAction, WorkspaceDialog};
 
+pub(super) mod cloud;
+mod switch;
+
 pub(super) struct WorkspacesState {
-    dialog: WorkspaceDialog,
-    forget: Option<(DialogIds, Uuid)>,
+    pub(super) dialog: WorkspaceDialog,
+    pub(super) forget: Option<(DialogIds, Uuid)>,
+    cloud: Option<cloud::Cloud>,
 }
 
 #[cfg(test)]
@@ -54,10 +55,11 @@ impl App {
                 (Vec::new(), Some(t_with("workspaces.listFailed", &[("reason", &format!("{e:?}"))])))
             }
         };
-        let (layer, dialog) = workspaces::dialog(&known, self.tree.root(), error.as_deref());
+        let (layer, dialog) = workspaces::dialog(&known, self.tree.root(), error.as_deref(), self.signed_in());
         root.add_layer(layer, Point::ORIGIN);
         root.focus_on(Some(dialog.layer));
-        self.popup = Some(Popup::Workspaces(WorkspacesState { dialog, forget: None }));
+        let cloud = dialog.cloud.map(|slot| self.list_cloud(slot));
+        self.popup = Some(Popup::Workspaces(WorkspacesState { dialog, forget: None, cloud }));
     }
 
     fn close_workspaces(&mut self, root: &mut RenderRoot) {
@@ -103,6 +105,12 @@ impl App {
             self.popup = Some(Popup::Workspaces(state));
             return self.pick_workspace(root);
         }
+        if let Some((name, sender)) = state.cloud.as_ref().and_then(|cloud| cloud.row(id))
+            && matches!(action.downcast_ref::<RowAction>(), Some(RowAction::Open))
+        {
+            self.popup = Some(Popup::Workspaces(state));
+            return self.choose_cloud(root, name, sender);
+        }
         let row = dialog.rows.iter().find(|(row, _, _)| *row == id).map(|(_, path, uuid)| (path.clone(), *uuid));
         match (row, action.downcast_ref::<RowAction>()) {
             (Some((path, _)), Some(RowAction::Open)) => {
@@ -123,70 +131,20 @@ impl App {
     }
 
     pub(super) fn pick_workspace(&mut self, _root: &mut RenderRoot) -> Outcome {
-        let start = self.tree.root().and_then(Path::parent).map(Path::to_path_buf);
         let sender = self.picked_tx.clone();
+        self.pick_folder(move |path| sender.send(super::book::Picked::Workspace(path)).is_ok());
+        Outcome::default()
+    }
+
+    fn pick_folder(&self, deliver: impl FnOnce(PathBuf) -> bool + Send + 'static) {
+        let start = self.tree.root().and_then(Path::parent).map(Path::to_path_buf);
         let wake = std::sync::Arc::clone(&self.workspace.wake);
         std::thread::spawn(move || {
-            let mut picker = rfd::FileDialog::new();
-            if let Some(start) = start {
-                picker = picker.set_directory(start);
-            }
-            if let Some(path) = picker.pick_folder()
-                && sender.send(super::book::Picked::Workspace(path)).is_ok()
+            if let Some(path) = crate::native_dialog::pick_folder(start.as_deref())
+                && deliver(path)
             {
                 wake();
             }
         });
-        Outcome::default()
-    }
-
-    pub(super) fn switch_workspace(&mut self, root: &mut RenderRoot, path: PathBuf) -> Outcome {
-        let path = crate::workspace::normalize(&path);
-        let reopen = matches!(self.popup, Some(Popup::Workspaces(_)));
-        let failed = |app: &mut App, root: &mut RenderRoot| {
-            let error = t_with("workspaces.openFailed", &[("path", &path.to_string_lossy())]);
-            if reopen || app.tree.root().is_some() {
-                app.close_workspaces(root);
-                app.show_workspaces(root, Some(error));
-            } else {
-                app.vault_error = Some(error);
-                app.replace_root(root);
-                app.show_active(root);
-            }
-            Outcome::default()
-        };
-        if !path.is_dir() {
-            return failed(self, root);
-        }
-        if let Err(e) = self.workspace.core.ui_state.resolve_workspace(&path.to_string_lossy(), crate::dates::now_ms()) {
-            report!("база {} не открыта: {e:?}", path.display());
-            return failed(self, root);
-        }
-        self.close_workspaces(root);
-        if self.tree.root().is_some_and(|current| same_path(current, &path)) {
-            return Outcome::default();
-        }
-        self.leave_note();
-        if let Some(session) = &mut self.session {
-            session.save(&self.workspace.core, &mut self.tabs);
-        }
-        self.workspace.root = Some(path.clone());
-        self.tree = FileTree::new(Some(path.clone()), &self.workspace.data_dir, std::sync::Arc::clone(&self.workspace.wake));
-        self.navigation = crate::navigation::Navigation::load(&self.workspace.data_dir, Some(&path));
-        (self.session, self.tabs) = match Session::open(&self.workspace.core, &path) {
-            Some((session, tabs)) => (Some(session), tabs),
-            None => (None, Tabs::default()),
-        };
-        self.text = crop::Rope::new();
-        self.vault_error = None;
-        self.renaming_tab = None;
-        self.rename_field = None;
-        self.forget(super::Moment::Vault, root);
-        self.start_index();
-        self.refresh_home();
-        self.cleanup_retention();
-        self.replace_root(root);
-        self.show_active(root);
-        Outcome { title: true, ..Outcome::default() }
     }
 }

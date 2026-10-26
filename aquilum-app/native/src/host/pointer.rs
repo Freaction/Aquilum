@@ -1,7 +1,6 @@
 use super::*;
-
-const DOUBLE_CLICK: Duration = Duration::from_millis(500);
-const DOUBLE_CLICK_SLOP: f64 = 4.0;
+use crate::ui::keymap::gesture::{DOUBLE_CLICK, DOUBLE_CLICK_SLOP};
+use crate::ui::keymap::{self, Command, Gesture, Scope};
 
 impl Host {
     pub(super) fn time_ns(&self) -> u64 {
@@ -27,12 +26,30 @@ impl Host {
     }
 
     pub(super) fn pinch(&mut self, delta: f64) {
+        let state = self.pointer_state();
+        self.pinch_at(PRIMARY_MOUSE, state, delta);
+    }
+
+    pub(super) fn pinch_at(&mut self, pointer: PointerInfo, state: PointerState, delta: f64) {
         if !delta.is_finite() || delta == 0.0 {
             return;
         }
-        let state = self.pointer_state();
-        let gesture = masonry::core::PointerGestureEvent { pointer: PRIMARY_MOUSE, gesture: masonry::core::PointerGesture::Pinch(delta as f32), state };
+        let gesture = masonry::core::PointerGestureEvent { pointer, gesture: masonry::core::PointerGesture::Pinch(delta as f32), state };
         self.pointer_event(PointerEvent::Gesture(gesture));
+    }
+
+    pub(super) fn run_gesture(&mut self, gesture: Gesture, at: masonry::kurbo::Point) {
+        match keymap::gesture(&[Scope::Global], gesture) {
+            Some(Command::ContextMenu) => self.touch_click(at, PointerButton::Secondary, 1),
+            Some(command) => {
+                if let Some(root) = &mut self.root
+                    && let Some(outcome) = self.app.command(root, command)
+                {
+                    self.apply(outcome);
+                }
+            }
+            None => {}
+        }
     }
 
     pub(super) fn pointer_event(&mut self, event: PointerEvent) {
@@ -84,17 +101,13 @@ impl Host {
         let state = self.pointer_state();
         let event = PointerButtonEvent { pointer: PRIMARY_MOUSE, button, state };
         self.pointer_event(if pressed { PointerEvent::Down(event) } else { PointerEvent::Up(event) });
-        let delta = match button {
-            Some(PointerButton::X1) => -1,
-            Some(PointerButton::X2) => 1,
-            _ => 0,
+        let gesture = match button {
+            Some(PointerButton::X1) => Some(Gesture::MouseBack),
+            Some(PointerButton::X2) => Some(Gesture::MouseForward),
+            _ => None,
         };
-        if !pressed
-            && delta != 0
-            && let Some(root) = &mut self.root
-            && self.app.navigate(root, delta).title
-        {
-            self.show_title();
+        if !pressed && let Some(gesture) = gesture {
+            self.run_gesture(gesture, masonry::kurbo::Point::new(position.x, position.y));
         }
     }
 

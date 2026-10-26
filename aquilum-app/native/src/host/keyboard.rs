@@ -17,10 +17,31 @@ impl Host {
         }
     }
 
+    #[cfg(not(feature = "installed"))]
+    fn debug_command(&mut self, command: Command) -> bool {
+        match command {
+            Command::PaintFlashing => {
+                self.renderer.toggle_overlay();
+                self.request_redraw();
+            }
+            Command::LiveMetrics => {
+                self.metrics.toggle_live();
+                self.show_title();
+            }
+            _ => return false,
+        }
+        true
+    }
+
     fn shortcut(&mut self, key: &Key, repeat: bool) -> bool {
-        let Some(root) = &mut self.root else { return false };
         let modifiers = self.modifiers;
-        if let Some(command) = keymap::command(&[Scope::Global], key, modifiers)
+        let command = keymap::command(&[Scope::Global], key, modifiers);
+        #[cfg(not(feature = "installed"))]
+        if command.is_some_and(|command| self.debug_command(command)) {
+            return true;
+        }
+        let Some(root) = &mut self.root else { return false };
+        if let Some(command) = command
             && (!repeat || command.repeats())
             && let Some(outcome) = self.app.command(root, command)
         {
@@ -30,7 +51,7 @@ impl Host {
         if self.app.find_key(root, key, modifiers) {
             return true;
         }
-        let outcome = self.app.search_key(root, key, modifiers).or_else(|| self.app.templates_key(root, key, modifiers)).or_else(|| self.app.settings_key(root, key));
+        let outcome = self.app.search_key(root, key, modifiers).or_else(|| self.app.templates_key(root, key, modifiers)).or_else(|| self.app.settings_key(root, key, modifiers));
         let Some(outcome) = outcome else { return false };
         self.apply(outcome);
         true
@@ -67,18 +88,6 @@ impl Host {
             Some(letter) if keymap::action(self.modifiers) && !self.modifiers.alt() => Key::Character(letter.to_string()),
             _ => key,
         };
-        #[cfg(not(feature = "installed"))]
-        if state == KeyState::Down && code == Code::F12 {
-            self.renderer.toggle_overlay();
-            self.request_redraw();
-            return;
-        }
-        #[cfg(not(feature = "installed"))]
-        if state == KeyState::Down && keymap::action(self.modifiers) && self.modifiers.shift() && code == Code::KeyP {
-            self.metrics.toggle_live();
-            self.show_title();
-            return;
-        }
         if state == KeyState::Down && self.shortcut(&key, event.repeat) {
             return;
         }

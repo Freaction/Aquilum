@@ -2,7 +2,7 @@ mod color;
 mod paint;
 mod presets;
 
-use masonry::core::keyboard::{Key, KeyState, NamedKey};
+use masonry::core::keyboard::KeyState;
 use masonry::core::{Layer, TextEvent};
 
 use super::*;
@@ -94,7 +94,7 @@ impl Widget for ColorPicker {
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         match event {
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
+            PointerEvent::Down(e) if crate::ui::keymap::pointer::press(e.button) => {
                 let at = ctx.local_position(e.state.position);
                 let bounds = ctx.content_box();
                 if let Some(index) = presets::at(bounds, at) {
@@ -128,7 +128,7 @@ impl Widget for ColorPicker {
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
         if let TextEvent::Keyboard(k) = event
             && k.state == KeyState::Down
-            && matches!(k.key, Key::Named(NamedKey::Escape | NamedKey::Enter))
+            && matches!(crate::ui::keymap::command(&[crate::ui::keymap::Scope::Dialog], &k.key, k.modifiers), Some(crate::ui::keymap::Command::Close | crate::ui::keymap::Command::Confirm))
         {
             self.close(ctx);
             ctx.set_handled();

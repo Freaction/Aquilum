@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant, SystemTime};
+
 use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
     AccessCtx, AccessEvent, CursorIcon, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
@@ -23,11 +25,29 @@ pub struct IconView {
     size: f64,
     stroke: f64,
     color: fn() -> Color,
+    spin: bool,
 }
+
+const SPIN_SECONDS: f64 = 1.0;
+const SPIN_FRAME: Duration = Duration::from_millis(33);
 
 impl IconView {
     pub fn new(icon: Icon, container: f64, size: f64, stroke: f64, color: fn() -> Color) -> NewWidget<Self> {
-        NewWidget::new(IconView { icon, container, size, stroke, color })
+        NewWidget::new(IconView { icon, container, size, stroke, color, spin: false })
+    }
+
+    pub fn spinning(mut view: NewWidget<Self>) -> NewWidget<Self> {
+        view.widget.spin = true;
+        view
+    }
+
+    fn spins(&self) -> bool {
+        self.spin && crate::ui::motion::on()
+    }
+
+    fn turn(&self) -> f64 {
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default();
+        if self.spins() { now.as_secs_f64() % SPIN_SECONDS / SPIN_SECONDS * std::f64::consts::TAU } else { 0.0 }
     }
 }
 
@@ -35,6 +55,19 @@ impl Widget for IconView {
     type Action = masonry::core::NoAction;
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
+
+    fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
+        if matches!(event, Update::WidgetAdded) && self.spins() {
+            ctx.request_anim_frame();
+        }
+    }
+
+    fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, _interval: u64) {
+        if self.spins() {
+            ctx.request_paint_only();
+            crate::ui::timer::wake(ctx.widget_id(), Instant::now() + SPIN_FRAME);
+        }
+    }
 
     fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, _axis: Axis, _len_req: LenReq, _cross: Option<Length>) -> Length {
         Length::px(self.container)
@@ -46,7 +79,7 @@ impl Widget for IconView {
         let origin = ctx.content_box().center() - masonry::kurbo::Vec2::new(self.size / 2.0, self.size / 2.0);
         // Обводка задана в пикселях, а `draw` ждёт единицы сетки 24×24.
         let stroke = self.stroke * 24.0 / self.size;
-        self.icon.draw(painter, origin, self.size, stroke, (self.color)());
+        self.icon.turned(self.turn()).draw(painter, origin, self.size, stroke, (self.color)());
     }
 
     fn accessibility_role(&self) -> Role {

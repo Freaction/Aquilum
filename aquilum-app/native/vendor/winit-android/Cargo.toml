@@ -1,0 +1,29 @@
+[package]
+name = "winit-android"
+version = "0.31.0-beta.3"
+edition = "2024"
+rust-version = "1.86"
+description = "Форк winit-android 0.31.0-beta.3 под Aquilum"
+license = "Apache-2.0"
+repository = "https://github.com/rust-windowing/winit"
+
+[workspace]
+
+[features]
+game-activity = ["android-activity/game-activity"]
+native-activity = ["android-activity/native-activity"]
+serde = ["dep:serde", "bitflags/serde", "smol_str/serde", "dpi/serde", "winit-core/serde"]
+
+[dependencies]
+bitflags = "2"
+dpi = "0.1.2"
+rwh_06 = { package = "raw-window-handle", version = "0.6", features = ["std"] }
+serde = { version = "1", features = ["serde_derive"], optional = true }
+smol_str = "0.3"
+tracing = { version = "0.1.40", default-features = false }
+winit-core = "=0.31.0-beta.3"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android-activity = "0.6.0"
+jni = "0.22"
+ndk = { version = "0.9.0", default-features = false, features = ["rwh_06"] }

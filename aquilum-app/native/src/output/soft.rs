@@ -62,12 +62,36 @@ impl Output {
     pub fn present(&mut self, dirty: &[Area]) {
         let Ok(mut buffer) = self.surface.buffer_mut() else { return };
         if buffer.len() == self.pixels.len() {
-            buffer.copy_from_slice(&self.pixels);
+            let mut areas = dirty.to_vec();
+            super::merge(&mut areas);
+            if buffer.age() == 1 && !self.fresh {
+                let stride = self.width as usize;
+                for area in &areas {
+                    let (x0, x1) = (area.x as usize, (area.x + area.w) as usize);
+                    let (y0, y1) = (area.y as usize, (area.y + area.h) as usize);
+                    for y in y0..y1 {
+                        let range = y * stride + x0..y * stride + x1;
+                        if let (Some(dst), Some(src)) = (buffer.get_mut(range.clone()), self.pixels.get(range)) {
+                            dst.copy_from_slice(src);
+                        }
+                    }
+                }
+            } else {
+                buffer.copy_from_slice(&self.pixels);
+            }
+            let rects: Vec<softbuffer::Rect> = areas
+                .iter()
+                .filter_map(|a| {
+                    Some(softbuffer::Rect {
+                        x: a.x,
+                        y: a.y,
+                        width: NonZeroU32::new(a.w)?,
+                        height: NonZeroU32::new(a.h)?,
+                    })
+                })
+                .collect();
+            let _ = buffer.present_with_damage(&rects);
         }
-        let mut areas = dirty.to_vec();
-        super::merge(&mut areas);
-        let rects: Vec<softbuffer::Rect> = areas.iter().filter_map(|a| Some(softbuffer::Rect { x: a.x, y: a.y, width: NonZeroU32::new(a.w)?, height: NonZeroU32::new(a.h)? })).collect();
-        let _ = buffer.present_with_damage(&rects);
         self.fresh = false;
     }
 }
@@ -78,4 +102,3 @@ impl Canvas for Output {
         paint(Target { pixels: &mut self.pixels, width, height });
     }
 }
-

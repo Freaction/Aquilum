@@ -52,10 +52,6 @@ impl App {
             }
             Command::ListCreate => Some(self.create_from_query(root)),
             command @ (Command::ListOpen | Command::ListOpenInNewTab) => Some(self.open_selected(root, command == Command::ListOpenInNewTab)),
-            Command::Close => {
-                self.close_search(root);
-                Some(Outcome::default())
-            }
             _ => None,
         }
     }

@@ -1,8 +1,9 @@
-use masonry::core::{EventCtx, PointerButton, PointerEvent, PointerScrollEvent, ScrollDelta, Widget};
+use masonry::core::{EventCtx, PointerEvent, PointerScrollEvent, ScrollDelta, Widget};
 use masonry::kurbo::Axis;
 
 use super::area::ScrollArea;
 use super::{pixels, sideways};
+use crate::ui::keymap::pointer;
 
 impl<W: Widget> ScrollArea<W> {
 
@@ -11,7 +12,7 @@ impl<W: Widget> ScrollArea<W> {
             PointerEvent::Scroll(PointerScrollEvent { delta, state, .. }) => {
                 let before = (self.offset, self.glide.map(|g| g.to));
                 let d = pixels(delta, ctx.scale_factor(), self.view());
-                let d = if self.axis == Axis::Vertical { d.y } else { sideways(d, state.modifiers.shift()) };
+                let d = if self.axis == Axis::Vertical { d.y } else { sideways(d, pointer::sideways(state.modifiers)) };
                 if matches!(delta, ScrollDelta::PixelDelta(_)) {
                     self.jump(self.offset - d);
                 } else if self.glide_by(-d) {
@@ -23,7 +24,7 @@ impl<W: Widget> ScrollArea<W> {
                     ctx.set_handled();
                 }
             }
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) && self.overflow => {
+            PointerEvent::Down(e) if pointer::press(e.button) && self.overflow => {
                 let at = ctx.local_position(e.state.position);
                 let span = self.span();
                 if let Some(next) = self.bar.press(at, &span) {

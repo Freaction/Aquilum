@@ -33,13 +33,7 @@ pub(super) fn install_crash_log(file: std::path::PathBuf) {
             "В приложении произошла непредвиденная ошибка.\n\nПерезапустить Aquilum?"
         };
 
-        let restart = rfd::MessageDialog::new()
-            .set_title("Упс, приложение упало!")
-            .set_description(prompt)
-            .set_buttons(rfd::MessageButtons::YesNo)
-            .show();
-
-        if restart == rfd::MessageDialogResult::Yes
+        if crate::native_dialog::confirm("Упс, приложение упало!", prompt)
             && let Ok(exe) = std::env::current_exe()
         {
             let _ = std::process::Command::new(exe).spawn();

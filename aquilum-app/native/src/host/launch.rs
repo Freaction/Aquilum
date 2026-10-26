@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn run(args: Args) -> Result<(), String> {
+pub fn run(args: Args, mut event_loop: EventLoop) -> Result<(), String> {
     #[cfg(not(feature = "installed"))]
     if args.trace_frames.is_some() {
         aq_trace::start();
@@ -13,7 +13,6 @@ pub fn run(args: Args) -> Result<(), String> {
         return Ok(());
     };
     crate::autostart::repoint();
-    let mut event_loop = EventLoop::new().map_err(|e| format!("цикл событий: {e}"))?;
     let proxy = event_loop.create_proxy();
     let vsync_proxy = event_loop.create_proxy();
     let vsync = crate::vsync::Vsync::new(move || vsync_proxy.wake_up());
@@ -66,6 +65,8 @@ pub fn run(args: Args) -> Result<(), String> {
         live_at: None,
         drop_at: winit::dpi::LogicalPosition::new(0.0, 0.0),
         click: None,
+        touch: touch::Touch::default(),
+        ime_text: None,
     };
     #[cfg(feature = "memory-probe")]
     {

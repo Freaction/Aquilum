@@ -22,7 +22,176 @@ fn refresh_period() -> Option<Duration> {
     (rate.uiNumerator > 0 && rate.uiDenominator > 0).then(|| Duration::from_secs_f64(f64::from(rate.uiDenominator) / f64::from(rate.uiNumerator)))
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "android")]
+struct AndroidVsync {
+    choreographer: *mut ndk_sys::AChoreographer,
+    fired: std::sync::atomic::AtomicBool,
+    last_nanos: std::sync::atomic::AtomicI64,
+    period_nanos: std::sync::atomic::AtomicI64,
+}
+
+#[cfg(target_os = "android")]
+unsafe impl Send for AndroidVsync {}
+#[cfg(target_os = "android")]
+unsafe impl Sync for AndroidVsync {}
+
+#[cfg(target_os = "android")]
+impl AndroidVsync {
+    fn new() -> Option<Self> {
+        unsafe {
+            ndk_sys::ALooper_prepare(ndk_sys::ALOOPER_PREPARE_ALLOW_NON_CALLBACKS as i32);
+            let choreographer = ndk_sys::AChoreographer_getInstance();
+            if choreographer.is_null() {
+                return None;
+            }
+            Some(AndroidVsync {
+                choreographer,
+                fired: std::sync::atomic::AtomicBool::new(false),
+                last_nanos: std::sync::atomic::AtomicI64::new(0),
+                period_nanos: std::sync::atomic::AtomicI64::new(0),
+            })
+        }
+    }
+
+    fn wait(&self) {
+        unsafe extern "C" fn on_frame_64(frame_time_nanos: i64, data: *mut std::ffi::c_void) {
+            let vsync = unsafe { &*(data as *const AndroidVsync) };
+            let prev = vsync.last_nanos.swap(frame_time_nanos, Ordering::Relaxed);
+            if prev > 0 && frame_time_nanos > prev {
+                let delta = frame_time_nanos - prev;
+                if (4_000_000..=34_000_000).contains(&delta) {
+                    vsync.period_nanos.store(delta, Ordering::Relaxed);
+                }
+            }
+            vsync.fired.store(true, Ordering::Release);
+        }
+
+        self.fired.store(false, Ordering::Release);
+        unsafe {
+            ndk_sys::AChoreographer_postFrameCallback64(
+                self.choreographer,
+                Some(on_frame_64),
+                self as *const Self as *mut std::ffi::c_void,
+            );
+            while !self.fired.load(Ordering::Acquire) {
+                let res = ndk_sys::ALooper_pollOnce(50, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut());
+                if res == ndk_sys::ALOOPER_POLL_TIMEOUT || res == ndk_sys::ALOOPER_POLL_ERROR {
+                    break;
+                }
+            }
+        }
+    }
+
+    fn period(&self) -> Option<Duration> {
+        let nanos = self.period_nanos.load(Ordering::Relaxed);
+        (nanos > 0).then(|| Duration::from_nanos(nanos as u64))
+    }
+}
+
+#[cfg(target_os = "android")]
+fn refresh_period() -> Option<Duration> {
+    thread_local! {
+        static ANDROID_VSYNC: Option<AndroidVsync> = AndroidVsync::new();
+    }
+    ANDROID_VSYNC.with(|v| v.as_ref()?.period())
+}
+
+#[cfg(target_os = "macos")]
+struct MacosVsyncInner {
+    link: *mut objc2_core_video::CVDisplayLink,
+    cv: std::sync::Condvar,
+    lock: std::sync::Mutex<bool>,
+    waiting: AtomicBool,
+}
+
+#[cfg(target_os = "macos")]
+unsafe impl Send for MacosVsyncInner {}
+#[cfg(target_os = "macos")]
+unsafe impl Sync for MacosVsyncInner {}
+
+#[cfg(target_os = "macos")]
+struct MacosVsync {
+    inner: Arc<MacosVsyncInner>,
+}
+
+#[cfg(target_os = "macos")]
+impl Drop for MacosVsyncInner {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = (*self.link).stop();
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl MacosVsync {
+    fn new() -> Option<Self> {
+        let mut link: *mut objc2_core_video::CVDisplayLink = std::ptr::null_mut();
+        let ret = unsafe {
+            objc2_core_video::CVDisplayLink::create_with_active_cg_displays(
+                core::ptr::NonNull::new(&mut link)?
+            )
+        };
+        if ret != 0 || link.is_null() {
+            return None;
+        }
+        let inner = Arc::new(MacosVsyncInner {
+            link,
+            cv: std::sync::Condvar::new(),
+            lock: std::sync::Mutex::new(false),
+            waiting: AtomicBool::new(false),
+        });
+        let raw = Arc::as_ptr(&inner) as *mut std::ffi::c_void;
+
+        unsafe extern "C-unwind" fn on_frame(
+            _display_link: core::ptr::NonNull<objc2_core_video::CVDisplayLink>,
+            _in_now: core::ptr::NonNull<objc2_core_video::CVTimeStamp>,
+            _in_output_time: core::ptr::NonNull<objc2_core_video::CVTimeStamp>,
+            _flags_in: objc2_core_video::CVOptionFlags,
+            _flags_out: core::ptr::NonNull<objc2_core_video::CVOptionFlags>,
+            user_info: *mut std::ffi::c_void,
+        ) -> objc2_core_video::CVReturn {
+            let inner = unsafe { &*(user_info as *const MacosVsyncInner) };
+            if inner.waiting.load(Ordering::Acquire) {
+                let mut guard = inner.lock.lock().unwrap();
+                *guard = true;
+                inner.cv.notify_one();
+            }
+            0
+        }
+
+        let ret = unsafe {
+            (*link).set_output_callback(Some(on_frame), raw)
+        };
+        if ret != 0 || unsafe { (*link).start() } != 0 {
+            return None;
+        }
+        Some(MacosVsync { inner })
+    }
+
+    fn wait(&self) {
+        self.inner.waiting.store(true, Ordering::Release);
+        let mut guard = self.inner.lock.lock().unwrap();
+        *guard = false;
+        let _ = self.inner.cv.wait_timeout_while(guard, Duration::from_millis(50), |f| !*f);
+        self.inner.waiting.store(false, Ordering::Release);
+    }
+
+    fn period(&self) -> Option<Duration> {
+        let period = unsafe { (*self.inner.link).actual_output_video_refresh_period() };
+        (period > 0.0).then(|| Duration::from_secs_f64(period))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn refresh_period() -> Option<Duration> {
+    thread_local! {
+        static MACOS_VSYNC: Option<MacosVsync> = MacosVsync::new();
+    }
+    MACOS_VSYNC.with(|v| v.as_ref()?.period())
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "android", target_os = "macos")))]
 fn refresh_period() -> Option<Duration> {
     None
 }
@@ -71,6 +240,38 @@ fn wait_vblank() {
             return;
         }
         if unsafe { windows::Win32::Graphics::Dwm::DwmFlush() }.is_ok() {
+            return;
+        }
+    }
+    #[cfg(target_os = "android")]
+    {
+        thread_local! {
+            static ANDROID_VSYNC: Option<AndroidVsync> = AndroidVsync::new();
+        }
+        if ANDROID_VSYNC.with(|v| {
+            if let Some(vsync) = v.as_ref() {
+                vsync.wait();
+                true
+            } else {
+                false
+            }
+        }) {
+            return;
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        thread_local! {
+            static MACOS_VSYNC: Option<MacosVsync> = MacosVsync::new();
+        }
+        if MACOS_VSYNC.with(|v| {
+            if let Some(vsync) = v.as_ref() {
+                vsync.wait();
+                true
+            } else {
+                false
+            }
+        }) {
             return;
         }
     }

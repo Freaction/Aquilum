@@ -16,6 +16,9 @@ struct State {
     short_downloads: bool,
     offline: bool,
     slow: Duration,
+    downloads: Vec<String>,
+    active: usize,
+    peak: usize,
 }
 
 #[derive(Default)]
@@ -79,13 +82,34 @@ impl FakeRemote {
         self.state.lock().unwrap().offline = true;
     }
 
-    pub fn slow_uploads(&self, slow: Duration) {
+    pub fn slow_transfers(&self, slow: Duration) {
         self.state.lock().unwrap().slow = slow;
+    }
+
+    pub fn downloads(&self) -> Vec<String> {
+        self.state.lock().unwrap().downloads.clone()
+    }
+
+    pub fn peak(&self) -> usize {
+        self.state.lock().unwrap().peak
+    }
+
+    fn transfer<T>(&self, work: impl FnOnce() -> RemoteResult<T>) -> RemoteResult<T> {
+        let slow = {
+            let mut state = self.online()?;
+            state.active += 1;
+            state.peak = state.peak.max(state.active);
+            state.slow
+        };
+        std::thread::sleep(slow);
+        let result = work();
+        self.state.lock().unwrap().active -= 1;
+        result
     }
 
     fn online(&self) -> RemoteResult<std::sync::MutexGuard<'_, State>> {
         let state = self.state.lock().unwrap();
-        if state.offline { Err(RemoteError::Failed("нет сети".into())) } else { Ok(state) }
+        if state.offline { Err(RemoteError::Offline("нет сети".into())) } else { Ok(state) }
     }
 }
 
@@ -127,26 +151,30 @@ impl Remote for FakeRemote {
     }
 
     fn download(&self, file: &RemoteFile, out: &mut dyn Write) -> RemoteResult<()> {
-        let state = self.state.lock().unwrap();
-        let bytes = state.revisions.get(&file.rev).ok_or(RemoteError::Missing)?;
-        let length = if state.short_downloads { bytes.len() / 2 } else { bytes.len() };
-        Ok(out.write_all(&bytes[..length])?)
+        self.transfer(|| {
+            let mut state = self.state.lock().unwrap();
+            state.downloads.push(file.path.clone());
+            let bytes = state.revisions.get(&file.rev).ok_or(RemoteError::Missing)?.clone();
+            let length = if state.short_downloads { bytes.len() / 2 } else { bytes.len() };
+            drop(state);
+            Ok(out.write_all(&bytes[..length])?)
+        })
     }
 
     fn upload(&self, path: &str, content: &dyn Content, modified: u64, replaces: Option<&RemoteFile>) -> RemoteResult<RemoteFile> {
-        let slow = self.state.lock().unwrap().slow;
-        std::thread::sleep(slow);
-        let bytes = read_bytes(content, 0..content.byte_len())?;
-        let mut state = self.state.lock().unwrap();
-        if state.refuse_uploads {
-            return Err(RemoteError::Failed("облако недоступно".into()));
-        }
-        let current = state.files.get(path).map(|file| file.rev.as_str());
-        if current != replaces.map(|file| file.rev.as_str()) {
-            return Err(RemoteError::Stale);
-        }
-        state.uploads += 1;
-        Ok(store(&mut state, path, bytes, modified))
+        self.transfer(|| {
+            let bytes = read_bytes(content, 0..content.byte_len())?;
+            let mut state = self.state.lock().unwrap();
+            if state.refuse_uploads {
+                return Err(RemoteError::Failed("облако недоступно".into()));
+            }
+            let current = state.files.get(path).map(|file| file.rev.as_str());
+            if current != replaces.map(|file| file.rev.as_str()) {
+                return Err(RemoteError::Stale);
+            }
+            state.uploads += 1;
+            Ok(store(&mut state, path, bytes, modified))
+        })
     }
 
     fn delete(&self, file: &RemoteFile) -> RemoteResult<()> {

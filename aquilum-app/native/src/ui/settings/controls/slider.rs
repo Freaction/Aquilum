@@ -62,7 +62,7 @@ impl Widget for Slider {
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         match event {
-            PointerEvent::Down(down) if down.button.is_none_or(|b| b == PointerButton::Primary) => {
+            PointerEvent::Down(down) if crate::ui::keymap::pointer::press(down.button) => {
                 self.dragging = true;
                 ctx.capture_pointer();
                 ctx.request_focus();
@@ -79,16 +79,17 @@ impl Widget for Slider {
     }
 
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &masonry::core::TextEvent) {
-        use masonry::core::keyboard::{Key, KeyState, NamedKey};
+        use crate::ui::keymap::{self, Command, Scope};
+        use masonry::core::keyboard::KeyState;
         let masonry::core::TextEvent::Keyboard(k) = event else { return };
         if k.state != KeyState::Down {
             return;
         }
-        let value = match &k.key {
-            Key::Named(NamedKey::ArrowRight | NamedKey::ArrowUp) => self.value + self.step,
-            Key::Named(NamedKey::ArrowLeft | NamedKey::ArrowDown) => self.value - self.step,
-            Key::Named(NamedKey::Home) => self.min,
-            Key::Named(NamedKey::End) => self.max,
+        let value = match keymap::command(&[Scope::Slider], &k.key, k.modifiers) {
+            Some(Command::Increase) => self.value + self.step,
+            Some(Command::Decrease) => self.value - self.step,
+            Some(Command::First) => self.min,
+            Some(Command::Last) => self.max,
             _ => return,
         };
         let value = self.snap(value);

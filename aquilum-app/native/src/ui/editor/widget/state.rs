@@ -16,6 +16,7 @@ pub struct TextEditor {
     pub(in crate::ui::editor) painted: (f64, f64),
     pub(super) blink_start: std::time::Instant,
     pub(super) single_line: bool,
+    pub(super) wraps: bool,
     pub(super) centered: bool,
     pub(super) scroll_x: f64,
     pub(super) focused: bool,

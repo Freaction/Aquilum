@@ -1,5 +1,5 @@
 use masonry::accesskit::{Node, Role};
-use masonry::core::keyboard::{Key, KeyState, NamedKey};
+use masonry::core::keyboard::KeyState;
 use masonry::core::{
     AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx,
     TextEvent, Update, UpdateCtx, Widget, WidgetMut, WidgetPod,
@@ -137,7 +137,7 @@ impl Widget for Menu {
 
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
         let close = match event {
-            TextEvent::Keyboard(k) => k.state == KeyState::Down && k.key == Key::Named(NamedKey::Escape),
+            TextEvent::Keyboard(k) => k.state == KeyState::Down && crate::ui::keymap::command(&[crate::ui::keymap::Scope::Dialog], &k.key, k.modifiers) == Some(crate::ui::keymap::Command::Close),
             TextEvent::WindowFocusChange(false) => true,
             _ => false,
         };

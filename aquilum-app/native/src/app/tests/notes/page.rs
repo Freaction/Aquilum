@@ -141,3 +141,19 @@ fn the_space_below_a_short_note_puts_the_caret_at_the_end_and_selects_upward() {
     h.drag(below, (rect.center().x, rect.y0 - 10.0));
     assert_eq!(body.get(&h.root).unwrap().inner().selection(), 0..text.len(), "выделение снизу вверх не захватило конец заметки");
 }
+
+#[test]
+fn a_long_note_title_wraps_on_a_narrow_screen() {
+    let mut h = crate::app::tests::adaptive::at_width(360.0);
+    let title_height = |h: &mut Harness, name: &str| {
+        let note = h.write_note(name, "");
+        h.open(note);
+        h.settle();
+        let id = h.app.note_ids.as_ref().unwrap().title.id();
+        h.root.get_widget(id).unwrap().ctx().bounding_box()
+    };
+    let short = title_height(&mut h, "Коротко.md");
+    let long = title_height(&mut h, "Очень длинное название заметки, которое не помещается в строку.md");
+    assert!(long.height() > short.height() * 2.5, "название не переносится: {} при одной строке {}", long.height(), short.height());
+    assert!(long.x1 <= 360.0, "название выходит за край окна: {}", long.x1);
+}

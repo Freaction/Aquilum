@@ -28,7 +28,6 @@ mod widget;
 
 const POPOVER_WIDTH: f64 = 352.0;
 const PROGRESS: f64 = 3.0;
-const WHEEL_STEP: f64 = 120.0;
 const TOOLBAR_WIDTH: f64 = 576.0;
 const MARK_SCALE: f64 = 0.6;
 

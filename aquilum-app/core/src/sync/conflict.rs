@@ -1,4 +1,4 @@
-use super::apply::{create, local_hash, present, push, remember, staged, whole};
+use super::apply::{create, local_hash, present, remember, stage, upload, whole};
 use super::cycle::{Facts, Vault};
 use super::remote::{RemoteError, RemoteFile};
 use super::scan::{absolute, service, stat, UNKNOWN};
@@ -58,7 +58,7 @@ fn text(vault: &Vault<'_>, file: &RemoteFile) -> Result<Option<String>, SyncErro
 }
 
 fn merge(vault: &Vault<'_>, facts: &Facts<'_>, path: &Path, remote: &RemoteFile, texts: &Texts) -> Result<(), SyncError> {
-    let expected = local_hash(vault, facts)?;
+    let expected = local_hash(vault.root, facts)?;
     let merged = merge_external_change(&texts.base, &texts.theirs, &texts.ours);
     let written = gate::write(vault.core, path, &apply_edits(&texts.ours, &merged.edits), Some(&expected), Source::External, None)?;
     if !merged.displaced.is_empty() {
@@ -74,8 +74,12 @@ fn keep_both(vault: &Vault<'_>, facts: &Facts<'_>, path: &Path, remote: &RemoteF
     let label = copy_stem(&title(path), &LocalMinute::now(vault.offset_seconds), vault.core.history.device());
     let extension = path.extension().map(|extension| format!(".{}", extension.to_string_lossy())).unwrap_or_default();
     let service = service(facts.path);
-    let copy = staged(vault, remote, |content| Ok(free_copy(path, &label, &extension, |target| create(vault, service, target, content))?))?;
-    push(vault, facts).inspect_err(|_| {
+    let net = vault.net();
+    let staged = stage(&net, remote)?;
+    let content = staged.open()?;
+    let copy = free_copy(path, &label, &extension, |target| create(vault, service, target, &content, Source::External))?;
+    let (hash, uploaded) = upload(&net, facts).inspect_err(|_| {
         let _ = fs::remove_file(&copy);
-    })
+    })?;
+    remember(vault, facts.path, hash, present(facts.local)?, uploaded)
 }

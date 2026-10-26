@@ -3,7 +3,7 @@ use super::fake::FakeRemote;
 use crate::search::paths::canonical_path;
 use crate::settings::models::SyncSettings;
 use crate::sync::service::SyncService;
-use crate::sync::{Large, Remote, SyncStatus, LARGE};
+use crate::sync::{Large, Remote, RemoteError, SyncError, SyncStatus, LARGE};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -43,7 +43,7 @@ fn until(what: &str, condition: impl Fn() -> bool) {
 #[test]
 fn turning_the_vault_off_holds_the_pass_until_it_is_turned_on() {
     let (device, remote, folder) = (Device::new(), Arc::new(FakeRemote::default()), tempfile::tempdir().unwrap());
-    remote.slow_uploads(Duration::from_millis(5));
+    remote.slow_transfers(Duration::from_millis(5));
     for index in 0..100 {
         device.write(&format!("Заметка {index}.md"), &index.to_string());
     }
@@ -118,11 +118,33 @@ fn large_files_and_the_size_are_known_without_the_cloud() {
     device.write("Заметка.md", "текст");
 
     let service = started(&device, &remote, folder.path());
-    until("проход упал без сети", || matches!(service.status(), SyncStatus::Failed(_)));
+    until("проход упал без сети", || service.status() == SyncStatus::Offline);
 
     assert_eq!(service.large(), vec![Large { path: "Видео.mp4".to_owned(), size: LARGE + 2, kept: true }]);
     assert_eq!(service.size().synced, 10);
     finish(service);
+}
+
+#[test]
+fn a_pass_without_network_is_offline_and_waits_for_its_turn() {
+    let (device, remote, folder) = (Device::new(), Arc::new(FakeRemote::default()), tempfile::tempdir().unwrap());
+    device.write("Заметка.md", "текст");
+    remote.go_offline();
+
+    let service = started(&device, &remote, folder.path());
+    until("проход упал без сети", || !matches!(service.status(), SyncStatus::Ready | SyncStatus::Running(_)));
+
+    assert_eq!(service.status(), SyncStatus::Offline);
+    assert!(service.due().is_some_and(|due| due > Instant::now() + Duration::from_secs(NOTES_ONLY.interval - 10)));
+    finish(service);
+}
+
+#[test]
+fn the_cloud_vaults_need_a_login() {
+    let (remote, folder) = (Arc::new(FakeRemote::default()), tempfile::tempdir().unwrap());
+    let service = SyncService::with(folder.path().to_path_buf(), Box::new(move |_, _| Ok(Arc::clone(&remote) as Arc<dyn Remote>)));
+
+    assert!(matches!(service.vaults(), Err(SyncError::Remote(RemoteError::Auth))));
 }
 
 #[test]

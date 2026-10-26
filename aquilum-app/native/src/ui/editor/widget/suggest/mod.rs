@@ -125,15 +125,15 @@ impl TextEditor {
         }
         let page = 8;
         let current = self.suggest.as_ref().map_or(0, |s| s.selected);
+        if keymap::command(&[Scope::Dialog], key, modifiers) == Some(Command::Close) {
+            self.close_suggest();
+            return Some(false);
+        }
         let selected = match keymap::command(&[Scope::List, Scope::Navigation], key, modifiers)? {
             command @ (Command::ListNext | Command::ListPrevious) => keymap::cycle(current, count, command == Command::ListNext),
             Command::PageDown => (current + page).min(count - 1),
             Command::PageUp => current.saturating_sub(page),
             Command::ListOpen | Command::ListCreate => return Some(self.accept_suggest(current)),
-            Command::Close => {
-                self.close_suggest();
-                return Some(false);
-            }
             _ => return None,
         };
         if let Some(s) = &mut self.suggest {

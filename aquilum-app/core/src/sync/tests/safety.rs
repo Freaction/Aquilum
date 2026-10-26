@@ -1,5 +1,7 @@
 use super::device::Device;
 use super::fake::FakeRemote;
+use crate::sync::transfer::TRANSFERS;
+use std::time::Duration;
 
 #[test]
 fn a_folder_deleted_in_the_cloud_takes_its_notes_along() {
@@ -31,20 +33,22 @@ fn an_empty_cloud_after_a_reset_stops_the_sync_instead_of_deleting() {
 }
 
 #[test]
-fn a_stopped_pass_keeps_its_place_and_the_next_one_finishes() {
+fn a_stopped_pass_starts_no_new_transfers_and_the_next_one_finishes() {
     let remote = FakeRemote::default();
+    remote.slow_transfers(Duration::from_millis(20));
     let device = Device::new();
-    for name in ["Один", "Два", "Три"] {
-        device.write(&format!("{name}.md"), name);
+    for index in 0..20 {
+        device.write(&format!("Заметка {index}.md"), "текст");
     }
 
     let stopped = device.sync_until(&remote, 1);
 
     assert!(stopped.stopped);
-    assert_eq!((remote.paths().len(), device.records.state("cursor").unwrap()), (1, None));
+    assert!((1..=TRANSFERS).contains(&remote.paths().len()), "{}", remote.paths().len());
+    assert_eq!(device.records.state("cursor").unwrap(), None);
     let finished = device.sync(&remote);
     assert!(!finished.stopped && finished.failed.is_empty());
-    assert_eq!(remote.paths().len(), 3);
+    assert_eq!(remote.paths().len(), 20);
 }
 
 #[test]

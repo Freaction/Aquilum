@@ -1,6 +1,6 @@
 use masonry::app::VisualLayerPlan;
 use masonry::kurbo::Rect;
-use vello_cpu::{PixelFormat, PixmapMut, RasterizerSettings, TargetInit};
+use vello_cpu::{PixmapMut, RasterizerSettings, TargetInit};
 
 use super::Renderer;
 use crate::output::{Area, Canvas, Target};
@@ -89,7 +89,7 @@ impl Renderer {
                 }
                 let _zone = aq_trace::zone("растеризация");
                 let pixmap = PixmapMut::new(width, height, bytemuck::cast_slice_mut(&mut *pixels)).expect("холст вывода");
-                let settings = RasterizerSettings { target_init: TargetInit::SrcOver, pixel_format: PixelFormat::Bgra8, offset: (x, y) };
+                let settings = RasterizerSettings { target_init: TargetInit::SrcOver, pixel_format: crate::render::PIXEL_FORMAT, offset: (x, y) };
                 painter.ctx.render_with(pixmap, &mut painter.resources, settings);
             }
         });

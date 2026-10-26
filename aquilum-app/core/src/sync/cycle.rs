@@ -1,19 +1,20 @@
-use super::apply::apply;
 use super::decide::{settle, Action};
 use super::halt::Halt;
+use super::progress::Progress;
 use super::measure::survey;
 use super::records::{Large, Record, Records, Size};
 use super::remote::{Remote, RemoteError, RemoteFile};
-use super::scan::{service, LocalFile};
+use super::scan::{absolute, service, LocalFile};
+use super::transfer::{execute, fail, Net};
 use super::view::observe;
 use super::SyncError;
 use crate::app_core::Core;
-use crate::files::error::FileCommandError;
 use crate::settings::models::SyncSettings;
 use std::collections::BTreeSet;
+use std::fs;
 use std::path::Path;
 
-pub trait Watch {
+pub trait Watch: Sync {
     fn measured(&self, large: Vec<Large>, size: Size);
     fn progress(&self, progress: Progress);
     fn stopped(&self) -> bool;
@@ -32,18 +33,18 @@ pub struct Vault<'a> {
     pub allowed: &'a [String],
 }
 
+impl Vault<'_> {
+    pub fn net(&self) -> Net<'_> {
+        Net { root: self.root, remote: self.remote, staging: self.staging, watch: self.watch }
+    }
+}
+
 pub struct Facts<'a> {
     pub path: &'a str,
     pub local: Option<LocalFile>,
     pub hash: Option<String>,
     pub remote: Option<&'a RemoteFile>,
     pub record: Option<&'a Record>,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Progress {
-    pub done: usize,
-    pub total: usize,
 }
 
 pub const LARGE: u64 = 10 * 1024 * 1024;
@@ -57,7 +58,7 @@ pub struct Outcome {
 }
 
 pub fn run(vault: &Vault<'_>) -> Result<Outcome, SyncError> {
-    let _ = std::fs::remove_dir_all(vault.staging);
+    let _ = fs::remove_dir_all(vault.staging);
     let remote = Halt { inner: vault.remote, watch: vault.watch };
     let vault = &Vault { remote: &remote, ..*vault };
     let records = vault.records.all()?;
@@ -70,10 +71,9 @@ pub fn run(vault: &Vault<'_>) -> Result<Outcome, SyncError> {
     if view.emptied() && !records.is_empty() {
         return Err(RemoteError::Failed("папка в облаке пуста или пропала, а файлы уже синхронизировались — проход остановлен".into()).into());
     }
-    let paths = local.files.keys().chain(view.paths()).chain(records.keys()).filter(|path| !local.kept.contains(*path));
-    let paths: BTreeSet<(bool, &String)> = paths.map(|path| (!service(path), path)).collect();
+    let paths: BTreeSet<&String> = local.files.keys().chain(view.paths()).chain(records.keys()).filter(|path| !local.kept.contains(*path)).collect();
     let mut plan = Vec::new();
-    for (_, path) in paths {
+    for path in paths {
         if stopped(vault, &mut outcome) {
             return Ok(outcome);
         }
@@ -88,18 +88,14 @@ pub fn run(vault: &Vault<'_>) -> Result<Outcome, SyncError> {
     if !vault.allow_deletions && records.len() >= GUARDED_FROM && deletions * 2 > records.len() {
         return Err(SyncError::Deletions { planned: deletions, synced: records.len() });
     }
-    outcome.progress.total = plan.iter().filter(|(_, action)| counted(*action)).count();
+    plan.sort_by_key(phase);
+    outcome.progress = Progress::plan(plan.iter().map(|(_, action)| *action));
     vault.watch.progress(outcome.progress);
-    for (facts, action) in plan {
-        if stopped(vault, &mut outcome) {
+    make_folders(vault, &plan);
+    for steps in plan.chunk_by(|left, right| phase(left) == phase(right)) {
+        execute(vault, steps, &mut outcome)?;
+        if outcome.stopped {
             return Ok(outcome);
-        }
-        if let Err(error) = apply(vault, &facts, action) {
-            fail(vault, &mut outcome, facts.path, error)?;
-        }
-        if counted(action) {
-            outcome.progress.done += 1;
-            vault.watch.progress(outcome.progress);
         }
     }
     if outcome.failed.is_empty() {
@@ -110,21 +106,28 @@ pub fn run(vault: &Vault<'_>) -> Result<Outcome, SyncError> {
     Ok(outcome)
 }
 
-fn stopped(vault: &Vault<'_>, outcome: &mut Outcome) -> bool {
+fn phase((facts, action): &(Facts<'_>, Action)) -> u8 {
+    match (service(facts.path), action) {
+        (false, Action::DeleteLocal) => 2,
+        (service, _) => u8::from(service),
+    }
+}
+
+fn make_folders(vault: &Vault<'_>, plan: &[(Facts<'_>, Action)]) {
+    let arriving = plan.iter().filter(|(facts, action)| matches!(action, Action::Pull) && facts.local.is_none() && !service(facts.path));
+    let folders: BTreeSet<&str> = arriving.filter_map(|(facts, _)| facts.path.rsplit_once('/')).map(|(folder, _)| folder).collect();
+    let mut created = BTreeSet::new();
+    for folder in folders {
+        let path = absolute(vault.root, folder);
+        if !path.is_dir() && fs::create_dir_all(&path).is_ok() {
+            created.extend(folder.match_indices('/').map(|(at, _)| &folder[..at]).chain([folder]).map(|part| absolute(vault.root, part)));
+        }
+    }
+    vault.core.synced(created.into_iter().collect());
+}
+
+pub fn stopped(vault: &Vault<'_>, outcome: &mut Outcome) -> bool {
     outcome.stopped = vault.watch.stopped();
     outcome.stopped
 }
 
-fn fail(vault: &Vault<'_>, outcome: &mut Outcome, path: &str, error: SyncError) -> Result<(), SyncError> {
-    match error {
-        SyncError::Remote(RemoteError::Auth) => return Err(error),
-        SyncError::Changed | SyncError::File(FileCommandError::Conflict { .. }) => vault.records.forget_stat(path)?,
-        _ => {}
-    }
-    outcome.failed.push((path.to_owned(), error));
-    Ok(())
-}
-
-fn counted(action: Action) -> bool {
-    !matches!(action, Action::Match | Action::Forget)
-}

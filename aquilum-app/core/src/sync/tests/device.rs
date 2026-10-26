@@ -8,7 +8,7 @@ use crate::sync::{run, Large, Outcome, Progress, Records, Remote, Size, SyncErro
 use std::cell::{Cell, RefCell};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use walkdir::WalkDir;
 
 pub const NOTES_ONLY: SyncSettings = SyncSettings { enabled: true, trash: false, history: false, interval: 300 };
@@ -21,23 +21,30 @@ pub struct Device {
     pub scope: Cell<SyncSettings>,
     pub allow_deletions: Cell<bool>,
     pub allowed: RefCell<Vec<String>>,
-    pub measured: RefCell<(Vec<Large>, Size)>,
-    until: Cell<Option<usize>>,
-    done: Cell<usize>,
+    pub probe: Probe,
+    pub announced: Arc<Mutex<Vec<String>>>,
     directory: tempfile::TempDir,
 }
 
-impl Watch for Device {
+#[derive(Default)]
+pub struct Probe {
+    pub measured: Mutex<(Vec<Large>, Size)>,
+    pub moves: Mutex<Vec<Progress>>,
+    until: Mutex<Option<usize>>,
+}
+
+impl Watch for Probe {
     fn measured(&self, large: Vec<Large>, size: Size) {
-        *self.measured.borrow_mut() = (large, size);
+        *self.measured.lock().unwrap() = (large, size);
     }
 
     fn progress(&self, progress: Progress) {
-        self.done.set(progress.done);
+        self.moves.lock().unwrap().push(progress);
     }
 
     fn stopped(&self) -> bool {
-        self.until.get().is_some_and(|until| self.done.get() >= until)
+        let done = self.moves.lock().unwrap().last().map_or(0, |progress| progress.done);
+        self.until.lock().unwrap().is_some_and(|until| done >= until)
     }
 }
 
@@ -52,9 +59,15 @@ impl Device {
         fs::create_dir_all(&root).unwrap();
         fs::create_dir_all(&data).unwrap();
         let root = canonical_path(&root);
-        let events: Arc<dyn EventSink> = Arc::new(|_: CoreEvent| {});
+        let announced = Arc::new(Mutex::new(Vec::new()));
+        let heard = Arc::clone(&announced);
+        let events: Arc<dyn EventSink> = Arc::new(move |event: CoreEvent| {
+            if let CoreEvent::WorkspaceChanged(paths) = event {
+                heard.lock().unwrap().extend(paths);
+            }
+        });
         let core = Core::open(&data, events);
-        Self { records: Records::memory().unwrap(), core, root, directory, scope: Cell::new(scope), allow_deletions: Cell::new(false), allowed: RefCell::new(Vec::new()), measured: RefCell::default(), until: Cell::new(None), done: Cell::new(0) }
+        Self { records: Records::memory().unwrap(), core, root, directory, scope: Cell::new(scope), allow_deletions: Cell::new(false), allowed: RefCell::new(Vec::new()), probe: Probe::default(), announced }
     }
 
     pub fn sync(&self, remote: &dyn Remote) -> Outcome {
@@ -62,14 +75,14 @@ impl Device {
     }
 
     pub fn sync_until(&self, remote: &dyn Remote, done: usize) -> Outcome {
-        self.until.set(Some(done));
+        *self.probe.until.lock().unwrap() = Some(done);
         let outcome = self.sync(remote);
-        self.until.set(None);
+        *self.probe.until.lock().unwrap() = None;
         outcome
     }
 
     pub fn try_sync(&self, remote: &dyn Remote) -> Result<Outcome, SyncError> {
-        self.done.set(0);
+        self.probe.moves.lock().unwrap().clear();
         let staging = self.staging();
         let vault = Vault {
             core: &self.core,
@@ -79,7 +92,7 @@ impl Device {
             staging: &staging,
             offset_seconds: 0,
             scope: self.scope.get(),
-            watch: self,
+            watch: &self.probe,
             allow_deletions: self.allow_deletions.get(),
             allowed: &self.allowed.borrow(),
         };

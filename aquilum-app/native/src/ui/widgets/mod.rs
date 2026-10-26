@@ -27,7 +27,7 @@ pub use layout::*;
 pub use sash::{Edge, Edged, Sash, SashAction};
 pub use visible::Visible;
 
-use masonry::core::{EventCtx, PointerButton, PointerButtonEvent, PointerEvent};
+use masonry::core::{EventCtx, PointerButtonEvent, PointerEvent};
 
 /// Нажатие кнопки.
 #[derive(Debug)]
@@ -46,13 +46,13 @@ impl Press {
 
     pub fn click<'e>(&mut self, ctx: &mut EventCtx<'_>, event: &'e PointerEvent) -> Option<&'e PointerButtonEvent> {
         match event {
-            PointerEvent::Down(e) if e.button == Some(PointerButton::Primary) => {
+            PointerEvent::Down(e) if crate::ui::keymap::pointer::press(e.button) => {
                 self.down = true;
                 ctx.capture_pointer();
                 ctx.request_paint_only();
                 None
             }
-            PointerEvent::Up(e) if e.button == Some(PointerButton::Primary) && self.down => {
+            PointerEvent::Up(e) if crate::ui::keymap::pointer::press(e.button) && self.down => {
                 self.down = false;
                 ctx.request_paint_only();
                 ctx.is_hovered().then_some(e)

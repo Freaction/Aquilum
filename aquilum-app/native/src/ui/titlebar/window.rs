@@ -1,5 +1,8 @@
 use super::*;
 
+pub const WINDOW_CHROME: bool = !cfg!(target_os = "android");
+pub const OWN_CONTROLS: bool = WINDOW_CHROME && !cfg!(target_os = "macos");
+
 pub struct DragArea;
 
 impl DragArea {

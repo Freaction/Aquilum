@@ -74,6 +74,7 @@ pub fn apply_setting(setting: &str, system_dark: bool, primary: &str) {
     }
     *current = Some(theme);
     DARK.store(dark, Ordering::Relaxed);
+    crate::system::set_dark_theme(dark);
 }
 
 pub fn default_properties() -> DefaultProperties {
