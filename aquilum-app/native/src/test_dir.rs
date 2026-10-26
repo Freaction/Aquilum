@@ -7,6 +7,10 @@ pub fn command() -> masonry::core::keyboard::Modifiers {
     if cfg!(target_os = "macos") { masonry::core::keyboard::Modifiers::META } else { masonry::core::keyboard::Modifiers::CONTROL }
 }
 
+pub fn word_modifier() -> masonry::core::keyboard::Modifiers {
+    if cfg!(target_os = "macos") { masonry::core::keyboard::Modifiers::ALT } else { masonry::core::keyboard::Modifiers::CONTROL }
+}
+
 pub(crate) use crate::host::PRIMARY_MOUSE as MOUSE;
 
 pub fn options(width: u32, height: u32, scale_factor: f64) -> masonry::app::RenderRootOptions {

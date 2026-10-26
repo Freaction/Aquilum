@@ -1,7 +1,7 @@
 use masonry::core::keyboard::{Key, Modifiers, NamedKey};
 
 use super::support::{command_key, focused, markdown_root, named, press, root, selected, tap, text, typing};
-use crate::test_dir::command;
+use crate::test_dir::{command, word_modifier};
 use crate::ui::editor::{Smart, TextEditor};
 
 #[test]
@@ -29,7 +29,7 @@ fn selection_is_replaced_by_typing() {
     }
     typing(&mut root, "there");
     assert_eq!(text(&root), "hello there");
-    press(&mut root, Key::Named(NamedKey::Backspace), command());
+    press(&mut root, Key::Named(NamedKey::Backspace), word_modifier());
     assert_eq!(text(&root), "hello ");
     command_key(&mut root, "a");
     named(&mut root, NamedKey::Delete);

@@ -111,11 +111,15 @@ fn mac_navigation_chords() {
     assert_eq!(editor(&named(NamedKey::ArrowUp), meta), Some(Command::DocumentStart));
     assert_eq!(editor(&named(NamedKey::ArrowDown), meta), Some(Command::DocumentEnd));
     assert_eq!(editor(&named(NamedKey::ArrowUp), meta | Modifiers::SHIFT), Some(Command::DocumentStart));
+    assert_eq!(editor(&named(NamedKey::Home), meta), Some(Command::DocumentStart));
+    assert_eq!(editor(&named(NamedKey::End), meta), Some(Command::DocumentEnd));
     // ⌥⌫ — удалить слово, ⌘⌫ — удалить до начала строки
     assert_eq!(editor(&named(NamedKey::Backspace), alt), Some(Command::DeleteWord));
+    assert_eq!(editor(&named(NamedKey::Backspace), Modifiers::CONTROL), Some(Command::DeleteWord));
     assert_eq!(editor(&named(NamedKey::Backspace), meta), Some(Command::LineDeleteBackward));
     // ⌥⌦ — удалить слово вперёд
     assert_eq!(editor(&named(NamedKey::Delete), alt), Some(Command::DeleteWordForward));
+    assert_eq!(editor(&named(NamedKey::Delete), Modifiers::CONTROL), Some(Command::DeleteWordForward));
     // ⌘ не заменяет Ctrl для переключения вкладок
     assert_eq!(command(&[Scope::Global], &named(NamedKey::Tab), Modifiers::CONTROL), Some(Command::NextTab));
     assert_eq!(command(&[Scope::Global], &named(NamedKey::Tab), meta), None);
