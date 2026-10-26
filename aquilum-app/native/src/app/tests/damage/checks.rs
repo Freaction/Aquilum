@@ -130,4 +130,3 @@ fn phone_settings_editor_scroll_shifts_pixels() {
     let report = frames.draw(&mut h);
     assert!(!report.moved.is_empty(), "прокрутка настроек на телефоне не сдвигает пиксели!");
 }
-

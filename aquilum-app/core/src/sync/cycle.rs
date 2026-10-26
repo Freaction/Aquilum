@@ -130,4 +130,3 @@ pub fn stopped(vault: &Vault<'_>, outcome: &mut Outcome) -> bool {
     outcome.stopped = vault.watch.stopped();
     outcome.stopped
 }
-
