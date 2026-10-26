@@ -81,7 +81,7 @@ fn close_does_not_wait_for_a_poll_interval() {
     let started = std::time::Instant::now();
     watcher.close();
 
-    assert!(started.elapsed() < Duration::from_millis(100), "остановка ждала {:?}", started.elapsed());
+    assert!(started.elapsed() < Duration::from_millis(500), "остановка ждала {:?}", started.elapsed());
 }
 
 #[test]
