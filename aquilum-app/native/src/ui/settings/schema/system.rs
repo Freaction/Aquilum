@@ -1,9 +1,9 @@
 use super::*;
+use crate::updater::Status;
 
 pub(super) const AUTHOR_URL: &str = "https://t.me/dmitriy_yiu";
 
-pub(super) fn update_row(status: &crate::updater::Status) -> Row {
-    use crate::updater::Status;
+pub fn update_row(status: &Status) -> Row {
     let description = match status {
         Status::Idle => t("settings.system.updatesIdle"),
         Status::Checking => t("settings.system.updatesChecking"),
@@ -12,10 +12,12 @@ pub(super) fn update_row(status: &crate::updater::Status) -> Row {
         Status::Downloading { version, .. } | Status::Ready(version) => t_with("settings.system.updatesInstalling", &[("version", version)]),
         Status::Installing => t("update.installing"),
         Status::Failed(message) => t_with("settings.system.updatesFailed", &[("message", message)]),
+        Status::ManualRequired { version, .. } => t_with("settings.system.updatesManualRequired", &[("version", version)]),
     };
     let button = match status {
         Status::Available(_) => Button::new(t("settings.system.installUpdate"), Action::InstallUpdate),
         Status::Checking | Status::Downloading { .. } | Status::Ready(_) | Status::Installing => Button::new(t("settings.system.checkUpdates"), Action::CheckUpdates).enabled(false),
+        Status::ManualRequired { url, .. } => Button::new(t("settings.system.downloadManual"), Action::OpenUrl(url.clone())),
         _ => Button::new(t("settings.system.checkUpdates"), Action::CheckUpdates),
     };
     info(t("settings.system.manualUpdate"), Some(description), Control::Buttons(vec![button]))
@@ -25,7 +27,7 @@ pub(super) fn system(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     let updates = match &ctx.update {
         Some(status) => {
             let auto = row(t("settings.system.autoUpdate"), Some(t("settings.system.autoUpdateHint")), Control::Switch(config.updates.auto), |c, v| c.updates.auto = flag(v));
-            let manual = (!config.updates.auto).then(|| update_row(status));
+            let manual = (!config.updates.auto || matches!(status, Status::ManualRequired { .. })).then(|| update_row(status));
             std::iter::once(auto).chain(manual).collect()
         }
         None => {
@@ -48,7 +50,7 @@ pub(super) fn system(config: &AppConfig, ctx: &Context) -> Vec<Block> {
                 info(
                     t("settings.system.author"),
                     Some(t("settings.system.authorHint")),
-                    Control::Buttons(vec![Button::new(AUTHOR_URL.to_owned(), Action::OpenUrl(AUTHOR_URL))]),
+                    Control::Buttons(vec![Button::new(AUTHOR_URL.to_owned(), Action::OpenUrl(AUTHOR_URL.to_owned()))]),
                 ),
                 info(
                     t("settings.system.version"),

@@ -23,6 +23,7 @@ mod templates;
 mod text_files;
 mod tree_pins;
 mod tree_toolbar;
+mod updater;
 mod wide;
 mod wiki;
 

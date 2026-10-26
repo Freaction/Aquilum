@@ -87,7 +87,7 @@ impl App {
                 Effect::Content
             }
             Action::OpenUrl(url) => {
-                system::open_url(url);
+                system::open_url(&url);
                 Effect::None
             }
         }

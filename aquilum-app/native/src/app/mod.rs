@@ -82,6 +82,7 @@ pub(in crate::app) enum Popup {
     Templates(templates::TemplatesState),
     Workspaces(workspaces::WorkspacesState),
     ResetGraph(DialogIds),
+    ManualUpdate(DialogIds, String),
 }
 
 #[derive(Default)]

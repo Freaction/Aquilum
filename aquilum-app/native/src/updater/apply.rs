@@ -3,19 +3,47 @@ pub const UPDATE_DIR: &str = "aquilum-update";
 #[cfg(target_os = "windows")]
 pub fn apply(payload: &[u8], before_exit: impl FnOnce()) -> Result<(), String> {
     use windows::Win32::UI::Shell::ShellExecuteW;
-    use windows::Win32::UI::WindowsAndMessaging::SW_SHOW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
     use windows::core::{HSTRING, w};
     let dir = std::env::temp_dir().join(UPDATE_DIR);
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let installer = dir.join("Aquilum-setup.exe");
     std::fs::write(&installer, payload).map_err(|e| e.to_string())?;
+    let bat = dir.join("update.bat");
+    let script = "@echo off\r\ncd /d \"%~dp0\"\r\n(timeout /t 1 /nobreak >nul 2>&1 || ping 127.0.0.1 -n 2 >nul)\r\n\"Aquilum-setup.exe\" /S /R\r\n";
+    std::fs::write(&bat, script).map_err(|e| e.to_string())?;
+    let verb = if needs_elevation() { w!("runas") } else { w!("open") };
     before_exit();
-    let started = unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(installer.as_os_str()), &HSTRING::from("/S /R /UPDATE /ARGS"), None, SW_SHOW) };
+    let started = unsafe {
+        ShellExecuteW(
+            None,
+            verb,
+            w!("cmd.exe"),
+            &HSTRING::from(format!("/c \"{}\"", bat.display())),
+            &HSTRING::from(dir.as_os_str()),
+            SW_HIDE,
+        )
+    };
     if started.0 as isize <= 32 {
         return Err(format!("установщик не запустился, код {}", started.0 as isize));
     }
     std::process::exit(0);
+}
+
+#[cfg(target_os = "windows")]
+fn needs_elevation() -> bool {
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(parent) = exe.parent()
+    {
+        let probe = parent.join(format!(".write_probe_{}", std::process::id()));
+        if std::fs::write(&probe, b"").is_err() {
+            return true;
+        }
+        let _ = std::fs::remove_file(&probe);
+        return false;
+    }
+    false
 }
 
 #[cfg(target_os = "macos")]

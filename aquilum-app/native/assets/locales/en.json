@@ -307,7 +307,9 @@
       "updatesInstalling": "Downloading and installing {{version}}…",
       "updatesUnavailable": "Updates are only available in the installed app, not in a development build",
       "updatesByPackage": "Update a .deb or .rpm package through the package manager; only the AppImage updates itself",
-      "updatesFailed": "Could not check: {{message}}"
+      "updatesFailed": "Could not check: {{message}}",
+      "updatesManualRequired": "Automatic update failed. Please download version {{version}} manually",
+      "downloadManual": "Download manually"
     },
     "templates": {
       "section": "Note templates",
@@ -564,7 +566,10 @@
     "installing": "Installing the update",
     "downloading": "Downloading the update",
     "willOpen": "The app will open automatically",
-    "preparing": "Preparing the new version"
+    "preparing": "Preparing the new version",
+    "manualTitle": "Automatic update failed",
+    "manualDesc": "The app could not replace files with version {{version}}. Please download and install the update manually.",
+    "download": "Download update"
   },
   "reader": {
     "openFailed": "Could not open the book",

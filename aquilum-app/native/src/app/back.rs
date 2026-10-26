@@ -34,6 +34,7 @@ impl Popup {
             Popup::Reader(state) => (state.layer, Box::new(ReaderAction::Close)),
             Popup::Viewer { layer } => (*layer, Box::new(ViewerClosed)),
             Popup::ResetGraph(ids) => dialog(ids.layer),
+            Popup::ManualUpdate(ids, _) => dialog(ids.layer),
         }
     }
 }

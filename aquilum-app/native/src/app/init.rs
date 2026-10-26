@@ -15,6 +15,7 @@ impl App {
         let (home_tx, home_rx) = channel();
         let (titles_tx, titles_rx) = channel();
         let workspace_wake = Arc::clone(&workspace.wake);
+        let data_dir = workspace.data_dir.clone();
         let auto_update = workspace.core.settings.get_config().updates.auto;
         let mut app = App {
             workspace,
@@ -73,7 +74,7 @@ impl App {
             titles_tx,
             titles_rx,
             hold: None,
-            updater: crate::updater::Updater::new(Arc::clone(&workspace_wake)),
+            updater: crate::updater::Updater::new(data_dir, Arc::clone(&workspace_wake)),
             update_shown: crate::updater::Status::Idle,
             update_layer: None,
             open_error: None,

@@ -61,7 +61,7 @@ pub enum Action {
     CreateTemplates,
     NewToken,
     Copy(usize, String),
-    OpenUrl(&'static str),
+    OpenUrl(String),
     CheckUpdates,
     InstallUpdate,
 }

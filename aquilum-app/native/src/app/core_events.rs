@@ -133,11 +133,15 @@ impl App {
                 }
                 (None, None) => {}
             }
+            if let Status::ManualRequired { version, url } = &status {
+                self.show_manual_update_dialog(root, version, url);
+            }
             self.refresh_section(root, crate::ui::settings::schema::Section::System);
         }
-        if let Some(payload) = self.updater.take_ready() {
+        if let Some((version, url, payload)) = self.updater.take_ready() {
             let _ = root.redraw();
             let mut closed = false;
+            self.updater.record_attempt(&version, &url);
             if let Err(error) = crate::updater::apply(&payload, || {
                 self.shutdown();
                 closed = true;
@@ -149,5 +153,17 @@ impl App {
                 self.updater.fail(error);
             }
         }
+    }
+
+    pub(in crate::app) fn show_manual_update_dialog(&mut self, root: &mut RenderRoot, version: &str, url: &str) {
+        let (layer, dialog) = crate::ui::dialog::ConfirmDialog::new(
+            &crate::i18n::t("update.manualTitle"),
+            &crate::i18n::t_with("update.manualDesc", &[("version", version)]),
+            &crate::i18n::t("common.close"),
+            &crate::i18n::t("update.download"),
+        );
+        root.add_layer(layer, Point::ORIGIN);
+        root.focus_on(Some(dialog.layer));
+        self.popup = Some(crate::app::Popup::ManualUpdate(dialog, url.to_owned()));
     }
 }

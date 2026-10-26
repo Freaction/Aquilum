@@ -26,6 +26,8 @@ pub use appearance::reader_quick;
 pub use data::templates_path;
 pub use mcp::new_token;
 pub use section::Section;
+#[cfg(test)]
+pub use system::update_row;
 pub use types::*;
 
 use appearance::*;

@@ -1,4 +1,5 @@
 mod apply;
+pub mod attempts;
 mod release;
 #[cfg(target_os = "macos")]
 mod tar;
@@ -6,8 +7,10 @@ mod tar;
 mod tests;
 
 use std::io::Read;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+pub use attempts::Attempt;
 use release::{PUBLIC_KEY, Release, find, verify};
 
 pub use apply::{UPDATE_DIR, apply};
@@ -24,12 +27,14 @@ pub enum Status {
     Ready(String),
     Installing,
     Failed(String),
+    ManualRequired { version: String, url: String },
 }
 
 #[derive(Clone)]
 pub struct Updater {
+    data_dir: PathBuf,
     status: Arc<Mutex<Status>>,
-    payload: Arc<Mutex<Option<Vec<u8>>>>,
+    payload: Arc<Mutex<Option<(String, String, Vec<u8>)>>>,
     wake: Arc<dyn Fn() + Send + Sync>,
 }
 
@@ -38,8 +43,12 @@ pub fn available() -> bool {
 }
 
 impl Updater {
-    pub fn new(wake: Arc<dyn Fn() + Send + Sync>) -> Updater {
-        Updater { status: Arc::new(Mutex::new(Status::Idle)), payload: Arc::new(Mutex::new(None)), wake }
+    pub fn new(data_dir: PathBuf, wake: Arc<dyn Fn() + Send + Sync>) -> Updater {
+        let status = match Attempt::check_on_start(&data_dir, env!("CARGO_PKG_VERSION")) {
+            Some(attempt) => Status::ManualRequired { version: attempt.version, url: attempt.url },
+            None => Status::Idle,
+        };
+        Updater { data_dir, status: Arc::new(Mutex::new(status)), payload: Arc::new(Mutex::new(None)), wake }
     }
 
     pub fn status(&self) -> Status {
@@ -59,6 +68,7 @@ impl Updater {
         if !available() || self.busy() {
             return;
         }
+        Attempt::clear(&self.data_dir);
         self.set(Status::Checking);
         let this = self.clone();
         std::thread::spawn(move || {
@@ -71,7 +81,7 @@ impl Updater {
     }
 
     pub fn install(&self) {
-        if !available() || self.busy() {
+        if !available() || self.busy() || matches!(self.status(), Status::ManualRequired { .. }) {
             return;
         }
         self.set(Status::Checking);
@@ -105,15 +115,19 @@ impl Updater {
             self.set(Status::Downloading { version: release.version.clone(), done: data.len() as u64, total });
         }
         verify(&data, &release.signature, PUBLIC_KEY)?;
-        *self.payload.lock().unwrap_or_else(|e| e.into_inner()) = Some(data);
+        *self.payload.lock().unwrap_or_else(|e| e.into_inner()) = Some((release.version.clone(), release.url.clone(), data));
         Ok(())
+    }
+
+    pub fn record_attempt(&self, version: &str, url: &str) {
+        Attempt::record(&self.data_dir, version, url);
     }
 
     pub fn fail(&self, error: String) {
         self.set(Status::Failed(error));
     }
 
-    pub fn take_ready(&self) -> Option<Vec<u8>> {
+    pub fn take_ready(&self) -> Option<(String, String, Vec<u8>)> {
         if !matches!(self.status(), Status::Ready(_)) {
             return None;
         }
