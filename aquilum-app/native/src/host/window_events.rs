@@ -34,6 +34,8 @@ impl Host {
             eprintln!("{:>8.1} мс  {event:?}", self.started.elapsed().as_secs_f64() * 1000.0);
         }
         let Some(window) = self.window.clone() else { return };
+        #[cfg(target_os = "android")]
+        self.ime_inbox();
         if !matches!(event, WindowEvent::PointerMoved { .. } | WindowEvent::RedrawRequested) {
             self.flush_move();
         }

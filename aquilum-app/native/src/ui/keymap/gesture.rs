@@ -15,7 +15,6 @@ pub const DOUBLE_CLICK: Duration = Duration::from_millis(500);
 pub const DOUBLE_CLICK_SLOP: f64 = 4.0;
 pub const DRAG_SLOP: f64 = 4.0;
 pub const GRIP: f64 = 6.0;
-pub const TOUCH_GRIP: f64 = 14.0;
 pub const TOUCH_REACH: f64 = 8.0;
 pub const EDGE_SCROLL_RATE: f64 = 10.0;
 pub const EDGE_SCROLL_REACH: f64 = 300.0;

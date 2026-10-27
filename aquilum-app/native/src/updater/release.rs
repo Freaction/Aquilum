@@ -3,9 +3,9 @@ use base64::Engine;
 pub(super) const ENDPOINT: &str = "https://github.com/Freaction/Aquilum/releases/latest/download/latest.json";
 pub(super) const PUBLIC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI4QTY0MzM1MDczQUNDMTQKUldRVXpEb0hOVU9tdUFCWnVMRWlBVTRGWmlFOW0wd2VteVlXd3luMFAyMmczWktQbkRvVmhTQSsK";
 
-#[derive(Clone)]
-pub(super) struct Release {
-    pub(super) version: String,
+#[derive(Clone, Debug, PartialEq)]
+pub struct Release {
+    pub version: String,
     pub(super) url: String,
     pub(super) signature: String,
 }

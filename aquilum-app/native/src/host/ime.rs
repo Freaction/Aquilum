@@ -104,30 +104,21 @@ impl Host {
         use crate::ime_sync::Edit;
         let Some(root) = &mut self.root else { return };
         for edit in crate::android::ime::take() {
-            let ime = match edit {
-                Edit::DeleteSurrounding { before, after } => masonry::core::Ime::DeleteSurrounding { before_bytes: before, after_bytes: after },
-                Edit::Preedit(text, cursor) => masonry::core::Ime::Preedit(text, cursor),
-                Edit::Commit(text) => masonry::core::Ime::Commit(text),
+            match edit {
+                Edit::Ime(ime) => _ = root.handle_text_event(TextEvent::Ime(ime)),
                 Edit::Enter => {
                     for state in [KeyState::Down, KeyState::Up] {
                         let key = Key::Named(NamedKey::Enter);
                         let event = KeyboardEvent { state, key, code: Code::Enter, location: Location::Standard, modifiers: Modifiers::empty(), repeat: false, is_composing: false };
                         root.handle_text_event(TextEvent::Keyboard(event));
                     }
-                    continue;
                 }
                 Edit::Select { anchor, cursor } => {
-                    let base = crate::android::ime::base().unwrap_or(0);
                     if let Some(id) = root.focused_widget() {
-                        root.edit_widget(id, |mut widget| {
-                            let mut editor = widget.downcast::<TextEditor>();
-                            TextEditor::ime_select(&mut editor, base + anchor, base + cursor);
-                        });
+                        root.edit_widget(id, |mut widget| TextEditor::ime_select(&mut widget.downcast::<TextEditor>(), anchor, cursor));
                     }
-                    continue;
                 }
-            };
-            root.handle_text_event(TextEvent::Ime(ime));
+            }
         }
     }
 }

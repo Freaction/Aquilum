@@ -65,8 +65,8 @@ public class MainActivity extends GameActivity {
         addContentView(ime, new ViewGroup.LayoutParams(1, 1));
     }
 
-    public void imeStart(boolean multiline) {
-        runOnUiThread(() -> ime.start(multiline));
+    public void imeStart(boolean multiline, int session) {
+        runOnUiThread(() -> ime.start(multiline, session));
     }
 
     public void imeStop() {

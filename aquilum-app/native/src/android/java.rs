@@ -67,6 +67,14 @@ pub fn read_long(method: &JNIStr) -> Option<i64> {
     call(|env, activity| env.call_method(activity, method, jni_sig!("()J"), &[])?.j())
 }
 
+pub fn send_start(method: &JNIStr, multiline: bool, session: i32) -> bool {
+    call(|env, activity| {
+        env.call_method(activity, method, jni_sig!("(ZI)V"), &[JValue::Bool(multiline), JValue::Int(session)])?;
+        Ok(())
+    })
+    .is_some()
+}
+
 pub fn send_bool(method: &JNIStr, value: bool) -> bool {
     call(|env, activity| {
         env.call_method(activity, method, jni_sig!("(Z)V"), &[JValue::Bool(value)])?;

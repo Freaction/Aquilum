@@ -16,13 +16,14 @@ import androidx.core.view.inputmethod.EditorInfoCompat;
 import java.util.Arrays;
 
 final class ImeView extends View {
-    private static native void onImeState(int seq, String text, int anchor, int cursor, int start, int end);
+    private static native void onImeState(int session, int seq, boolean echo, char[] text, int[] marks);
 
     private final InputMethodManager keyboard;
     private final Editable text = Editable.Factory.getInstance().newEditable("");
     private final Connection connection = new Connection();
     private boolean active;
     private boolean multiline;
+    private int session;
     private int base = -1;
     private int sent;
     private int batch;
@@ -36,10 +37,12 @@ final class ImeView extends View {
         keyboard = context.getSystemService(InputMethodManager.class);
     }
 
-    void start(boolean multiline) {
+    void start(boolean multiline, int session) {
         this.multiline = multiline;
+        this.session = session;
         active = true;
         base = -1;
+        batch = 0;
         lastText = null;
         text.replace(0, text.length(), "");
         requestFocus();
@@ -49,6 +52,7 @@ final class ImeView extends View {
 
     void stop() {
         active = false;
+        batch = 0;
         keyboard.hideSoftInputFromWindow(getWindowToken(), 0);
         clearFocus();
         keyboard.restartInput(this);
@@ -62,28 +66,24 @@ final class ImeView extends View {
     }
 
     void apply(int applied, int base, String value, int anchor, int cursor, int start, int end) {
-        if (!active || applied < sent) {
+        int[] marks = {anchor, cursor, start, end, base};
+        if (!active || applied < sent || batch > 0 || value.equals(lastText) && Arrays.equals(marks, lastMarks)) {
             return;
         }
-        boolean composing = BaseInputConnection.getComposingSpanStart(text) >= 0;
-        boolean sameText = text.toString().equals(value);
-        boolean sameSelection = Selection.getSelectionStart(text) == anchor && Selection.getSelectionEnd(text) == cursor;
-        boolean sameCompose = BaseInputConnection.getComposingSpanStart(text) == start && BaseInputConnection.getComposingSpanEnd(text) == end;
-        boolean moved = base != this.base;
-        if (sameText && sameSelection && sameCompose && !moved) {
-            return;
-        }
-        if (!sameText) {
-            text.replace(0, text.length(), value);
-        }
+        int composing = BaseInputConnection.getComposingSpanStart(text);
+        boolean restart = base != this.base || composing >= 0 && (composing != start || BaseInputConnection.getComposingSpanEnd(text) != end);
+        batch++;
+        text.replace(0, text.length(), value);
         Selection.setSelection(text, anchor, cursor);
         if (start >= 0) {
             connection.mark(start, end);
         } else {
             BaseInputConnection.removeComposingSpans(text);
         }
+        batch--;
         this.base = base;
-        if (moved || composing && !sameCompose) {
+        send(true);
+        if (restart) {
             keyboard.restartInput(this);
         } else {
             keyboard.updateSelection(this, anchor, cursor, start, end);
@@ -111,18 +111,21 @@ final class ImeView extends View {
     }
 
     private boolean edited(boolean done) {
-        if (batch > 0) {
-            return done;
+        if (batch == 0) {
+            send(false);
         }
+        return done;
+    }
+
+    private void send(boolean echo) {
         String value = text.toString();
         int[] marks = {Selection.getSelectionStart(text), Selection.getSelectionEnd(text),
-                BaseInputConnection.getComposingSpanStart(text), BaseInputConnection.getComposingSpanEnd(text)};
+                BaseInputConnection.getComposingSpanStart(text), BaseInputConnection.getComposingSpanEnd(text), base};
         if (!value.equals(lastText) || !Arrays.equals(marks, lastMarks)) {
             lastText = value;
             lastMarks = marks;
-            onImeState(++sent, value, marks[0], marks[1], marks[2], marks[3]);
+            onImeState(session, ++sent, echo, value.toCharArray(), marks);
         }
-        return done;
     }
 
     private final class Connection extends BaseInputConnection {

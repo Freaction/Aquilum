@@ -9,7 +9,7 @@ pub fn update_row(status: &Status) -> Row {
         Status::Idle => t("settings.system.updatesIdle"),
         Status::Checking => t("settings.system.updatesChecking"),
         Status::Latest => t("settings.system.updatesLatest"),
-        Status::Available(version) => t_with("settings.system.updatesAvailable", &[("version", version)]),
+        Status::Available(release) => t_with("settings.system.updatesAvailable", &[("version", &release.version)]),
         Status::Downloading { version, .. } | Status::Ready(version) => t_with("settings.system.updatesInstalling", &[("version", version)]),
         Status::Installing => t("update.installing"),
         Status::Failed(message) => t_with("settings.system.updatesFailed", &[("message", message)]),
@@ -27,9 +27,8 @@ pub fn update_row(status: &Status) -> Row {
 pub(super) fn system(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     let updates = match &ctx.update {
         Some(status) => {
-            let asks = crate::updater::ASKS;
-            let auto = (!asks).then(|| row(t("settings.system.autoUpdate"), Some(t("settings.system.autoUpdateHint")), Control::Switch(config.updates.auto), |c, v| c.updates.auto = flag(v)));
-            let manual = (asks || !config.updates.auto || matches!(status, Status::ManualRequired { .. })).then(|| update_row(status));
+            let auto = (!crate::updater::ASKS).then(|| row(t("settings.system.autoUpdate"), Some(t("settings.system.autoUpdateHint")), Control::Switch(config.updates.auto), |c, v| c.updates.auto = flag(v)));
+            let manual = (crate::updater::ASKS || !config.updates.auto || matches!(status, Status::ManualRequired { .. })).then(|| update_row(status));
             auto.into_iter().chain(manual).collect()
         }
         None => {

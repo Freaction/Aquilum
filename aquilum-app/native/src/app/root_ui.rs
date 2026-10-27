@@ -21,7 +21,8 @@ impl App {
         root.set_default_properties(Arc::new(theme::default_properties()));
         root.edit_widget_with_tag(ROOT_TAG, |mut slot| Slot::set_child(&mut slot, widget));
         self.render_panel(root);
-        self.rebuild_update_bar(root);
+        self.update.bar = None;
+        self.show_update_bar(root);
     }
 
     pub(in crate::app) fn restyle(&mut self, root: &mut RenderRoot, fonts: bool) {

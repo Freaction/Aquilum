@@ -85,7 +85,7 @@ fn clicks_in_a_table_cell_place_caret_word_and_cell() {
     let word = "слово ".len();
     let mut session = crate::ui::editor::table::Session::new(0);
     for count in 1..=3 {
-        let _ = session.press(view, at(word + 2), false, count);
+        let _ = session.press(view, at(word + 2), false, count, crate::ui::keymap::gesture::GRIP);
         let (anchor, caret) = (session.anchor.min(session.caret), session.anchor.max(session.caret));
         let expected = match count {
             1 => word + 2..word + 2,

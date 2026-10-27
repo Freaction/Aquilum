@@ -16,31 +16,30 @@ fn parse(marked: &str) -> ImeState {
     state
 }
 
-fn sync(marked: &str) -> Sync {
-    let state = parse(marked);
-    let mut sync = Sync::default();
-    sync.app_changed(AppState { text: state.text, anchor: state.anchor, cursor: state.cursor, preedit: None });
+fn sync(marked: &str) -> Mirror {
+    let mut sync = Mirror::default();
+    sync.echoed(&parse(marked));
     sync
 }
 
-fn feed(sync: &mut Sync, marked: &str) -> Vec<Edit> {
+fn feed(sync: &mut Mirror, marked: &str) -> Vec<Edit> {
     sync.ime_changed(&parse(marked))
 }
 
 fn commit(text: &str) -> Edit {
-    Edit::Commit(text.into())
+    Edit::Ime(Ime::Commit(text.into()))
 }
 
 fn preedit(text: &str, at: usize) -> Edit {
-    Edit::Preedit(text.into(), Some((at, at)))
+    Edit::Ime(Ime::Preedit(text.into(), Some((at, at))))
 }
 
 fn clear() -> Edit {
-    Edit::Preedit(String::new(), None)
+    Edit::Ime(Ime::Preedit(String::new(), None))
 }
 
-fn delete(before: usize, after: usize) -> Edit {
-    Edit::DeleteSurrounding { before, after }
+fn delete(before_bytes: usize, after_bytes: usize) -> Edit {
+    Edit::Ime(Ime::DeleteSurrounding { before_bytes, after_bytes })
 }
 
 fn select(anchor: usize, cursor: usize) -> Edit {
@@ -136,10 +135,30 @@ fn only_a_different_app_state_is_reported() {
     let mut s = sync("- a|");
     assert_eq!(feed(&mut s, "- a\n|"), [Edit::Enter]);
     let same = AppState { text: "- a\n".into(), anchor: 4, cursor: 4, preedit: None };
-    assert!(!s.app_changed(same));
+    assert!(!s.differs(&same));
     let continued = AppState { text: "- a\n- ".into(), anchor: 6, cursor: 6, preedit: None };
-    assert!(s.app_changed(continued.clone()));
+    assert!(s.differs(&continued));
     assert_eq!(continued.to_ime(), parse("- a\n- |"));
     let composing = AppState { text: "a ".into(), anchor: 2, cursor: 2, preedit: Some(("bc".into(), 2)) };
     assert_eq!(composing.to_ime(), parse("a [bc|]"));
+}
+
+#[test]
+fn an_empty_keyboard_before_the_note_arrives_deletes_nothing() {
+    let mut s = Mirror::default();
+    let note = AppState { text: "заметка".into(), anchor: 14, cursor: 14, preedit: None };
+    assert!(s.differs(&note));
+    assert_eq!(feed(&mut s, "|"), []);
+    assert!(s.differs(&note), "приложение должно отправить текст ещё раз");
+    s.echoed(&note.to_ime());
+    assert!(!s.differs(&note));
+    assert_eq!(feed(&mut s, "заметкаx|"), [commit("x")]);
+}
+
+#[test]
+fn keyboard_edits_count_from_what_the_keyboard_had() {
+    let mut s = sync("- a|");
+    assert_eq!(feed(&mut s, "- a\n|"), [Edit::Enter]);
+    assert!(s.differs(&AppState { text: "- a\n- ".into(), anchor: 6, cursor: 6, preedit: None }));
+    assert_eq!(feed(&mut s, "- a\nb|"), [commit("b")]);
 }

@@ -34,7 +34,7 @@ impl TextEditor {
         let preedit = matches!(ime, Ime::Preedit(..));
         match ime {
             Ime::Enabled => {}
-            Ime::Disabled => self.compose = None,
+            Ime::Disabled => self.finish_compose(ctx),
             Ime::Preedit(text, _) if text.is_empty() => self.compose = None,
             Ime::Preedit(text, cursor) => {
                 if !self.selection().is_empty() {

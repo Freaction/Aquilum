@@ -6,8 +6,8 @@ use crate::ui::editor::table::view::{Hit, Line, TableView};
 use crate::ui::keymap::gesture::DRAG_SLOP;
 
 impl Session {
-    pub fn moved(&mut self, view: &TableView, p: Point) -> Outcome {
-        let (outcome, line) = self.track(view, p);
+    pub fn moved(&mut self, view: &TableView, p: Point, grip: f64) -> Outcome {
+        let (outcome, line) = self.track(view, p, grip);
         if line != self.line {
             self.line = line;
             return match outcome {
@@ -18,11 +18,11 @@ impl Session {
         outcome
     }
 
-    fn track(&mut self, view: &TableView, p: Point) -> (Outcome, Line) {
+    fn track(&mut self, view: &TableView, p: Point, grip: f64) -> (Outcome, Line) {
         match self.drag {
             Drag::Cells { from, at, moved } => {
                 let far = moved || (p - at).hypot() >= DRAG_SLOP;
-                if let Hit::Cell(r, c, local) = view.hit(p, self.scroll_x, self.grip) {
+                if let Hit::Cell(r, c, local) = view.hit(p, self.scroll_x, grip) {
                     if far && (r, c) != from {
                         self.drag = Drag::Cells { from, at, moved: true };
                         self.range_anchor = Some(from);
@@ -75,7 +75,7 @@ impl Session {
                 (Outcome::Repaint, Line::None)
             }
             Drag::None => {
-                let hit = view.hit(p, self.scroll_x, self.grip);
+                let hit = view.hit(p, self.scroll_x, grip);
                 let hover = Some(hit);
                 let line = view.border_line(hit, self.scroll_x);
                 let thumb = view.bar_span(self.scroll_x).is_some_and(|span| self.bar.hover(Some(p), &span));

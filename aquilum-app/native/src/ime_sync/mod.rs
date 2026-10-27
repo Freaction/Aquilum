@@ -1,8 +1,17 @@
 use std::ops::Range;
 
+use masonry::core::Ime;
+
+#[cfg(test)]
+mod keyboard;
+#[cfg(test)]
+mod protocol;
+mod session;
 mod text;
 #[cfg(test)]
 mod tests;
+
+pub use session::Session;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ImeState {
@@ -12,11 +21,17 @@ pub struct ImeState {
     pub compose: Option<Range<usize>>,
 }
 
+pub struct Message {
+    pub session: i32,
+    pub seq: i32,
+    pub echo: bool,
+    pub base: Option<usize>,
+    pub state: ImeState,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Edit {
-    DeleteSurrounding { before: usize, after: usize },
-    Preedit(String, Option<(usize, usize)>),
-    Commit(String),
+    Ime(Ime),
     Enter,
     Select { anchor: usize, cursor: usize },
 }
@@ -30,8 +45,8 @@ pub struct AppState {
 }
 
 #[derive(Debug, Default)]
-pub struct Sync {
-    app: AppState,
+struct Mirror {
+    seen: AppState,
 }
 
 impl ImeState {
@@ -63,33 +78,35 @@ impl AppState {
     }
 }
 
-impl Sync {
-    pub fn app_changed(&mut self, app: AppState) -> bool {
-        let changed = self.app != app;
-        self.app = app;
-        changed
+impl Mirror {
+    fn differs(&self, app: &AppState) -> bool {
+        self.seen != *app
     }
 
-    pub fn ime_changed(&mut self, ime: &ImeState) -> Vec<Edit> {
-        let target = self.target(ime);
+    fn echoed(&mut self, ime: &ImeState) {
+        self.seen = Self::target(ime);
+    }
+
+    fn ime_changed(&mut self, ime: &ImeState) -> Vec<Edit> {
+        let target = Self::target(ime);
         let mut edits = Vec::new();
-        if target.text != self.app.text {
+        if target.text != self.seen.text {
             self.replace(&target, &mut edits);
         }
-        if target.preedit.is_none() && (self.app.anchor, self.app.cursor) != (target.anchor, target.cursor) {
+        if target.preedit.is_none() && (self.seen.anchor, self.seen.cursor) != (target.anchor, target.cursor) {
             edits.push(Edit::Select { anchor: target.anchor, cursor: target.cursor });
-            (self.app.anchor, self.app.cursor) = (target.anchor, target.cursor);
+            (self.seen.anchor, self.seen.cursor) = (target.anchor, target.cursor);
         }
-        if target.preedit != self.app.preedit {
+        if target.preedit != self.seen.preedit {
             let (text, at) = target.preedit.clone().unwrap_or_default();
             let cursor = (!text.is_empty()).then_some((at, at));
-            edits.push(Edit::Preedit(text, cursor));
-            self.app.preedit = target.preedit;
+            edits.push(Edit::Ime(Ime::Preedit(text, cursor)));
+            self.seen.preedit = target.preedit;
         }
         edits
     }
 
-    fn target(&self, ime: &ImeState) -> AppState {
+    fn target(ime: &ImeState) -> AppState {
         let region = ime.compose.clone().filter(|region| ime.anchor == ime.cursor && (region.start..=region.end).contains(&ime.cursor));
         let Some(region) = region else {
             return AppState { text: ime.text.clone(), anchor: ime.anchor, cursor: ime.cursor, preedit: None };
@@ -100,24 +117,24 @@ impl Sync {
     }
 
     fn replace(&mut self, target: &AppState, edits: &mut Vec<Edit>) {
-        let old = self.app.range();
-        let (start, end, inserted) = text::changed(&self.app.text, &old, &target.text, &target.range());
-        let (before, after) = (old.start - start, end - old.end);
-        if self.app.preedit.take().is_some() {
-            edits.push(Edit::Preedit(String::new(), None));
+        let old = self.seen.range();
+        let (start, end, inserted) = text::changed(&self.seen.text, &old, &target.text, &target.range());
+        let (before_bytes, after_bytes) = (old.start - start, end - old.end);
+        if self.seen.preedit.take().is_some() {
+            edits.push(Edit::Ime(Ime::Preedit(String::new(), None)));
         }
-        if before > 0 || after > 0 {
-            edits.push(Edit::DeleteSurrounding { before, after });
+        if before_bytes > 0 || after_bytes > 0 {
+            edits.push(Edit::Ime(Ime::DeleteSurrounding { before_bytes, after_bytes }));
         }
         let line = inserted.strip_suffix('\n').filter(|line| !line.contains('\n'));
         let commit = line.unwrap_or(inserted);
         if !commit.is_empty() || !old.is_empty() {
-            edits.push(Edit::Commit(commit.to_owned()));
+            edits.push(Edit::Ime(Ime::Commit(commit.to_owned())));
         }
         if line.is_some() {
             edits.push(Edit::Enter);
         }
         let caret = start + inserted.len();
-        self.app = AppState { text: target.text.clone(), anchor: caret, cursor: caret, preedit: None };
+        self.seen = AppState { text: target.text.clone(), anchor: caret, cursor: caret, preedit: None };
     }
 }

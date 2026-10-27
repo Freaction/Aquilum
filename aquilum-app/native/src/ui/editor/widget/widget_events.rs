@@ -1,4 +1,4 @@
-use masonry::core::{EventCtx, PointerButtonEvent, PointerEvent, PointerType, PointerUpdate, PropertiesMut, TextEvent, UpdateCtx};
+use masonry::core::{EventCtx, PointerButtonEvent, PointerEvent, PointerUpdate, PropertiesMut, TextEvent, UpdateCtx};
 use crate::ui::keymap::pointer;
 use super::Kind;
 use super::paste;
@@ -63,7 +63,7 @@ impl TextEditor {
             return;
         }
         if let PointerEvent::Down(PointerButtonEvent { pointer: device, .. }) = event
-            && device.pointer_type == PointerType::Touch
+            && pointer::commits_word(device.pointer_type)
         {
             self.finish_compose(ctx);
         } else if self.compose.is_some() {

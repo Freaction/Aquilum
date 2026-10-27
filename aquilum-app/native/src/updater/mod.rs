@@ -22,7 +22,7 @@ pub enum Status {
     Idle,
     Checking,
     Latest,
-    Available(String),
+    Available(Release),
     Downloading { version: String, done: u64, total: Option<u64> },
     Ready(String),
     Installing,
@@ -75,7 +75,7 @@ impl Updater {
         let this = self.clone();
         std::thread::spawn(move || {
             this.set(match find() {
-                Ok(Some(release)) => Status::Available(release.version),
+                Ok(Some(release)) => Status::Available(release),
                 Ok(None) => Status::Latest,
                 Err(error) => Status::Failed(error),
             });
@@ -86,10 +86,14 @@ impl Updater {
         if !available() || self.busy() || matches!(self.status(), Status::ManualRequired { .. }) {
             return;
         }
+        let found = match self.status() {
+            Status::Available(release) => Some(release),
+            _ => None,
+        };
         self.set(Status::Checking);
         let this = self.clone();
         std::thread::spawn(move || {
-            let result = find().and_then(|release| match release {
+            let result = found.map_or_else(find, |release| Ok(Some(release))).and_then(|release| match release {
                 Some(release) => this.download(&release).map(|()| Some(release.version)),
                 None => Ok(None),
             });
@@ -102,6 +106,7 @@ impl Updater {
     }
 
     fn download(&self, release: &Release) -> Result<(), String> {
+        self.set(Status::Downloading { version: release.version.clone(), done: 0, total: None });
         let agent = aquilum_core::web_agent::web_agent("updates");
         let response = agent.get(&release.url).call().map_err(|e| e.to_string())?;
         let total = response.header("Content-Length").and_then(|v| v.parse().ok());
@@ -131,7 +136,7 @@ impl Updater {
 
     #[cfg(test)]
     pub fn offer(&self, version: &str) {
-        self.set(Status::Available(version.to_owned()));
+        self.set(Status::Available(Release { version: version.to_owned(), url: String::new(), signature: String::new() }));
     }
 
     pub fn handed_off(&self) {

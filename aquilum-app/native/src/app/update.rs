@@ -68,7 +68,7 @@ impl App {
 
     pub(super) fn show_update_bar(&mut self, root: &mut RenderRoot) {
         let offer = match self.updater.status() {
-            Status::Available(version) if !self.interface.update_dismissed(&version) => Some(version),
+            Status::Available(release) if !self.interface.update_dismissed(&release.version) => Some(release.version),
             _ => None,
         };
         let Some(chrome) = &self.chrome else { return };
@@ -86,11 +86,6 @@ impl App {
                 None
             }
         };
-    }
-
-    pub(super) fn rebuild_update_bar(&mut self, root: &mut RenderRoot) {
-        self.update.bar = None;
-        self.show_update_bar(root);
     }
 
     pub(super) fn on_update_bar(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> bool {

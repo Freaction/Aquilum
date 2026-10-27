@@ -1,6 +1,6 @@
 [package]
 name = "aquilum-android"
-version = "0.3.18"
+version = "0.3.19"
 description = "Aquilum for Android: the native app as a library for GameActivity"
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"

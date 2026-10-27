@@ -2,13 +2,14 @@ use super::*;
 use crate::ui::editor::markdown::Link;
 use crate::ui::editor::resolve::Request;
 use crate::ui::editor::table::{Drag, Hit, Line};
+use crate::ui::keymap::gesture::GRIP;
 
 impl TextEditor {
     pub(in super::super) fn table_context(&mut self, ctx: &mut EventCtx<'_>, point: Point) -> bool {
         let Some((start, local)) = self.table_under(point) else { return false };
         self.open_session(start);
         let Some((session, view)) = self.table_parts() else { return false };
-        let Hit::Cell(r, c, _) = view.hit(local, session.scroll_x, session.grip) else { return true };
+        let Hit::Cell(r, c, _) = view.hit(local, session.scroll_x, GRIP) else { return true };
         let commands = session.context(view, r, c);
         if let Some(resolver) = &self.doc.resolver {
             let at = ctx.window_transform() * point;
@@ -40,8 +41,7 @@ impl TextEditor {
             return true;
         }
         let Some((session, view)) = self.table_parts() else { return false };
-        session.grip = grip;
-        let outcome = session.press(view, local, shift, count);
+        let outcome = session.press(view, local, shift, count, grip);
         ctx.request_focus();
         ctx.capture_pointer();
         self.apply(ctx, outcome);
@@ -75,8 +75,7 @@ impl TextEditor {
         }
         let local = self.embed_local_at(start, point);
         let Some((session, view)) = self.table_parts() else { return false };
-        session.grip = grip;
-        let outcome = session.moved(view, local);
+        let outcome = session.moved(view, local, grip);
         self.apply(ctx, outcome);
         dragging
     }
@@ -98,7 +97,7 @@ impl TextEditor {
         self.open_session(start);
         if let Some((session, view)) = self.table_parts() {
             session.scroll_x = (session.scroll_x + dx).clamp(0.0, view.max_scroll());
-            session.moved(view, local);
+            session.moved(view, local, GRIP);
         }
         self.remember_scroll();
         ctx.request_render();
@@ -107,7 +106,7 @@ impl TextEditor {
 
     fn link_under(&self, start: usize, local: Point) -> Option<&Link> {
         let (_, view) = self.doc.table_at(start)?;
-        self.cell_link(view, start, view.hit(local, self.embed_scroll_x(start), crate::ui::keymap::gesture::GRIP))
+        self.cell_link(view, start, view.hit(local, self.embed_scroll_x(start), GRIP))
     }
 
     fn cell_link<'v>(&self, view: &'v TableView, start: usize, hit: Hit) -> Option<&'v Link> {

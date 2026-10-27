@@ -2,8 +2,8 @@
 
 use jni::EnvUnowned;
 use jni::errors::ThrowRuntimeExAndDefault;
-use jni::objects::{JClass, JString};
-use jni::sys::jint;
+use jni::objects::{JCharArray, JClass, JIntArray, JString};
+use jni::sys::{jboolean, jint};
 
 pub use aquilum_native::AndroidApp;
 
@@ -16,17 +16,21 @@ fn android_main(app: AndroidApp) {
 pub extern "system" fn Java_com_dmitriy_aquilum_ImeView_onImeState<'local>(
     mut env: EnvUnowned<'local>,
     _: JClass<'local>,
+    session: jint,
     seq: jint,
-    text: JString<'local>,
-    anchor: jint,
-    cursor: jint,
-    start: jint,
-    end: jint,
+    echo: jboolean,
+    text: JCharArray<'local>,
+    marks: JIntArray<'local>,
 ) {
     env.with_env(|env| -> jni::errors::Result<()> {
+        let mut units = vec![0; text.len(env)?];
+        text.get_region(env, 0, &mut units)?;
+        let mut points = [0; 5];
+        marks.get_region(env, 0, &mut points)?;
         let unit = |value: jint| usize::try_from(value).ok();
-        let compose = unit(start).zip(unit(end));
-        aquilum_native::android_ime_state(seq, text.try_to_string(env)?, (unit(anchor).unwrap_or(0), unit(cursor).unwrap_or(0)), compose);
+        let [anchor, cursor, start, end, base] = points.map(unit);
+        let state = aquilum_native::ImeState::from_utf16(String::from_utf16_lossy(&units), (anchor.unwrap_or(0), cursor.unwrap_or(0)), start.zip(end));
+        aquilum_native::android_ime_state(aquilum_native::ImeMessage { session, seq, echo, base, state });
         Ok(())
     })
     .resolve::<ThrowRuntimeExAndDefault>()

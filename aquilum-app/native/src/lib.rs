@@ -84,6 +84,8 @@ mod workspace;
 #[cfg(target_os = "android")]
 pub use android::{ime::received as android_ime_state, link as android_link, main as android_main};
 #[cfg(target_os = "android")]
+pub use ime_sync::{ImeState, Message as ImeMessage};
+#[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
 pub use args::Args;
 
