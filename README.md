@@ -5,7 +5,7 @@
 <h1 align="center">Aquilum</h1>
 
 <p align="center">
-  A fast, local-first knowledge base for Windows, macOS and Linux.<br>
+  A fast, local-first knowledge base for Windows, macOS, Linux and Android.<br>
   Plain Markdown on your disk, with a focused editor, instant search, links, queries, and a built-in book reader.
 </p>
 
@@ -13,6 +13,16 @@
   <a href="https://github.com/Freaction/Aquilum/releases/latest"><b>Download the latest version</b></a>
   · <a href="#installation">Installation</a>
   · <a href="README.ru.md">Русский</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Freaction/Aquilum/stargazers"><img src="https://img.shields.io/github/stars/Freaction/Aquilum?style=for-the-badge&logo=github&color=f5c518" alt="GitHub stars"></a>
+  <a href="https://github.com/Freaction/Aquilum/releases/latest"><img src="https://img.shields.io/github/v/release/Freaction/Aquilum?style=for-the-badge&logo=github" alt="Latest release"></a>
+  <a href="https://t.me/dmitriy_yiu"><img src="https://img.shields.io/badge/Telegram-@dmitriy__yiu-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"></a>
+</p>
+
+<p align="center">
+  If Aquilum is useful to you, please <b>⭐ star the repository</b> — it helps other people find the project.
 </p>
 
 ---
@@ -175,6 +185,13 @@ curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/unin
 
 The uninstall script removes `Aquilum.app` from `~/Applications`. Vault folders, Markdown files, and app settings remain untouched.
 
+### Android (8.0 or later, arm64)
+
+1. On the phone, open the [latest release](https://github.com/Freaction/Aquilum/releases/latest) and download `Aquilum_<version>_arm64.apk`.
+2. Open the downloaded file and allow installing apps from this source when Android asks.
+
+The app keeps its vaults in its own folder (`Android/data/com.dmitriy.aquilum/files`), so they are visible to file managers and sync tools.
+
 ### Linux (x86_64)
 
 Download from the [latest release](https://github.com/Freaction/Aquilum/releases/latest):
@@ -185,13 +202,14 @@ Download from the [latest release](https://github.com/Freaction/Aquilum/releases
 
 ## Updates
 
-Aquilum checks this public repository for updates at launch. When a newer version is available, it can download it, show progress, verify the signed update package, install it, and restart. On Linux the app updates itself only when it runs as an AppImage; `.deb` and `.rpm` installations are updated by installing the new package. Without a network connection, the app starts normally and your local vault remains available.
+Aquilum checks this public repository for updates at launch. When a newer version is available, it can download it, show progress, verify the signed update package, install it, and restart. On Linux the app updates itself only when it runs as an AppImage; `.deb` and `.rpm` installations are updated by installing the new package. On Android a bar at the bottom of the window offers **Update** or **Close**: the update is downloaded, checked against its signature, and handed to the system installer; after **Close** that version can still be installed from **Settings → System**. Without a network connection, the app starts normally and your local vault remains available.
 
 ## Requirements
 
 - Windows 10 or Windows 11, 64-bit.
 - macOS 12 or later on Apple Silicon (arm64) or Intel (x86_64).
 - Ubuntu 22.04 or later, x86_64, with the GStreamer 1.0 libraries (used for video; present on most desktop installs).
+- Android 8.0 or later on a 64-bit ARM device (arm64-v8a).
 
 Aquilum does not use a WebView or a browser engine, so Microsoft Edge WebView2 (Windows) and WebKitGTK (Linux) are not required.
 
@@ -207,11 +225,11 @@ Aquilum does not require a cloud account. Network access is used for update chec
 
 ## Feedback
 
-Report bugs and suggest improvements in [Issues](https://github.com/Freaction/Aquilum/issues). Please include the Aquilum version from **Settings → System → About**, what you expected, what happened, and the steps that reproduce it. Screenshots and a small example vault are useful when they do not contain private information.
+Report bugs and suggest improvements in [Issues](https://github.com/Freaction/Aquilum/issues). Please include the Aquilum version from **Settings → System → About**, what you expected, what happened, and the steps that reproduce it. Screenshots and a small example vault are useful when they do not contain private information. You can also write to the author on [Telegram](https://t.me/dmitriy_yiu).
 
 ## Source code and license
 
-This repository contains the Aquilum source code, Windows installers, update manifests, and screenshots. Build instructions are in [DEVELOPMENT.md](DEVELOPMENT.md) (Russian) and [aquilum-app/README.md](aquilum-app/README.md); architecture notes live in [knowledge base](knowledge%20base).
+This repository contains the Aquilum source code, installers for Windows, macOS, Linux and Android, update manifests, and screenshots. Build instructions are in [DEVELOPMENT.md](DEVELOPMENT.md) (Russian) and [aquilum-app/README.md](aquilum-app/README.md); architecture notes live in [knowledge base](knowledge%20base).
 
 Copyright © 2026 Dmitriy Chaplinskiy.
 

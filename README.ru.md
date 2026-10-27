@@ -5,7 +5,7 @@
 <h1 align="center">Aquilum</h1>
 
 <p align="center">
-  Быстрая локальная база знаний для Windows, macOS и Linux.<br>
+  Быстрая локальная база знаний для Windows, macOS, Linux и Android.<br>
   Обычный Markdown на вашем диске, удобный редактор, мгновенный поиск, связи, запросы и встроенная читалка.
 </p>
 
@@ -13,6 +13,16 @@
   <a href="https://github.com/Freaction/Aquilum/releases/latest"><b>Скачать последнюю версию</b></a>
   · <a href="#установка">Установка</a>
   · <a href="README.md">English</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Freaction/Aquilum/stargazers"><img src="https://img.shields.io/github/stars/Freaction/Aquilum?style=for-the-badge&logo=github&color=f5c518" alt="Звёзды на GitHub"></a>
+  <a href="https://github.com/Freaction/Aquilum/releases/latest"><img src="https://img.shields.io/github/v/release/Freaction/Aquilum?style=for-the-badge&logo=github" alt="Последняя версия"></a>
+  <a href="https://t.me/dmitriy_yiu"><img src="https://img.shields.io/badge/Telegram-@dmitriy__yiu-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"></a>
+</p>
+
+<p align="center">
+  Если Aquilum вам полезен, пожалуйста, <b>⭐ поставьте звезду репозиторию</b> — так проект проще найти другим.
 </p>
 
 ---
@@ -175,6 +185,13 @@ curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/unin
 
 Скрипт удаления убирает `Aquilum.app` из `~/Applications`. Папки баз, Markdown-файлы и настройки приложения остаются нетронутыми.
 
+### Android (8.0 и новее, arm64)
+
+1. Откройте на телефоне [последний выпуск](https://github.com/Freaction/Aquilum/releases/latest) и скачайте `Aquilum_<версия>_arm64.apk`.
+2. Откройте скачанный файл и разрешите установку из этого источника, когда Android спросит.
+
+Базы приложение хранит в своей папке (`Android/data/com.dmitriy.aquilum/files`), её видят файловые менеджеры и программы синхронизации.
+
 ### Linux (x86_64)
 
 Скачайте из [последнего релиза](https://github.com/Freaction/Aquilum/releases/latest):
@@ -185,13 +202,14 @@ curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/unin
 
 ## Обновления
 
-При запуске Aquilum проверяет обновления в этом публичном репозитории. Если доступна новая версия, приложение может скачать её, показать прогресс, проверить подпись пакета, установить обновление и перезапуститься. На Linux приложение обновляется само только в виде AppImage; установленное из `.deb` или `.rpm` обновляется установкой нового пакета. Без подключения к сети Aquilum запускается как обычно, а локальная база остаётся доступной.
+При запуске Aquilum проверяет обновления в этом публичном репозитории. Если доступна новая версия, приложение может скачать её, показать прогресс, проверить подпись пакета, установить обновление и перезапуститься. На Linux приложение обновляется само только в виде AppImage; установленное из `.deb` или `.rpm` обновляется установкой нового пакета. На Android внизу окна появляется плашка **Обновить** / **Закрыть**: обновление скачивается, проверяется по подписи и передаётся системному установщику; после **Закрыть** эту версию можно поставить в **Настройки → Система**. Без подключения к сети Aquilum запускается как обычно, а локальная база остаётся доступной.
 
 ## Требования
 
 - 64-разрядная Windows 10 или Windows 11.
 - macOS 12 или новее на Apple Silicon (arm64) или Intel (x86_64).
 - Ubuntu 22.04 или новее, x86_64, с библиотеками GStreamer 1.0 (нужны для видео, обычно уже установлены).
+- Android 8.0 или новее на 64-битном ARM (arm64-v8a).
 
 Aquilum не использует WebView и браузерный движок, поэтому Microsoft Edge WebView2 (Windows) и WebKitGTK (Linux) не нужны.
 
@@ -207,11 +225,11 @@ Aquilum не требует облачного аккаунта. Сеть исп
 
 ## Обратная связь
 
-Сообщайте об ошибках и предлагайте улучшения во вкладке [Issues](https://github.com/Freaction/Aquilum/issues). Укажите версию из раздела **Настройки → Система → О программе**, ожидаемое и фактическое поведение, а также шаги для воспроизведения. Скриншоты и небольшая тестовая база помогут, если в них нет личных данных.
+Сообщайте об ошибках и предлагайте улучшения во вкладке [Issues](https://github.com/Freaction/Aquilum/issues). Укажите версию из раздела **Настройки → Система → О программе**, ожидаемое и фактическое поведение, а также шаги для воспроизведения. Скриншоты и небольшая тестовая база помогут, если в них нет личных данных. Можно написать автору и в [Telegram](https://t.me/dmitriy_yiu).
 
 ## Исходный код и лицензия
 
-В этом репозитории лежат исходники Aquilum, установщики для Windows, манифесты обновлений и скриншоты. Как собрать — в [DEVELOPMENT.md](DEVELOPMENT.md) и [aquilum-app/README.md](aquilum-app/README.md), устройство приложения — в [knowledge base](knowledge%20base).
+В этом репозитории лежат исходники Aquilum, установщики для Windows, macOS, Linux и Android, манифесты обновлений и скриншоты. Как собрать — в [DEVELOPMENT.md](DEVELOPMENT.md) и [aquilum-app/README.md](aquilum-app/README.md), устройство приложения — в [knowledge base](knowledge%20base).
 
 Copyright © 2026 Dmitriy Chaplinskiy.
 

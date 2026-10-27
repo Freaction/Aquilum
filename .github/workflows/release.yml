@@ -1,4 +1,4 @@
-# Release packages for Windows, macOS and Linux: cargo-packager (NSIS, .app, DMG, AppImage) and nfpm (deb, rpm).
+# Release packages for Windows, macOS, Linux and Android: cargo-packager (NSIS, .app, DMG, AppImage), nfpm (deb, rpm) and Gradle (APK).
 # Run by hand. Every package is installed and launched on a clean machine before it is uploaded as an artifact;
 # the GitHub release is created from these artifacts by hand, so the updater never sees an unchecked build.
 name: Release
@@ -404,8 +404,86 @@ jobs:
           path: shots/
           retention-days: 7
 
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NDK_VERSION: 29.0.14206865
+      BUILD_TOOLS: 36.0.0
+      CERT_SHA256: 9320626c669c4b0bb90685b40a3efb78c1b5473faa174b785cce06578f8c39f6
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: aquilum-app -> ../.artifacts/cargo-native
+          key: release-android
+          cache-on-failure: true
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: 9.6.0
+
+      - name: NDK, cargo-ndk and cargo-packager
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null
+          "$sdkmanager" "ndk;$NDK_VERSION" "platforms;android-36" "build-tools;$BUILD_TOOLS" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+          cargo install cargo-ndk --locked
+          cargo install cargo-packager --version ${{ env.CARGO_PACKAGER_VERSION }} --locked
+
+      - name: Signing key of the installed app
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        run: |
+          test -n "$ANDROID_KEYSTORE" || { echo "secret ANDROID_KEYSTORE is missing"; exit 1; }
+          mkdir -p ~/.android
+          echo "$ANDROID_KEYSTORE" | base64 -d > ~/.android/debug.keystore
+
+      - name: Build
+        working-directory: aquilum-app
+        run: |
+          version=$(grep -m1 '^version' native/Cargo.toml | cut -d'"' -f2)
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          cargo ndk -t arm64-v8a -P 26 -o android/app/src/main/jniLibs build -p aquilum-android --release
+          gradle -p android --quiet assembleRelease "-PappVersion=$version"
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp android/app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/dist/Aquilum_${version}_arm64.apk"
+
+      - name: Same signer as the installed app
+        run: |
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify --print-certs "dist/Aquilum_${VERSION}_arm64.apk" | tee certs.txt
+          grep -q "SHA-256 digest: $CERT_SHA256" certs.txt
+
+      - name: Sign for the updater
+        env:
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          cargo packager signer sign "dist/Aquilum_${VERSION}_arm64.apk"
+          ls -la dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages-android
+          path: |
+            dist/*.apk
+            dist/*.apk.sig
+
   manifest:
-    needs: [windows, macos, linux]
+    needs: [windows, macos, linux, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -440,7 +518,8 @@ jobs:
           appimage="Aquilum_${version}_amd64.AppImage"
           deb="Aquilum_${version}_amd64.deb"
           rpm="Aquilum-${version}-1.x86_64.rpm"
-          for f in "$setup" Aquilum_aarch64.app.tar.gz Aquilum_x64.app.tar.gz "$appimage" "$deb" "$rpm" "Aquilum_${version}_aarch64.dmg" "Aquilum_${version}_x64.dmg"; do
+          apk="Aquilum_${version}_arm64.apk"
+          for f in "$setup" "$apk" Aquilum_aarch64.app.tar.gz Aquilum_x64.app.tar.gz "$appimage" "$deb" "$rpm" "Aquilum_${version}_aarch64.dmg" "Aquilum_${version}_x64.dmg"; do
             test -f "$f" || { echo "missing $f"; exit 1; }
           done
           cat > latest.json <<EOF
@@ -458,7 +537,8 @@ jobs:
               "linux-x86_64": $(entry "$appimage"),
               "linux-x86_64-appimage": $(entry "$appimage"),
               "linux-x86_64-deb": $(entry "$deb"),
-              "linux-x86_64-rpm": $(entry "$rpm")
+              "linux-x86_64-rpm": $(entry "$rpm"),
+              "android-aarch64": $(entry "$apk")
             }
           }
           EOF
