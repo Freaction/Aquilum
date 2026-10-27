@@ -121,8 +121,7 @@ impl Host {
                     if let Some(id) = root.focused_widget() {
                         root.edit_widget(id, |mut widget| {
                             let mut editor = widget.downcast::<TextEditor>();
-                            TextEditor::select_byte_range(&mut editor, base + anchor, base + cursor);
-                            TextEditor::keep_caret(&mut editor);
+                            TextEditor::ime_select(&mut editor, base + anchor, base + cursor);
                         });
                     }
                     continue;

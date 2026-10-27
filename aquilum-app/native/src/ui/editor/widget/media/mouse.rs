@@ -5,8 +5,8 @@ use crate::ui::editor::embed::MediaHit;
 use crate::ui::editor::resolve::Request;
 
 impl TextEditor {
-    pub(in crate::ui::editor::widget) fn media_press(&mut self, ctx: &mut EventCtx<'_>, point: Point, count: u8) -> bool {
-        let under = self.media_under(point);
+    pub(in crate::ui::editor::widget) fn media_press(&mut self, ctx: &mut EventCtx<'_>, point: Point, count: u8, reach: f64) -> bool {
+        let under = self.media_under(point, reach);
         if self.media.crop.is_some_and(|(s, _)| under.is_none_or(|(u, _)| u != s)) {
             self.end_crop(false);
             ctx.request_layout();
@@ -103,7 +103,7 @@ impl TextEditor {
         true
     }
 
-    pub(in crate::ui::editor::widget) fn media_move(&mut self, ctx: &mut EventCtx<'_>, point: Point) -> bool {
+    pub(in crate::ui::editor::widget) fn media_move(&mut self, ctx: &mut EventCtx<'_>, point: Point, reach: f64) -> bool {
         if let Some((start, drag)) = self.media.drag {
             let Some(view) = self.media_view(start) else { return false };
             match drag {
@@ -130,7 +130,7 @@ impl TextEditor {
             }
             return true;
         }
-        let hover = self.media_under(point);
+        let hover = self.media_under(point, reach);
         if hover != self.media.hover {
             self.media.hover = hover;
             let start = hover.map(|(s, _)| s);

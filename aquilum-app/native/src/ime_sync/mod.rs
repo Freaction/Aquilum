@@ -103,11 +103,11 @@ impl Sync {
         let old = self.app.range();
         let (start, end, inserted) = text::changed(&self.app.text, &old, &target.text, &target.range());
         let (before, after) = (old.start - start, end - old.end);
-        if before > 0 || after > 0 {
-            edits.push(Edit::DeleteSurrounding { before, after });
-        }
         if self.app.preedit.take().is_some() {
             edits.push(Edit::Preedit(String::new(), None));
+        }
+        if before > 0 || after > 0 {
+            edits.push(Edit::DeleteSurrounding { before, after });
         }
         let line = inserted.strip_suffix('\n').filter(|line| !line.contains('\n'));
         let commit = line.unwrap_or(inserted);

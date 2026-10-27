@@ -33,11 +33,20 @@ impl TextEditor {
         Some((session, view))
     }
 
-    pub(super) fn table_cell(&self) -> Option<(&str, usize, usize)> {
+    pub(super) fn table_cell(&self) -> Option<(&str, &Session)> {
         let session = self.table.as_ref()?;
         let (row, col) = session.active?;
         let (_, view) = self.doc.table_at(session.start)?;
-        Some((view.model.value(row, col), session.caret, session.anchor))
+        Some((view.model.value(row, col), session))
+    }
+
+    #[cfg(target_os = "android")]
+    pub(super) fn table_select(&mut self, anchor: usize, cursor: usize) -> bool {
+        let Some((session, view)) = self.table_parts() else { return false };
+        let Some((row, col)) = session.active else { return false };
+        let value = view.model.value(row, col);
+        (session.anchor, session.caret) = (value.floor_char_boundary(anchor), value.floor_char_boundary(cursor));
+        true
     }
 
     pub(super) fn embed_scroll_x(&self, start: usize) -> f64 {
@@ -106,6 +115,7 @@ impl TextEditor {
     pub fn table_command(this: &mut WidgetMut<'_, Self>, command: Command) {
         let widget = &mut *this.widget;
         let Some((session, view)) = widget.table_parts() else { return };
+        session.compose = None;
         match session.run(view, command) {
             Outcome::Write(model) => widget.write_table(&model),
             Outcome::Remove => widget.remove_table(),
@@ -151,20 +161,23 @@ impl TextEditor {
         self.anchor = target;
     }
 
-    pub(super) fn paint_table_caret(&self, painter: &mut Painter<'_>) {
-        let Some(session) = self.table.as_ref().filter(|s| s.active.is_some()) else { return };
-        let Some((range, view)) = self.doc.table_at(session.start) else { return };
+    pub(super) fn table_caret(&self) -> Option<(Rect, Vec<Rect>)> {
+        let session = self.table.as_ref()?;
+        let (range, view) = self.doc.table_at(session.start)?;
         let i = self.doc.at_offset(range.start);
-        let Some((at, height, selection)) = session.caret_geometry(view) else { return };
+        let (at, height, selection) = session.caret_geometry(view)?;
         let origin = Vec2::new(self.embed_x(i), self.doc.top(i));
+        let caret = Rect::new(at.x, at.y, at.x + size::CARET_WIDTH, at.y + height) + origin;
+        Some((caret, selection.into_iter().map(|rect| rect + origin).collect()))
+    }
+
+    pub(super) fn paint_table_caret(&self, painter: &mut Painter<'_>) {
+        let Some((caret, selection)) = self.table_caret() else { return };
         let tm = theme::current();
         for rect in selection {
-            painter.fill(rect + origin, tm.selection_bg).draw();
+            painter.fill(rect, tm.selection_bg).draw();
         }
         if self.caret_visible {
-            let half = height / 2.0;
-            let mid = at.y + height / 2.0;
-            let caret = Rect::new(at.x, mid - half, at.x + size::CARET_WIDTH, mid + half) + origin;
             painter.fill(RoundedRect::from_rect(caret, size::CARET_RADIUS), tm.caret_color).draw();
         }
     }

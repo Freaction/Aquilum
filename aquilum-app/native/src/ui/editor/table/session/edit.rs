@@ -31,12 +31,22 @@ impl Session {
 
     pub fn insert(&mut self, view: &TableView, text: &str) -> Outcome {
         let text = text.replace(['\r', '\n', '\t'], " ");
+        let compose = self.compose.take();
         self.edit(view, |value, caret, anchor| {
-            let (a, b) = ((*caret).min(*anchor), (*caret).max(*anchor));
-            value.replace_range(a..b, &text);
-            *caret = a + text.len();
+            let range = compose.unwrap_or((*caret).min(*anchor)..(*caret).max(*anchor));
+            value.replace_range(range.clone(), &text);
+            *caret = range.start + text.len();
             *anchor = *caret;
         })
+    }
+
+    pub fn preedit(&mut self, view: &TableView, text: &str, cursor: Option<(usize, usize)>) -> Outcome {
+        let outcome = self.insert(view, text);
+        let start = self.caret.saturating_sub(text.len());
+        self.compose = (!text.is_empty()).then_some(start..self.caret);
+        self.caret = start + cursor.map_or(text.len(), |(at, _)| at);
+        self.anchor = self.caret;
+        outcome
     }
 
     pub fn delete(&mut self, view: &TableView, forward: bool, word: bool) -> Outcome {

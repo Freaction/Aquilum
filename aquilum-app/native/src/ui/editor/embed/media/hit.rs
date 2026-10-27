@@ -30,16 +30,16 @@ pub struct MediaOverlay {
 }
 
 impl MediaView {
-    pub fn hit(&self, p: Point, overlay: &MediaOverlay) -> MediaHit {
+    pub fn hit(&self, p: Point, overlay: &MediaOverlay, reach: f64) -> MediaHit {
         if self.frame.area() <= 0.0 {
             return MediaHit::Outside;
         }
         if let Some(crop) = overlay.crop
-            && let Some(i) = self.handles(crop).iter().position(|h| (*h - p).hypot() <= HANDLE_HIT)
+            && let Some(i) = self.handles(crop).iter().position(|h| (*h - p).hypot() <= HANDLE_HIT + reach)
         {
             return MediaHit::Handle(i as u8);
         }
-        if (overlay.hovered || overlay.crop.is_some()) && self.grip().contains(p) {
+        if (overlay.hovered || overlay.crop.is_some()) && self.grip().inflate(reach, reach).contains(p) {
             return MediaHit::Grip;
         }
         if let Some(state) = &overlay.video

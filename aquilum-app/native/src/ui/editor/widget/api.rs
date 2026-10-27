@@ -45,7 +45,7 @@ impl TextEditor {
 
     pub fn keep_caret(this: &mut WidgetMut<'_, Self>) {
         this.widget.follow_caret = true;
-        this.ctx.request_layout();
+        Self::repaint(this);
     }
 
     pub(super) fn edited(this: &mut WidgetMut<'_, Self>) {

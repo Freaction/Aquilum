@@ -38,6 +38,18 @@ fn vaults() -> Vaults {
     write(&from, "Общая.md", "[[Созвон]]\n\n![[схема.png]]\n");
     write(&from, "Files/кадр.png", "png");
     write(&from, "Files/схема.png", "png");
+    for vault in [&from, &to] {
+        let workspace = vault.to_string_lossy();
+        core.search.open_guest(&workspace).unwrap();
+        let indexed = (0..600).any(|_| {
+            let done = !core.search.status(Some(&workspace)).updating;
+            if !done {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            done
+        });
+        assert!(indexed, "база {workspace} не проиндексировалась за минуту");
+    }
     Vaults { core, from, to, _directory: directory }
 }
 

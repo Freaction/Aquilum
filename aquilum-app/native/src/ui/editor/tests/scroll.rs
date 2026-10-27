@@ -116,3 +116,35 @@ fn dragging_a_selection_past_the_edge_scrolls_smoothly() {
     let top = caret.ctx().window_transform().transform_rect_bbox(caret.inner().caret_rect()).y0;
     assert!(top < 0.0 && top > -80.0, "выделение не идёт за указателем: каретка на {top}");
 }
+
+#[test]
+fn pressing_the_scrollbar_keeps_the_text_focused() {
+    let body: String = (0..200).map(|i| format!("Абзац {i}\n")).collect();
+    let mut root = scrolled(TextEditor::new(&body), 400, 300);
+    let editor = editor_id(&root);
+    root.focus_on(Some(editor));
+    let _ = root.redraw();
+    super::support::click(&mut root, 397.0, 20.0);
+    assert_eq!(root.focused_widget(), Some(editor), "полоса прокрутки сняла фокус с текста");
+}
+
+#[test]
+fn the_keyboard_keeps_a_tapped_table_cell_in_view() {
+    let body: String = (0..150).map(|i| format!("Абзац {i}\n")).collect::<String>() + "| имя | срок |\n|---|---|\n| отчёт | май |\n";
+    let mut root = scrolled(TextEditor::new(&body).markdown(), 400, 300);
+    let page = root.get_widget_with_tag(PAGE).unwrap().id();
+    root.edit_widget(page, |mut w| ScrollArea::set_offset(&mut w.downcast::<ScrollArea<TextEditor>>(), 1.0e9));
+    let _ = root.redraw();
+    let offset = |root: &RenderRoot| root.get_widget_with_tag(PAGE).unwrap().inner().offset();
+    let table = {
+        let w = root.get_widget_with_tag(TAG).unwrap();
+        let top = w.inner().top_of(body.find('|').unwrap()).unwrap();
+        w.ctx().window_transform() * masonry::kurbo::Point::new(40.0, top + 45.0)
+    };
+    super::support::click(&mut root, table.x, table.y);
+    let before = offset(&root);
+    let editor = editor_id(&root);
+    root.edit_widget(editor, |mut w| TextEditor::keep_caret(&mut w.downcast::<TextEditor>()));
+    let _ = root.redraw();
+    assert!((offset(&root) - before).abs() < 1.0, "окно уехало с ячейки: {before} → {}", offset(&root));
+}

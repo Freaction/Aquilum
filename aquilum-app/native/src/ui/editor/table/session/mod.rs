@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use masonry::kurbo::{Axis, Point};
 use masonry::parley::Cursor;
 
@@ -25,6 +27,7 @@ pub struct Session {
     pub active: Option<(usize, usize)>,
     pub caret: usize,
     pub anchor: usize,
+    pub compose: Option<Range<usize>>,
     pub range: Option<Range2>,
     pub range_anchor: Option<(usize, usize)>,
     pub drag: Drag,
@@ -51,7 +54,7 @@ pub(super) fn caret_in(cell: &Cell, value: &str, at: Point) -> usize {
 
 impl Session {
     pub fn new(start: usize) -> Self {
-        Session { start, active: None, caret: 0, anchor: 0, range: None, range_anchor: None, drag: Drag::None, hover: None, scroll_x: 0.0, line: Line::None, menu_cell: None, bar: Scrollbar::new(Axis::Horizontal), grip: GRIP }
+        Session { start, active: None, caret: 0, anchor: 0, compose: None, range: None, range_anchor: None, drag: Drag::None, hover: None, scroll_x: 0.0, line: Line::None, menu_cell: None, bar: Scrollbar::new(Axis::Horizontal), grip: GRIP }
     }
 
     pub fn overlay(&self, hovered: bool) -> Overlay {
@@ -64,6 +67,7 @@ impl Session {
         self.range_anchor = None;
         self.caret = caret;
         self.anchor = caret;
+        self.compose = None;
     }
 
     fn activate(&mut self, view: &TableView, r: usize, c: usize, at: Option<Point>) {

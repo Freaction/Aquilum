@@ -93,11 +93,13 @@ impl Host {
 
     pub(super) fn touch_click(&mut self, at: Point, button: PointerButton, count: u8) {
         self.touch_move(at, PointerButtons::new());
+        #[cfg(target_os = "android")]
+        let text = button == PointerButton::Primary && self.root.as_ref().is_some_and(|root| pointer::selects(root.cursor_icon()));
         self.touch_button_event(at, button, count, true);
         self.touch_button_event(at, button, count, false);
         self.pointer_event(PointerEvent::Leave(TOUCH));
         #[cfg(target_os = "android")]
-        if button == PointerButton::Primary {
+        if text {
             self.ime_tapped();
         }
     }

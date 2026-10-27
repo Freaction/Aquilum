@@ -1,3 +1,4 @@
+use masonry::core::Ime;
 use masonry::core::keyboard::KeyboardEvent;
 
 use super::*;
@@ -86,8 +87,16 @@ impl TextEditor {
         self.table_edit(ctx, |session, view| session.insert(view, text))
     }
 
-    pub(in super::super) fn table_delete(&mut self, ctx: &mut EventCtx<'_>, before: usize, after: usize) -> bool {
-        self.table_edit(ctx, |session, view| session.delete_around(view, before, after))
+    pub(in super::super) fn table_ime(&mut self, ctx: &mut EventCtx<'_>, ime: &Ime) -> bool {
+        self.table_edit(ctx, |session, view| match ime {
+            Ime::Commit(text) => session.insert(view, text),
+            Ime::Preedit(text, cursor) => session.preedit(view, text, *cursor),
+            Ime::DeleteSurrounding { before_bytes, after_bytes } => session.delete_around(view, *before_bytes, *after_bytes),
+            Ime::Enabled | Ime::Disabled => {
+                session.compose = None;
+                Outcome::None
+            }
+        })
     }
 
     fn table_edit(&mut self, ctx: &mut EventCtx<'_>, edit: impl FnOnce(&mut Session, &TableView) -> Outcome) -> bool {

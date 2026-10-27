@@ -1,4 +1,4 @@
-use masonry::core::{EventCtx, Ime, PointerButtonEvent, PointerEvent, PointerType, PointerUpdate, PropertiesMut, TextEvent, UpdateCtx};
+use masonry::core::{EventCtx, PointerButtonEvent, PointerEvent, PointerType, PointerUpdate, PropertiesMut, TextEvent, UpdateCtx};
 use crate::ui::keymap::pointer;
 use super::Kind;
 use super::paste;
@@ -62,12 +62,12 @@ impl TextEditor {
         if !self.laid_out() {
             return;
         }
-        if self.compose.is_some() {
-            let PointerEvent::Down(PointerButtonEvent { pointer: device, .. }) = event else { return };
-            if device.pointer_type != PointerType::Touch {
-                return;
-            }
+        if let PointerEvent::Down(PointerButtonEvent { pointer: device, .. }) = event
+            && device.pointer_type == PointerType::Touch
+        {
             self.finish_compose(ctx);
+        } else if self.compose.is_some() {
+            return;
         }
         match event {
             PointerEvent::Down(PointerButtonEvent { button, state, pointer: device }) if pointer::press(*button) => {
@@ -75,7 +75,7 @@ impl TextEditor {
                 let point = ctx.local_position(state.position);
                 let new_tab = pointer::new_tab(state.modifiers);
                 if self.table_press(ctx, point, crate::ui::keymap::extend(state.modifiers), new_tab, state.count, pointer::grip(device.pointer_type))
-                    || self.media_press(ctx, point, state.count)
+                    || self.media_press(ctx, point, state.count, pointer::reach(device.pointer_type))
                     || self.code_press(ctx, point)
                     || self.card_click(ctx, point, new_tab)
                     || self.toggle_task(ctx, point)
@@ -100,7 +100,7 @@ impl TextEditor {
             PointerEvent::Move(PointerUpdate { current, pointer: device, .. }) => {
                 let point = ctx.local_position(current.position);
                 self.hover_text(ctx, point);
-                if self.media_move(ctx, point) || self.table_move(ctx, point, pointer::grip(device.pointer_type)) || self.code_drag(ctx, point) || !ctx.is_active() || self.table_active() {
+                if self.media_move(ctx, point, pointer::reach(device.pointer_type)) || self.table_move(ctx, point, pointer::grip(device.pointer_type)) || self.code_drag(ctx, point) || !ctx.is_active() || self.table_active() {
                     return;
                 }
                 self.drag_at = Some(ctx.window_transform() * point);
@@ -157,8 +157,7 @@ impl TextEditor {
                     self.keyboard(ctx, key);
                 }
             }
-            TextEvent::Ime(Ime::Commit(text)) if self.table_text(ctx, text) => {}
-            TextEvent::Ime(Ime::DeleteSurrounding { before_bytes, after_bytes }) if self.table_delete(ctx, *before_bytes, *after_bytes) => {}
+            TextEvent::Ime(ime) if self.table_ime(ctx, ime) => {}
             TextEvent::Ime(ime) => self.ime(ctx, ime),
             TextEvent::ClipboardPaste(text) if self.table_text(ctx, text) => {}
             TextEvent::ClipboardPaste(text) => {

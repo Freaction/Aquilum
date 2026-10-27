@@ -42,6 +42,9 @@ impl TextEditor {
     }
 
     pub(super) fn caret(&self) -> Rect {
+        if let Some((caret, _)) = self.table_caret() {
+            return caret;
+        }
         let compose = self.compose.as_ref().and_then(|(_, cursor)| *cursor).map_or(0, |(start, _)| start);
         self.caret_at(self.focus, compose, self.affinity)
     }

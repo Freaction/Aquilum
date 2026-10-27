@@ -47,7 +47,7 @@ impl TextEditor {
         }
     }
 
-    fn media_under(&self, point: Point) -> Option<(usize, MediaHit)> {
+    fn media_under(&self, point: Point, reach: f64) -> Option<(usize, MediaHit)> {
         if self.doc.markdown.is_none() || !self.laid_out() {
             return None;
         }
@@ -59,7 +59,7 @@ impl TextEditor {
             return None;
         }
         let overlay = MediaOverlay { hovered: true, ..self.media_overlay(p.start) };
-        Some((p.start, view.hit(local, &overlay))).filter(|(_, hit)| *hit != MediaHit::Outside)
+        Some((p.start, view.hit(local, &overlay, reach))).filter(|(_, hit)| *hit != MediaHit::Outside)
     }
 
     pub(super) fn paint_videos(&self, painter: &mut masonry::imaging::Painter<'_>) {
@@ -81,7 +81,8 @@ impl TextEditor {
         let hover = m.hover.filter(|(s, _)| *s == start).map(|(_, h)| h);
         let video = self.media_view(start).filter(|v| v.video).and_then(|v| v.path.as_deref()).filter(|p| self.videos.has(p)).and_then(crate::video::state);
         let fade = m.bar.as_ref().filter(|(s, _)| *s == start).map_or(1.0, |(_, intro)| intro.value() as f32);
-        MediaOverlay { hovered: hover.is_some() || crop.is_some(), selected: m.selected == Some(start), hover, crop, video, fade }
+        let selected = m.selected == Some(start);
+        MediaOverlay { hovered: hover.is_some() || crop.is_some() || selected, selected, hover, crop, video, fade }
     }
 
     fn rewrite(&mut self, start: usize, line: &EmbedLine) {

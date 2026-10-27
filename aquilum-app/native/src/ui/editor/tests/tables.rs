@@ -59,3 +59,19 @@ fn vertical_gesture_over_wide_embed_scrolls_the_page() {
     let offset = root.get_widget_with_tag(PAGE).expect("страница").inner().offset();
     assert!(offset >= 50.0, "жест над таблицей не прокрутил страницу: смещение {offset}");
 }
+
+#[test]
+fn a_composed_word_stays_in_the_tapped_cell() {
+    use masonry::core::{Ime, TextEvent};
+    let mut root = markdown_root("| a | b |\n| --- | --- |\n| 1 | 2 |\nпосле");
+    click(&mut root, 60.0, 50.0);
+    for (word, at) in [("ко", 4), ("кот", 6)] {
+        root.handle_text_event(TextEvent::Ime(Ime::Preedit(word.into(), Some((at, at)))));
+        assert_eq!(text(&root), format!("| a{word} | b |\n| --- | --- |\n| 1 | 2 |\nпосле"));
+        let editor = root.get_widget(super::support::editor_id(&root)).unwrap();
+        assert_eq!(editor.downcast::<TextEditor>().unwrap().inner().surrounding(None), (0, "a".into(), 1, 1));
+    }
+    root.handle_text_event(TextEvent::Ime(Ime::Commit("кот".into())));
+    typing(&mut root, "!");
+    assert_eq!(text(&root), "| aкот! | b |\n| --- | --- |\n| 1 | 2 |\nпосле");
+}

@@ -9,9 +9,13 @@ impl TextEditor {
     }
 
     pub fn surrounding(&self, base: Option<usize>) -> (usize, String, usize, usize) {
-        if let Some((value, caret, anchor)) = self.table_cell() {
-            let (range, caret, anchor) = excerpt(value.len(), caret, anchor, None, |at| value.floor_char_boundary(at));
-            return (range.start, value[range].to_owned(), caret, anchor);
+        if let Some((value, session)) = self.table_cell() {
+            let (text, caret, anchor) = match &session.compose {
+                Some(range) => ([&value[..range.start], &value[range.end..]].concat(), range.start, range.start),
+                None => (value.to_owned(), session.caret, session.anchor),
+            };
+            let (range, caret, anchor) = excerpt(text.len(), caret, anchor, None, |at| text.floor_char_boundary(at));
+            return (range.start, text[range].to_owned(), caret, anchor);
         }
         let (range, caret, anchor) = excerpt(self.doc.len(), self.focus, self.anchor, base, |at| self.doc.floor(at));
         (range.start, self.doc.copy(range), caret, anchor)
@@ -19,6 +23,9 @@ impl TextEditor {
 
     #[cfg(target_os = "android")]
     pub fn composing(&self) -> Option<(String, usize)> {
+        if let Some((value, session)) = self.table_cell() {
+            return session.compose.clone().map(|range| (value[range.clone()].to_owned(), session.caret.saturating_sub(range.start)));
+        }
         self.compose.as_ref().map(|(text, cursor)| (text.clone(), cursor.map_or(text.len(), |(at, _)| at)))
     }
 
@@ -65,10 +72,21 @@ impl TextEditor {
     }
 
     pub(super) fn finish_compose(&mut self, ctx: &mut EventCtx<'_>) {
+        if let Some(session) = &mut self.table {
+            session.compose = None;
+        }
         if let Some((text, _)) = self.compose.take() {
             self.insert(&text, Kind::Other);
             self.changed(ctx);
         }
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn ime_select(this: &mut WidgetMut<'_, Self>, anchor: usize, cursor: usize) {
+        if !this.widget.table_select(anchor, cursor) {
+            Self::select_byte_range(this, anchor, cursor);
+        }
+        Self::keep_caret(this);
     }
 
     fn delete_surrounding(&mut self, before: usize, after: usize) {

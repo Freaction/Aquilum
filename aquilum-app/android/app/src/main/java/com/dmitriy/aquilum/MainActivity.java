@@ -20,6 +20,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.activity.SystemBarStyle;
 import androidx.core.content.FileProvider;
 import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -47,6 +48,12 @@ public class MainActivity extends GameActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                View decor = getWindow().getDecorView();
+                WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(decor);
+                if (insets != null && insets.isVisible(WindowInsetsCompat.Type.ime())) {
+                    WindowCompat.getInsetsController(getWindow(), decor).hide(WindowInsetsCompat.Type.ime());
+                    return;
+                }
                 long now = SystemClock.uptimeMillis();
                 onKeyDown(KeyEvent.KEYCODE_BACK, new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0));
                 onKeyUp(KeyEvent.KEYCODE_BACK, new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK, 0));

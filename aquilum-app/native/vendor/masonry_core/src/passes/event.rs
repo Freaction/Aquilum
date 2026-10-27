@@ -229,11 +229,9 @@ pub(crate) fn run_on_pointer_event_pass(root: &mut RenderRoot, event: &PointerEv
         // If we click outside of the focused widget, we clear the focus.
         if let Some(focused_widget) = root.global_state.focused_widget {
             // Focused_widget isn't ancestor of target_widget_id
-            if !root
-                .widget_arena
-                .nodes
-                .get_id_path(target_widget_id)
-                .contains(&focused_widget.to_raw())
+            let nodes = &root.widget_arena.nodes;
+            if !nodes.get_id_path(target_widget_id).contains(&focused_widget.to_raw())
+                && !nodes.get_id_path(focused_widget).contains(&target_widget_id.to_raw())
             {
                 root.global_state.next_focused_widget = None;
             }
