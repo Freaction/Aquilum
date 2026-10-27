@@ -6,16 +6,17 @@ use crate::interface::{Screen, Side};
 use crate::ui::widgets::{Collapse, IconButton, Pressed};
 
 impl App {
-    pub(in crate::app) fn apply_panels(&mut self, root: &mut RenderRoot) {
+    pub(in crate::app) fn apply_panels(&mut self, root: &mut RenderRoot, animate: bool) {
         let (sidebar, panel) = self.visible_panels();
         self.shown = Some((sidebar, panel));
         if let Some(chrome) = &self.chrome {
             chrome.set_screen(root, self.interface.screen());
-            chrome.sidebar.edit(root, |mut c| Collapse::set_open(&mut c, sidebar));
-            chrome.panel.edit(root, |mut c| Collapse::set_open(&mut c, panel));
-            chrome.controls_inset.edit(root, |mut c| Collapse::set_open(&mut c, !panel));
-            let label = crate::i18n::t(crate::ui::panel_label(panel));
-            root.edit_widget(chrome.panel_toggle, |mut w| IconButton::set_label(&mut w.downcast(), &label));
+            chrome.sidebar.edit(root, |mut c| Collapse::set_open(&mut c, sidebar, animate));
+            chrome.panel.edit(root, |mut c| Collapse::set_open(&mut c, panel, animate));
+            chrome.controls_inset.edit(root, |mut c| Collapse::set_open(&mut c, !panel, animate));
+            for (button, label) in [(chrome.toggle_sidebar, crate::ui::sidebar_label(sidebar)), (chrome.panel_toggle, crate::ui::panel_label(panel))] {
+                root.edit_widget(button, |mut w| IconButton::set_label(&mut w.downcast(), &crate::i18n::t(label)));
+            }
         }
         self.apply_widths(root);
     }
@@ -24,7 +25,7 @@ impl App {
         let screen = self.interface.screen();
         if screen.compact && screen.drawer != drawer {
             self.interface.set_screen(Screen { drawer, ..screen });
-            self.apply_panels(root);
+            self.apply_panels(root, true);
         }
     }
 

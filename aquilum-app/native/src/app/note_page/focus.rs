@@ -10,17 +10,15 @@ impl App {
         }
         self.interface.set_focus_mode(!self.interface.focus_mode());
         self.apply_focus(root);
+        if self.panel_visible() {
+            self.request_panel(root);
+        }
     }
 
     pub(in crate::app) fn apply_focus(&mut self, root: &mut RenderRoot) {
         let focus = self.interface.focus_mode();
-        let (sidebar, panel) = self.visible_panels();
-        self.shown = Some((sidebar, panel));
-        if let Some(chrome) = &mut self.chrome {
-            chrome.rail.edit(root, |mut c| Collapse::set_open(&mut c, !focus));
-            chrome.sidebar.edit(root, |mut c| Collapse::set_open(&mut c, sidebar));
-            chrome.panel.edit(root, |mut c| Collapse::set_open(&mut c, panel));
-            chrome.controls_inset.edit(root, |mut c| Collapse::set_open(&mut c, !panel));
+        if let Some(chrome) = &self.chrome {
+            chrome.rail.edit(root, |mut c| Collapse::set_open(&mut c, !focus, true));
             for shown in &chrome.focus_hidden {
                 shown.edit(root, |mut v| Visible::set_shown(&mut v, !focus));
             }
@@ -33,9 +31,6 @@ impl App {
             ids.focus_button.edit(root, |mut b| TextButton::set_pressed(&mut b, focus));
             ids.focus_shown.edit(root, |mut v| Visible::set_shown(&mut v, !self.compact()));
         }
-        self.apply_widths(root);
-        if panel {
-            self.request_panel(root);
-        }
+        self.apply_panels(root, true);
     }
 }

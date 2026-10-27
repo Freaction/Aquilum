@@ -14,7 +14,6 @@ const STRIP: f64 = 24.0;
 const STRIP_PAD: f64 = 4.0;
 const ADD: f64 = 20.0;
 const GAP: f64 = 2.0;
-const RESIZE_ZONE: f64 = 6.0;
 const PLUS: f64 = 16.0;
 pub const TOP: f64 = PAD_Y + STRIP + GAP;
 

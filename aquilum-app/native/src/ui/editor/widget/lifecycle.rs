@@ -9,7 +9,9 @@ impl TextEditor {
         if self.laid_out() {
             let caret = self.caret();
             ctx.set_ime_area(caret);
-            ctx.request_scroll_to(caret);
+            if !ctx.is_active() {
+                ctx.request_scroll_to(caret);
+            }
         }
         ctx.request_render();
     }

@@ -23,13 +23,6 @@ fn suffix(a: &[u8], b: &[u8]) -> usize {
     a.iter().rev().zip(b.iter().rev()).take_while(|(x, y)| x == y).count()
 }
 
-pub(super) fn distance(a: &str, b: &str) -> usize {
-    let (a, b) = (a.as_bytes(), b.as_bytes());
-    let start = prefix(a, b);
-    let end = suffix(&a[start..], &b[start..]);
-    a.len() + b.len() - 2 * (start + end)
-}
-
 pub(super) fn changed<'a>(old: &str, old_selection: &Range<usize>, new: &'a str, new_selection: &Range<usize>) -> (usize, usize, &'a str) {
     let (a, b) = (old.as_bytes(), new.as_bytes());
     let mut start = prefix(a, b).min(old_selection.start).min(new_selection.start);

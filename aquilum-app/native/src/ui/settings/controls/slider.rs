@@ -161,6 +161,10 @@ impl Widget for Slider {
         }
     }
 
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        if self.dragging { CursorIcon::Grabbing } else { CursorIcon::Grab }
+    }
+
     fn accessibility_role(&self) -> Role {
         Role::Slider
     }

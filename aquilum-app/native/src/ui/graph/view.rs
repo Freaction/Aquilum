@@ -10,11 +10,11 @@ use crate::graph::Graph;
 use crate::graph::camera::Camera;
 
 impl GraphView {
-    pub fn new(graph: Option<Arc<Graph>>, status: Status, display: Display, camera: Option<(f64, f64, f64)>, settings: Option<NewWidget<dyn Widget>>) -> NewWidget<Self> {
-        NewWidget::new(Self::build(graph, status, display, camera, settings.map(NewWidget::to_pod)))
+    pub fn new(graph: Option<Arc<Graph>>, status: Status, display: Display, camera: Option<(f64, f64, f64)>, settings: Option<[NewWidget<dyn Widget>; 2]>) -> NewWidget<Self> {
+        NewWidget::new(Self::build(graph, status, display, camera, settings.map(|pods| pods.map(NewWidget::to_pod))))
     }
 
-    pub(super) fn build(graph: Option<Arc<Graph>>, status: Status, display: Display, camera: Option<(f64, f64, f64)>, settings: Option<WidgetPod<dyn Widget>>) -> Self {
+    pub(super) fn build(graph: Option<Arc<Graph>>, status: Status, display: Display, camera: Option<(f64, f64, f64)>, settings: Option<[WidgetPod<dyn Widget>; 2]>) -> Self {
         let mut view = GraphView {
             graph: None,
             positions: Vec::new(),
@@ -118,6 +118,9 @@ impl GraphView {
             return;
         }
         this.widget.display = display;
+        if display.panel != current.panel {
+            this.ctx.request_layout();
+        }
         if display.spread != current.spread {
             this.widget.camera.rescale_world(display.spread / current.spread);
         }

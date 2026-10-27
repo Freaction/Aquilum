@@ -1,8 +1,8 @@
 use masonry::accesskit::{Node, Role};
 use masonry::core::keyboard::KeyState;
 use masonry::core::{
-    AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PointerScrollEvent, PropertiesMut, PropertiesRef,
-    RegisterCtx, TextEvent, Update, UpdateCtx, Widget, WidgetId, WidgetMut, WidgetPod, render_text,
+    AccessCtx, ChildrenIds, CursorIcon, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PointerScrollEvent, PointerType, ScrollDelta, PropertiesMut, PropertiesRef,
+    QueryCtx, RegisterCtx, TextEvent, Update, UpdateCtx, Widget, WidgetId, WidgetMut, WidgetPod, render_text,
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Line as Segment, Point, Rect, RoundedRect, Size, Stroke, Vec2};
@@ -54,6 +54,7 @@ pub struct ReaderView {
     fraction: f64,
     report: bool,
     wheel: f64,
+    swipe: Option<(std::time::Instant, bool)>,
     settings_button: WidgetPod<IconButton>,
     close: WidgetPod<IconButton>,
     popover: Option<WidgetPod<dyn Widget>>,
@@ -84,8 +85,4 @@ pub struct ReaderIds {
     pub settings: WidgetId,
     pub close: WidgetId,
     pub quote: Option<WidgetId>,
-}
-
-fn nav_width(width: f64) -> f64 {
-    (width * 0.08).clamp(40.0, 72.0)
 }

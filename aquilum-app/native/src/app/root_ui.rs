@@ -13,7 +13,7 @@ impl App {
             return (screen.drawer == Some(Side::Sidebar), screen.drawer == Some(Side::Panel));
         }
         let focus = self.interface.focus_mode();
-        (self.interface.sidebar_open() && !focus, self.interface.right_open() && !focus)
+        self.fitting(self.interface.sidebar_open() && !focus, self.interface.right_open() && !focus)
     }
 
     pub(in crate::app) fn replace_root(&mut self, root: &mut RenderRoot) {
@@ -21,6 +21,7 @@ impl App {
         root.set_default_properties(Arc::new(theme::default_properties()));
         root.edit_widget_with_tag(ROOT_TAG, |mut slot| Slot::set_child(&mut slot, widget));
         self.render_panel(root);
+        self.rebuild_update_bar(root);
     }
 
     pub(in crate::app) fn restyle(&mut self, root: &mut RenderRoot, fonts: bool) {

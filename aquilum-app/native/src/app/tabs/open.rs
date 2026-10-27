@@ -10,6 +10,7 @@ use crate::ui::widgets::Slot;
 
 impl App {
     pub(in crate::app) fn show_active(&mut self, root: &mut RenderRoot) {
+        self.set_drawer(root, None);
         if let Some((layer, _)) = self.suggest_layer.take() {
             root.remove_layer(layer);
         }

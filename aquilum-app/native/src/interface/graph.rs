@@ -10,11 +10,12 @@ pub struct GraphPrefs {
     pub highlight_depth: usize,
     pub labels: bool,
     pub heatmap_axis: u8,
+    pub panel: bool,
 }
 
 impl Default for GraphPrefs {
     fn default() -> Self {
-        GraphPrefs { node_size: 1.0, spread: 1.0, highlight_depth: 1, labels: true, heatmap_axis: 0 }
+        GraphPrefs { node_size: 1.0, spread: 1.0, highlight_depth: 1, labels: true, heatmap_axis: 0, panel: true }
     }
 }
 

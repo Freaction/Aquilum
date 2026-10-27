@@ -76,8 +76,9 @@ pub(super) fn mcp(config: &AppConfig, ctx: &Context) -> Vec<Block> {
         .into_iter()
         .enumerate()
         .map(|(i, (title, hint, code))| {
-            let label = if ctx.copied == Some(i) { t("settings.mcp.copied") } else { t("settings.mcp.copy") };
-            let mut row = info(title.to_owned(), Some(hint), Control::Buttons(vec![Button::new(label, Action::Copy(i, code.clone()))]));
+            let (label, icon) = if ctx.copied == Some(i) { ("settings.mcp.copied", ButtonIcon::Copied) } else { ("settings.mcp.copy", ButtonIcon::Copy) };
+            let button = Button::new(t(label), Action::Copy(i, code.clone())).icon(icon);
+            let mut row = info(title.to_owned(), Some(hint), Control::Buttons(vec![button]));
             row.code = Some(code);
             row
         })

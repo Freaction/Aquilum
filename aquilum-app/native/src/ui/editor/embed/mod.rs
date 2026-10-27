@@ -47,7 +47,7 @@ impl View {
         match self {
             View::Table(t) => t.paint(painter, x, y, palette, overlay),
             View::Media(m) => m.paint(painter, x, y, media),
-            View::Drawing(d) => d.paint(painter, x, y, palette, hover, overlay.search.as_ref()),
+            View::Drawing(d) => d.paint(painter, x, y, overlay.scroll_x, palette, hover, overlay.search.as_ref()),
         }
     }
 }

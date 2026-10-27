@@ -69,6 +69,10 @@ impl<W: Widget + ?Sized> Deref for WidgetRef<'_, W> {
 // --- MARK: IMPLS
 
 impl<'w, W: Widget + ?Sized> WidgetRef<'w, W> {
+    pub fn new(widget: &'w W, ctx: QueryCtx<'w>) -> Self {
+        Self { ctx, widget }
+    }
+
     /// Gets a [`QueryCtx`] with information about the current widget.
     pub fn ctx(&self) -> &'_ QueryCtx<'w> {
         &self.ctx

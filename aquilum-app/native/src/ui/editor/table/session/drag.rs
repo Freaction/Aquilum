@@ -22,7 +22,7 @@ impl Session {
         match self.drag {
             Drag::Cells { from, at, moved } => {
                 let far = moved || (p - at).hypot() >= DRAG_SLOP;
-                if let Hit::Cell(r, c, local) = view.hit(p, self.scroll_x) {
+                if let Hit::Cell(r, c, local) = view.hit(p, self.scroll_x, self.grip) {
                     if far && (r, c) != from {
                         self.drag = Drag::Cells { from, at, moved: true };
                         self.range_anchor = Some(from);
@@ -75,7 +75,7 @@ impl Session {
                 (Outcome::Repaint, Line::None)
             }
             Drag::None => {
-                let hit = view.hit(p, self.scroll_x);
+                let hit = view.hit(p, self.scroll_x, self.grip);
                 let hover = Some(hit);
                 let line = view.border_line(hit, self.scroll_x);
                 let thumb = view.bar_span(self.scroll_x).is_some_and(|span| self.bar.hover(Some(p), &span));

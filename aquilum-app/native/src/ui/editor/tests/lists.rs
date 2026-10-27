@@ -107,3 +107,15 @@ fn enter_continues_star_plus_and_task_items() {
     named(&mut root, NamedKey::Enter);
     assert_eq!(text(&root), "+ [x] a\n");
 }
+
+#[test]
+fn pasted_paragraphs_become_items_of_the_list() {
+    let mut root = markdown_root("- первый");
+    named(&mut root, NamedKey::End);
+    super::support::paste(&mut root, " пункт\n\nвторой\n- третий\n");
+    assert_eq!(text(&root), "- первый пункт\n- второй\n- третий");
+    let mut root = markdown_root("1. [ ] раз");
+    named(&mut root, NamedKey::End);
+    super::support::paste(&mut root, "\nдва\nтри");
+    assert_eq!(text(&root), "1. [ ] раз\n2. [ ] два\n3. [ ] три");
+}

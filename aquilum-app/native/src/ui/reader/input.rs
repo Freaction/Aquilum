@@ -41,7 +41,7 @@ impl ReaderView {
                     }
                     return;
                 }
-                let hover = self.body.contains(p).then(|| self.side(p));
+                let hover = self.body.contains(p).then(|| self.side(p, update.pointer.pointer_type));
                 self.set_hover(ctx, hover);
                 let local = p - self.body.origin().to_vec2();
                 let quote = if self.popover.is_some() { None } else { self.quote_rects.iter().position(|(_, rects)| rects.iter().any(|r| r.contains(local))) };
@@ -51,7 +51,7 @@ impl ReaderView {
                 self.set_hover(ctx, None);
                 self.set_quote_hover(ctx, None);
             }
-            PointerEvent::Down(down) => {
+            PointerEvent::Down(down) if keymap::pointer::press(down.button) => {
                 let p = ctx.local_position(down.state.position);
                 if self.popover.is_some() {
                     if self.body.contains(p) && !self.popover_rect.contains(p) {
@@ -66,7 +66,7 @@ impl ReaderView {
                     ctx.submit_action::<ReaderAction>(ReaderAction::QuoteRef(cfi.clone()));
                     return;
                 }
-                if let Some(side) = self.side(p) {
+                if let Some(side) = self.side(p, down.pointer.pointer_type) {
                     self.turn(ctx, side);
                     return;
                 }
@@ -102,10 +102,21 @@ impl ReaderView {
                     self.moved(ctx, changed);
                     return;
                 }
+                let now = std::time::Instant::now();
+                let ongoing = self.swipe.filter(|&(at, _)| now.saturating_duration_since(at) < keymap::gesture::PAGE_GESTURE_GAP);
+                let turned = ongoing.is_some_and(|(_, turned)| turned);
+                self.swipe = Some((now, turned));
+                if ongoing.is_none() {
+                    self.wheel = 0.0;
+                }
+                if turned && matches!(delta, ScrollDelta::PixelDelta(_)) {
+                    return;
+                }
                 self.wheel += if dx.abs() > dy.abs() { -dx } else { -dy };
-                if self.wheel.abs() >= crate::ui::keymap::gesture::WHEEL_PAGE_TURN {
+                if self.wheel.abs() >= keymap::gesture::WHEEL_PAGE_TURN {
                     let side = if self.wheel > 0.0 { Side::Next } else { Side::Prev };
                     self.wheel = 0.0;
+                    self.swipe = Some((now, true));
                     self.turn(ctx, side);
                 }
             }

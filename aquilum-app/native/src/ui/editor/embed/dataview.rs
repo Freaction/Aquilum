@@ -151,10 +151,10 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
             }
         }
     }
-    let height = y + PAD - CELL_Y;
-    items.extend(card(span + side * 2.0, height));
+    let (height, width) = (y + PAD - CELL_Y, span + side * 2.0);
+    items.extend(card(width, height));
     items.extend(body);
-    Drawing { height, items, hits }
+    Drawing { hits, view: available, width, ..Drawing::new(height, items) }
 }
 
 fn column_widths(grid: &Grid, inner: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Vec<f64> {
@@ -186,5 +186,15 @@ mod tests {
         assert_eq!(card, Some(800.0));
         let empty = dataview(&Fetch::Ready(Grid { shape: Shape::List, title: None, columns: Vec::new(), rows: Vec::new() }), 800.0, &mut |_| Layout::default());
         assert!(empty.items.iter().any(|item| matches!(item, Item::Text(_, _, text) if *text == t("search.noResults"))), "пустой результат подписан");
+        assert_eq!(drawing.max_scroll(), 0.0, "узкая таблица не прокручивается");
+    }
+
+    #[test]
+    fn a_wide_dataview_table_scrolls_sideways() {
+        let columns: Vec<String> = (0..10).map(|i| format!("колонка {i}")).collect();
+        let row = columns.iter().map(|c| vec![Part::Text(c.clone())]).collect();
+        let grid = Grid { shape: Shape::Table, title: None, columns, rows: vec![row] };
+        let drawing = dataview(&Fetch::Ready(grid), 400.0, &mut |_| Layout::default());
+        assert!(drawing.max_scroll() > 0.0, "десять колонок в 400 px должны прокручиваться вбок");
     }
 }

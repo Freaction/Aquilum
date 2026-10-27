@@ -50,6 +50,11 @@ impl IconButton {
         }
     }
 
+    pub fn set_icon(this: &mut WidgetMut<'_, Self>, icon: Icon) {
+        this.widget.icon = icon;
+        this.ctx.request_paint_only();
+    }
+
     pub fn set_pressed(this: &mut WidgetMut<'_, Self>, pressed: bool) {
         if this.widget.pressed != Some(pressed) {
             this.widget.pressed = Some(pressed);

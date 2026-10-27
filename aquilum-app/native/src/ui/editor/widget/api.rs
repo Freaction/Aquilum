@@ -43,6 +43,11 @@ impl TextEditor {
         this.ctx.request_render();
     }
 
+    pub fn keep_caret(this: &mut WidgetMut<'_, Self>) {
+        this.widget.follow_caret = true;
+        this.ctx.request_layout();
+    }
+
     pub(super) fn edited(this: &mut WidgetMut<'_, Self>) {
         this.ctx.submit_action::<TextAction>(this.widget.doc.changed());
         Self::repaint(this);
@@ -64,7 +69,7 @@ impl TextEditor {
         widget.doc.set_rope(text);
         widget.history = Default::default();
         widget.refind(&[]);
-        widget.table_scrolls.clear();
+        widget.embed_scrolls.clear();
         widget.compose = None;
         widget.extra_cursors.clear();
         widget.media = Default::default();

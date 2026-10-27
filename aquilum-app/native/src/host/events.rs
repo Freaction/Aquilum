@@ -42,6 +42,8 @@ impl Host {
             return;
         }
         let _zone = aq_trace::zone("пробуждение");
+        #[cfg(target_os = "android")]
+        self.ime_inbox();
         let mut retitle = false;
         if let Some(root) = &mut self.root {
             retitle = self.app.on_core_events(root);

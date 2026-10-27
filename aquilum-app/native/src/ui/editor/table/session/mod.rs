@@ -3,6 +3,7 @@ use masonry::parley::Cursor;
 
 use super::model::{Range2, Table};
 use super::view::{Cell, Hit, Line, Overlay, TableView};
+use crate::ui::keymap::gesture::GRIP;
 use crate::ui::scroll::bar::Scrollbar;
 
 mod drag;
@@ -32,6 +33,7 @@ pub struct Session {
     pub line: Line,
     pub menu_cell: Option<(usize, usize)>,
     pub bar: Scrollbar,
+    pub grip: f64,
 }
 
 pub enum Outcome {
@@ -49,7 +51,7 @@ pub(super) fn caret_in(cell: &Cell, value: &str, at: Point) -> usize {
 
 impl Session {
     pub fn new(start: usize) -> Self {
-        Session { start, active: None, caret: 0, anchor: 0, range: None, range_anchor: None, drag: Drag::None, hover: None, scroll_x: 0.0, line: Line::None, menu_cell: None, bar: Scrollbar::new(Axis::Horizontal) }
+        Session { start, active: None, caret: 0, anchor: 0, range: None, range_anchor: None, drag: Drag::None, hover: None, scroll_x: 0.0, line: Line::None, menu_cell: None, bar: Scrollbar::new(Axis::Horizontal), grip: GRIP }
     }
 
     pub fn overlay(&self, hovered: bool) -> Overlay {

@@ -28,6 +28,9 @@ impl App {
         if self.popup.is_some() {
             return self.on_popup_action(root, id, &action);
         }
+        if self.on_update_bar(root, id, &action) {
+            return Outcome::default();
+        }
         if self.is_graph_widget(id) {
             let title = self.on_graph_action(root, id, &action);
             return Outcome { title, ..Outcome::default() };
@@ -164,12 +167,8 @@ impl App {
         }
         let Some(chrome) = &self.chrome else { return false };
         if id == chrome.toggle_sidebar {
-            let open = !self.interface.sidebar_open();
-            self.interface.set_sidebar_open(open);
-            chrome.sidebar.edit(root, |mut sidebar| crate::ui::widgets::Collapse::set_open(&mut sidebar, open));
-            root.edit_widget(id, |mut w| crate::ui::widgets::IconButton::set_label(&mut w.downcast(), &crate::i18n::t(crate::ui::sidebar_label(open))));
-            self.shown = Some(self.visible_panels());
-            self.apply_widths(root);
+            self.interface.set_sidebar_open(!self.visible_panels().0);
+            self.apply_panels(root, true);
         } else if (id == chrome.settings || id == chrome.rail_settings) && action.downcast_ref::<Pressed>().is_some() {
             self.open_settings(root);
         } else if id == chrome.search_button && action.downcast_ref::<Pressed>().is_some() {

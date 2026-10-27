@@ -8,7 +8,7 @@ impl TextEditor {
         let Some((start, local)) = self.table_under(point) else { return false };
         self.open_session(start);
         let Some((session, view)) = self.table_parts() else { return false };
-        let Hit::Cell(r, c, _) = view.hit(local, session.scroll_x) else { return true };
+        let Hit::Cell(r, c, _) = view.hit(local, session.scroll_x, session.grip) else { return true };
         let commands = session.context(view, r, c);
         if let Some(resolver) = &self.doc.resolver {
             let at = ctx.window_transform() * point;
@@ -22,7 +22,7 @@ impl TextEditor {
         true
     }
 
-    pub(in super::super) fn table_press(&mut self, ctx: &mut EventCtx<'_>, point: Point, shift: bool, new_tab: bool, count: u8) -> bool {
+    pub(in super::super) fn table_press(&mut self, ctx: &mut EventCtx<'_>, point: Point, shift: bool, new_tab: bool, count: u8, grip: f64) -> bool {
         let Some((start, local)) = self.table_under(point) else {
             if self.table_active() {
                 self.leave_table();
@@ -40,6 +40,7 @@ impl TextEditor {
             return true;
         }
         let Some((session, view)) = self.table_parts() else { return false };
+        session.grip = grip;
         let outcome = session.press(view, local, shift, count);
         ctx.request_focus();
         ctx.capture_pointer();
@@ -47,7 +48,7 @@ impl TextEditor {
         true
     }
 
-    pub(in super::super) fn table_move(&mut self, ctx: &mut EventCtx<'_>, point: Point) -> bool {
+    pub(in super::super) fn table_move(&mut self, ctx: &mut EventCtx<'_>, point: Point, grip: f64) -> bool {
         let dragging = self.table.as_ref().is_some_and(|s| s.drag != Drag::None);
         let start = match (dragging, self.table_under(point)) {
             (true, _) => self.table.as_ref().map(|s| s.start),
@@ -74,6 +75,7 @@ impl TextEditor {
         }
         let local = self.embed_local_at(start, point);
         let Some((session, view)) = self.table_parts() else { return false };
+        session.grip = grip;
         let outcome = session.moved(view, local);
         self.apply(ctx, outcome);
         dragging
@@ -105,7 +107,7 @@ impl TextEditor {
 
     fn link_under(&self, start: usize, local: Point) -> Option<&Link> {
         let (_, view) = self.doc.table_at(start)?;
-        self.cell_link(view, start, view.hit(local, self.table_scroll_x(start)))
+        self.cell_link(view, start, view.hit(local, self.embed_scroll_x(start), crate::ui::keymap::gesture::GRIP))
     }
 
     fn cell_link<'v>(&self, view: &'v TableView, start: usize, hit: Hit) -> Option<&'v Link> {

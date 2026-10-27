@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 
-use masonry::core::{NewWidget, PropertySet, WidgetId};
+use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
 use masonry::kurbo::Axis;
 use masonry::layout::Length;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{BorderWidth, CornerRadius, Gap, Padding};
-use masonry::widgets::{Flex, SizedBox};
+use masonry::widgets::Flex;
 
 use super::Binding;
 use super::control::{LEADING, control_widget, status};
+use super::row::SettingRow;
 use super::schema::{Block, Control, Row};
 use crate::ui::scroll::ScrollArea;
 use crate::ui::text::selectable;
@@ -44,7 +45,7 @@ pub(super) fn block_widget(block: Block, bindings: &mut HashMap<WidgetId, Bindin
     NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(title).with_fixed(card))
 }
 
-fn row_widget(row: Row, bindings: &mut HashMap<WidgetId, Binding>) -> NewWidget<Flex> {
+fn row_widget(row: Row, bindings: &mut HashMap<WidgetId, Binding>) -> NewWidget<dyn Widget> {
     let code = row.code.clone();
     let mut text = Flex::column()
         .main_axis_alignment(MainAxisAlignment::Center)
@@ -60,31 +61,25 @@ fn row_widget(row: Row, bindings: &mut HashMap<WidgetId, Binding>) -> NewWidget<
         text = text.with_fixed(status(line, *tone));
     }
     let text = NewWidget::new(text).with_props(PropertySet::new().with(Gap::new(Length::px(size::GAP_SM))));
-    let strut = NewWidget::new(SizedBox::empty().height(Length::px(size::SETTINGS_ROW_TEXT_MIN_HEIGHT)));
-    let control = NewWidget::new(Flex::column().main_axis_alignment(MainAxisAlignment::Center).with_fixed(control_widget(&row, bindings)));
-    let flex = Flex::row()
-        .cross_axis_alignment(CrossAxisAlignment::Stretch)
-        .with_fixed(strut)
-        .with(text, 1.0)
-        .with_fixed(control);
+    let line = SettingRow::new(text, control_widget(&row, bindings));
     let Some(code) = code else {
-        return NewWidget::new(flex).with_props(
-            PropertySet::new().with(Gap::new(Length::px(size::GAP_LG))).with(Padding::from_vh(Length::px(size::GAP_XL), Length::ZERO)),
-        );
+        return line.with_props(PropertySet::new().with(Padding::from_vh(Length::px(size::GAP_XL), Length::ZERO))).erased();
     };
-    let flex = NewWidget::new(flex).with_props(PropertySet::new().with(Gap::new(Length::px(size::GAP_LG))).with(Padding {
+    let line = line.with_props(PropertySet::new().with(Padding {
         top: Length::px(size::GAP_XL),
         bottom: Length::px(size::GAP_LG),
         left: Length::ZERO,
         right: Length::ZERO,
     }));
-    let column = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(flex).with_fixed(code_block(&code));
-    NewWidget::new(column).with_props(PropertySet::new().with(Padding {
-        top: Length::ZERO,
-        bottom: Length::px(size::GAP_XL),
-        left: Length::ZERO,
-        right: Length::ZERO,
-    }))
+    let column = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(line).with_fixed(code_block(&code));
+    NewWidget::new(column)
+        .with_props(PropertySet::new().with(Padding {
+            top: Length::ZERO,
+            bottom: Length::px(size::GAP_XL),
+            left: Length::ZERO,
+            right: Length::ZERO,
+        }))
+        .erased()
 }
 
 fn code_block(code: &str) -> NewWidget<Flex> {

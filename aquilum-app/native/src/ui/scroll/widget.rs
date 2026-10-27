@@ -1,14 +1,16 @@
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, ChildrenIds, ComposeCtx, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update,
-    UpdateCtx, Widget,
+    AccessCtx, ChildrenIds, ComposeCtx, CursorIcon, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, QueryCtx,
+    RegisterCtx, Update, UpdateCtx, Widget, WidgetRef, find_widget_under_pointer,
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Axis, Point, Size};
 use masonry::layout::{LayoutSize, LenReq, Length};
 
 use super::Scrolled;
+use super::bar::Scrollbar;
 use super::area::ScrollArea;
+use crate::ui::keymap::gesture::{EDGE_SCROLL_RATE, EDGE_SCROLL_REACH};
 use crate::ui::tokens::size;
 
 impl<W: Widget> ScrollArea<W> {
@@ -32,12 +34,19 @@ impl<W: Widget> Widget for ScrollArea<W> {
     }
 
     fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
-        let Some(mut glide) = self.glide else { return };
-        let running = glide.advance((interval as f64 / 1e9).min(0.05));
-        self.offset = glide.position().clamp(0.0, self.max_offset());
-        self.glide = running.then_some(glide);
-        if running {
+        let seconds = (interval as f64 / 1e9).min(0.05);
+        if self.edge != 0.0 {
+            let reach = self.edge.clamp(-EDGE_SCROLL_REACH, EDGE_SCROLL_REACH);
+            self.jump(self.offset + reach * EDGE_SCROLL_RATE * seconds);
             ctx.request_anim_frame();
+        } else {
+            let Some(mut glide) = self.glide else { return };
+            let running = glide.advance(seconds);
+            self.offset = glide.position().clamp(0.0, self.max_offset());
+            self.glide = running.then_some(glide);
+            if running {
+                ctx.request_anim_frame();
+            }
         }
         ctx.request_compose();
         ctx.request_post_paint();
@@ -133,6 +142,19 @@ impl<W: Widget> Widget for ScrollArea<W> {
         }
         crate::render::sprite::paint(&self.thumb, self.bar.color());
         painter.fill(self.bar.shape(&self.span()), &self.thumb).draw();
+    }
+
+    fn find_widget_under_pointer<'c>(&'c self, ctx: QueryCtx<'c>, pos: Point) -> Option<WidgetRef<'c, dyn Widget>> {
+        let over_bar = self.overflow && ctx.bounding_box().contains(pos) && Scrollbar::edge(self.axis, self.viewport).contains(ctx.to_local(pos));
+        if over_bar { Some(WidgetRef::new(self as &dyn Widget, ctx)) } else { find_widget_under_pointer(self, ctx, pos) }
+    }
+
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        match (self.bar.dragging(), self.bar.active()) {
+            (true, _) => CursorIcon::Grabbing,
+            (false, true) => CursorIcon::Grab,
+            _ => CursorIcon::Default,
+        }
     }
 
     fn accessibility_role(&self) -> Role {

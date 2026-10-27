@@ -1,0 +1,197 @@
+package com.dmitriy.aquilum;
+
+import android.content.Context;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.Selection;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.inputmethod.BaseInputConnection;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputMethodManager;
+
+import androidx.core.view.inputmethod.EditorInfoCompat;
+
+import java.util.Arrays;
+
+final class ImeView extends View {
+    private static native void onImeState(int seq, String text, int anchor, int cursor, int start, int end);
+
+    private final InputMethodManager keyboard;
+    private final Editable text = Editable.Factory.getInstance().newEditable("");
+    private final Connection connection = new Connection();
+    private boolean active;
+    private boolean multiline;
+    private int base = -1;
+    private int sent;
+    private int batch;
+    private String lastText;
+    private int[] lastMarks;
+
+    ImeView(Context context) {
+        super(context);
+        setFocusable(true);
+        setFocusableInTouchMode(true);
+        keyboard = context.getSystemService(InputMethodManager.class);
+    }
+
+    void start(boolean multiline) {
+        this.multiline = multiline;
+        active = true;
+        base = -1;
+        lastText = null;
+        text.replace(0, text.length(), "");
+        requestFocus();
+        keyboard.restartInput(this);
+        keyboard.showSoftInput(this, 0);
+    }
+
+    void stop() {
+        active = false;
+        keyboard.hideSoftInputFromWindow(getWindowToken(), 0);
+        clearFocus();
+        keyboard.restartInput(this);
+    }
+
+    void show() {
+        if (active) {
+            requestFocus();
+            keyboard.showSoftInput(this, 0);
+        }
+    }
+
+    void apply(int applied, int base, String value, int anchor, int cursor, int start, int end) {
+        if (!active || applied < sent) {
+            return;
+        }
+        boolean composing = BaseInputConnection.getComposingSpanStart(text) >= 0;
+        boolean sameText = text.toString().equals(value);
+        boolean sameSelection = Selection.getSelectionStart(text) == anchor && Selection.getSelectionEnd(text) == cursor;
+        boolean sameCompose = BaseInputConnection.getComposingSpanStart(text) == start && BaseInputConnection.getComposingSpanEnd(text) == end;
+        boolean moved = base != this.base;
+        if (sameText && sameSelection && sameCompose && !moved) {
+            return;
+        }
+        if (!sameText) {
+            text.replace(0, text.length(), value);
+        }
+        Selection.setSelection(text, anchor, cursor);
+        if (start >= 0) {
+            connection.mark(start, end);
+        } else {
+            BaseInputConnection.removeComposingSpans(text);
+        }
+        this.base = base;
+        if (moved || composing && !sameCompose) {
+            keyboard.restartInput(this);
+        } else {
+            keyboard.updateSelection(this, anchor, cursor, start, end);
+        }
+    }
+
+    @Override
+    public boolean onCheckIsTextEditor() {
+        return active;
+    }
+
+    @Override
+    public InputConnection onCreateInputConnection(EditorInfo info) {
+        if (!active) {
+            return null;
+        }
+        info.inputType = multiline
+                ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_FLAG_AUTO_CORRECT
+                : InputType.TYPE_CLASS_TEXT;
+        info.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN | (multiline ? EditorInfo.IME_FLAG_NO_ENTER_ACTION : EditorInfo.IME_ACTION_DONE);
+        info.initialSelStart = Selection.getSelectionStart(text);
+        info.initialSelEnd = Selection.getSelectionEnd(text);
+        EditorInfoCompat.setInitialSurroundingText(info, text);
+        return connection;
+    }
+
+    private boolean edited(boolean done) {
+        if (batch > 0) {
+            return done;
+        }
+        String value = text.toString();
+        int[] marks = {Selection.getSelectionStart(text), Selection.getSelectionEnd(text),
+                BaseInputConnection.getComposingSpanStart(text), BaseInputConnection.getComposingSpanEnd(text)};
+        if (!value.equals(lastText) || !Arrays.equals(marks, lastMarks)) {
+            lastText = value;
+            lastMarks = marks;
+            onImeState(++sent, value, marks[0], marks[1], marks[2], marks[3]);
+        }
+        return done;
+    }
+
+    private final class Connection extends BaseInputConnection {
+        Connection() {
+            super(ImeView.this, true);
+        }
+
+        @Override
+        public Editable getEditable() {
+            return text;
+        }
+
+        void mark(int start, int end) {
+            super.setComposingRegion(start, end);
+        }
+
+        @Override
+        public boolean beginBatchEdit() {
+            batch++;
+            return true;
+        }
+
+        @Override
+        public boolean endBatchEdit() {
+            batch = Math.max(0, batch - 1);
+            edited(true);
+            return batch > 0;
+        }
+
+        @Override
+        public boolean commitText(CharSequence value, int position) {
+            return edited(super.commitText(value, position));
+        }
+
+        @Override
+        public boolean setComposingText(CharSequence value, int position) {
+            return edited(super.setComposingText(value, position));
+        }
+
+        @Override
+        public boolean setComposingRegion(int start, int end) {
+            return edited(super.setComposingRegion(start, end));
+        }
+
+        @Override
+        public boolean finishComposingText() {
+            return edited(super.finishComposingText());
+        }
+
+        @Override
+        public boolean deleteSurroundingText(int before, int after) {
+            return edited(super.deleteSurroundingText(before, after));
+        }
+
+        @Override
+        public boolean deleteSurroundingTextInCodePoints(int before, int after) {
+            return edited(super.deleteSurroundingTextInCodePoints(before, after));
+        }
+
+        @Override
+        public boolean setSelection(int start, int end) {
+            return edited(super.setSelection(start, end));
+        }
+
+        @Override
+        public boolean performEditorAction(int action) {
+            sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER));
+            sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER));
+            return true;
+        }
+    }
+}

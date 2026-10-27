@@ -94,5 +94,5 @@ pub fn books(rows: &[Row], available: f64, make: &mut dyn FnMut(&Spec) -> Layout
         }
         row(&mut items, &mut hits, entry, top, available, make);
     }
-    Drawing { height, items, hits }
+    Drawing { hits, ..Drawing::new(height, items) }
 }

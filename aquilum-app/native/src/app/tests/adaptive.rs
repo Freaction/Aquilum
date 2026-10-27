@@ -89,6 +89,12 @@ fn opening_a_note_or_the_rail_toggle_closes_the_drawer() {
     assert!(h.open(h.vault.path().join("b.md")));
     assert_eq!(h.app.interface.screen().drawer, None, "заметка открыта — шторка закрыта");
     press(&mut h, |c| c.drawer);
+    assert!(h.open(h.vault.path().join("b.md")));
+    assert_eq!(h.app.interface.screen().drawer, None, "та же заметка — шторка всё равно закрыта");
+    press(&mut h, |c| c.drawer);
+    h.app.open_graph(&mut h.root);
+    assert_eq!(h.app.interface.screen().drawer, None, "граф открыт — шторка закрыта");
+    press(&mut h, |c| c.drawer);
     press(&mut h, |c| c.toggle_sidebar);
     assert_eq!(h.app.interface.screen().drawer, None, "кнопка в полосе значков закрывает шторку");
     assert!(h.app.interface.sidebar_open());

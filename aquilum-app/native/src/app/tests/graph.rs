@@ -228,6 +228,7 @@ fn reset_graph_settings_shows_confirmation_dialog_and_restores_defaults() {
         highlight_depth: 3,
         labels: false,
         heatmap_axis: 2,
+        panel: true,
     };
     h.app.interface.set_graph(custom_prefs);
     h.app.set_graph_share(0.75);
@@ -237,28 +238,28 @@ fn reset_graph_settings_shows_confirmation_dialog_and_restores_defaults() {
 
     // 1. Click reset -> confirmation dialog should open
     h.act(reset_button, crate::ui::widgets::Pressed);
-    assert!(h.app.is_reset_graph_dialog_open(), "диалог подтверждения сброса не открылся");
+    assert!(h.app.reset_graph_dialog_layer().is_some(), "диалог подтверждения сброса не открылся");
 
     // 2. Cancel via DialogAnswer::Cancel -> settings remain intact
     let dialog_layer = h.app.reset_graph_dialog_layer().expect("слой диалога");
     h.act(dialog_layer, crate::ui::dialog::DialogAnswer::Cancel);
-    assert!(!h.app.is_reset_graph_dialog_open(), "диалог не закрылся после отмены");
+    assert!(!h.app.reset_graph_dialog_layer().is_some(), "диалог не закрылся после отмены");
     assert_eq!(h.app.interface.graph(), custom_prefs, "настройки сбросились при отмене");
     assert_eq!(h.app.graph_share(), 0.75, "ползунок времени сбросился при отмене");
 
     // 3. Click reset again, cancel via escape
     h.act(reset_button, crate::ui::widgets::Pressed);
-    assert!(h.app.is_reset_graph_dialog_open());
+    assert!(h.app.reset_graph_dialog_layer().is_some());
     h.escape();
-    assert!(!h.app.is_reset_graph_dialog_open(), "диалог не закрылся по Escape");
+    assert!(!h.app.reset_graph_dialog_layer().is_some(), "диалог не закрылся по Escape");
     assert_eq!(h.app.interface.graph(), custom_prefs);
 
     // 4. Click reset, confirm -> settings restored to defaults
     h.act(reset_button, crate::ui::widgets::Pressed);
-    assert!(h.app.is_reset_graph_dialog_open());
+    assert!(h.app.reset_graph_dialog_layer().is_some());
     let dialog_layer = h.app.reset_graph_dialog_layer().expect("слой диалога");
     h.act(dialog_layer, crate::ui::dialog::DialogAnswer::Confirm);
-    assert!(!h.app.is_reset_graph_dialog_open(), "диалог остался открыт после подтверждения");
+    assert!(!h.app.reset_graph_dialog_layer().is_some(), "диалог остался открыт после подтверждения");
     assert_eq!(h.app.interface.graph(), crate::interface::GraphPrefs::default(), "настройки не сбросились к дефолтным");
     assert_eq!(h.app.graph_share(), 0.0, "фильтр по времени не сбросился в 0");
 }

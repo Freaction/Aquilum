@@ -77,7 +77,12 @@ fn appimage() -> Option<std::path::PathBuf> {
 }
 
 pub fn supported() -> bool {
-    cfg!(any(target_os = "windows", target_os = "macos")) || cfg!(target_os = "linux") && appimage().is_some()
+    cfg!(any(target_os = "windows", target_os = "macos", target_os = "android")) || cfg!(target_os = "linux") && appimage().is_some()
+}
+
+#[cfg(target_os = "android")]
+pub fn apply(payload: &[u8], _before_exit: impl FnOnce()) -> Result<(), String> {
+    crate::android::install_update(payload)
 }
 
 #[cfg(target_os = "linux")]
@@ -93,7 +98,7 @@ pub fn apply(payload: &[u8], before_exit: impl FnOnce()) -> Result<(), String> {
     std::process::exit(0);
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux", target_os = "android")))]
 pub fn apply(_payload: &[u8], _before_exit: impl FnOnce()) -> Result<(), String> {
     Err("платформа не поддерживается".into())
 }

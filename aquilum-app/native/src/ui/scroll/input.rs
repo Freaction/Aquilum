@@ -1,4 +1,4 @@
-use masonry::core::{EventCtx, PointerEvent, PointerScrollEvent, ScrollDelta, Widget};
+use masonry::core::{EventCtx, PointerButton, PointerEvent, PointerScrollEvent, ScrollDelta, Widget};
 use masonry::kurbo::Axis;
 
 use super::area::ScrollArea;
@@ -27,7 +27,8 @@ impl<W: Widget> ScrollArea<W> {
             PointerEvent::Down(e) if pointer::press(e.button) && self.overflow => {
                 let at = ctx.local_position(e.state.position);
                 let span = self.span();
-                if let Some(next) = self.bar.press(at, &span) {
+                let pressed = self.bar.press(at, &span).filter(|_| self.bar.dragging() || pointer::pages_track(e.pointer.pointer_type));
+                if let Some(next) = pressed {
                     if self.bar.dragging() {
                         self.glide = None;
                         ctx.capture_pointer();
@@ -41,6 +42,12 @@ impl<W: Widget> ScrollArea<W> {
             }
             PointerEvent::Move(update) => {
                 let at = ctx.local_position(update.current.position);
+                let (along, zone) = (at.get_coord(self.axis), pointer::edge(update.pointer.pointer_type));
+                let held = ctx.has_active() && !ctx.is_active() && update.current.buttons.contains(PointerButton::Primary);
+                self.edge = if held { (along - zone).min(0.0) + (along + zone - self.view()).max(0.0) } else { 0.0 };
+                if self.edge != 0.0 {
+                    ctx.request_anim_frame();
+                }
                 if let Some(next) = self.bar.drag(at, &self.span()) {
                     self.offset = next;
                     ctx.request_compose();
@@ -51,7 +58,12 @@ impl<W: Widget> ScrollArea<W> {
                     ctx.request_post_paint();
                 }
             }
-            PointerEvent::Up(_) | PointerEvent::Cancel(_) if self.bar.release() => ctx.request_post_paint(),
+            PointerEvent::Up(_) | PointerEvent::Cancel(_) => {
+                self.edge = 0.0;
+                if self.bar.release() {
+                    ctx.request_post_paint();
+                }
+            }
             PointerEvent::Leave(_) if !self.bar.dragging() => {
                 let span = self.span();
                 if self.bar.hover(None, &span) {

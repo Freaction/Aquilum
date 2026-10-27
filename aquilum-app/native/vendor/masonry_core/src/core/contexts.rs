@@ -497,22 +497,24 @@ impl EventCtx<'_> {
     }
 }
 
-// Methods shared by event and action handling.
-impl_context_method!(ActionCtx<'_>, EventCtx<'_>, {
-    /// Sends a signal to parent widgets to scroll this widget's border-box into view.
-    pub fn request_scroll_to_this(&mut self) {
-        let rect = self.widget_state.border_box();
-        self.global_state
-            .scroll_request_targets
-            .push((self.widget_state.id, rect));
-    }
-
+impl_context_method!(ActionCtx<'_>, EventCtx<'_>, LayoutCtx<'_>, {
     /// Sends a signal to parent widgets to scroll the provided `rect` into view.
     ///
     /// The `rect` must be in this widget's content-box coordinate space.
     pub fn request_scroll_to(&mut self, rect: Rect) {
         // Convert from this widget's content-box space to border-box space.
         let rect = rect + self.widget_state.border_box_translation();
+        self.global_state
+            .scroll_request_targets
+            .push((self.widget_state.id, rect));
+    }
+});
+
+// Methods shared by event and action handling.
+impl_context_method!(ActionCtx<'_>, EventCtx<'_>, {
+    /// Sends a signal to parent widgets to scroll this widget's border-box into view.
+    pub fn request_scroll_to_this(&mut self) {
+        let rect = self.widget_state.border_box();
         self.global_state
             .scroll_request_targets
             .push((self.widget_state.id, rect));

@@ -11,6 +11,7 @@ enum Phase {
     #[default]
     Idle,
     Pressed(Instant, u8),
+    Held(bool),
     Scrolling,
     Done,
 }
@@ -79,7 +80,7 @@ impl Touch {
                 self.scroll += step;
                 self.zoom += self.scale.moved(self.span(), self.dp);
             }
-            Phase::Idle | Phase::Done => {}
+            Phase::Idle | Phase::Held(_) | Phase::Done => {}
         }
     }
 
@@ -97,8 +98,20 @@ impl Touch {
                 self.fling = self.release(at);
                 None
             }
-            Phase::Idle | Phase::Done => None,
+            Phase::Idle | Phase::Held(_) | Phase::Done => None,
         }
+    }
+
+    pub fn pressed(&self) -> bool {
+        matches!(self.phase, Phase::Pressed(..))
+    }
+
+    pub fn hold(&mut self, menu: bool) {
+        self.phase = Phase::Held(menu);
+    }
+
+    pub fn held(&self) -> Option<bool> {
+        if let Phase::Held(menu) = self.phase { Some(menu) } else { None }
     }
 
     pub fn cancel(&mut self, finger: usize) {

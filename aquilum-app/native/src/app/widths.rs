@@ -7,7 +7,7 @@ use crate::ui::tokens::size;
 use crate::ui::widgets::{Collapse, SashAction};
 
 const MIN: f64 = 180.0;
-const EDITOR_MIN: f64 = 360.0;
+const EDITOR_MIN: f64 = 300.0;
 
 fn default(side: Side) -> f64 {
     match side {
@@ -16,25 +16,28 @@ fn default(side: Side) -> f64 {
     }
 }
 
-fn other(side: Side) -> Side {
-    match side {
-        Side::Sidebar => Side::Panel,
-        Side::Panel => Side::Sidebar,
-    }
-}
-
 impl App {
     fn wanted(&self, side: Side) -> f64 {
-        self.interface.width(side).unwrap_or(default(side)).max(MIN)
+        self.interface.width(side).unwrap_or(default(side)).max(MIN).round()
+    }
+
+    fn spare(&self, sidebar: bool, panel: bool) -> f64 {
+        if self.window.width <= 0.0 {
+            return f64::INFINITY;
+        }
+        let rail = if self.interface.focus_mode() { 0.0 } else { size::SIDEBAR_RAIL_WIDTH };
+        let taken = |side: Side, open: bool| if open { self.wanted(side) } else { 0.0 };
+        self.room().width - rail - EDITOR_MIN - taken(Side::Sidebar, sidebar) - taken(Side::Panel, panel)
+    }
+
+    pub(in crate::app) fn fitting(&self, sidebar: bool, panel: bool) -> (bool, bool) {
+        let panel = panel && self.spare(sidebar, true) >= 0.0;
+        (sidebar && self.spare(true, panel) >= 0.0, panel)
     }
 
     fn fit(&self, side: Side, width: f64) -> f64 {
         let (sidebar, panel) = self.visible_panels();
-        let open = if other(side) == Side::Sidebar { sidebar } else { panel };
-        let rail = if self.interface.focus_mode() { 0.0 } else { size::SIDEBAR_RAIL_WIDTH };
-        let taken = rail + EDITOR_MIN + if open { self.wanted(other(side)) } else { 0.0 };
-        let room = if self.window.width > 0.0 { self.room().width - taken } else { f64::INFINITY };
-        width.min(room).max(MIN)
+        width.min(self.spare(sidebar && side != Side::Sidebar, panel && side != Side::Panel)).max(MIN).floor()
     }
 
     pub(in crate::app) fn panel_width(&self, side: Side) -> f64 {

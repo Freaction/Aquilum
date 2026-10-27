@@ -292,8 +292,9 @@
       "about": "About",
       "author": "Author: Dmitriy Chaplinskiy",
       "authorHint": "Contact on Telegram",
-      "version": "Version",
+      "version": "Version {{version}}",
       "versionHint": "Include it when reporting a problem",
+      "repository": "Repository",
       "updates": "Updates",
       "autoUpdate": "Update automatically",
       "autoUpdateHint": "Downloads and installs new versions on launch",
@@ -569,7 +570,8 @@
     "preparing": "Preparing the new version",
     "manualTitle": "Automatic update failed",
     "manualDesc": "The app could not replace files with version {{version}}. Please download and install the update manually.",
-    "download": "Download update"
+    "download": "Download update",
+    "install": "Update"
   },
   "reader": {
     "openFailed": "Could not open the book",

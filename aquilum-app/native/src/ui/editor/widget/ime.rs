@@ -1,19 +1,25 @@
 use super::*;
 
 const AROUND: usize = 1900;
+const MARGIN: usize = 400;
 
 impl TextEditor {
     pub fn multiline(&self) -> bool {
         !self.single_line
     }
 
-    pub fn surrounding(&self) -> (String, usize, usize) {
+    pub fn surrounding(&self, base: Option<usize>) -> (usize, String, usize, usize) {
         if let Some((value, caret, anchor)) = self.table_cell() {
-            let (range, caret, anchor) = excerpt(value.len(), caret, anchor, |at| value.floor_char_boundary(at));
-            return (value[range].to_owned(), caret, anchor);
+            let (range, caret, anchor) = excerpt(value.len(), caret, anchor, None, |at| value.floor_char_boundary(at));
+            return (range.start, value[range].to_owned(), caret, anchor);
         }
-        let (range, caret, anchor) = excerpt(self.doc.len(), self.focus, self.anchor, |at| self.doc.floor(at));
-        (self.doc.copy(range), caret, anchor)
+        let (range, caret, anchor) = excerpt(self.doc.len(), self.focus, self.anchor, base, |at| self.doc.floor(at));
+        (range.start, self.doc.copy(range), caret, anchor)
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn composing(&self) -> Option<(String, usize)> {
+        self.compose.as_ref().map(|(text, cursor)| (text.clone(), cursor.map_or(text.len(), |(at, _)| at)))
     }
 
     pub(super) fn ime(&mut self, ctx: &mut EventCtx<'_>, ime: &Ime) {
@@ -45,6 +51,7 @@ impl TextEditor {
         }
         self.doc.invalidate(self.focus);
         ctx.set_handled();
+        self.follow_caret |= edited || preedit;
         if edited {
             self.changed(ctx);
         } else {
@@ -57,6 +64,13 @@ impl TextEditor {
         }
     }
 
+    pub(super) fn finish_compose(&mut self, ctx: &mut EventCtx<'_>) {
+        if let Some((text, _)) = self.compose.take() {
+            self.insert(&text, Kind::Other);
+            self.changed(ctx);
+        }
+    }
+
     fn delete_surrounding(&mut self, before: usize, after: usize) {
         let range = self.selection();
         let start = self.doc.floor(range.start.saturating_sub(before));
@@ -66,9 +80,10 @@ impl TextEditor {
     }
 }
 
-fn excerpt(len: usize, caret: usize, anchor: usize, floor: impl Fn(usize) -> usize) -> (Range<usize>, usize, usize) {
-    let start = floor(caret.saturating_sub(AROUND));
-    let end = floor((caret + AROUND).min(len));
+fn excerpt(len: usize, caret: usize, anchor: usize, base: Option<usize>, floor: impl Fn(usize) -> usize) -> (Range<usize>, usize, usize) {
+    let fits = |base: usize| base <= caret && (base == 0 || caret >= base + MARGIN) && (caret + MARGIN <= base + 2 * AROUND || base + 2 * AROUND >= len);
+    let start = floor(base.filter(|&base| fits(base)).unwrap_or(caret.saturating_sub(AROUND)));
+    let end = floor((start + 2 * AROUND).min(len));
     let local = |at: usize| at.clamp(start, end) - start;
     (start..end, local(caret), local(anchor))
 }
@@ -93,9 +108,20 @@ mod tests {
     fn the_surrounding_text_is_a_window_around_the_caret() {
         let mut editor = TextEditor::new(&"я".repeat(3000));
         (editor.anchor, editor.focus) = (6000, 3000);
-        let (text, cursor, anchor) = editor.surrounding();
+        let (base, text, cursor, anchor) = editor.surrounding(None);
         assert!(text.len() < 4000);
-        assert_eq!((cursor, anchor), (1900, text.len()));
+        assert_eq!((base, cursor, anchor), (1100, 1900, text.len()));
         assert!(text.is_char_boundary(cursor));
+    }
+
+    #[test]
+    fn the_window_stays_put_until_the_caret_nears_its_edge() {
+        let mut editor = TextEditor::new(&"ab".repeat(5000));
+        (editor.anchor, editor.focus) = (3000, 3000);
+        let (base, ..) = editor.surrounding(None);
+        (editor.anchor, editor.focus) = (3500, 3500);
+        assert_eq!(editor.surrounding(Some(base)).0, base, "окно сдвинулось вместе с кареткой");
+        (editor.anchor, editor.focus) = (base + 2 * AROUND - 100, base + 2 * AROUND - 100);
+        assert_ne!(editor.surrounding(Some(base)).0, base, "каретка у края, а окно не переехало");
     }
 }

@@ -176,7 +176,7 @@ impl TextEditor {
             self.code_bar(&code).paint(painter, &span);
         }
         if let (Fold::Below, Some(View::Drawing(preview))) = (self.doc.paragraph(code.last).fold, self.doc.paragraph(code.first).embed.map(|e| &e.view)) {
-            preview.paint(painter, self.embed_x(code.first), code.panel.y1 - preview.height, palette, None, None);
+            preview.paint(painter, self.embed_x(code.first), code.panel.y1 - preview.height, 0.0, palette, None, None);
         }
         let baseline = |layout: &Layout<BrushIndex>| layout.lines().next().map_or(0.0, |line| f64::from(line.metrics().baseline));
         for j in self.shown(&code.body).filter(|_| code.digits > 0) {

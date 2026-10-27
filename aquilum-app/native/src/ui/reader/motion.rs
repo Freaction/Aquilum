@@ -57,11 +57,11 @@ impl ReaderView {
         }
     }
 
-    pub(super) fn side(&self, p: Point) -> Option<Side> {
+    pub(super) fn side(&self, p: Point, pointer: PointerType) -> Option<Side> {
         if !self.body.contains(p) {
             return None;
         }
-        let nav = nav_width(self.body.width());
+        let nav = keymap::pointer::page_zone(pointer, self.body.width());
         if p.x < self.body.x0 + nav {
             Some(Side::Prev)
         } else if p.x > self.body.x1 - nav {

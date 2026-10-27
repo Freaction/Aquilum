@@ -1,16 +1,16 @@
 use masonry::kurbo::Point;
 
-use super::{ADD, GAP, Hit, Line, PAD_Y, RESIZE_ZONE, TOP, TableView};
+use super::{ADD, GAP, Hit, Line, PAD_Y, TOP, TableView};
 
 impl TableView {
-    pub fn hit(&self, p: Point, scroll_x: f64) -> Hit {
+    pub fn hit(&self, p: Point, scroll_x: f64, grip: f64) -> Hit {
         let (n, m) = (self.ys.len() - 1, self.xs.len() - 1);
         let tx = self.table_x(scroll_x);
         let table_bottom = TOP + self.ys[n];
         if self.bar_track().is_some_and(|t| t.contains(p)) {
             return Hit::Bar;
         }
-        if p.y < PAD_Y - RESIZE_ZONE || p.y > table_bottom + ADD + RESIZE_ZONE {
+        if p.y < PAD_Y - grip || p.y > table_bottom + ADD + grip {
             return Hit::Outside;
         }
         if p.x >= self.edge() && p.x <= self.edge() + ADD && p.y >= PAD_Y && p.y <= table_bottom {
@@ -21,8 +21,8 @@ impl TableView {
         }
         let on_row_strip = p.x < self.corner;
         let on_col_strip = p.y < TOP - GAP;
-        let row_border = (1..=n).map(|r| (r, (p.y - (TOP + self.ys[r])).abs())).filter(|(_, d)| *d <= RESIZE_ZONE).min_by(|a, b| a.1.total_cmp(&b.1));
-        let col_border = (1..=m).map(|c| (c, (p.x - (tx + self.xs[c])).abs())).filter(|(_, d)| *d <= RESIZE_ZONE).min_by(|a, b| a.1.total_cmp(&b.1));
+        let row_border = (1..=n).map(|r| (r, (p.y - (TOP + self.ys[r])).abs())).filter(|(_, d)| *d <= grip).min_by(|a, b| a.1.total_cmp(&b.1));
+        let col_border = (1..=m).map(|c| (c, (p.x - (tx + self.xs[c])).abs())).filter(|(_, d)| *d <= grip).min_by(|a, b| a.1.total_cmp(&b.1));
         match (row_border, col_border) {
             (Some((r, dr)), Some((c, dc))) => {
                 if dr <= dc && !on_col_strip {
@@ -32,7 +32,7 @@ impl TableView {
                     return Hit::ColumnBorder(c - 1);
                 }
             }
-            (Some((r, _)), None) if !on_col_strip && p.y <= table_bottom + RESIZE_ZONE => return Hit::RowBorder(r - 1),
+            (Some((r, _)), None) if !on_col_strip && p.y <= table_bottom + grip => return Hit::RowBorder(r - 1),
             (None, Some((c, _))) if !on_row_strip && p.y <= table_bottom => return Hit::ColumnBorder(c - 1),
             _ => {}
         }

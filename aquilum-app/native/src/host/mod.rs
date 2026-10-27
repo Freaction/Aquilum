@@ -17,9 +17,7 @@ use winit::event_loop::run_on_demand::EventLoopExtRunOnDemand;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{self as wk, ModifiersState, PhysicalKey};
 use winit::cursor::CursorIcon;
-use winit::window::{
-    ImeCapabilities, ImeEnableRequest, ImeRequest, ImeRequestData, ResizeDirection, Window, WindowAttributes, WindowId,
-};
+use winit::window::{ResizeDirection, Window, WindowAttributes, WindowId};
 
 use crate::Args;
 use crate::a11y::{self, Accessibility};
@@ -35,6 +33,7 @@ mod crash;
 mod edges;
 mod events;
 mod frame;
+mod ime;
 mod keyboard;
 mod launch;
 mod pointer;

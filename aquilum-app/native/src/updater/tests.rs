@@ -70,16 +70,10 @@ fn circuit_breaker_stops_loop_and_requires_manual_download() {
 }
 
 #[test]
-fn android_and_unsupported_platforms_have_no_auto_update() {
+fn android_asks_and_unsupported_platforms_have_no_auto_update() {
     #[cfg(target_os = "android")]
     {
-        assert!(!apply::supported());
-        assert!(!super::available());
-        let dir = tempfile::tempdir().unwrap();
-        let u = Updater::new(dir.path().to_path_buf(), Arc::new(|| {}));
-        u.install();
-        assert_eq!(u.status(), Status::Idle);
-        assert_eq!(apply::apply(&[], || {}), Err("платформа не поддерживается".into()));
+        assert!(apply::supported() && super::available() && super::ASKS);
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux", target_os = "android")))]
     {

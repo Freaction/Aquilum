@@ -53,7 +53,7 @@ impl TextEditor {
             let (Fold::Head | Fold::Above, Some(embed)) = (p.fold, &p.embed) else { continue };
             let mut overlay = match &self.table {
                 Some(session) if session.start == p.start => session.overlay(self.hovered_table == Some(p.start)),
-                _ => super::super::table::Overlay { hovered: self.hovered_table == Some(p.start), scroll_x: self.table_scroll_x(p.start), ..Default::default() },
+                _ => super::super::table::Overlay { hovered: self.hovered_table == Some(p.start), scroll_x: self.embed_scroll_x(p.start), ..Default::default() },
             };
             overlay.search = self.block_search(p.start..self.doc.folded_end(i));
             let media = self.media_overlay(p.start);

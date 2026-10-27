@@ -5,8 +5,7 @@ use masonry::properties::Padding;
 
 use crate::app::App;
 use crate::interface::{Screen, WidthClass};
-use crate::ui::scroll::ScrollArea;
-use crate::ui::theme;
+use crate::ui::editor::TextEditor;
 use crate::ui::titlebar::{OWN_CONTROLS, window_controls};
 use crate::ui::tokens::size;
 
@@ -54,12 +53,15 @@ impl App {
 
     fn fit_screen(&mut self, root: &mut RenderRoot, screen: Screen) {
         let class = screen.compact != self.compact();
+        let hidden = !self.shown.is_some_and(|(_, panel)| panel);
         self.interface.set_screen(screen);
-        self.apply_panels(root);
+        self.apply_panels(root, false);
         self.fit_settings(root);
         if class {
             self.apply_focus(root);
             self.fit_note_page(root);
+        }
+        if class || hidden && self.panel_visible() {
             self.request_panel(root);
         }
         if let Some((layer, _)) = self.controls {
@@ -90,14 +92,8 @@ impl App {
 
     fn keep_caret(&self, root: &mut RenderRoot) {
         let Some(ids) = &self.note_ids else { return };
-        if root.focused_widget() != Some(ids.body.id()) {
-            return;
+        if root.focused_widget() == Some(ids.body.id()) {
+            ids.body.edit(root, |mut body| TextEditor::keep_caret(&mut body));
         }
-        let Some((viewport, editor, offset)) = self.scroll_geometry(root) else { return };
-        let Some(caret) = ids.body.get(root).and_then(|body| body.inner().top_of(body.inner().caret_offset())) else { return };
-        let font = theme::editor_font_settings();
-        let top = editor - viewport + offset + caret;
-        let bottom = top + f64::from(font.size * font.line_height);
-        ids.scroll.edit(root, |mut area| ScrollArea::reveal(&mut area, top, bottom));
     }
 }

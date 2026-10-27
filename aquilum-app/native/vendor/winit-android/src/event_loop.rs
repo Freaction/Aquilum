@@ -498,12 +498,6 @@ impl EventLoop {
                     },
                 }
             },
-            InputEvent::TextEvent(state) => crate::ime::text_changed(android_app, state, |event| {
-                app.window_event(&self.window_target, GLOBAL_WINDOW, event)
-            }),
-            InputEvent::TextAction(_) => crate::ime::editor_action(android_app, |event| {
-                app.window_event(&self.window_target, GLOBAL_WINDOW, event)
-            }),
             _ => {
                 warn!("Unknown android_activity input event {event:?}")
             },
@@ -991,7 +985,29 @@ impl CoreWindow for Window {
     fn set_ime_cursor_area(&self, _position: Position, _size: Size) {}
 
     fn request_ime_update(&self, request: ImeRequest) -> Result<(), ImeRequestError> {
-        crate::ime::request(&self.app, &self.ime_capabilities, request)
+        let mut current_caps = self.ime_capabilities.lock().unwrap();
+        match request {
+            ImeRequest::Enable(enable) => {
+                let (capabilities, _) = enable.into_raw();
+                if current_caps.is_some() {
+                    return Err(ImeRequestError::AlreadyEnabled);
+                }
+                *current_caps = Some(capabilities);
+                self.app.show_soft_input(true);
+            },
+            ImeRequest::Update(_) => {
+                if current_caps.is_none() {
+                    return Err(ImeRequestError::NotEnabled);
+                }
+            },
+            ImeRequest::Disable => {
+                *current_caps = None;
+                self.app.hide_soft_input(true);
+            },
+            _ => return Err(ImeRequestError::NotSupported),
+        }
+
+        Ok(())
     }
 
     fn ime_capabilities(&self) -> Option<ImeCapabilities> {

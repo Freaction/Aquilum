@@ -1,8 +1,32 @@
 use masonry::app::RenderRoot;
+use masonry::core::keyboard::NamedKey;
 
-use super::support::{drag, scrolled, wheel, PAGE, TAG};
+use super::support::{drag, editor_id, named, paste, scrolled, typing, wheel, PAGE, TAG};
 use crate::ui::editor::TextEditor;
 use crate::ui::scroll::ScrollArea;
+
+#[test]
+fn typing_below_the_view_scrolls_after_the_caret() {
+    let mut root = scrolled(TextEditor::new("Начало").markdown(), 400, 300);
+    root.focus_on(Some(editor_id(&root)));
+    named(&mut root, NamedKey::End);
+    let caret = |root: &RenderRoot| {
+        let w = root.get_widget_with_tag(TAG).unwrap();
+        w.ctx().window_transform().transform_rect_bbox(w.inner().caret_rect())
+    };
+    for line in 0..30 {
+        named(&mut root, NamedKey::Enter);
+        typing(&mut root, &format!("строка {line} "));
+        let at = caret(&root);
+        assert!(at.y0 >= 0.0 && at.y1 <= 300.5, "каретка за краем окна после строки {line}: {at:?}");
+    }
+    typing(&mut root, &"слово ".repeat(80));
+    let at = caret(&root);
+    assert!(at.y0 >= 0.0 && at.y1 <= 300.5, "каретка за краем окна после переноса строки: {at:?}");
+    paste(&mut root, &"\nвставка".repeat(40));
+    let at = caret(&root);
+    assert!(at.y0 >= 0.0 && at.y1 <= 300.5, "каретка за краем окна после вставки: {at:?}");
+}
 
 #[test]
 fn scrolling_far_repaints_visible_paragraphs() {
@@ -60,4 +84,35 @@ fn a_long_code_line_scrolls_sideways_instead_of_wrapping() {
     };
     drag(&mut root, (120.0, track), (360.0, track));
     assert!(at(&root) > wheeled + 10, "ползунок полосы прокрутки не тянется: {wheeled} → {}", at(&root));
+}
+
+#[test]
+fn dragging_a_selection_past_the_edge_scrolls_smoothly() {
+    use masonry::core::{PointerButton, PointerEvent, WindowEvent};
+    use masonry::dpi::PhysicalPosition;
+    use crate::test_dir::{moved, pointer_at, primary};
+    let body: String = (0..200).map(|i| format!("Абзац {i}\n")).collect();
+    let mut root = scrolled(TextEditor::new(&body), 400, 300);
+    let page = root.get_widget_with_tag(PAGE).unwrap().id();
+    root.edit_widget(page, |mut w| ScrollArea::set_offset(&mut w.downcast::<ScrollArea<TextEditor>>(), 2000.0));
+    let _ = root.redraw();
+    let offset = |root: &RenderRoot| root.get_widget_with_tag(PAGE).unwrap().inner().offset();
+    let mut state = pointer_at(100.0, 150.0, 1.0);
+    root.handle_pointer_event(moved(state.clone()));
+    state.buttons.insert(PointerButton::Primary);
+    root.handle_pointer_event(PointerEvent::Down(primary(state.clone())));
+    state.position = PhysicalPosition::new(100.0, -40.0);
+    root.handle_pointer_event(moved(state));
+    let _ = root.redraw();
+    let mut last = offset(&root);
+    for _ in 0..10 {
+        root.handle_window_event(WindowEvent::AnimFrame(std::time::Duration::from_millis(16)));
+        let _ = root.redraw();
+        let step = last - offset(&root);
+        assert!(step > 1.0 && step < 20.0, "шаг прокрутки за кадр {step}");
+        last = offset(&root);
+    }
+    let caret = root.get_widget_with_tag(TAG).unwrap();
+    let top = caret.ctx().window_transform().transform_rect_bbox(caret.inner().caret_rect()).y0;
+    assert!(top < 0.0 && top > -80.0, "выделение не идёт за указателем: каретка на {top}");
 }

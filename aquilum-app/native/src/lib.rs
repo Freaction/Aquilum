@@ -27,6 +27,8 @@ mod instance;
 mod interface;
 mod links;
 mod history;
+#[cfg(any(target_os = "android", test))]
+mod ime_sync;
 mod host;
 mod metrics;
 mod native_dialog;
@@ -80,7 +82,7 @@ mod window_state;
 mod workspace;
 
 #[cfg(target_os = "android")]
-pub use android::{link as android_link, main as android_main};
+pub use android::{ime::received as android_ime_state, link as android_link, main as android_main};
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
 pub use args::Args;

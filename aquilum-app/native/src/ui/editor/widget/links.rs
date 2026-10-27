@@ -23,18 +23,27 @@ impl TextEditor {
         rect.contains(point).then_some((p.start + range.start + 1..p.start + range.end - 1, done))
     }
 
-    fn card_action_at(&self, point: Point) -> Option<crate::ui::editor::embed::Action> {
+    fn card_at(&self, point: Point) -> Option<(usize, &crate::ui::editor::embed::Drawing, Point)> {
         match self.head_embed_at(point)? {
-            (_, crate::ui::editor::embed::View::Drawing(drawing), local) => drawing.action_at(local).cloned(),
+            (p, crate::ui::editor::embed::View::Drawing(drawing), local) => Some((p.start, drawing, local + Vec2::new(self.embed_scroll_x(p.start), 0.0))),
             _ => None,
         }
     }
 
+    fn card_action_at(&self, point: Point) -> Option<crate::ui::editor::embed::Action> {
+        self.card_at(point).and_then(|(_, drawing, local)| drawing.action_at(local).cloned())
+    }
+
     fn card_link_at(&self, point: Point) -> Option<(usize, usize)> {
-        match self.head_embed_at(point)? {
-            (p, crate::ui::editor::embed::View::Drawing(drawing), local) => drawing.link_at(local).map(|hit| (p.start, hit)),
-            _ => None,
-        }
+        self.card_at(point).and_then(|(start, drawing, local)| drawing.link_at(local).map(|hit| (start, hit)))
+    }
+
+    pub(super) fn card_scroll(&mut self, ctx: &mut EventCtx<'_>, point: Point, dx: f64) -> bool {
+        let Some((start, max)) = self.card_at(point).map(|(start, drawing, _)| (start, drawing.max_scroll())).filter(|(_, max)| *max > 0.0) else { return false };
+        let scroll = self.embed_scrolls.entry(start).or_insert(0.0);
+        *scroll = (*scroll + dx).clamp(0.0, max);
+        ctx.request_render();
+        true
     }
 
     pub(super) fn hover_text(&mut self, ctx: &mut EventCtx<'_>, point: Point) {
@@ -52,7 +61,7 @@ impl TextEditor {
         if let Some((_, hit)) = self.hovered_link.filter(|(start, _)| *start == p.start)
             && let Some(crate::ui::editor::embed::View::Drawing(drawing)) = p.embed.map(|e| &e.view)
         {
-            drawing.paint_hover(painter, self.embed_x(i), self.doc.top(i), hit);
+            drawing.paint_hover(painter, self.embed_x(i) - self.embed_scroll_x(p.start), self.doc.top(i), hit);
         }
     }
 

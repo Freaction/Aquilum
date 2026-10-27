@@ -8,7 +8,6 @@ pub struct Segmented {
     hovered: Option<usize>,
     lines: Vec<text::Line>,
     rects: Vec<Rect>,
-    stretch: bool,
     shown: f64,
 }
 
@@ -18,11 +17,8 @@ pub(super) const SEGMENT_HEIGHT: f64 = 24.0;
 
 impl Segmented {
     pub fn new(options: Vec<String>, selected: usize) -> NewWidget<Self> {
-        Self::build(options, selected, false)
-    }
-
-    pub fn stretched(options: Vec<String>, selected: usize) -> NewWidget<Self> {
-        Self::build(options, selected, true)
+        let lines = options.iter().map(|_| text::Line::default()).collect();
+        NewWidget::new(Segmented { options, selected, hovered: None, lines, rects: Vec::new(), shown: selected as f64 })
     }
 
     pub fn set(this: &mut WidgetMut<'_, Self>, selected: usize) {
@@ -32,11 +28,6 @@ impl Segmented {
             this.ctx.request_paint_only();
             this.ctx.request_accessibility_update();
         }
-    }
-
-    fn build(options: Vec<String>, selected: usize, stretch: bool) -> NewWidget<Self> {
-        let lines = options.iter().map(|_| text::Line::default()).collect();
-        NewWidget::new(Segmented { options, selected, hovered: None, lines, rects: Vec::new(), stretch, shown: selected as f64 })
     }
 
     fn style() -> text::Style {
@@ -154,7 +145,7 @@ impl Widget for Segmented {
                 let (fcx, lcx) = ctx.text_contexts();
                 let natural = Self::total(&self.naturals(fcx, lcx));
                 match len_req {
-                    LenReq::FitContent(space) if self.stretch => Length::px(space.get().max(natural)),
+                    LenReq::FitContent(space) => Length::px(space.get().max(natural)),
                     _ => Length::px(natural),
                 }
             }
@@ -164,7 +155,7 @@ impl Widget for Segmented {
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size: Size) {
         let (fcx, lcx) = ctx.text_contexts();
         let natural = self.naturals(fcx, lcx);
-        let extra = if self.stretch { ((size.width - Self::total(&natural)) / natural.len().max(1) as f64).max(0.0) } else { 0.0 };
+        let extra = ((size.width - Self::total(&natural)) / natural.len().max(1) as f64).max(0.0);
         let mut left = SEGMENT_PAD;
         self.rects = natural
             .iter()

@@ -53,5 +53,5 @@
     --q-tab-bg-hover: var(--q-white-alpha-06);
     --q-editor-bg: var(--q-gray-900);
     --q-tab-bg-active: var(--q-editor-bg);
-    --q-editor-list-guide-color: var(--q-border-subtle);
+    --q-editor-list-guide-color: var(--q-white-alpha-08);
 }

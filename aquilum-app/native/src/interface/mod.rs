@@ -1,4 +1,5 @@
 mod graph;
+mod update;
 mod metadata;
 mod screen;
 #[cfg(test)]
@@ -43,6 +44,7 @@ struct State {
     focus_mode: bool,
     wide: bool,
     graph: GraphPrefs,
+    dismissed_update: Option<String>,
 }
 
 impl Default for State {
@@ -59,6 +61,7 @@ impl Default for State {
             focus_mode: false,
             wide: false,
             graph: GraphPrefs::default(),
+            dismissed_update: None,
         }
     }
 }

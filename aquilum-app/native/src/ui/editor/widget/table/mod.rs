@@ -14,7 +14,7 @@ impl TextEditor {
     }
 
     fn session(&self, start: usize) -> Session {
-        Session { scroll_x: self.table_scrolls.get(&start).copied().unwrap_or(0.0), ..Session::new(start) }
+        Session { scroll_x: self.embed_scrolls.get(&start).copied().unwrap_or(0.0), ..Session::new(start) }
     }
 
     fn is_session(&self, start: usize) -> bool {
@@ -40,16 +40,16 @@ impl TextEditor {
         Some((view.model.value(row, col), session.caret, session.anchor))
     }
 
-    pub(super) fn table_scroll_x(&self, start: usize) -> f64 {
+    pub(super) fn embed_scroll_x(&self, start: usize) -> f64 {
         match &self.table {
             Some(session) if session.start == start => session.scroll_x,
-            _ => self.table_scrolls.get(&start).copied().unwrap_or(0.0),
+            _ => self.embed_scrolls.get(&start).copied().unwrap_or(0.0),
         }
     }
 
     fn remember_scroll(&mut self) {
         if let Some(session) = &self.table {
-            self.table_scrolls.insert(session.start, session.scroll_x);
+            self.embed_scrolls.insert(session.start, session.scroll_x);
         }
     }
 

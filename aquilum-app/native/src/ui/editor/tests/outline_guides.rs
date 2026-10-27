@@ -55,7 +55,8 @@ fn guide_ends_at_paragraph_bottom_not_bullet_middle() {
 fn guide_metrics_use_design_tokens() {
     assert_eq!(crate::ui::tokens::size::EDITOR_LIST_GUIDE_GAP, 12.0);
     assert_eq!(crate::ui::tokens::size::EDITOR_LIST_GUIDE_WIDTH, 1.0);
-    assert_eq!(crate::ui::tokens::DARK.editor_list_guide_color, crate::ui::tokens::DARK.border_subtle);
+    let dark = crate::ui::tokens::DARK;
+    assert!(dark.editor_list_guide_color.components[3] > dark.border_subtle.components[3], "в тёмной теме направляющие заметнее тонкой границы");
 }
 
 #[test]

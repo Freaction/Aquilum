@@ -54,6 +54,11 @@ impl TextEditor {
             ctx.request_scroll_by(shift);
         }
         self.reveal_caret();
+        if std::mem::take(&mut self.follow_caret) && self.laid_out() {
+            let caret = self.caret();
+            ctx.set_ime_area(caret);
+            ctx.request_scroll_to(caret);
+        }
         self.follow_code();
         if self.suggest.is_some() {
             self.publish_suggest(ctx.widget_id());
@@ -64,6 +69,14 @@ impl TextEditor {
     }
 
     pub(super) fn do_compose(&mut self, ctx: &mut ComposeCtx<'_>) {
+        if let Some(at) = self.drag_at.filter(|_| ctx.is_active()) {
+            let before = (self.anchor, self.focus);
+            self.drag_select(ctx.window_transform().inverse() * at);
+            if (self.anchor, self.focus) != before {
+                ctx.request_layout();
+                ctx.request_paint_only();
+            }
+        }
         let (top, bottom) = super::visible(ctx.window_transform(), ctx.window_size());
         if top < self.painted.0 || bottom > self.painted.1 {
             ctx.request_paint_only();

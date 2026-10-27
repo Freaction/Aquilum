@@ -7,7 +7,7 @@ use crate::ui::editor::table::view::{Hit, TableView};
 
 impl Session {
     pub fn press(&mut self, view: &TableView, p: Point, shift: bool, count: u8) -> Outcome {
-        match view.hit(p, self.scroll_x) {
+        match view.hit(p, self.scroll_x, self.grip) {
             Hit::Cell(r, c, local) => self.press_cell(view, p, (r, c), local, shift, count),
             Hit::Column(c) => self.press_strip(view, p, shift, false, c),
             Hit::Row(r) => self.press_strip(view, p, shift, true, r),

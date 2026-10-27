@@ -1,17 +1,21 @@
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx,
-    UpdateCtx, Widget, WidgetMut, render_text,
+    AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, PropertySet,
+    RegisterCtx, UpdateCtx, Widget, WidgetId, WidgetMut, render_text,
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Point, Rect, RoundedRect, Size, Stroke};
 use masonry::layout::{LenReq, Length};
+use masonry::properties::types::CrossAxisAlignment;
+use masonry::properties::{Gap, Padding};
+use masonry::widgets::Flex;
 
 use super::menu::box_shadow;
-use super::text::{Line, Style};
-use super::theme;
+use super::text::{Line, Style, label};
 use super::tokens::{number, size};
-use crate::i18n::t;
+use super::widgets::{ButtonSize, IconButton, Leading, TextButton, Variant};
+use super::{icons, style, theme};
+use crate::i18n::{t, t_with};
 
 pub struct UpdateSplash {
     installing: bool,
@@ -125,4 +129,19 @@ impl Layer for UpdateSplash {
     fn capture_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, _event: &PointerEvent) {
         ctx.set_handled();
     }
+}
+
+pub struct UpdateBar {
+    pub install: WidgetId,
+    pub close: WidgetId,
+}
+
+pub fn update_bar(version: &str) -> (NewWidget<Flex>, UpdateBar) {
+    let text = label(&t_with("settings.system.updatesAvailable", &[("version", version)]), |t| t.text_primary, None, Leading::Times(number::FONT_LINE_HEIGHT_NORMAL as f32));
+    let install = NewWidget::new(TextButton::new(t("update.install"), Variant::Primary).size(ButtonSize::S));
+    let close = NewWidget::new(IconButton::new(icons::X, t("common.close")));
+    let ids = UpdateBar { install: install.id(), close: close.id() };
+    let row = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with(text, 1.0).with_fixed(install).with_fixed(close);
+    let props = PropertySet::new().with(Padding::from_vh(Length::px(size::SPACE_8), Length::px(size::SPACE_12))).with(Gap::new(Length::px(size::SPACE_8)));
+    (NewWidget::new(row).with_props(props).with_class(style::CARD), ids)
 }

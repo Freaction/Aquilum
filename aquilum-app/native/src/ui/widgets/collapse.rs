@@ -38,11 +38,19 @@ impl Collapse {
         NewWidget::new(Collapse { child: child.to_pod(), width, open, progress: start, fade: start, background })
     }
 
-    pub fn set_open(this: &mut WidgetMut<'_, Self>, open: bool) {
-        if this.widget.open != open {
-            this.widget.open = open;
+    pub fn set_open(this: &mut WidgetMut<'_, Self>, open: bool, animate: bool) {
+        if this.widget.open == open {
+            return;
+        }
+        this.widget.open = open;
+        if animate {
             this.ctx.set_stashed(&mut this.widget.child, false);
             this.ctx.request_anim_frame();
+        } else {
+            let goal = this.widget.goal();
+            (this.widget.progress, this.widget.fade) = (goal, goal);
+            this.ctx.set_stashed(&mut this.widget.child, !open);
+            this.ctx.request_layout();
         }
     }
 

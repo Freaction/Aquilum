@@ -145,3 +145,15 @@ fn a_cancelled_touch_neither_clicks_nor_presses_long() {
     assert_eq!(touch.deadline(), None);
     assert_eq!(touch.up(1, Point::new(10.0, 10.0), ms(start, 50)), None);
 }
+
+#[test]
+fn a_held_finger_drags_instead_of_scrolling() {
+    let (mut touch, start) = (Touch::default(), Instant::now());
+    touch.down(1, Point::new(100.0, 100.0), start, DP);
+    assert!(touch.pressed());
+    touch.hold(false);
+    touch.moved(1, Point::new(100.0, 300.0), ms(start, 50));
+    assert!(near(scrolled(&mut touch, ms(start, 58)), Vec2::ZERO), "удержание не прокручивает");
+    assert_eq!(touch.up(1, Point::new(100.0, 300.0), ms(start, 80)), None);
+    assert_eq!(touch.held(), None, "отрыв снимает удержание");
+}

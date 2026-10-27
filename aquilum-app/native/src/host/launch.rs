@@ -16,6 +16,11 @@ pub fn run(args: Args, mut event_loop: EventLoop) -> Result<(), String> {
     let proxy = event_loop.create_proxy();
     let vsync_proxy = event_loop.create_proxy();
     let vsync = crate::vsync::Vsync::new(move || vsync_proxy.wake_up());
+    #[cfg(target_os = "android")]
+    {
+        let ime_proxy = event_loop.create_proxy();
+        crate::android::ime::set_wake(Arc::new(move || ime_proxy.wake_up()));
+    }
     let workspace = Workspace::open(Some(&data_dir), args.vault.as_deref(), move || proxy.wake_up())?;
     install_crash_log(workspace.data_dir.join("crash.log"));
     let window_state = WindowState::load(&workspace.data_dir);

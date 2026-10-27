@@ -7,6 +7,7 @@ use winit::platform::android::EventLoopBuilderExtAndroid;
 use winit::platform::android::activity::AndroidApp;
 
 pub mod clipboard;
+pub mod ime;
 mod java;
 mod links;
 
@@ -57,6 +58,12 @@ pub fn safe_area() -> PhysicalInsets<u32> {
 
 pub fn leave() {
     java::run(jni::jni_str!("leave"));
+}
+
+pub fn install_update(payload: &[u8]) -> Result<(), String> {
+    let path = java::read_text(jni::jni_str!("updateFile")).ok_or("нет файла для обновления")?;
+    std::fs::write(&path, payload).map_err(|e| format!("{path}: {e}"))?;
+    java::send_text(jni::jni_str!("installApk"), &path).then_some(()).ok_or_else(|| "установщик не открылся".into())
 }
 
 pub fn set_dark_theme(dark: bool) {

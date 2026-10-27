@@ -36,6 +36,7 @@ const FADE: f64 = 0.07;
 const SETTLED: f64 = 0.02;
 const CAMERA_SETTLE: Duration = Duration::from_millis(400);
 const SETTINGS_WIDTH: f64 = 240.0;
+pub const PANEL_PADDING: f64 = crate::ui::tokens::size::SPACE_16;
 const DRAFT_BUDGET: Duration = Duration::from_millis(12);
 const DRAFT_SCALE: f64 = 0.5;
 
@@ -54,11 +55,12 @@ pub struct Display {
     pub labels: bool,
     pub heat: Heat,
     pub created_from: f64,
+    pub panel: bool,
 }
 
 impl Default for Display {
     fn default() -> Self {
-        Display { node_size: 1.0, spread: 1.0, depth: 1, labels: true, heat: Heat::None, created_from: f64::NEG_INFINITY }
+        Display { node_size: 1.0, spread: 1.0, depth: 1, labels: true, heat: Heat::None, created_from: f64::NEG_INFINITY, panel: true }
     }
 }
 
@@ -122,7 +124,7 @@ pub struct GraphView {
     pub(super) action_rect: Option<Rect>,
     over_action: bool,
     action_line: Line,
-    settings: Option<WidgetPod<dyn Widget>>,
+    settings: Option<[WidgetPod<dyn Widget>; 2]>,
     panel: Rect,
     animating: bool,
     scale_factor: f64,

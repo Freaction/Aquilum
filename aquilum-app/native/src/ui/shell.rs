@@ -43,6 +43,7 @@ pub struct Chrome {
     pub home_slot: Handle<Slot>,
     pub home_button: Option<WidgetId>,
     pub graph_page: Handle<Slot>,
+    pub notice: Handle<Slot>,
     pub graph_button: Option<WidgetId>,
     pub focus_hidden: Vec<Handle<Visible>>,
     pub focus_shown: Handle<Visible>,
@@ -110,10 +111,13 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
     let pages = IndexedStack::new().with(note_page).with(empty).with(version_page).with(no_vault).with(graph_page).with_active_child(active);
     let pages = NewWidget::new(pages);
     let pages_handle = Handle::of(&pages);
+    let notice = Slot::fit(NewWidget::new(SizedBox::empty()).erased());
+    let notice_handle = Handle::of(&notice);
     let main = Flex::column()
         .cross_axis_alignment(CrossAxisAlignment::Stretch)
         .with_fixed(titlebar.widget)
-        .with(pages, 1.0);
+        .with(pages, 1.0)
+        .with_fixed(notice);
 
     let main = NewWidget::new(main).with_class(style::CANVAS).erased();
     let stage = Stage::new(main, [rail.widget.erased(), sidebar.widget.erased(), panel.erased()], screen);
@@ -145,6 +149,7 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
         home_slot: rail.home_slot,
         home_button: rail.home_button,
         graph_page: graph_handle,
+        notice: notice_handle,
         graph_button: rail.graph_button,
         focus_hidden,
         focus_shown: titlebar.settings_shown,

@@ -40,7 +40,7 @@ mod tests {
     }
 
     #[test]
-    fn columns_stop_at_their_narrowest_and_the_table_scrolls() {
+    fn columns_stop_at_their_narrowest_and_the_embed_scrolls() {
         assert_eq!(fit(&[300.0; 10], 700.0), [96.0; 10]);
     }
 }

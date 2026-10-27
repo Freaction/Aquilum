@@ -15,6 +15,7 @@ impl ReaderView {
             fraction: 0.0,
             report: true,
             wheel: 0.0,
+            swipe: None,
             settings_button: settings_button.to_pod(),
             close: close.to_pod(),
             popover: None,

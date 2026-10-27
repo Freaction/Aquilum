@@ -47,11 +47,17 @@ pub struct Drawing {
     pub height: f64,
     pub(super) items: Vec<Item>,
     pub hits: Vec<(Rect, Action, Option<f64>)>,
+    pub(super) view: f64,
+    pub(super) width: f64,
 }
 
 impl Drawing {
     pub(super) fn new(height: f64, items: Vec<Item>) -> Self {
-        Drawing { height, items, hits: Vec::new() }
+        Drawing { height, items, hits: Vec::new(), view: 0.0, width: 0.0 }
+    }
+
+    pub fn max_scroll(&self) -> f64 {
+        (self.width - self.view).max(0.0)
     }
 
     pub fn action_at(&self, p: Point) -> Option<&Action> {
@@ -75,7 +81,15 @@ impl Drawing {
         }
     }
 
-    pub fn paint(&self, painter: &mut Painter<'_>, x: f64, y: f64, palette: &[Brush], hover: Option<usize>, search: Option<&crate::ui::editor::Search>) {
+    pub fn paint(&self, painter: &mut Painter<'_>, x: f64, y: f64, scroll: f64, palette: &[Brush], hover: Option<usize>, search: Option<&crate::ui::editor::Search>) {
+        if self.max_scroll() > 0.0 {
+            painter.with_fill_clip(Rect::new(x, y, x + self.view, y + self.height), |painter| self.draw(painter, x - scroll, y, palette, hover, search));
+        } else {
+            self.draw(painter, x, y, palette, hover, search);
+        }
+    }
+
+    fn draw<S: PaintSink + ?Sized>(&self, painter: &mut Painter<'_, S>, x: f64, y: f64, palette: &[Brush], hover: Option<usize>, search: Option<&crate::ui::editor::Search>) {
         let at = Affine::translate((x, y));
         let hover = hover.and_then(|i| self.hits.get(i)).map(|(r, ..)| *r);
         let mut seen = 0;

@@ -57,7 +57,7 @@ fn a_table_without_saved_widths_fills_the_column() {
 }
 
 #[test]
-fn the_last_border_stays_visible_when_a_wide_table_scrolls_to_its_end() {
+fn the_last_border_stays_visible_when_a_wide_embed_scrolls_to_its_end() {
     let view = blank_view(&table(&format!("|{}\n|{}\n|{}", " a |".repeat(10), " --- |".repeat(10), " 1 |".repeat(10))));
     let end = view.max_scroll();
     assert!(end > 0.0);
@@ -78,5 +78,5 @@ fn borders_are_found_where_they_are_painted_after_the_table_narrows() {
     let painted = view.border_line(Hit::ColumnBorder(0), view.max_scroll());
     assert_eq!(view.border_line(Hit::ColumnBorder(0), scroll), painted);
     let Line::Col(x, _) = painted else { panic!("нет линии границы") };
-    assert_eq!(view.hit(Point::new(x, 60.0), scroll), Hit::ColumnBorder(0));
+    assert_eq!(view.hit(Point::new(x, 60.0), scroll, crate::ui::keymap::gesture::GRIP), Hit::ColumnBorder(0));
 }

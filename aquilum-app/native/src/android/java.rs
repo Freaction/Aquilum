@@ -41,6 +41,16 @@ pub fn send_progress(method: &JNIStr, text: &str, done: i32, total: i32) -> bool
     .is_some()
 }
 
+pub fn send_ime(method: &JNIStr, [applied, base]: [i32; 2], text: &str, [anchor, cursor, start, end]: [i32; 4]) -> bool {
+    call(|env, activity| {
+        let text = JString::from_str(env, text)?;
+        let args = [JValue::Int(applied), JValue::Int(base), JValue::Object(&text), JValue::Int(anchor), JValue::Int(cursor), JValue::Int(start), JValue::Int(end)];
+        env.call_method(activity, method, jni_sig!("(IILjava/lang/String;IIII)V"), &args)?;
+        Ok(())
+    })
+    .is_some()
+}
+
 pub fn read_text(method: &JNIStr) -> Option<String> {
     call(|env, activity| {
         let value = env.call_method(activity, method, jni_sig!("()Ljava/lang/String;"), &[])?.l()?;

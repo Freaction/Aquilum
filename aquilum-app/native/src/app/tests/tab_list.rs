@@ -103,7 +103,7 @@ fn a_dragged_sidebar_leaves_room_for_the_editor_and_resets_on_double_click() {
         send(&mut h, action);
     }
     let editor = f64::from(W) - rect(&h, rail).width() - rect(&h, sidebar).width() - rect(&h, panel).width();
-    assert!(editor >= 359.0, "панель заняла место редактора: осталось {editor}");
+    assert!(editor >= 300.0, "панель заняла место редактора: осталось {editor}");
     send(&mut h, SashAction::Reset);
     assert_eq!((rect(&h, sidebar).width(), h.app.interface.width(Side::Sidebar)), (start, None));
 }

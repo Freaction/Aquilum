@@ -47,7 +47,7 @@ fn table_cells_take_spaces_and_pipes_while_typing() {
 }
 
 #[test]
-fn vertical_gesture_over_wide_table_scrolls_the_page() {
+fn vertical_gesture_over_wide_embed_scrolls_the_page() {
     let cells: String = (0..6).map(|i| format!(" колонка {i} |")).collect();
     let rule: String = (0..6).map(|_| " --- |").collect();
     let table = format!("|{cells}\n|{rule}\n|{cells}\n<!--q-table:{{\"merges\":[],\"cols\":[300,300,300,300,300,300]}}-->\n");

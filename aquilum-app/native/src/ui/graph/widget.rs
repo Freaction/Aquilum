@@ -7,12 +7,12 @@ use masonry::core::{
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Point, Rect, Size};
-use masonry::layout::{LenReq, Length};
+use masonry::layout::{LayoutSize, LenDef, LenReq, Length, SizeDef};
 
 use crate::ui::text::Line;
 use crate::ui::theme;
 use crate::ui::tokens::size;
-use super::{CAMERA_SETTLE, DRAFT_BUDGET, Drag, GraphAction, GraphView, SETTINGS_WIDTH, Status};
+use super::{CAMERA_SETTLE, DRAFT_BUDGET, Drag, GraphAction, GraphView, PANEL_PADDING, SETTINGS_WIDTH, Status};
 use crate::i18n::t;
 
 impl Widget for GraphView {
@@ -62,8 +62,8 @@ impl Widget for GraphView {
     }
 
     fn register_children(&mut self, ctx: &mut RegisterCtx<'_>) {
-        if let Some(settings) = &mut self.settings {
-            ctx.register_child(settings);
+        for child in self.settings.iter_mut().flatten() {
+            ctx.register_child(child);
         }
     }
 
@@ -89,15 +89,23 @@ impl Widget for GraphView {
                 self.step_labels(0.0, fcx, lcx);
             }
         }
-        if let Some(settings) = &mut self.settings {
+        if let Some([panel, toggle]) = &mut self.settings {
             let show = !matches!(self.status, Status::Failed(_) | Status::NoWorkspace);
-            ctx.set_stashed(settings, !show);
+            let open = show && self.display.panel;
+            ctx.set_stashed(panel, !open);
+            ctx.set_stashed(toggle, !show);
             self.panel = Rect::ZERO;
             if show {
-                let panel = Rect::new(size.width - size::SPACE_12 - SETTINGS_WIDTH, size::SPACE_12, size.width - size::SPACE_12, (size.height - size::SPACE_12).max(size::SPACE_12));
-                ctx.run_layout(settings, panel.size());
-                ctx.place_child(settings, panel.origin());
-                self.panel = panel;
+                let area = Rect::new(size.width - size::SPACE_12 - SETTINGS_WIDTH, size::SPACE_12, size.width - size::SPACE_12, (size.height - size::SPACE_12).max(size::SPACE_12));
+                let button = ctx.compute_size(toggle, SizeDef::new(LenDef::MaxContent, LenDef::MaxContent), LayoutSize::NONE);
+                let corner = Rect::from_origin_size(Point::new(area.x1 - PANEL_PADDING - button.width, area.y0 + PANEL_PADDING), button);
+                ctx.run_layout(toggle, button);
+                ctx.place_child(toggle, corner.origin());
+                if open {
+                    ctx.run_layout(panel, area.size());
+                    ctx.place_child(panel, area.origin());
+                }
+                self.panel = if open { area } else { corner };
             }
         }
     }
@@ -156,6 +164,6 @@ impl Widget for GraphView {
     }
 
     fn children_ids(&self) -> ChildrenIds {
-        ChildrenIds::from_slice(&self.settings.iter().map(WidgetPod::id).collect::<Vec<_>>())
+        ChildrenIds::from_slice(&self.settings.iter().flatten().map(WidgetPod::id).collect::<Vec<_>>())
     }
 }

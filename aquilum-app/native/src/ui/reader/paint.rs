@@ -87,7 +87,7 @@ impl ReaderView {
 
         if self.zones.iter().any(|z| z.value() > 0.0) {
             let hover = self.hover.flatten();
-            let nav = nav_width(body.width());
+            let nav = keymap::pointer::page_zone(PointerType::Mouse, body.width());
             for (side, zone_alpha) in [(Side::Prev, self.zones[0].value()), (Side::Next, self.zones[1].value())] {
                 let zone = match side {
                     Side::Prev => Rect::new(body.x0, body.y0, body.x0 + nav, body.y1),

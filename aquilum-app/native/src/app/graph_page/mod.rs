@@ -19,6 +19,7 @@ use crate::ui::widgets::Slot;
 
 struct Controls {
     reset: WidgetId,
+    toggle: WidgetId,
     node_size: WidgetId,
     spread: WidgetId,
     depth: WidgetId,
@@ -72,6 +73,7 @@ impl App {
             labels: prefs.labels,
             heat: HEATS[usize::from(prefs.heatmap_axis).min(2)],
             created_from: if share == 0.0 { f64::NEG_INFINITY } else { range.oldest + (range.newest - range.oldest) * share },
+            panel: prefs.panel,
         }
     }
 
@@ -115,14 +117,7 @@ impl App {
         if self.graph_active() || (self.graph.view.is_none() && self.graph.data.is_none()) {
             return;
         }
-        self.graph.view = None;
-        self.graph.controls = None;
-        self.graph.data = None;
-        self.graph.loading = false;
-        self.graph.failed = None;
-        self.graph.stale = false;
-        self.graph.share = 0.0;
-        self.graph.generation += 1;
+        self.graph = GraphState { generation: self.graph.generation + 1, ..GraphState::default() };
         if let Some(chrome) = &self.chrome {
             chrome.graph_page.edit(root, |mut slot| Slot::clear(&mut slot));
         }
@@ -160,11 +155,6 @@ impl App {
     #[cfg(test)]
     pub(super) fn graph_reset_button(&self) -> Option<WidgetId> {
         self.graph.controls.as_ref().map(|c| c.reset)
-    }
-
-    #[cfg(test)]
-    pub(super) fn is_reset_graph_dialog_open(&self) -> bool {
-        matches!(self.popup, Some(Popup::ResetGraph(_)))
     }
 
     #[cfg(test)]

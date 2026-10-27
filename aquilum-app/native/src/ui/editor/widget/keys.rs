@@ -19,6 +19,7 @@ impl TextEditor {
         {
             ctx.set_handled();
             if edited {
+                self.follow_caret = true;
                 self.changed(ctx);
             } else {
                 self.refresh(ctx);
@@ -143,6 +144,7 @@ impl TextEditor {
         }
         ctx.set_handled();
         if edited {
+            self.follow_caret = true;
             self.changed(ctx);
         } else {
             self.refresh(ctx);

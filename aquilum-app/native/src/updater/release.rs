@@ -17,6 +17,8 @@ fn target() -> Option<String> {
         "darwin"
     } else if cfg!(target_os = "linux") {
         "linux"
+    } else if cfg!(target_os = "android") {
+        "android"
     } else {
         return None;
     };

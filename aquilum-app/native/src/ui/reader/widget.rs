@@ -63,6 +63,14 @@ impl Widget for ReaderView {
         self.draw(ctx, painter);
     }
 
+    fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        match self.hover {
+            Some(Some(_)) => CursorIcon::Pointer,
+            Some(None) => CursorIcon::Text,
+            None => CursorIcon::Default,
+        }
+    }
+
     fn accessibility_role(&self) -> Role {
         Role::Dialog
     }

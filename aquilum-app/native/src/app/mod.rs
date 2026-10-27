@@ -27,6 +27,7 @@ mod settings;
 mod tabs;
 mod templates;
 mod widths;
+mod update;
 mod workspaces;
 #[cfg(test)]
 mod tests;
@@ -166,8 +167,7 @@ pub struct App {
     titles_rx: Receiver<(WidgetId, String, String)>,
     hold: Option<Instant>,
     updater: crate::updater::Updater,
-    update_shown: crate::updater::Status,
-    update_layer: Option<WidgetId>,
+    update: update::UpdateView,
     pub open_error: Option<(PathBuf, String)>,
     pub open_error_ids: Option<crate::ui::note::OpenErrorIds>,
     pub save_error_ids: Option<crate::ui::note::SaveErrorIds>,

@@ -75,8 +75,7 @@ impl App {
             titles_rx,
             hold: None,
             updater: crate::updater::Updater::new(data_dir, Arc::clone(&workspace_wake)),
-            update_shown: crate::updater::Status::Idle,
-            update_layer: None,
+            update: Default::default(),
             open_error: None,
             open_error_ids: None,
             save_error_ids: None,
@@ -85,7 +84,9 @@ impl App {
         crate::cover::set_waker(Arc::clone(&app.workspace.wake));
         app.start_index();
         app.workspace.core.apply_mcp_settings();
-        if auto_update {
+        if crate::updater::ASKS {
+            app.updater.check();
+        } else if auto_update {
             app.updater.install();
         }
         let remote = app.workspace.data_dir.join("remote");

@@ -13,10 +13,12 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.SystemBarStyle;
+import androidx.core.content.FileProvider;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -25,6 +27,8 @@ import androidx.lifecycle.Lifecycle;
 
 import com.google.androidgamesdk.GameActivity;
 
+import java.io.File;
+
 public class MainActivity extends GameActivity {
     private static final int SAFE_AREA = WindowInsetsCompat.Type.systemBars()
             | WindowInsetsCompat.Type.displayCutout()
@@ -32,6 +36,7 @@ public class MainActivity extends GameActivity {
 
     private volatile long safeArea;
     private boolean notificationsAsked;
+    private ImeView ime;
 
     private static native void onLink(String link);
 
@@ -48,6 +53,25 @@ public class MainActivity extends GameActivity {
             }
         });
         deliver(getIntent());
+        new File(updateFile()).delete();
+        ime = new ImeView(this);
+        addContentView(ime, new ViewGroup.LayoutParams(1, 1));
+    }
+
+    public void imeStart(boolean multiline) {
+        runOnUiThread(() -> ime.start(multiline));
+    }
+
+    public void imeStop() {
+        runOnUiThread(ime::stop);
+    }
+
+    public void imeShow() {
+        runOnUiThread(ime::show);
+    }
+
+    public void imeApply(int applied, int base, String text, int anchor, int cursor, int start, int end) {
+        runOnUiThread(() -> ime.apply(applied, base, text, anchor, cursor, start, end));
     }
 
     @Override
@@ -130,6 +154,20 @@ public class MainActivity extends GameActivity {
         }
         CharSequence text = clip.getItemAt(0).coerceToText(this);
         return text == null ? null : text.toString();
+    }
+
+    public String updateFile() {
+        File dir = new File(getCacheDir(), "updates");
+        dir.mkdirs();
+        return new File(dir, "Aquilum.apk").getAbsolutePath();
+    }
+
+    public void installApk(String path) {
+        Uri apk = FileProvider.getUriForFile(this, getPackageName() + ".updates", new File(path));
+        Intent intent = new Intent(Intent.ACTION_VIEW)
+                .setDataAndType(apk, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        runOnUiThread(() -> startActivity(intent));
     }
 
     public void openUri(String uri) {

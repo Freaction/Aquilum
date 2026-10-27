@@ -58,9 +58,6 @@ impl App {
     pub(super) fn request_panel(&mut self, root: &mut RenderRoot) {
         self.panel_generation += 1;
         let key = self.tabs.active().path.clone().map(|path| (path, self.panel_mode(), self.panel_method()));
-        if key.as_ref().map(|k| &k.0) != self.panel_key.as_ref().map(|k| &k.0) {
-            self.set_drawer(root, None);
-        }
         let refresh = self.listing.is_some() && key.is_some() && key == self.panel_key && self.panel_visible();
         self.panel_key = key;
         if !refresh {
@@ -124,8 +121,12 @@ impl App {
         if self.compact() {
             self.toggle_drawer(root, crate::interface::Side::Panel);
         } else {
-            self.interface.set_right_open(!self.interface.right_open());
-            self.apply_panels(root);
+            let open = !self.panel_visible();
+            self.interface.set_right_open(open);
+            if open && !self.panel_visible() {
+                self.interface.set_sidebar_open(false);
+            }
+            self.apply_panels(root, true);
         }
         self.request_panel(root);
     }

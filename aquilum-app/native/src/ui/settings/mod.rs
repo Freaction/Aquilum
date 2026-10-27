@@ -4,6 +4,7 @@ pub mod schema;
 mod control;
 mod layout;
 mod panes;
+mod row;
 
 use std::collections::HashMap;
 

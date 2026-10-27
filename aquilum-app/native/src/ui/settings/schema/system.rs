@@ -2,6 +2,7 @@ use super::*;
 use crate::updater::Status;
 
 pub(super) const AUTHOR_URL: &str = "https://t.me/dmitriy_yiu";
+const REPOSITORY_URL: &str = "https://github.com/Freaction/Aquilum";
 
 pub fn update_row(status: &Status) -> Row {
     let description = match status {
@@ -26,9 +27,10 @@ pub fn update_row(status: &Status) -> Row {
 pub(super) fn system(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     let updates = match &ctx.update {
         Some(status) => {
-            let auto = row(t("settings.system.autoUpdate"), Some(t("settings.system.autoUpdateHint")), Control::Switch(config.updates.auto), |c, v| c.updates.auto = flag(v));
-            let manual = (!config.updates.auto || matches!(status, Status::ManualRequired { .. })).then(|| update_row(status));
-            std::iter::once(auto).chain(manual).collect()
+            let asks = crate::updater::ASKS;
+            let auto = (!asks).then(|| row(t("settings.system.autoUpdate"), Some(t("settings.system.autoUpdateHint")), Control::Switch(config.updates.auto), |c, v| c.updates.auto = flag(v)));
+            let manual = (asks || !config.updates.auto || matches!(status, Status::ManualRequired { .. })).then(|| update_row(status));
+            auto.into_iter().chain(manual).collect()
         }
         None => {
             let reason = t(if cfg!(feature = "installed") { "settings.system.updatesByPackage" } else { "settings.system.updatesUnavailable" });
@@ -53,9 +55,9 @@ pub(super) fn system(config: &AppConfig, ctx: &Context) -> Vec<Block> {
                     Control::Buttons(vec![Button::new(AUTHOR_URL.to_owned(), Action::OpenUrl(AUTHOR_URL.to_owned()))]),
                 ),
                 info(
-                    t("settings.system.version"),
+                    t_with("settings.system.version", &[("version", env!("CARGO_PKG_VERSION"))]),
                     Some(t("settings.system.versionHint")),
-                    Control::Status { text: env!("CARGO_PKG_VERSION").to_owned(), tone: Tone::Muted },
+                    Control::Buttons(vec![Button::new(t("settings.system.repository"), Action::OpenUrl(REPOSITORY_URL.to_owned()))]),
                 ),
             ],
         },

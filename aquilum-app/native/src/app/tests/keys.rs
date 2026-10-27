@@ -49,3 +49,20 @@ fn copy_and_paste_go_through_the_system_clipboard() {
         crate::clipboard::copy(text);
     }
 }
+
+#[test]
+fn the_keyboard_does_not_cover_the_caret() {
+    let mut h = super::adaptive::at_width(360.0);
+    h.open(h.write_note("Клавиатура.md", &(0..80).map(|i| format!("Абзац {i}\n\n")).collect::<String>()));
+    let body = h.app.note_ids.as_ref().unwrap().body;
+    h.root.focus_on(Some(body.id()));
+    let low = masonry::kurbo::Point::new(100.0, f64::from(H) - 40.0);
+    let at = body.get(&h.root).map(|w| w.inner().offset_at(w.ctx().window_transform().inverse(), low)).unwrap();
+    body.edit(&mut h.root, |mut editor| crate::ui::editor::TextEditor::select_byte_range(&mut editor, at, at));
+    h.settle();
+    h.app.safe_area_changed(&mut h.root, masonry::kurbo::Insets::new(0.0, 0.0, 0.0, 300.0));
+    h.settle();
+    let w = body.get(&h.root).unwrap();
+    let caret = w.ctx().window_transform().transform_rect_bbox(w.inner().caret_rect());
+    assert!(caret.y0 > 0.0 && caret.y1 <= f64::from(H) - 300.0 + 0.5, "клавиатура закрыла каретку: {caret:?}");
+}

@@ -1,6 +1,4 @@
 use super::*;
-use crate::ui::editor::TextEditor;
-use winit::window::{ImeHint, ImePurpose, ImeSurroundingText};
 
 impl Host {
     pub(super) fn handle_signals(&mut self, event_loop: &dyn ActiveEventLoop) {
@@ -16,41 +14,9 @@ impl Host {
                         self.vsync.request();
                     }
                 }
-                RenderRootSignal::StartIme => {
-                    if !self.ime_enabled {
-                        let editor = self.root.as_ref().and_then(focused_editor);
-                        let text = surrounding(editor);
-                        let data = ImeRequestData::default()
-                            .with_cursor_area(Position::Logical((0.0, 0.0).into()), Size::Logical((1.0, 1.0).into()))
-                            .with_hint_and_purpose(hint(editor), ImePurpose::Normal)
-                            .with_surrounding_text(text.clone());
-                        let capabilities =
-                            ImeCapabilities::new().with_cursor_area().with_hint_and_purpose().with_surrounding_text();
-                        let request = ImeEnableRequest::new(capabilities, data)
-                            .expect("запрос IME: возможности и данные согласованы");
-                        self.ime_enabled = window.request_ime_update(ImeRequest::Enable(request)).is_ok();
-                        self.ime_text = self.ime_enabled.then_some(text);
-                    }
-                }
-                RenderRootSignal::EndIme => {
-                    let _ = window.request_ime_update(ImeRequest::Disable);
-                    self.ime_enabled = false;
-                    self.ime_area = None;
-                    self.ime_text = None;
-                }
-                RenderRootSignal::ImeMoved(position, size) => {
-                    if self.ime_enabled && self.ime_area != Some((position, size)) {
-                        self.ime_area = Some((position, size));
-                        // Логические пиксели Masonry включают масштаб интерфейса, а winit ждёт
-                        // логические пиксели окна.
-                        let k = self.app.scale();
-                        let position = LogicalPosition::new(position.x * k, position.y * k);
-                        let size = LogicalSize::new(size.width * k, size.height * k);
-                        let data = ImeRequestData::default()
-                            .with_cursor_area(Position::Logical(position), Size::Logical(size));
-                        let _ = window.request_ime_update(ImeRequest::Update(data));
-                    }
-                }
+                RenderRootSignal::StartIme => self.ime_start(&*window),
+                RenderRootSignal::EndIme => self.ime_end(&*window),
+                RenderRootSignal::ImeMoved(position, size) => self.ime_moved(&*window, position, size),
                 RenderRootSignal::ClipboardStore(text) => {
                     crate::clipboard::copy(text);
                 }
@@ -112,34 +78,5 @@ impl Host {
         if !self.signals.borrow().is_empty() {
             self.handle_signals(event_loop);
         }
-    }
-
-    fn sync_ime_text(&mut self, window: &dyn Window) {
-        if !self.ime_enabled {
-            return;
-        }
-        let text = surrounding(self.root.as_ref().and_then(focused_editor));
-        if self.ime_text.as_ref() == Some(&text) {
-            return;
-        }
-        let _ = window.request_ime_update(ImeRequest::Update(ImeRequestData::default().with_surrounding_text(text.clone())));
-        self.ime_text = Some(text);
-    }
-}
-
-fn focused_editor(root: &RenderRoot) -> Option<&TextEditor> {
-    Some(root.get_widget(root.focused_widget()?)?.downcast::<TextEditor>()?.inner())
-}
-
-fn surrounding(editor: Option<&TextEditor>) -> ImeSurroundingText {
-    let (text, cursor, anchor) = editor.map(TextEditor::surrounding).unwrap_or_default();
-    ImeSurroundingText::new(text, cursor, anchor).expect("выдержка редактора короче 4000 байт и на границах символов")
-}
-
-fn hint(editor: Option<&TextEditor>) -> ImeHint {
-    if editor.is_some_and(TextEditor::multiline) {
-        ImeHint::MULTILINE | ImeHint::AUTO_CAPITALIZATION | ImeHint::SPELLCHECK | ImeHint::COMPLETION
-    } else {
-        ImeHint::COMPLETION
     }
 }

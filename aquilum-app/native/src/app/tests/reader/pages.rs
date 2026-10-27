@@ -120,3 +120,22 @@ fn reader_settings_inputs_keep_popover_open() {
     assert!(!open(&h), "щелчок по книге не закрыл настройки");
     assert!(h.reader());
 }
+
+#[test]
+fn a_long_swipe_turns_one_page() {
+    let mut h = Harness::new();
+    let (file, page) = book_note(&h, "");
+    open_book(&mut h, &file, Some(&page), "Книга");
+    for _ in 0..30 {
+        h.scroll((500.0, 300.0), 1.0, (0.0, -40.0));
+    }
+    let _ = h.root.redraw();
+    h.deliver();
+    let moved = std::fs::read_to_string(&page).unwrap();
+    assert!(!moved.contains("pages: 0/"), "свайп не перелистнул: {moved}");
+    h.key(Key::Named(NamedKey::ArrowLeft), Modifiers::empty());
+    let _ = h.root.redraw();
+    h.deliver();
+    let back = std::fs::read_to_string(&page).unwrap();
+    assert!(back.contains("pages: 0/"), "свайп с инерцией перелистнул больше одной страницы: {moved}");
+}

@@ -71,12 +71,8 @@
 //!    event loop (as shown above).
 #![warn(clippy::exhaustive_enums)]
 
-#[cfg(any(target_os = "android", test))]
-mod bridge;
 #[cfg(target_os = "android")]
 mod event_loop;
-#[cfg(target_os = "android")]
-mod ime;
 #[cfg(target_os = "android")]
 mod keycodes;
 

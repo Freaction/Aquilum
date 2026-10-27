@@ -4,7 +4,7 @@ use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
 use masonry::layout::Length;
 use masonry::properties::Gap;
 use masonry::properties::types::CrossAxisAlignment;
-use masonry::widgets::{Flex, SizedBox};
+use masonry::widgets::{Flex, FlexBasis, FlexParams, SizedBox};
 
 use super::Binding;
 use super::controls::{DropdownButton, InputBox, Segmented, Swatch, Switch};
@@ -87,23 +87,25 @@ fn color_input(bindings: &mut HashMap<WidgetId, Binding>, setter: Option<schema:
 fn buttons_row(buttons: &[schema::Button], indicator: Option<Indicator>, bindings: &mut HashMap<WidgetId, Binding>) -> NewWidget<dyn Widget> {
     let mut flex = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center);
     for button in buttons {
-        let widget = match button.icon {
+        let (widget, grow) = match button.icon {
             Some(icon) => {
                 let icon = match icon {
                     ButtonIcon::Folder => icons::FOLDER,
                     ButtonIcon::Trash => icons::TRASH,
                     ButtonIcon::Upload => icons::UPLOAD,
+                    ButtonIcon::Copy => icons::COPY,
+                    ButtonIcon::Copied => icons::CHECK,
                 };
-                NewWidget::new(IconButton::new(icon, &button.label)).disabled(!button.enabled).erased()
+                (NewWidget::new(IconButton::new(icon, &button.label)).disabled(!button.enabled).erased(), 0.0)
             }
             None => {
                 let text = TextButton::new(&button.label, Variant::Secondary);
                 let text = if matches!(button.action, Action::OpenUrl(_)) { text.icon_after(icons::ARROW_UP_RIGHT) } else { text };
-                NewWidget::new(text).disabled(!button.enabled).erased()
+                (NewWidget::new(text).disabled(!button.enabled).erased(), 1.0)
             }
         };
         bindings.insert(widget.id(), Binding::Button(button.action.clone()));
-        flex = flex.with_fixed(widget);
+        flex = flex.with(widget, FlexParams::new(grow, FlexBasis::Auto, None));
     }
     if let Some(indicator) = indicator {
         let (icon, color): (_, fn() -> masonry::peniko::Color) = match indicator {

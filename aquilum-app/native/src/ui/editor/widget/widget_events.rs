@@ -1,4 +1,4 @@
-use masonry::core::{EventCtx, Ime, PointerButtonEvent, PointerEvent, PointerUpdate, PropertiesMut, TextEvent, UpdateCtx};
+use masonry::core::{EventCtx, Ime, PointerButtonEvent, PointerEvent, PointerType, PointerUpdate, PropertiesMut, TextEvent, UpdateCtx};
 use crate::ui::keymap::pointer;
 use super::Kind;
 use super::paste;
@@ -59,15 +59,22 @@ impl TextEditor {
     }
 
     pub(super) fn do_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
-        if self.compose.is_some() || !self.laid_out() {
+        if !self.laid_out() {
             return;
         }
+        if self.compose.is_some() {
+            let PointerEvent::Down(PointerButtonEvent { pointer: device, .. }) = event else { return };
+            if device.pointer_type != PointerType::Touch {
+                return;
+            }
+            self.finish_compose(ctx);
+        }
         match event {
-            PointerEvent::Down(PointerButtonEvent { button, state, .. }) if pointer::press(*button) => {
+            PointerEvent::Down(PointerButtonEvent { button, state, pointer: device }) if pointer::press(*button) => {
                 self.close_suggest();
                 let point = ctx.local_position(state.position);
                 let new_tab = pointer::new_tab(state.modifiers);
-                if self.table_press(ctx, point, crate::ui::keymap::extend(state.modifiers), new_tab, state.count)
+                if self.table_press(ctx, point, crate::ui::keymap::extend(state.modifiers), new_tab, state.count, pointer::grip(device.pointer_type))
                     || self.media_press(ctx, point, state.count)
                     || self.code_press(ctx, point)
                     || self.card_click(ctx, point, new_tab)
@@ -90,12 +97,13 @@ impl TextEditor {
                 self.restart_blink(ctx);
                 self.refresh(ctx);
             }
-            PointerEvent::Move(PointerUpdate { current, .. }) => {
+            PointerEvent::Move(PointerUpdate { current, pointer: device, .. }) => {
                 let point = ctx.local_position(current.position);
                 self.hover_text(ctx, point);
-                if self.media_move(ctx, point) || self.table_move(ctx, point) || self.code_drag(ctx, point) || !ctx.is_active() || self.table_active() {
+                if self.media_move(ctx, point) || self.table_move(ctx, point, pointer::grip(device.pointer_type)) || self.code_drag(ctx, point) || !ctx.is_active() || self.table_active() {
                     return;
                 }
+                self.drag_at = Some(ctx.window_transform() * point);
                 self.drag_select(point);
                 self.refresh(ctx);
             }
@@ -112,6 +120,7 @@ impl TextEditor {
                 }
             }
             PointerEvent::Up(_) => {
+                self.drag_at = None;
                 self.media_release(ctx);
                 self.table_release(ctx);
                 self.code_release();
@@ -129,7 +138,7 @@ impl TextEditor {
                 let point = ctx.local_position(scroll.state.position);
                 let d = crate::ui::scroll::pixels(&scroll.delta, ctx.scale_factor(), ctx.content_box().width());
                 let dx = crate::ui::scroll::sideways(d, pointer::sideways(scroll.state.modifiers));
-                if dx != 0.0 && (self.table_scroll(ctx, point, -dx) || self.code_scroll(ctx, point, -dx)) {
+                if dx != 0.0 && (self.table_scroll(ctx, point, -dx) || self.code_scroll(ctx, point, -dx) || self.card_scroll(ctx, point, -dx)) {
                     ctx.set_handled();
                 }
             }
@@ -155,10 +164,12 @@ impl TextEditor {
             TextEvent::ClipboardPaste(text) => {
                 let text = aquilum_core::files::document::normalize_line_endings(text.clone());
                 let separated = paste::separate_pasted_frontmatter(&text);
-                if !self.paste_link(ctx.widget_id(), &separated) {
-                    self.insert(&separated, Kind::Other);
+                let pasted = self.pasted_items(&separated).map_or(separated, std::borrow::Cow::Owned);
+                if !self.paste_link(ctx.widget_id(), &pasted) {
+                    self.insert(&pasted, Kind::Other);
                 }
                 ctx.set_handled();
+                self.follow_caret = true;
                 self.changed(ctx);
             }
             TextEvent::WindowFocusChange(_) => ctx.request_render(),

@@ -74,10 +74,7 @@ pub enum Wipe {
 
 impl Wipe {
     pub fn key(self, name: &str) -> String {
-        let section = match self {
-            Wipe::History => "history",
-            Wipe::Trash => "trash",
-        };
+        let section = if self == Wipe::History { "history" } else { "trash" };
         format!("settings.{section}.{name}")
     }
 }
@@ -95,6 +92,8 @@ pub enum ButtonIcon {
     Folder,
     Trash,
     Upload,
+    Copy,
+    Copied,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

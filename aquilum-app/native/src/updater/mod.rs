@@ -38,8 +38,10 @@ pub struct Updater {
     wake: Arc<dyn Fn() + Send + Sync>,
 }
 
+pub const ASKS: bool = cfg!(target_os = "android");
+
 pub fn available() -> bool {
-    cfg!(feature = "installed") && apply::supported()
+    (cfg!(feature = "installed") || ASKS) && apply::supported()
 }
 
 impl Updater {
@@ -125,6 +127,16 @@ impl Updater {
 
     pub fn fail(&self, error: String) {
         self.set(Status::Failed(error));
+    }
+
+    #[cfg(test)]
+    pub fn offer(&self, version: &str) {
+        self.set(Status::Available(version.to_owned()));
+    }
+
+    pub fn handed_off(&self) {
+        Attempt::clear(&self.data_dir);
+        self.set(Status::Idle);
     }
 
     pub fn take_ready(&self) -> Option<(String, String, Vec<u8>)> {
