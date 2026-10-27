@@ -17,6 +17,12 @@ android {
         versionCode = appVersion.split('.').fold(0) { code, part -> code * 100 + part.toInt() }
     }
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
