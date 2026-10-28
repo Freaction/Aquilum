@@ -1,5 +1,5 @@
 use super::*;
-use crate::app::workspaces::cloud::CloudEvent;
+use crate::app::book::Picked;
 use crate::i18n::{t, t_with};
 use crate::ui::widgets::{Label, Pressed};
 use aquilum_core::search::paths::same_path;
@@ -26,7 +26,7 @@ fn texts(widget: WidgetRef<'_, dyn Widget>) -> Vec<String> {
 }
 
 fn cloud_texts(h: &Harness) -> Vec<String> {
-    let slot = state(h).dialog().cloud.expect("раздел «В облаке» не показан");
+    let slot = state(h).dialog.cloud.expect("раздел «В облаке» не показан");
     texts(h.root.get_widget(slot.id()).unwrap())
 }
 
@@ -40,8 +40,8 @@ fn without_dropbox_the_dialog_has_no_cloud_section() {
     let mut h = Harness::new();
     open_workspaces(&mut h);
 
-    assert!(state(&h).dialog().cloud.is_none());
-    assert!(state(&h).cloud_events().is_none());
+    assert!(state(&h).dialog.cloud.is_none());
+    assert!(state(&h).cloud_listed().is_none());
 }
 
 #[test]
@@ -61,8 +61,8 @@ fn a_vault_from_the_cloud_is_created_opened_and_synced() {
     });
     assert!(shown, "ошибка списка не показана: {:?}", cloud_texts(&h));
 
-    let events = state(&h).cloud_events().unwrap();
-    events.send(CloudEvent::Listed(Ok(vec!["Aquilum".into(), "neuroNET".into(), "Работа".into()]))).unwrap();
+    let listed = state(&h).cloud_listed().unwrap();
+    listed.send(Ok(vec!["Aquilum".into(), "neuroNET".into(), "Работа".into()])).unwrap();
     h.app.on_core_events(&mut h.root);
 
     let names: Vec<String> = state(&h).cloud_rows().into_iter().map(|(_, name)| name).collect();
@@ -71,7 +71,7 @@ fn a_vault_from_the_cloud_is_created_opened_and_synced() {
     h.anim(std::time::Duration::from_millis(300));
     h.snapshot("cloud-vaults.png");
     let target = places.path().join("Работа");
-    events.send(CloudEvent::Chosen(target.clone())).unwrap();
+    h.app.picked_tx.send(Picked::CloudVault(target.clone())).unwrap();
     assert!(h.app.on_core_events(&mut h.root));
 
     assert!(target.is_dir());

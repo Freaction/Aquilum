@@ -8,7 +8,7 @@ use masonry::kurbo::{Axis, Point, Rect, RoundedRect, Size, Stroke, Vec2};
 use masonry::peniko::Color;
 use masonry::layout::{LenReq, Length};
 
-use crate::ui::icons::{self, Icon};
+use crate::ui::icons::Icon;
 use crate::ui::theme;
 use crate::ui::tokens::size;
 use crate::ui::widgets::{Press, Pressed};
@@ -157,8 +157,4 @@ pub fn paint_icon(painter: &mut Painter<'_>, bounds: Rect, icon: Icon, hovered: 
     let t = theme::current();
     let color = tint.unwrap_or(if hovered { t.icon_button_icon_hover } else { t.icon_button_icon });
     paint_glyph(painter, bounds, icon, hovered.then(|| t.icon_button_bg_hover.multiply_alpha(alpha)), color.multiply_alpha(alpha), size::SIZE_16, 1.6);
-}
-
-pub fn paint_close(painter: &mut Painter<'_>, rect: Rect, hovered: bool, alpha: f32) {
-    paint_icon(painter, rect, icons::X, hovered, alpha, None);
 }

@@ -36,6 +36,7 @@ impl TextEditor {
             single_line: false,
             wraps: false,
             centered: false,
+            renaming: false,
             scroll_x: 0.0,
             focused: false,
             table: None,
@@ -72,6 +73,11 @@ impl TextEditor {
 
     pub fn centered(mut self) -> Self {
         self.centered = true;
+        self
+    }
+
+    pub fn renaming(mut self) -> Self {
+        self.renaming = true;
         self
     }
 

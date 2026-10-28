@@ -82,8 +82,13 @@ impl App {
                 self.open_workspaces(root);
                 return Outcome::default();
             }
-            if id == chrome.open_vault {
-                return self.pick_workspace(root);
+            if id == chrome.vault_buttons.create {
+                self.create_vault();
+                return Outcome::default();
+            }
+            if Some(id) == chrome.vault_buttons.open {
+                self.pick_workspace();
+                return Outcome::default();
             }
         }
         let title = self.on_main_action(root, id, &action, window);
@@ -140,7 +145,7 @@ impl App {
             Some(TreeAction::CreateNote) => return self.create_note_titled(root, None),
             Some(TreeAction::NewNote { folder }) => return self.create_note_in(root, &folder),
             Some(TreeAction::NewFolder { folder }) => {
-                match file_ops::create_folder(&folder) {
+                match file_ops::create_folder(&folder, file_ops::UNTITLED_NOTE, 0) {
                     Ok(path) => {
                         self.tree.paths_changed(root, std::slice::from_ref(&path));
                         self.tree.reveal(root, &path);

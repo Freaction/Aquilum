@@ -8,7 +8,7 @@ use super::model::Modifiers;
 use super::pinned::Unpin;
 use super::row::RowAction;
 use super::{FileTree, Press, TreeAction};
-use crate::ui::editor::{TextAction, TextEditor};
+use crate::ui::editor::TextAction;
 use crate::ui::scroll::Scrolled;
 use crate::ui::widgets::Pressed;
 
@@ -117,12 +117,9 @@ impl FileTree {
         self.model.start_rename(path);
         self.rename = None;
         self.refresh(root);
-        let Some(field) = self.rename else { return };
-        field.edit(root, |mut field| {
-            let len = field.widget.len();
-            TextEditor::select_byte_range(&mut field, 0, len);
-        });
-        root.focus_on(Some(field.id()));
+        if let Some(field) = self.rename {
+            field.focus_all(root);
+        }
     }
 
     fn commit_rename(&mut self, root: &mut RenderRoot, input: &str) -> Option<TreeAction> {

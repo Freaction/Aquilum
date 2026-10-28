@@ -74,7 +74,7 @@ impl App {
         }
     }
 
-    fn show_settings(&mut self, root: &mut RenderRoot, section: Section) {
+    pub(in crate::app) fn show_settings(&mut self, root: &mut RenderRoot, section: Section) {
         let config = self.workspace.core.settings.get_config();
         let ctx = self.settings_context(None, 0);
         let (layer, dialog) = settings::dialog(&config, &ctx, section);

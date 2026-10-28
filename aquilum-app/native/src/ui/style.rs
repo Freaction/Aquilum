@@ -55,6 +55,7 @@ pub const GRAPH_PANEL: &str = "graph-panel";
 pub const FIELD: &str = "field";
 pub const SIDEBAR_FIELD: &str = "sidebar-field";
 pub const TAB_FIELD: &str = "tab-field";
+pub const WORKSPACE_FIELD: &str = "workspace-field";
 pub const EDITOR_TEXT: &str = "editor-text";
 
 fn surfaces(t: &Theme) -> [(&'static str, Color, Option<Color>); 9] {
@@ -71,11 +72,12 @@ fn surfaces(t: &Theme) -> [(&'static str, Color, Option<Color>); 9] {
     ]
 }
 
-fn fields(t: &Theme) -> [(&'static str, Color, Color); 4] {
+fn fields(t: &Theme) -> [(&'static str, Color, Color); 5] {
     [
         (FIELD, t.text_primary, t.text_primary),
         (SIDEBAR_FIELD, t.sidebar_text, t.text_primary),
         (TAB_FIELD, t.tab_text_active, t.text_primary),
+        (WORKSPACE_FIELD, t.text_secondary, t.text_primary),
         (EDITOR_TEXT, t.editor_text, t.editor_text),
     ]
 }

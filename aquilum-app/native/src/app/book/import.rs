@@ -11,6 +11,8 @@ use crate::vault_files::{self, Source};
 #[derive(Debug)]
 pub(in crate::app) enum Picked {
     Workspace(PathBuf),
+    NewVault(Result<PathBuf, String>),
+    CloudVault(PathBuf),
     PageCover(PathBuf, PathBuf),
     BookCover(PathBuf, PathBuf),
     Book(PathBuf, Option<PathBuf>),
@@ -43,11 +45,15 @@ impl App {
         }
         let Some(note) = self.note.as_ref().map(|n| n.path.clone()) else { return };
         self.set_book_busy(root, true);
-        let sender = self.picked_tx.clone();
-        let wake = Arc::clone(&self.workspace.wake);
+        self.pick(move || Some(Picked::Book(note, crate::native_dialog::pick_file("Books", &BOOK_EXTENSIONS))));
+    }
+
+    pub(in crate::app) fn pick(&self, choose: impl FnOnce() -> Option<Picked> + Send + 'static) {
+        let (sender, wake) = (self.picked_tx.clone(), Arc::clone(&self.workspace.wake));
         std::thread::spawn(move || {
-            let picked = crate::native_dialog::pick_file("Books", &BOOK_EXTENSIONS);
-            if sender.send(Picked::Book(note, picked)).is_ok() {
+            if let Some(picked) = choose()
+                && sender.send(picked).is_ok()
+            {
                 wake();
             }
         });
@@ -73,16 +79,9 @@ impl App {
 
     pub(super) fn pick_image(&self, page_cover: bool) {
         let Some(note) = self.note.as_ref().map(|n| n.path.clone()) else { return };
-        let sender = self.picked_tx.clone();
-        let wake = Arc::clone(&self.workspace.wake);
-        std::thread::spawn(move || {
-            let picked = crate::native_dialog::pick_file("Images", &crate::images::EXTENSIONS);
-            if let Some(file) = picked {
-                let message = if page_cover { Picked::PageCover(note, file) } else { Picked::BookCover(note, file) };
-                if sender.send(message).is_ok() {
-                    wake();
-                }
-            }
+        self.pick(move || {
+            let file = crate::native_dialog::pick_file("Images", &crate::images::EXTENSIONS)?;
+            Some(if page_cover { Picked::PageCover(note, file) } else { Picked::BookCover(note, file) })
         });
     }
 
@@ -90,6 +89,8 @@ impl App {
         let current = |note: &PathBuf| self.shows(note);
         match picked {
             Picked::Workspace(path) => return self.switch_workspace(root, path).title,
+            Picked::NewVault(made) => return self.vault_made(root, made),
+            Picked::CloudVault(path) => return self.join_cloud(root, path).title,
             Picked::PageCover(note, file) if current(&note) => {
                 if let Some(relative) = self.import_cover(Source::Path(&file)) {
                     self.set_fields(root, &[(COVER, "true".into()), (PAGE_COVER, relative), (PAGE_COVER_POSITION, String::new())]);

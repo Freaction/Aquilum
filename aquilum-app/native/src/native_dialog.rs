@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+pub const PICKS_FOLDERS: bool = !cfg!(target_os = "android");
+
 #[cfg(not(target_os = "android"))]
 mod imp {
     use super::*;

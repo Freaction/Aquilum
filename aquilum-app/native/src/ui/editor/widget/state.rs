@@ -20,6 +20,7 @@ pub struct TextEditor {
     pub(super) single_line: bool,
     pub(super) wraps: bool,
     pub(super) centered: bool,
+    pub(super) renaming: bool,
     pub(super) scroll_x: f64,
     pub(super) focused: bool,
     pub(super) table: Option<crate::ui::editor::table::Session>,

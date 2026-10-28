@@ -7,11 +7,13 @@ mod history;
 mod markdown;
 pub mod resolve;
 mod table;
+mod rename;
 mod widget;
 
 #[cfg(test)]
 mod tests;
 
+pub use rename::rename_editor;
 pub use table::Command as TableCommand;
 pub use embed::media::media_line;
 pub use widget::{Search, Smart, Status, TextEditor};

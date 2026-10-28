@@ -6,7 +6,7 @@ use masonry::widgets::Flex;
 
 use super::{heading_label, heading_row, muted, notice};
 use crate::i18n::t;
-use crate::ui::editor::TextEditor;
+use crate::ui::editor::{TextEditor, rename_editor};
 use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::style;
@@ -28,7 +28,7 @@ pub struct HistoryBody {
 }
 
 fn rename_field(name: &str) -> (NewWidget<Flex>, Handle<TextEditor>) {
-    let field = NewWidget::new(TextEditor::single_line(name).styled(|| style::ui_text(size::SIZE_20 as f32))).with_class(style::FIELD);
+    let field = rename_editor(name, style::FIELD);
     let handle = Handle::of(&field);
     let row = NewWidget::new(Flex::row().with(field, 1.0)).with_props(
         PropertySet::new()

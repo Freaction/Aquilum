@@ -71,6 +71,18 @@ fn forgetting_a_workspace_removes_it_from_the_list() {
 }
 
 #[test]
+fn a_moved_workspace_keeps_its_id_and_replaces_a_stale_entry() {
+    let (mut database, workspace_id, _document_id, _epoch) = setup();
+    database.resolve_workspace("C:/renamed", 5).expect("stale");
+
+    database.move_workspace(workspace_id, "C:/renamed").expect("move");
+
+    let known = database.list_workspaces().expect("workspaces");
+    assert_eq!(known.iter().map(|w| (w.id, w.path.as_str())).collect::<Vec<_>>(), [(workspace_id, "C:/renamed")]);
+    assert_eq!(database.resolve_workspace("C:/renamed", 9).expect("resolve"), workspace_id);
+}
+
+#[test]
 fn listed_paths_drop_the_windows_verbatim_prefix() {
     use super::paths::display_workspace;
 

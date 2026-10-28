@@ -129,6 +129,9 @@ impl TextEditor {
                     return;
                 }
                 ctx.submit_action::<TextAction>(TextAction::Cancelled);
+                if self.renaming {
+                    ctx.set_handled();
+                }
                 if self.single_line {
                     self.close_suggest();
                     return;

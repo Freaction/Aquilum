@@ -82,6 +82,11 @@ impl UiStateService {
         self.with_database(|database| database.forget_workspace(workspace_id))
     }
 
+    pub fn move_workspace(&self, workspace_id: Uuid, path: &Path) -> Result<(), UiStateError> {
+        let path = canonical_path(path);
+        self.with_database(|database| database.move_workspace(workspace_id, &path.to_string_lossy()))
+    }
+
     pub fn resolve_workspace(&self, path: &str, now_ms: i64) -> Result<Uuid, UiStateError> {
         let path = canonical_path(Path::new(path));
         self.with_database(|database| database.resolve_workspace(&path.to_string_lossy(), now_ms))

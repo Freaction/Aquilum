@@ -33,7 +33,7 @@ pub struct Chrome {
     pub open_file: WidgetId,
     pub close_tab: WidgetId,
     pub workspaces: WidgetId,
-    pub open_vault: WidgetId,
+    pub vault_buttons: workspaces::Buttons,
     pub sidebar: Handle<Collapse>,
     pub sidebar_sash: WidgetId,
     pub note_page: Handle<Slot>,
@@ -98,7 +98,7 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
     let (empty, create_note, open_file, close_tab) = new_tab_view();
     let version_page = Slot::new(NewWidget::new(Flex::column()).erased());
     let version_handle = Handle::of(&version_page);
-    let (no_vault, open_vault) = workspaces::no_vault(vault_error);
+    let (no_vault, vault_buttons) = workspaces::no_vault(vault_error);
     let active = if !vault_open {
         3
     } else if graph_active {
@@ -139,7 +139,7 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
         open_file,
         close_tab,
         workspaces: sidebar.workspaces,
-        open_vault,
+        vault_buttons,
         sidebar: sidebar.handle,
         sidebar_sash: sidebar.sash,
         note_page: note_handle,

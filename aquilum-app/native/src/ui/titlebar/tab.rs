@@ -139,7 +139,7 @@ impl Widget for TabButton {
         render_text(painter, Affine::translate(origin.to_vec2()), layout, &[color.into()], true);
 
         if self.close_visible(hovered) {
-            crate::ui::widgets::paint_close(painter, self.close_rect(bounds), self.close_hovered, 1.0);
+            crate::ui::widgets::paint_icon(painter, self.close_rect(bounds), crate::ui::icons::X, self.close_hovered, 1.0, None);
         }
     }
 

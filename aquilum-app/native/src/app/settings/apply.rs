@@ -116,13 +116,7 @@ impl App {
             }
             Setter::VaultSync(set) => {
                 let Some(root) = self.tree.root().map(Path::to_path_buf) else { return Effect::None };
-                let core = &self.workspace.core;
-                let mut sync = core.ui_state.workspace(&root).map(|known| known.sync).unwrap_or_default();
-                set(&mut sync, &value);
-                if let Err(error) = core.ui_state.set_sync(&root.to_string_lossy(), &sync) {
-                    report!("настройки синхронизации базы не сохранены: {error:?}");
-                }
-                self.bind_sync();
+                self.update_sync(&root, |sync| set(sync, &value));
                 Effect::Content
             }
             Setter::Config(set) => {

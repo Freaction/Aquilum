@@ -22,7 +22,7 @@ impl Popup {
                 None => dialog(settings.layer),
             },
             Popup::Confirm(ids, _) => dialog(ids.layer),
-            Popup::Workspaces(state) => dialog(state.forget.as_ref().map_or(state.dialog.layer, |(confirm, _)| confirm.layer)),
+            Popup::Workspaces(state) => state.cancel(),
             Popup::Search(state) => dialog(state.layer),
             Popup::Templates(state) => dialog(state.layer),
             Popup::Reader(state) => (state.layer, Box::new(ReaderAction::Close)),

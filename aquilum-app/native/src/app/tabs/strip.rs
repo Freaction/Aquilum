@@ -6,7 +6,6 @@ use masonry::core::{NewWidget, Widget, WidgetId};
 use super::super::App;
 use crate::file_ops;
 use crate::i18n::t;
-use crate::ui::editor::TextEditor;
 use crate::ui::titlebar::{TabButton, TabRename, TabStrip};
 
 impl App {
@@ -38,11 +37,7 @@ impl App {
             chrome.tab_strip.edit(root, |mut strip| TabStrip::set_tabs(&mut strip, widgets, active));
         }
         if let Some(field) = self.rename_field {
-            field.edit(root, |mut field| {
-                let len = field.widget.len();
-                TextEditor::select_byte_range(&mut field, 0, len);
-            });
-            root.focus_on(Some(field.id()));
+            field.focus_all(root);
         }
     }
 

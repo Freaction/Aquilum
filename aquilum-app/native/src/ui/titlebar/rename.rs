@@ -8,7 +8,7 @@ pub struct TabRename {
 
 impl TabRename {
     pub fn new(title: &str) -> (NewWidget<Self>, Handle<TextEditor>) {
-        let field = NewWidget::new(TextEditor::single_line(title).styled(crate::ui::style::tab_text)).with_class(crate::ui::style::TAB_FIELD);
+        let field = NewWidget::new(TextEditor::single_line(title).renaming().styled(crate::ui::style::tab_text)).with_class(crate::ui::style::TAB_FIELD);
         let handle = Handle::of(&field);
         (NewWidget::new(TabRename { title: title.to_owned(), line: text::Line::default(), field: field.to_pod() }), handle)
     }

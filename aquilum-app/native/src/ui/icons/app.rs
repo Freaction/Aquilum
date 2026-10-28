@@ -42,6 +42,11 @@ pub const PLUG: Icon = Icon::lucide(&[
     Shape::Path("M9 8V2"),
 ]);
 pub const CLOUD: Icon = Icon::lucide(&[Shape::Path("M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z")]);
+pub const CLOUD_OFF: Icon = Icon::lucide(&[
+    Shape::Path("m2 2 20 20"),
+    Shape::Path("M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"),
+    Shape::Path("M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"),
+]);
 pub const REFRESH_CW: Icon = Icon::lucide(&[
     Shape::Path("M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"),
     Shape::Path("M21 3v5h-5"),

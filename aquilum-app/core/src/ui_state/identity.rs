@@ -71,6 +71,14 @@ impl UiStateDatabase {
         Ok(())
     }
 
+    pub fn move_workspace(&mut self, workspace_id: Uuid, path: &str) -> Result<(), UiStateError> {
+        if let Some(stale) = self.find_workspace(path)?.filter(|id| *id != workspace_id) {
+            self.forget_workspace(stale)?;
+        }
+        self.connection.execute("UPDATE workspaces SET path = ?2 WHERE id = ?1", params![workspace_id.to_string(), path])?;
+        Ok(())
+    }
+
     pub fn resolve_workspace(&mut self, path: &str, now_ms: i64) -> Result<Uuid, UiStateError> {
         let id = self.find_workspace(path)?.unwrap_or_else(Uuid::new_v4);
         self.connection.execute(

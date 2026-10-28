@@ -8,7 +8,7 @@ use aquilum_core::files::gate;
 use aquilum_core::history::Source;
 use aquilum_core::search::paths::is_markdown;
 
-const UNTITLED_NOTE: &str = "Без названия";
+pub const UNTITLED_NOTE: &str = "Без названия";
 
 fn numbered(path: &Path, index: usize) -> PathBuf {
     if index == 0 {
@@ -33,8 +33,12 @@ fn background(core: &Arc<Core>, targets: Vec<PathBuf>, failure: &'static str, op
     });
 }
 
+pub fn duplicate(core: &Core, path: &Path) -> Result<PathBuf, FileCommandError> {
+    first_free(|i| numbered(path, i + 1), |copy| gate::copy(core, path, copy))
+}
+
 pub fn duplicate_all(core: &Arc<Core>, targets: Vec<PathBuf>) {
-    background(core, targets, "не продублирован", |core, path| first_free(|i| numbered(path, i + 1), |copy| gate::copy(core, path, copy)).map(drop));
+    background(core, targets, "не продублирован", |core, path| duplicate(core, path).map(drop));
 }
 
 pub fn sanitize_file_name(value: &str) -> String {
@@ -58,13 +62,13 @@ pub fn title_target(from: &Path, input: &str) -> Option<(PathBuf, String)> {
         return rename_target(from, input);
     }
     let extension = from.extension()?.to_string_lossy().into_owned();
-    rename_target(from, &format!("{}.{extension}", sanitize_file_name(input.trim())))
+    rename_target(from, &format!("{}.{extension}", sanitize_file_name(input)))
 }
 
 pub fn rename_target(from: &Path, input: &str) -> Option<(PathBuf, String)> {
     let note = is_markdown(from);
     let current = if note { from.file_stem() } else { from.file_name() }.map(|n| n.to_string_lossy().into_owned());
-    let name = if note { sanitize_file_name(input.trim()) } else { input.trim().to_owned() };
+    let name = sanitize_file_name(input);
     if name.is_empty() || Some(&name) == current.as_ref() {
         return None;
     }
@@ -94,12 +98,16 @@ pub fn create_note(core: &Core, folder: &Path, title: Option<&str>) -> Result<Pa
     std::fs::create_dir_all(folder)?;
     let sanitized = title.map(sanitize_file_name).filter(|t| !t.is_empty());
     let base = sanitized.as_deref().unwrap_or(UNTITLED_NOTE);
-    first_free(|i| folder.join(if i == 0 { format!("{base}.md") } else { format!("{base} {i}.md") }), |path| gate::create(core, path, &"", Source::Me, None))
+    first_free(|i| folder.join(format!("{}.md", counted(base, i))), |path| gate::create(core, path, &"", Source::Me, None))
 }
 
-pub fn create_folder(parent: &Path) -> Result<PathBuf, FileCommandError> {
+fn counted(base: &str, index: usize) -> String {
+    if index == 0 { base.to_owned() } else { format!("{base} {index}") }
+}
+
+pub fn create_folder(parent: &Path, base: &str, first: usize) -> Result<PathBuf, FileCommandError> {
     first_free(
-        |i| parent.join(if i == 0 { UNTITLED_NOTE.to_owned() } else { format!("{UNTITLED_NOTE} {i}") }),
+        |i| parent.join(counted(base, i + first)),
         |path| match std::fs::create_dir(path) {
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Err(FileCommandError::AlreadyExists { path: path.to_string_lossy().into_owned() }),
             result => result.map_err(FileCommandError::from),
@@ -123,6 +131,22 @@ mod tests {
         assert_eq!(sanitize_file_name("com0"), "com0");
         assert_eq!(sanitize_file_name("ёё"), "ёё");
         assert_eq!(sanitize_file_name("a\tb"), "a b");
+    }
+
+    #[test]
+    fn new_folders_are_numbered_from_the_requested_index() {
+        let parent = crate::test_dir::tempdir();
+        let made = |base: &str, first| create_folder(parent.path(), base, first).unwrap().file_name().unwrap().to_string_lossy().into_owned();
+        assert_eq!([made("База знаний", 1), made("База знаний", 1), made("База знаний", 0)], ["База знаний 1", "База знаний 2", "База знаний"]);
+        std::fs::create_dir(parent.path().join("папка 1")).unwrap();
+        assert_eq!(made("Папка", 1), if cfg!(any(windows, target_os = "macos")) { "Папка 2" } else { "Папка 1" });
+    }
+
+    #[test]
+    fn folder_renames_drop_path_separators() {
+        let (to, name) = rename_target(Path::new("/база/Проекты"), " Новые/старые: ").unwrap();
+        assert_eq!((to, name.as_str()), (PathBuf::from("/база/Новые старые"), "Новые старые"));
+        assert_eq!(rename_target(Path::new("/база/Проекты"), " Проекты "), None);
     }
 
     #[test]

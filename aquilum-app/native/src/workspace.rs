@@ -44,7 +44,7 @@ impl Workspace {
         let core = Core::open(&data_dir, sink);
 
         let root = match vault {
-            Some(vault) => Some(normalize(vault)),
+            Some(vault) => Some(aquilum_core::search::paths::canonical_path(vault)),
             None => core.ui_state.list_workspaces().ok().and_then(|known| known.into_iter().next()).map(|w| PathBuf::from(w.path)),
         };
         if let Some(root) = &root {
@@ -65,18 +65,6 @@ pub fn data_dir_or_default(data_dir: Option<&Path>) -> Result<PathBuf, String> {
     match data_dir {
         Some(dir) => Ok(dir.to_path_buf()),
         None => Ok(platform_data_dir().ok_or("не найден каталог данных пользователя")?.join(APP_ID)),
-    }
-}
-
-pub fn normalize(path: &Path) -> PathBuf {
-    let Ok(canonical) = std::fs::canonicalize(path) else { return path.to_path_buf() };
-    let text = canonical.to_string_lossy();
-    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
-        return PathBuf::from(format!(r"\\{rest}"));
-    }
-    match text.strip_prefix(r"\\?\") {
-        Some(rest) => PathBuf::from(rest),
-        None => canonical.clone(),
     }
 }
 

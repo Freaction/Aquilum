@@ -45,6 +45,9 @@ impl Host {
         if !self.ime_enabled {
             let editor = self.root.as_ref().and_then(focused_editor);
             crate::android::ime::start(hint(editor).contains(ImeHint::MULTILINE));
+            if editor.is_some_and(TextEditor::is_renaming) {
+                crate::android::ime::show();
+            }
             self.ime_enabled = true;
         }
     }

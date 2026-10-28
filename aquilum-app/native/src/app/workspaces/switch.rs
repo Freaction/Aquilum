@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use aquilum_core::search::paths::same_path;
+use aquilum_core::search::paths::canonical_path;
 use masonry::app::RenderRoot;
 
 use super::super::{App, Outcome, Popup};
@@ -11,39 +11,38 @@ use crate::ui::file_tree::FileTree;
 
 impl App {
     pub(in crate::app) fn switch_workspace(&mut self, root: &mut RenderRoot, path: PathBuf) -> Outcome {
-        let path = crate::workspace::normalize(&path);
-        let reopen = matches!(self.popup, Some(Popup::Workspaces(_)));
-        let failed = |app: &mut App, root: &mut RenderRoot| {
+        let path = canonical_path(&path);
+        let opened = path.is_dir() && self.workspace.core.ui_state.resolve_workspace(&path.to_string_lossy(), crate::dates::now_ms()).is_ok();
+        if !opened {
+            report!("база {} не открыта", path.display());
             let error = t_with("workspaces.openFailed", &[("path", &path.to_string_lossy())]);
-            if reopen || app.tree.root().is_some() {
-                app.close_workspaces(root);
-                app.show_workspaces(root, Some(error));
+            if matches!(self.popup, Some(Popup::Workspaces(_))) || self.tree.root().is_some() {
+                self.close_workspaces(root);
+                self.show_workspaces(root, Some(error));
             } else {
-                app.vault_error = Some(error);
-                app.replace_root(root);
-                app.show_active(root);
+                self.vault_error = Some(error);
+                self.replace_root(root);
+                self.show_active(root);
             }
-            Outcome::default()
-        };
-        if !path.is_dir() {
-            return failed(self, root);
-        }
-        if let Err(e) = self.workspace.core.ui_state.resolve_workspace(&path.to_string_lossy(), crate::dates::now_ms()) {
-            report!("база {} не открыта: {e:?}", path.display());
-            return failed(self, root);
-        }
-        self.close_workspaces(root);
-        if self.tree.root().is_some_and(|current| same_path(current, &path)) {
             return Outcome::default();
         }
+        self.close_workspaces(root);
+        if self.is_current(&path) {
+            return Outcome::default();
+        }
+        self.load_vault(root, Some(path));
+        Outcome { title: true, ..Outcome::default() }
+    }
+
+    pub(in crate::app) fn load_vault(&mut self, root: &mut RenderRoot, path: Option<PathBuf>) {
         self.leave_note();
         if let Some(session) = &mut self.session {
             session.save(&self.workspace.core, &mut self.tabs);
         }
-        self.workspace.root = Some(path.clone());
-        self.tree = FileTree::new(Some(path.clone()), &self.workspace.data_dir, std::sync::Arc::clone(&self.workspace.wake));
-        self.navigation = crate::navigation::Navigation::load(&self.workspace.data_dir, Some(&path));
-        (self.session, self.tabs) = match Session::open(&self.workspace.core, &path) {
+        self.workspace.root = path.clone();
+        self.tree = FileTree::new(path.clone(), &self.workspace.data_dir, std::sync::Arc::clone(&self.workspace.wake));
+        self.navigation = crate::navigation::Navigation::load(&self.workspace.data_dir, path.as_deref());
+        (self.session, self.tabs) = match path.as_deref().and_then(|path| Session::open(&self.workspace.core, path)) {
             Some((session, tabs)) => (Some(session), tabs),
             None => (None, Tabs::default()),
         };
@@ -57,6 +56,5 @@ impl App {
         self.cleanup_retention();
         self.replace_root(root);
         self.show_active(root);
-        Outcome { title: true, ..Outcome::default() }
     }
 }

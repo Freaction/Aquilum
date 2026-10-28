@@ -8,6 +8,11 @@ impl TextEditor {
         !self.single_line
     }
 
+    #[cfg(target_os = "android")]
+    pub fn is_renaming(&self) -> bool {
+        self.renaming
+    }
+
     pub fn surrounding(&self, base: Option<usize>) -> (usize, String, usize, usize) {
         if let Some((value, session)) = self.table_cell() {
             let (text, caret, anchor) = match &session.compose {

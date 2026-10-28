@@ -80,7 +80,7 @@ pub(super) fn rename_field(row: &Row) -> (NewWidget<Flex>, Handle<TextEditor>) {
     } else {
         row.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()
     };
-    let field = NewWidget::new(TextEditor::single_line(&name).styled(|| style::ui_text(size::SIDEBAR_ICON_SIZE as f32)))
+    let field = NewWidget::new(TextEditor::single_line(&name).renaming().styled(|| style::ui_text(size::SIDEBAR_ICON_SIZE as f32)))
         .with_class(style::SIDEBAR_FIELD);
     let handle = Handle::of(&field);
     let row = Flex::row().with_fixed(NewWidget::new(SizedBox::empty().width(Length::px(indent)))).with(field, 1.0);
