@@ -8,10 +8,6 @@ pub struct Switch {
     travel: f64,
 }
 
-pub(super) fn ease_standard(t: f64) -> f64 {
-    crate::ui::widgets::bezier(crate::ui::widgets::EASE_STANDARD, t)
-}
-
 impl Switch {
     pub fn new(on: bool, label: &str) -> NewWidget<Self> {
         NewWidget::new(Switch { on, enabled: true, label: label.to_owned(), press: Press::default(), travel: if on { 1.0 } else { 0.0 } })
@@ -59,8 +55,7 @@ impl Widget for Switch {
 
     fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
         let goal = if self.on { 1.0 } else { 0.0 };
-        let step = crate::ui::motion::step(interval as f64 / 1e9, crate::ui::motion::NORMAL);
-        self.travel = if self.travel < goal { (self.travel + step).min(goal) } else { (self.travel - step).max(goal) };
+        self.travel = motion::approach(self.travel, goal, motion::step(interval as f64 / 1e9, motion::NORMAL));
         ctx.request_paint_only();
         if self.travel != goal {
             ctx.request_anim_frame();
@@ -98,7 +93,7 @@ impl Widget for Switch {
         let track_color = if self.on { t.bg_accent } else { t.bg_surface_active };
         painter.fill(track, track_color.multiply_alpha(alpha)).draw();
         let inset = size::SWITCH_HANDLE_INSET;
-        let x = bounds.x0 + inset + size::SWITCH_HANDLE_TRAVEL * ease_standard(self.travel);
+        let x = bounds.x0 + inset + size::SWITCH_HANDLE_TRAVEL * bezier(EASE_STANDARD, self.travel);
         let r = size::SWITCH_HANDLE_SIZE / 2.0;
         let handle = Circle::new((x + r, bounds.center().y), r);
         let rect = RoundedRect::from_rect(Rect::from_center_size(handle.center, Size::new(r * 2.0, r * 2.0)), r);

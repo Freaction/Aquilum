@@ -1,22 +1,17 @@
 use std::num::NonZeroI32;
-use std::ptr;
 use std::rc::Rc;
 
 use ndk::hardware_buffer_format::HardwareBufferFormat;
-use ndk::native_window::NativeWindow;
+use ndk::native_window::{NativeWindow, Rect};
 use winit::event_loop::OwnedDisplayHandle;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use super::{Area, Canvas, Target};
+use super::{Area, Canvas, Pixels, Target};
 
 pub struct Output {
     native_window: NativeWindow,
-    pixels: Vec<u32>,
-    width: u32,
-    height: u32,
-    fresh: bool,
-    background: u32,
+    pixels: Pixels,
 }
 
 impl Output {
@@ -27,18 +22,11 @@ impl Output {
         };
         // SAFETY: The a_native_window pointer is valid as long as the window handle is alive.
         let native_window = unsafe { NativeWindow::clone_from_ptr(handle.a_native_window.cast()) };
-        Ok(Output {
-            native_window,
-            pixels: Vec::new(),
-            width: 0,
-            height: 0,
-            fresh: true,
-            background: 0,
-        })
+        Ok(Output { native_window, pixels: Pixels::new() })
     }
 
     pub fn resize(&mut self, width: u32, height: u32) -> Result<(), String> {
-        if self.width == width && self.height == height && !self.pixels.is_empty() {
+        if self.pixels.sized(width, height) {
             return Ok(());
         }
         let (Some(w), Some(h)) = (NonZeroI32::new(width as i32), NonZeroI32::new(height as i32)) else {
@@ -47,68 +35,44 @@ impl Output {
         self.native_window
             .set_buffers_geometry(w.into(), h.into(), Some(HardwareBufferFormat::R8G8B8A8_UNORM))
             .map_err(|e| format!("ANativeWindow::set_buffers_geometry: {e}"))?;
-
-        let len = (width * height) as usize;
-        self.pixels.resize(len, self.background);
-        self.pixels.fill(self.background);
-        self.width = width;
-        self.height = height;
-        self.fresh = true;
+        self.pixels.resize(width, height);
         Ok(())
     }
 
     pub fn trim(&mut self) {
         let _ = self.native_window.set_buffers_geometry(1, 1, Some(HardwareBufferFormat::R8G8B8A8_UNORM));
-        self.pixels = Vec::new();
-        self.width = 0;
-        self.height = 0;
-        self.fresh = true;
+        self.pixels.trim();
     }
 
     pub fn set_background(&mut self, rgba: u32) {
-        if self.background != rgba {
-            self.background = rgba;
-            self.pixels.fill(rgba);
-            self.fresh = true;
-        }
+        self.pixels.set_background(rgba);
     }
 
     pub fn fresh(&self) -> bool {
-        self.fresh
+        self.pixels.fresh
     }
 
-    pub fn present(&mut self, _dirty: &[Area]) {
-        let Ok(mut guard) = self.native_window.lock(None) else { return };
-        let dst_bits = guard.bits() as *mut u32;
-        if dst_bits.is_null() {
+    pub fn present(&mut self, dirty: &[Area]) {
+        let whole = Area { x: 0, y: 0, w: self.pixels.width, h: self.pixels.height };
+        let area = if self.pixels.fresh { whole } else { dirty.iter().copied().reduce(Area::union).unwrap_or(whole) };
+        let mut bounds = Rect { left: area.x as i32, top: area.y as i32, right: (area.x + area.w) as i32, bottom: (area.y + area.h) as i32 };
+        let Ok(mut guard) = self.native_window.lock(Some(&mut bounds)) else { return };
+        let bits = guard.bits() as *mut u32;
+        if bits.is_null() {
             return;
         }
-        let dst_stride = guard.stride();
-        let height = guard.height().min(self.height as usize);
-        let width = guard.width().min(self.width as usize);
-        let src_stride = self.width as usize;
-        let src = self.pixels.as_ptr();
-
-        if dst_stride == src_stride && width == src_stride {
-            unsafe {
-                ptr::copy_nonoverlapping(src, dst_bits, width * height);
-            }
-        } else {
-            for y in 0..height {
-                unsafe {
-                    let src_row = src.add(y * src_stride);
-                    let dst_row = dst_bits.add(y * dst_stride);
-                    ptr::copy_nonoverlapping(src_row, dst_row, width);
-                }
-            }
-        }
-        self.fresh = false;
+        let (stride, width, height) = (guard.stride(), guard.width().min(self.pixels.width as usize), guard.height().min(self.pixels.height as usize));
+        let clamp = |v: i32, max: usize| (v.max(0) as usize).min(max) as u32;
+        let (x, y) = (clamp(bounds.left, width), clamp(bounds.top, height));
+        let area = Area { x, y, w: clamp(bounds.right, width).saturating_sub(x), h: clamp(bounds.bottom, height).saturating_sub(y) };
+        let window = unsafe { std::slice::from_raw_parts_mut(bits, stride * guard.height()) };
+        self.pixels.copy_to(window, stride, area);
+        self.pixels.fresh = false;
     }
 }
 
 impl Canvas for Output {
     fn with_target(&mut self, paint: &mut dyn FnMut(Target<'_>)) {
-        let (width, height) = (self.width as u16, self.height as u16);
-        paint(Target { pixels: &mut self.pixels, width, height });
+        self.pixels.with_target(paint);
     }
 }

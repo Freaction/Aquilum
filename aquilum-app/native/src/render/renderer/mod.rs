@@ -43,7 +43,6 @@ impl Frame<'_> {
 
 pub struct Renderer {
     pub(super) painter: Painter,
-    pub(super) scratch: Vec<u32>,
     tracker: Tracker,
     pub(super) params: Option<(u16, u16, f64, Color)>,
     pub(super) live: Vec<Layer>,
@@ -67,13 +66,14 @@ pub struct Renderer {
     pub moved: Vec<(u16, u16, u16, u16, i32)>,
     #[cfg(test)]
     pub causes: Vec<masonry::kurbo::Rect>,
+    #[cfg(test)]
+    pub blitted: bool,
 }
 
 impl Renderer {
     pub fn new(threads: u16) -> Self {
         Renderer {
             painter: Painter::new(1, 1, super::paint::settings(threads)),
-            scratch: Vec::new(),
             tracker: Tracker::new(),
             params: None,
             live: Vec::new(),
@@ -97,6 +97,8 @@ impl Renderer {
             moved: Vec::new(),
             #[cfg(test)]
             causes: Vec::new(),
+            #[cfg(test)]
+            blitted: false,
         }
     }
 
@@ -143,7 +145,6 @@ impl Renderer {
         self.faded = None;
         self.caches.clear();
         self.frames.clear();
-        self.scratch = Vec::new();
         self.tracker.forget();
     }
 

@@ -72,24 +72,30 @@ impl TextEditor {
 
     fn apply(&mut self, ctx: &mut EventCtx<'_>, outcome: Outcome) {
         self.remember_scroll();
-        match outcome {
+        let editing = self.doc.editing;
+        let relayout = match outcome {
             Outcome::None | Outcome::Copy(_) => return,
-            Outcome::Repaint => {}
+            Outcome::Repaint => false,
             Outcome::Write(model) => {
                 self.write_table(&model);
                 ctx.submit_action::<TextAction>(self.doc.changed());
+                true
             }
             Outcome::Leave => {
                 self.leave_table();
+                true
             }
             Outcome::Remove => {
                 self.remove_table();
                 ctx.submit_action::<TextAction>(self.doc.changed());
+                true
             }
-        }
+        };
         self.sync_editing();
         self.restart_blink(ctx);
-        ctx.request_layout();
+        if relayout || self.doc.editing != editing {
+            ctx.request_layout();
+        }
         ctx.request_render();
     }
 

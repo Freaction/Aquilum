@@ -1,10 +1,10 @@
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, NoAction, PaintCtx, PointerEvent, PointerScrollEvent, PropertiesMut, PropertiesRef,
-    RegisterCtx, ScrollDelta, Widget, WidgetPod,
+    AccessCtx, ChildrenIds, ComposeCtx, EventCtx, LayoutCtx, MeasureCtx, NewWidget, NoAction, PaintCtx, PointerEvent, PointerScrollEvent, PropertiesMut,
+    PropertiesRef, RegisterCtx, ScrollDelta, Widget, WidgetPod,
 };
 use masonry::imaging::Painter;
-use masonry::kurbo::{Axis, Point, Size};
+use masonry::kurbo::{Axis, Point, Size, Vec2};
 use masonry::layout::{LenReq, Length};
 
 #[derive(Default)]
@@ -37,12 +37,13 @@ impl Pan {
         self.offset != before
     }
 
-    pub fn wheel(&mut self, ctx: &mut EventCtx<'_>, delta: &ScrollDelta) {
+    pub fn wheel(&mut self, ctx: &mut EventCtx<'_>, delta: &ScrollDelta) -> bool {
         let d = super::pixels(delta, ctx.scale_factor(), self.width);
-        if self.shift(-if d.x != 0.0 { d.x } else { d.y }) {
-            ctx.request_layout();
+        let shifted = self.shift(-if d.x != 0.0 { d.x } else { d.y });
+        if shifted {
             ctx.set_handled();
         }
+        shifted
     }
 }
 
@@ -61,8 +62,10 @@ impl Widget for HScroll {
     type Action = NoAction;
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
-        if let PointerEvent::Scroll(PointerScrollEvent { delta, .. }) = event {
-            self.pan.wheel(ctx, delta);
+        if let PointerEvent::Scroll(PointerScrollEvent { delta, .. }) = event
+            && self.pan.wheel(ctx, delta)
+        {
+            ctx.request_compose();
         }
     }
 
@@ -82,8 +85,12 @@ impl Widget for HScroll {
         let content = ctx.compute_length(&mut self.child, LenReq::MaxContent.into(), size.into(), Axis::Horizontal, Some(Length::px(size.height))).get();
         self.pan.resize(content, size.width);
         ctx.run_layout(&mut self.child, Size::new(content.max(size.width), size.height));
-        ctx.place_child(&mut self.child, Point::new(-self.pan.offset, 0.0));
+        ctx.place_child(&mut self.child, Point::ZERO);
         ctx.set_clip_path(size.to_rect());
+    }
+
+    fn compose(&mut self, ctx: &mut ComposeCtx<'_>) {
+        ctx.set_child_scroll_translation(&mut self.child, Vec2::new(-self.pan.offset, 0.0));
     }
 
     fn paint(&mut self, _ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, _painter: &mut Painter<'_>) {}

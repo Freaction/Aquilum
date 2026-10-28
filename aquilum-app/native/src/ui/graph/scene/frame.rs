@@ -81,7 +81,7 @@ impl Frame<'_> {
         }
         let (ma, mb) = (self.marks[a], self.marks[b]);
         let active = if ma.min(mb) > 0 && ma.abs_diff(mb) == 1 { f64::from(self.intensity[a].min(self.intensity[b])) } else { 0.0 };
-        let dim = 1.0 + self.dimming * ((graph::DIMMED_STRENGTH + (1.0 - graph::DIMMED_STRENGTH) * active) - 1.0);
+        let dim = graph::dimmed(self.dimming, active);
         let (color, alpha) = if active > 0.0 {
             let c = lerp(self.edge, self.edge_active, active as f32);
             (c, f64::from(c[3]) * self.edge_active_alpha)
@@ -113,7 +113,7 @@ impl Frame<'_> {
             }
             _ => self.node,
         };
-        let dim = 1.0 + self.dimming as f32 * ((graph::DIMMED_STRENGTH as f32 + (1.0 - graph::DIMMED_STRENGTH as f32) * state) - 1.0);
+        let dim = graph::dimmed(self.dimming, f64::from(state)) as f32;
         let amount = ((ideal / graph::SUB_PIXEL_RADIUS).clamp(0.12, 1.0) as f32).max(state) * dim;
         let rim = smoothstep(2.5, 5.0, radius) * (1.8 / radius).clamp(0.0, 0.35);
         Some(Disc { center: [x, y], radius: r, body: tone(self.back, fill, amount), rim: tone(self.back, self.rim, amount), inner: r * (1.0 - rim as f32), alpha: shown })

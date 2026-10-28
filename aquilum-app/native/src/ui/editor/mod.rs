@@ -1,3 +1,4 @@
+mod caret;
 mod change;
 mod document;
 mod embed;

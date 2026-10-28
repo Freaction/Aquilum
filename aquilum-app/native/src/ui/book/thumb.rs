@@ -5,7 +5,7 @@ use crate::ui::keymap::{self, Command, Scope};
 pub struct Thumbnail {
     pub(super) image: ImageBrush,
     pub(super) height: f64,
-    pub(super) replace: WidgetPod<crate::ui::widgets::Appear>,
+    pub(super) replace: WidgetPod<Slot>,
     pub(super) hovered: bool,
     pub(super) baked: Option<((u16, u16, usize), ImageBrush)>,
 }

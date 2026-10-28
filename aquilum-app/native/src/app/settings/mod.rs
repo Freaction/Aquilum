@@ -24,7 +24,6 @@ use crate::ui::dialog::ConfirmDialog;
 use crate::ui::menu::Menu;
 use crate::ui::settings::controls::{Changed, ColorPicker, Committed, DropdownButton, Switch};
 use crate::ui::keymap::{self, Command, Scope};
-use crate::ui::theme;
 use crate::ui::tokens::size;
 use crate::ui::settings::schema::{self, Action, Context, Section, Setter, Value, Wipe};
 use crate::ui::settings::{self, Binding, SettingsDialog};
@@ -37,6 +36,7 @@ pub(super) struct OpenMenu {
 
 pub(super) enum Effect {
     None,
+    Smart(crate::ui::editor::Smart),
     Rescale,
     Panel,
     Content,
@@ -78,9 +78,7 @@ impl App {
         let config = self.workspace.core.settings.get_config();
         let ctx = self.settings_context(None, 0);
         let (layer, dialog) = settings::dialog(&config, &ctx, section);
-        root.add_layer(layer, Point::ORIGIN);
-        root.focus_on(Some(dialog.layer));
-        self.popup = Some(Popup::Settings { dialog, menu: None });
+        self.show_layer(root, layer, Point::ORIGIN, |_| Popup::Settings { dialog, menu: None });
         self.fit_settings(root);
     }
 
@@ -102,12 +100,14 @@ impl App {
     }
 
     fn finish(&mut self, root: &mut RenderRoot, effect: Effect) -> Outcome {
-        if let Some(ids) = &self.note_ids {
-            let smart = crate::ui::editor::Smart::from_config(&self.workspace.core.settings.get_config());
-            ids.body.edit(root, |mut body| crate::ui::editor::TextEditor::set_smart(&mut body, smart));
-        }
         match effect {
             Effect::None => Outcome::default(),
+            Effect::Smart(smart) => {
+                if let Some(ids) = &self.note_ids {
+                    ids.body.edit(root, |mut body| TextEditor::set_smart(&mut body, smart));
+                }
+                Outcome::default()
+            }
             Effect::Rescale => Outcome { rescale: true, ..Outcome::default() },
             Effect::Panel => {
                 self.refresh_analysis(root);
@@ -119,7 +119,7 @@ impl App {
                 Outcome::default()
             }
             Effect::Restyle(fonts) => {
-                self.restyle(root, fonts);
+                self.restyle(root, fonts, None);
                 Outcome::default()
             }
             Effect::Everything => {

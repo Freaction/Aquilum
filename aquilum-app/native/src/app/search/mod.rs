@@ -16,7 +16,7 @@ use masonry::widgets::Flex;
 
 use super::{App, Popup};
 use crate::i18n::t;
-use crate::ui::dialog::{CardSize, Modal};
+use crate::ui::dialog::{self, CardSize, Modal};
 use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::search::{self, CardKind, Placeholder, ResultCard};
@@ -94,7 +94,7 @@ impl App {
         let search_box = search::search_box("");
         let body = Slot::new(NewWidget::new(Flex::column()).erased());
         let body_handle = Handle::of(&body);
-        let card = search::dialog_card(search_box.widget, body, search::footer());
+        let card = dialog::card(search_box.widget, body, search::footer());
         let layer = Modal::new(card, &t("search.title"), CardSize::Window(search::card_size), Role::Dialog, false);
         let layer_id = layer.id();
         root.add_layer(layer, Point::ORIGIN);

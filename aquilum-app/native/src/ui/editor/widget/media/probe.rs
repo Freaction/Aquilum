@@ -1,18 +1,15 @@
 use super::*;
 
 impl TextEditor {
-    #[cfg(feature = "memory-probe")]
     pub fn probe_stats(&self) -> String {
         self.doc.probe_stats()
     }
 
-    #[cfg(feature = "memory-probe")]
     pub fn probe_evict(this: &mut masonry::core::WidgetMut<'_, Self>, embeds: bool) {
         let keep = this.widget.painted;
         this.widget.doc.probe_evict(keep, embeds);
     }
 
-    #[cfg(feature = "memory-probe")]
     pub fn probe_play(this: &mut masonry::core::WidgetMut<'_, Self>) {
         let path = this.widget.doc.embeds().find_map(|e| match &e.view {
             View::Media(view) if view.video => view.path.clone(),

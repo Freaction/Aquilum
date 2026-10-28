@@ -57,6 +57,9 @@ impl GraphView {
                     }
                     return;
                 }
+                if update.pointer.pointer_type == masonry::core::PointerType::Touch {
+                    return;
+                }
                 if in_panel(p) {
                     self.pointer = None;
                     if self.hover(None) {

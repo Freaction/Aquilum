@@ -12,7 +12,7 @@ use masonry::widgets::Flex;
 
 use super::text::label;
 use super::tokens::size;
-use super::widgets::{Intro, Leading};
+use super::widgets::{Intro, Leading, Rule};
 
 pub use confirm::{ConfirmDialog, DialogIds};
 
@@ -51,6 +51,14 @@ pub fn header(title: &str, close: Option<NewWidget<impl Widget>>) -> NewWidget<F
     NewWidget::new(row).with_props(
         PropertySet::new().with(Gap::new(Length::px(size::GAP_XL))).with(Padding::all(Length::px(size::DIALOG_PADDING))),
     )
+}
+
+pub fn ruled(head: NewWidget<impl Widget + ?Sized>) -> Flex {
+    Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(head).with_fixed(Rule::divider())
+}
+
+pub fn card(head: NewWidget<impl Widget + ?Sized>, body: NewWidget<impl Widget + ?Sized>, footer: NewWidget<impl Widget + ?Sized>) -> NewWidget<Flex> {
+    NewWidget::new(ruled(head).with(body, 1.0).with_fixed(Rule::divider()).with_fixed(footer))
 }
 
 pub fn close(root: &mut masonry::app::RenderRoot, layer: WidgetId) {

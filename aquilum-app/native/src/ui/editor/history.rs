@@ -65,6 +65,11 @@ impl History {
         self.undo.push(step);
     }
 
+    pub fn has(&self, redo: bool) -> bool {
+        let steps = if redo { &self.redo } else { &self.undo };
+        !steps.is_empty()
+    }
+
     pub fn take(&mut self, redo: bool) -> Option<Step> {
         let (from, to) = if redo { (&mut self.redo, &mut self.undo) } else { (&mut self.undo, &mut self.redo) };
         let step = from.pop()?;

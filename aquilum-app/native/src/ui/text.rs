@@ -3,7 +3,7 @@
 
 use masonry::core::{BrushIndex, PaintCtx};
 use masonry::parley::style::StyleProperty;
-use masonry::parley::{FontContext, FontWeight, Layout, LayoutContext, LineHeight};
+use masonry::parley::{FontContext, FontFamily, FontWeight, Layout, LayoutContext, LineHeight, RangedBuilder};
 
 use super::theme;
 
@@ -35,13 +35,18 @@ impl Line {
         *self = Line::default();
     }
 
-    pub fn layout(&mut self, ctx: &mut PaintCtx<'_>, text: &str, width: f64, style: Style) -> &Layout<BrushIndex> {
-        let (font_cx, layout_cx) = ctx.text_contexts();
+    pub fn width(&mut self, font_cx: &mut FontContext, layout_cx: &mut LayoutContext<BrushIndex>, text: &str, style: Style) -> f64 {
         if self.full.as_ref().is_none_or(|(_, t, s)| t != text || *s != style) {
             *self = Line { full: Some((shape(font_cx, layout_cx, text, style), text.to_owned(), style)), ..Line::default() };
         }
+        f64::from(self.full.as_ref().expect("раскладка построена выше").0.width())
+    }
+
+    pub fn layout(&mut self, ctx: &mut PaintCtx<'_>, text: &str, width: f64, style: Style) -> &Layout<BrushIndex> {
+        let (font_cx, layout_cx) = ctx.text_contexts();
+        let fits = self.width(font_cx, layout_cx, text, style) <= width;
         let full = &self.full.as_ref().expect("раскладка построена выше").0;
-        if f64::from(full.width()) <= width {
+        if fits {
             return full;
         }
         let ellipsis = *self.ellipsis.get_or_insert_with(|| f64::from(shape(font_cx, layout_cx, "…", style).width()));
@@ -65,23 +70,24 @@ fn cut(layout: &Layout<BrushIndex>, room: f64) -> Option<usize> {
     None
 }
 
-pub fn measure(ctx: &mut masonry::core::MeasureCtx<'_>, text: &str, style: Style) -> f64 {
-    let (font_cx, layout_cx) = ctx.text_contexts();
-    measure_with(font_cx, layout_cx, text, style)
-}
-
-pub fn measure_with(font_cx: &mut FontContext, layout_cx: &mut LayoutContext<BrushIndex>, text: &str, style: Style) -> f64 {
-    f64::from(shape(font_cx, layout_cx, text, style).width())
+pub fn builder<'a>(
+    font_cx: &'a mut FontContext,
+    layout_cx: &'a mut LayoutContext<BrushIndex>,
+    text: &'a str,
+    family: FontFamily<'_>,
+    style: Style,
+) -> RangedBuilder<'a, BrushIndex> {
+    let mut builder = layout_cx.ranged_builder(font_cx, text, 1.0, true);
+    builder.push_default(StyleProperty::FontFamily(family));
+    builder.push_default(StyleProperty::FontSize(style.size));
+    builder.push_default(StyleProperty::FontWeight(FontWeight::new(style.weight)));
+    builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(style.line_height as f32)));
+    builder
 }
 
 fn shape(font_cx: &mut FontContext, layout_cx: &mut LayoutContext<BrushIndex>, text: &str, style: Style) -> Layout<BrushIndex> {
     let family = theme::ui_font_settings().family.clone();
-    let mut builder = layout_cx.ranged_builder(font_cx, text, 1.0, true);
-    builder.push_default(StyleProperty::FontFamily(theme::ui_font(&family)));
-    builder.push_default(StyleProperty::FontSize(style.size));
-    builder.push_default(StyleProperty::FontWeight(FontWeight::new(style.weight)));
-    builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(style.line_height as f32)));
-    let mut layout = builder.build(text);
+    let mut layout = builder(font_cx, layout_cx, text, theme::ui_font(&family), style).build(text);
     layout.break_all_lines(None);
     layout
 }

@@ -61,17 +61,13 @@ pub fn freeze(seconds: Option<f64>) {
     FROZEN.set(seconds);
 }
 
-/// Рисует узор в прозрачный буфер размером `area` (физические px окна).
-pub(super) fn draw(transform: masonry::kurbo::Affine, shape: masonry::kurbo::RoundedRect, motion: Motion, area: masonry::kurbo::Rect, seconds: f64, pixels: &mut Vec<u32>) {
-    let (width, height) = (area.width() as usize, area.height() as usize);
-    pixels.clear();
-    pixels.resize(width * height, 0);
+pub(super) fn draw(transform: masonry::kurbo::Affine, shape: masonry::kurbo::RoundedRect, motion: Motion, area: masonry::kurbo::Rect, seconds: f64, pixels: crate::cover::MotionPixels<'_>) {
     let cover = transform.transform_rect_bbox(shape.rect());
     let radii = shape.radii();
     let mut target = crate::cover::MotionTarget {
         pixels,
-        width,
-        height,
+        width: area.width() as usize,
+        height: area.height() as usize,
         origin: (area.x0 - cover.x0, area.y0 - cover.y0),
         scale: transform.as_coeffs()[0],
         size: (shape.width(), shape.height()),

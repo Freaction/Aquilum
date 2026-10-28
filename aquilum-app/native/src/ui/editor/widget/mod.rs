@@ -4,7 +4,7 @@ use masonry::accesskit::{Node, Role};
 pub(super) use masonry::core::keyboard::{Key, KeyState};
 pub(super) use masonry::core::Ime;
 pub(super) use masonry::imaging::Painter;
-pub(super) use masonry::kurbo::{Affine, Axis, BezPath, Cap, Circle, Join, Point, Rect, RoundedRect, Size, Stroke, Vec2};
+pub(super) use masonry::kurbo::{Affine, Axis, Point, Rect, RoundedRect, Size, Vec2};
 pub(super) use masonry::parley::{Affinity, BoundingBox, Cursor, Layout, Selection};
 pub(super) use masonry::core::BrushIndex;
 pub(super) use super::markdown;

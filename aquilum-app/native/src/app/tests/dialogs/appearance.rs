@@ -51,7 +51,7 @@ fn restyle_matches_fresh_build() {
     config.editor.max_width_ch = 60;
     h.app.workspace.core.settings.update_config(config).unwrap();
     let ids_before: Vec<_> = h.app.note_ids.as_ref().map(|ids| ids.body.id()).into_iter().collect();
-    h.app.restyle(&mut h.root, true);
+    h.app.restyle(&mut h.root, true, None);
     h.settle();
     let live = h.frame(W as u16, H as u16, 1.0);
     assert_eq!(h.app.note_ids.as_ref().map(|ids| ids.body.id()).into_iter().collect::<Vec<_>>(), ids_before, "restyle пересоздал редактор");

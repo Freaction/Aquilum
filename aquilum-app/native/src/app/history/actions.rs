@@ -3,11 +3,11 @@ use masonry::core::{ErasedAction, WidgetId};
 use masonry::kurbo::Point;
 
 use super::{VersionCommand, App};
-use crate::app::{Outcome, Popup};
+use crate::app::{MenuCommand, Outcome, Popup};
 use crate::history;
 use crate::i18n::t;
 use crate::ui::editor::TextAction;
-use crate::ui::menu::{Menu, MenuChoice};
+use crate::ui::menu::Menu;
 use crate::ui::widgets::{ItemAction, Pressed};
 
 impl App {
@@ -82,17 +82,10 @@ impl App {
         let labels: Vec<&str> = commands.iter().map(|(_, label)| label.as_str()).collect();
         let menu = Menu::new(&t("history.versionActions"), &labels);
         let origin = Menu::context_origin(at, labels.len(), self.window);
-        self.show_layer(root, menu, origin, |layer| Popup::VersionMenu { layer, index, commands: commands.into_iter().map(|(c, _)| c).collect() });
+        self.show_layer(root, menu, origin, |layer| Popup::Menu { layer, commands: commands.into_iter().map(|(c, _)| MenuCommand::Version(index, c)).collect() });
     }
 
-    pub(in crate::app) fn on_version_menu(&mut self, root: &mut RenderRoot, layer: WidgetId, index: usize, commands: Vec<VersionCommand>, action: &ErasedAction) {
-        let Some(choice) = action.downcast_ref::<MenuChoice>() else {
-            self.popup = Some(Popup::VersionMenu { layer, index, commands });
-            return;
-        };
-        let MenuChoice::Item(item) = choice else { return };
-        root.remove_layer(layer);
-        let Some(&command) = commands.get(*item) else { return };
+    pub(in crate::app) fn version_command(&mut self, root: &mut RenderRoot, index: usize, command: VersionCommand) {
         if command == VersionCommand::Rename {
             if let Some(state) = &mut self.history {
                 state.renaming = Some(index);

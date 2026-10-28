@@ -102,7 +102,7 @@ impl TextEditor {
         }
     }
 
-    pub(super) fn undo(&mut self, redo: bool) -> bool {
+    pub(super) fn rewind(&mut self, redo: bool) -> bool {
         self.leave_table();
         let Some(step) = self.history.take(redo) else { return false };
         let applied: Vec<Change> = if redo {
@@ -125,7 +125,7 @@ mod tests {
         editor.add_cursor_at(editor.doc.len());
         editor.replace(0..0, "\n", Kind::Other);
         assert_eq!(editor.extra_cursors, [(editor.doc.len(), editor.doc.len())]);
-        editor.undo(false);
+        editor.rewind(false);
         assert_eq!(editor.extra_cursors, [(editor.doc.len(), editor.doc.len())]);
     }
 
@@ -136,7 +136,7 @@ mod tests {
         (editor.anchor, editor.focus) = (end, end);
         editor.dispatch(vec![(0..14, "![](a.png|1200)".into())], None, Kind::Block);
         assert_eq!((editor.anchor, editor.focus), (end + 1, end + 1));
-        editor.undo(false);
+        editor.rewind(false);
         assert_eq!(editor.doc.whole(), "![](a.png|300)\nтекст");
     }
 
@@ -147,7 +147,7 @@ mod tests {
         editor.add_cursor_at(6);
         editor.apply_multicursor_typing("X");
         assert_eq!(editor.doc.whole(), "Xab\nXcd\nXef");
-        editor.undo(false);
+        editor.rewind(false);
         assert_eq!(editor.doc.whole(), "ab\ncd\nef");
     }
 

@@ -21,8 +21,6 @@ pub(super) struct Gpu {
     pub context: ID3D11DeviceContext,
     pub chain: IDXGISwapChain1,
     pub canvas: ID3D11Texture2D,
-    pub stale: [Vec<Area>; BUFFERS as usize],
-    pub back: usize,
 }
 
 pub(super) fn capacity(need: u32, have: u32) -> u32 {
@@ -91,5 +89,5 @@ pub(super) fn create(hwnd: HWND, width: u32, height: u32) -> Result<Gpu, String>
         let _ = factory.MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
     }
     let canvas = texture(&device, width, height).map_err(|e| format!("холст: {e}"))?;
-    Ok(Gpu { device, context, chain, canvas, stale: Default::default(), back: 0 })
+    Ok(Gpu { device, context, chain, canvas })
 }

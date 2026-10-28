@@ -34,6 +34,7 @@ pub struct Painter {
     pub(super) culled: u32,
     pub(super) seconds: f64,
     pub(super) regions: Vec<Rect>,
+    pub(super) after: Option<u64>,
 }
 
 impl Painter {
@@ -52,6 +53,7 @@ impl Painter {
             culled: 0,
             seconds: 0.0,
             regions: Vec::new(),
+            after: None,
         }
     }
 
@@ -84,6 +86,7 @@ impl Painter {
         self.clip_depth = 0;
         self.groups.clear();
         self.culled = 0;
+        self.after = None;
     }
 
     pub(super) fn set_transform(&mut self, transform: Affine) {

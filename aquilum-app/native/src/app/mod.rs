@@ -5,6 +5,7 @@ mod caches;
 pub(crate) use caches::Moment;
 mod commands;
 mod book;
+mod confirm;
 mod core_events;
 mod embeds;
 mod file_menu;
@@ -46,8 +47,8 @@ use masonry::core::{ErasedAction, NewWidget, Widget, WidgetId};
 use masonry::kurbo::{Point, Size};
 use crate::ui::editor::TextAction;
 
-use crate::i18n::{self, t, t_with};
-use crate::ui::dialog::{ConfirmDialog, DialogAnswer, DialogIds};
+use crate::i18n::{self, t};
+use crate::ui::dialog::{DialogAnswer, DialogIds};
 use crate::ui::file_tree::{FileTree, TreeAction};
 use crate::ui::menu::{Menu, MenuChoice};
 use crate::ui::theme::{self, UiFont};
@@ -69,12 +70,8 @@ use uuid::Uuid;
 
 pub(in crate::app) enum Popup {
     FileMenu { layer: WidgetId, targets: Vec<PathBuf>, clicked: PathBuf, tab: Option<Uuid> },
-    Delete { dialog: DialogIds, targets: Vec<PathBuf> },
     Settings { dialog: SettingsDialog, menu: Option<settings::OpenMenu> },
-    VersionMenu { layer: WidgetId, index: usize, commands: Vec<history::VersionCommand> },
-    TableMenu { layer: WidgetId, commands: Vec<crate::ui::editor::TableCommand> },
-    EditorMenu { layer: WidgetId, commands: Vec<editor_requests::EditorCommand> },
-    NoteActionsMenu { layer: WidgetId },
+    Menu { layer: WidgetId, commands: Vec<MenuCommand> },
     SortMenu { layer: WidgetId, button: WidgetId },
     TabsMenu { layer: WidgetId, button: WidgetId },
     Viewer { layer: WidgetId },
@@ -82,8 +79,15 @@ pub(in crate::app) enum Popup {
     Search(search::SearchState),
     Templates(templates::TemplatesState),
     Workspaces(workspaces::WorkspacesState),
-    ResetGraph(DialogIds),
-    ManualUpdate(DialogIds, String),
+    Confirm(DialogIds, confirm::Confirmed),
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub(in crate::app) enum MenuCommand {
+    Version(usize, history::VersionCommand),
+    Table(crate::ui::editor::TableCommand),
+    Editor(editor_requests::EditorCommand),
+    Note(note_page::menu::NoteCommand),
 }
 
 #[derive(Default)]

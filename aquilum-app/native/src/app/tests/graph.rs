@@ -9,20 +9,9 @@ fn graph_tab_loads_opens_notes_and_unloads() {
     h.app.tree.paths_changed(&mut h.root, &[vault.join("b.md"), vault.join("c.md")]);
     let button = h.app.chrome.as_ref().unwrap().graph_button.expect("кнопка графа");
     let rect = h.root.get_widget(button).unwrap().ctx().bounding_box();
-    let wait = |h: &mut Harness, done: &dyn Fn(&Harness) -> bool| {
-        for _ in 0..300 {
-            h.app.on_core_events(&mut h.root);
-            let _ = h.root.redraw();
-            if done(h) {
-                return true;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(20));
-        }
-        false
-    };
     h.click(rect.center().x, rect.center().y);
     assert!(h.app.tabs.active().graph, "вкладка графа не открылась");
-    assert!(wait(&mut h, &|h| h.app.graph_loaded() == Some(3)), "граф не загрузился: {:?}", h.app.graph_loaded());
+    assert!(h.wait_for(|h| h.app.graph_loaded() == Some(3)), "граф не загрузился: {:?}", h.app.graph_loaded());
     h.click(rect.center().x, rect.center().y);
     assert_eq!(h.app.tabs.tabs().iter().filter(|t| t.graph).count(), 1, "второй граф");
     let view = h.app.graph_view().unwrap();
@@ -44,7 +33,7 @@ fn graph_tab_loads_opens_notes_and_unloads() {
     let graph = h.app.tabs.tabs().iter().find(|t| t.graph).unwrap().id;
     assert!(h.app.tabs.select(graph));
     h.app.show_active(&mut h.root);
-    assert!(wait(&mut h, &|h| h.app.graph_loaded() == Some(3)), "граф не загрузился заново");
+    assert!(h.wait_for(|h| h.app.graph_loaded() == Some(3)), "граф не загрузился заново");
     let note = h.app.tabs.tabs().iter().find(|t| !t.graph).unwrap().id;
     assert!(h.app.tabs.select(note));
     h.app.show_active(&mut h.root);
@@ -62,14 +51,7 @@ fn a_graph_left_for_a_note_is_unloaded_and_drawn_again_on_return() {
     h.app.tree.paths_changed(&mut h.root, &[vault.join("b.md"), vault.join("c.md")]);
     let note = h.app.tabs.active_id();
     h.app.open_graph(&mut h.root);
-    for _ in 0..300 {
-        h.app.on_core_events(&mut h.root);
-        let _ = h.root.redraw();
-        if h.app.graph_loaded() == Some(3) {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(20));
-    }
+    h.wait_for(|h| h.app.graph_loaded() == Some(3));
     let graph = h.app.tabs.active_id();
     let retained = |h: &Harness| {
         let view = h.app.graph_view().expect("виджет графа");
@@ -141,51 +123,6 @@ fn graph_snapshot() {
 }
 
 #[test]
-fn typing_suggests_notes_and_enter_links_them() {
-    let mut h = Harness::new();
-    let vault = h.vault.path().to_path_buf();
-    std::fs::write(vault.join("Проектирование.md"), "x").unwrap();
-    let note = vault.join("Черновик.md");
-    std::fs::write(&note, "").unwrap();
-    h.app.tree.paths_changed(&mut h.root, &[vault.join("Проектирование.md"), note.clone()]);
-    h.open(note);
-    let _ = h.root.redraw();
-    let editor = h.app.editor_id().unwrap();
-    h.root.handle_text_event(TextEvent::WindowFocusChange(true));
-    h.root.focus_on(Some(editor));
-    let text = |h: &Harness| h.root.get_widget(editor).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).unwrap().inner().text();
-    for round in ["", "[["] {
-        for ch in round.chars().chain("Прое".chars()) {
-            h.key(Key::Character(ch.to_string().into()), Modifiers::empty());
-        }
-        let mut shown = false;
-        for _ in 0..200 {
-            h.app.on_core_events(&mut h.root);
-            let _ = h.root.redraw();
-            if h.app.suggest_layer.is_some() {
-                shown = true;
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-        assert!(shown, "список подсказок не появился ({round:?}): {:?}", text(&h));
-        if let Ok(out) = std::env::var("AQ_OUT") {
-            let (layers, _) = h.root.redraw();
-            let mut r = crate::render::Renderer::new(2);
-            r.render(&layers, W as u16, H as u16, 1.0, theme::background()).unwrap();
-            std::fs::write(std::path::Path::new(&out).join(format!("suggest-{}.png", round.len())), r.png()).unwrap();
-        }
-        h.key(Key::Named(NamedKey::Enter), Modifiers::empty());
-        let _ = h.root.redraw();
-        h.app.on_core_events(&mut h.root);
-        assert!(text(&h).ends_with("[[Проектирование]]"), "{:?}", text(&h));
-        assert!(h.app.suggest_layer.is_none(), "список не закрылся");
-        h.key(Key::Character(" ".into()), Modifiers::empty());
-    }
-    assert_eq!(text(&h), "[[Проектирование]] [[Проектирование]] ");
-}
-
-#[test]
 fn a_quick_return_to_the_graph_still_loads_it() {
     let mut h = Harness::new();
     std::fs::write(h.vault.path().join("b.md"), "[[a]]").unwrap();
@@ -204,62 +141,16 @@ fn a_quick_return_to_the_graph_still_loads_it() {
 }
 
 #[test]
-fn reset_graph_settings_shows_confirmation_dialog_and_restores_defaults() {
-    let mut h = Harness::new();
+fn the_graph_tab_is_copied_into_the_frame_past_the_rasterizer() {
+    let scale = 3.75;
+    let mut h = Harness::with(None, scale);
     let vault = h.vault.path().to_path_buf();
-    std::fs::write(vault.join("a.md"), "[[b]]").unwrap();
-    std::fs::write(vault.join("b.md"), "[[a]]").unwrap();
-    h.app.tree.paths_changed(&mut h.root, &[vault.join("a.md"), vault.join("b.md")]);
+    std::fs::write(vault.join("b.md"), "[[a]] [[c]]").unwrap();
+    std::fs::write(vault.join("c.md"), "[[a]]").unwrap();
+    h.app.tree.paths_changed(&mut h.root, &[vault.join("b.md"), vault.join("c.md")]);
     h.app.open_graph(&mut h.root);
-
-    for _ in 0..300 {
-        h.app.on_core_events(&mut h.root);
-        let _ = h.root.redraw();
-        if h.app.graph_loaded().is_some() {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(20));
-    }
-    assert!(h.app.graph_loaded().is_some(), "граф не загрузился");
-
-    let custom_prefs = crate::interface::GraphPrefs {
-        node_size: 2.5,
-        spread: 0.5,
-        highlight_depth: 3,
-        labels: false,
-        heatmap_axis: 2,
-        panel: true,
-    };
-    h.app.interface.set_graph(custom_prefs);
-    h.app.set_graph_share(0.75);
-    h.app.show_graph(&mut h.root);
-
-    let reset_button = h.app.graph_reset_button().expect("кнопка сброса настроек");
-
-    // 1. Click reset -> confirmation dialog should open
-    h.act(reset_button, crate::ui::widgets::Pressed);
-    assert!(h.app.reset_graph_dialog_layer().is_some(), "диалог подтверждения сброса не открылся");
-
-    // 2. Cancel via DialogAnswer::Cancel -> settings remain intact
-    let dialog_layer = h.app.reset_graph_dialog_layer().expect("слой диалога");
-    h.act(dialog_layer, crate::ui::dialog::DialogAnswer::Cancel);
-    assert!(!h.app.reset_graph_dialog_layer().is_some(), "диалог не закрылся после отмены");
-    assert_eq!(h.app.interface.graph(), custom_prefs, "настройки сбросились при отмене");
-    assert_eq!(h.app.graph_share(), 0.75, "ползунок времени сбросился при отмене");
-
-    // 3. Click reset again, cancel via escape
-    h.act(reset_button, crate::ui::widgets::Pressed);
-    assert!(h.app.reset_graph_dialog_layer().is_some());
-    h.escape();
-    assert!(!h.app.reset_graph_dialog_layer().is_some(), "диалог не закрылся по Escape");
-    assert_eq!(h.app.interface.graph(), custom_prefs);
-
-    // 4. Click reset, confirm -> settings restored to defaults
-    h.act(reset_button, crate::ui::widgets::Pressed);
-    assert!(h.app.reset_graph_dialog_layer().is_some());
-    let dialog_layer = h.app.reset_graph_dialog_layer().expect("слой диалога");
-    h.act(dialog_layer, crate::ui::dialog::DialogAnswer::Confirm);
-    assert!(!h.app.reset_graph_dialog_layer().is_some(), "диалог остался открыт после подтверждения");
-    assert_eq!(h.app.interface.graph(), crate::interface::GraphPrefs::default(), "настройки не сбросились к дефолтным");
-    assert_eq!(h.app.graph_share(), 0.0, "фильтр по времени не сбросился в 0");
+    assert!(h.wait_for(|h| h.app.graph_loaded() == Some(3)), "граф не загрузился");
+    let (layers, _) = h.root.redraw();
+    let renderer = render_full(&layers, (f64::from(W) * scale) as u16, (f64::from(H) * scale) as u16, scale);
+    assert!(renderer.blitted, "картинка графа не копируется напрямую");
 }

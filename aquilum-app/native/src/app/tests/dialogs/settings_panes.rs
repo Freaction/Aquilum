@@ -83,7 +83,7 @@ fn phone_settings_close_sub_closes_directly_from_detail() {
 #[test]
 fn phone_settings_stay_inside_the_safe_area() {
     let mut h = opened(360.0);
-    h.app.safe_area_changed(&mut h.root, Insets::new(0.0, 24.0, 0.0, 48.0));
+    h.app.fit_window(&mut h.root, h.app.window, Insets::new(0.0, 24.0, 0.0, 48.0));
     h.settle();
     assert!(bounds(&h, dialog(&h).close).y0 >= 24.0, "заголовок под строкой состояния");
     assert_eq!(bounds(&h, dialog(&h).list.id()).y1, f64::from(H) - 48.0, "список над панелью навигации");

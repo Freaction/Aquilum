@@ -7,6 +7,7 @@ mod checks;
 mod frames;
 mod reports;
 mod sash;
+mod table;
 mod tree;
 
 use frames::{Frames, Report, summary};

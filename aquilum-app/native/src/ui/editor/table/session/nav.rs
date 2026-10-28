@@ -1,6 +1,7 @@
 use masonry::parley::{Affinity, Cursor};
 
 use super::{Outcome, Session};
+use crate::ui::editor::caret;
 use crate::ui::editor::table::view::TableView;
 
 impl Session {
@@ -13,14 +14,8 @@ impl Session {
             self.anchor = self.caret;
             return;
         }
-        let cursor = Cursor::from_byte_index(&cell.layout, self.caret.min(value.len()), Affinity::Downstream);
-        let moved = match (forward, word) {
-            (true, false) => cursor.next_visual(&cell.layout),
-            (false, false) => cursor.previous_visual(&cell.layout),
-            (true, true) => cursor.next_visual_word(&cell.layout),
-            (false, true) => cursor.previous_visual_word(&cell.layout),
-        };
-        self.caret = value.floor_char_boundary(moved.index());
+        let from = Cursor::from_byte_index(&cell.layout, self.caret.min(value.len()), Affinity::Downstream);
+        self.caret = caret::step(&cell.layout, value, from, forward, word).index();
         if !extend {
             self.anchor = self.caret;
         }

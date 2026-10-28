@@ -14,27 +14,19 @@ impl Popup {
         let dialog = |layer: WidgetId| (layer, Box::new(DialogAnswer::Cancel) as ErasedAction);
         let menu = |layer: WidgetId| (layer, Box::new(MenuChoice::Dismissed) as ErasedAction);
         match self {
-            Popup::FileMenu { layer, .. }
-            | Popup::VersionMenu { layer, .. }
-            | Popup::TableMenu { layer, .. }
-            | Popup::EditorMenu { layer, .. }
-            | Popup::NoteActionsMenu { layer }
-            | Popup::SortMenu { layer, .. }
-            | Popup::TabsMenu { layer, .. } => menu(*layer),
+            Popup::FileMenu { layer, .. } | Popup::Menu { layer, .. } | Popup::SortMenu { layer, .. } | Popup::TabsMenu { layer, .. } => menu(*layer),
             Popup::Settings { menu: Some(open), .. } => menu(open.layer),
             Popup::Settings { dialog: settings, .. } => match &settings.confirm {
                 Some((confirm, _)) => dialog(confirm.layer),
                 None if settings.pane() == Pane::Detail => (settings.back, Box::new(Pressed)),
                 None => dialog(settings.layer),
             },
-            Popup::Delete { dialog: ids, .. } => dialog(ids.layer),
+            Popup::Confirm(ids, _) => dialog(ids.layer),
             Popup::Workspaces(state) => dialog(state.forget.as_ref().map_or(state.dialog.layer, |(confirm, _)| confirm.layer)),
             Popup::Search(state) => dialog(state.layer),
             Popup::Templates(state) => dialog(state.layer),
             Popup::Reader(state) => (state.layer, Box::new(ReaderAction::Close)),
             Popup::Viewer { layer } => (*layer, Box::new(ViewerClosed)),
-            Popup::ResetGraph(ids) => dialog(ids.layer),
-            Popup::ManualUpdate(ids, _) => dialog(ids.layer),
         }
     }
 }

@@ -7,19 +7,19 @@ use aquilum_core::search::paths::same_path;
 
 use masonry::accesskit::Role;
 use masonry::core::{NewWidget, PropertySet, WidgetId};
-use masonry::kurbo::{Axis, Size};
+use masonry::kurbo::Size;
 use masonry::layout::Length;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{Gap, Padding};
 use masonry::widgets::Flex;
 
-use super::dialog::{CardSize, Modal, header};
+use super::dialog::{CardSize, Modal, card, header};
 use super::handle::Handle;
 use super::scroll::ScrollArea;
 use super::text::selectable;
 use super::tokens::size;
-use super::widgets::{IconButton, Leading, Rule, Slot, TextButton, Variant};
-use super::{icons, search, theme};
+use super::widgets::{IconButton, Leading, Slot, TextButton, Variant};
+use super::{icons, search};
 use crate::i18n::{t, t_with};
 
 pub use cloud::{Cloud, section as cloud_section};
@@ -59,20 +59,15 @@ pub fn dialog(workspaces: &[(uuid::Uuid, String)], current: Option<&Path>, error
     let open_id = open.id();
     let footer = NewWidget::new(Flex::row().main_axis_alignment(MainAxisAlignment::End).with_fixed(open))
         .with_props(PropertySet::new().with(Padding::all(Length::px(size::DIALOG_PADDING))));
-    let border = || Rule::new(Axis::Horizontal, || theme::current().border_default);
-    let mut card = Flex::column()
-        .cross_axis_alignment(CrossAxisAlignment::Stretch)
-        .with_fixed(header(&t("workspaces.title"), Some(close)))
-        .with_fixed(border())
-        .with(NewWidget::new(ScrollArea::new(list)), 1.0);
+    let mut body = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with(NewWidget::new(ScrollArea::new(list)), 1.0);
     if let Some(error) = error {
         let error = NewWidget::new(Flex::row().with(selectable(error, |t| t.text_danger, None, Leading::Px(size::SIZE_20 as f32)), 1.0)).with_props(
             PropertySet::new().with(Padding { top: Length::ZERO, bottom: Length::px(size::DIALOG_PADDING), left: Length::px(size::DIALOG_PADDING), right: Length::px(size::DIALOG_PADDING) }),
         );
-        card = card.with_fixed(error);
+        body = body.with_fixed(error);
     }
-    let card = card.with_fixed(border()).with_fixed(footer);
-    let layer = Modal::new(NewWidget::new(card), &t("workspaces.title"), CardSize::Window(card_size), Role::Dialog, false);
+    let card = card(header(&t("workspaces.title"), Some(close)), NewWidget::new(body), footer);
+    let layer = Modal::new(card, &t("workspaces.title"), CardSize::Window(card_size), Role::Dialog, false);
     let ids = WorkspaceDialog { layer: layer.id(), close: close_id, open_folder: open_id, rows, cloud: cloud_slot };
     (layer, ids)
 }

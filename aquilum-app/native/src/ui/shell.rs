@@ -12,7 +12,7 @@ use super::new_tab::new_tab_view;
 use super::rail::rail;
 use super::sidebar::sidebar;
 use super::titlebar::TabStrip;
-use super::widgets::{Collapse, Slot, Visible};
+use super::widgets::{Collapse, Slot};
 use super::{backlinks, style, workspaces};
 use crate::interface::Screen;
 use stage::Stage;
@@ -45,18 +45,18 @@ pub struct Chrome {
     pub graph_page: Handle<Slot>,
     pub notice: Handle<Slot>,
     pub graph_button: Option<WidgetId>,
-    pub focus_hidden: Vec<Handle<Visible>>,
-    pub focus_shown: Handle<Visible>,
+    pub focus_hidden: Vec<Handle<Slot>>,
+    pub focus_shown: Handle<Slot>,
     pub drawer: WidgetId,
     pub scrim: WidgetId,
-    drawer_shown: Handle<Visible>,
+    drawer_shown: Handle<Slot>,
     stage: Handle<Stage>,
 }
 
 impl Chrome {
     pub fn set_screen(&self, root: &mut RenderRoot, screen: Screen) {
         self.stage.edit(root, |mut stage| Stage::set_screen(&mut stage, screen));
-        self.drawer_shown.edit(root, |mut shown| Visible::set_shown(&mut shown, screen.compact));
+        self.drawer_shown.edit(root, |mut shown| Slot::set_shown(&mut shown, screen.compact));
         self.tab_strip.edit(root, |mut strip| TabStrip::set_compact(&mut strip, screen.compact));
     }
 }

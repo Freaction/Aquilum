@@ -625,7 +625,6 @@
     "heatCreated": "создана",
     "loading": "загрузка…",
     "notesVisible": "{{visible}} из {{total}} заметок",
-    "drawnEdges": "показано связей: {{count}}",
     "scale": "масштаб {{scale}}",
     "filteredOut": "Фильтр по дате скрыл все заметки",
     "showAll": "Показать все",

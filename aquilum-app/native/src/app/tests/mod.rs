@@ -1,10 +1,11 @@
 mod adaptive;
-mod compact_focus;
 mod damage;
 mod dialogs;
 mod external;
+mod focus_mode;
 mod folder_colors;
 mod graph;
+mod graph_reset;
 mod harness;
 mod keys;
 #[cfg(feature = "memory-probe")]

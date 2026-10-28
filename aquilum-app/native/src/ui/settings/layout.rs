@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
-use masonry::kurbo::Axis;
 use masonry::layout::Length;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{BorderWidth, CornerRadius, Gap, Padding};
@@ -15,7 +14,7 @@ use crate::ui::scroll::ScrollArea;
 use crate::ui::text::selectable;
 use crate::ui::tokens::{number, size};
 use crate::ui::widgets::{Countdown, Font, Label, Leading, Rule, Scale};
-use crate::ui::{style, theme};
+use crate::ui::style;
 
 pub(super) fn rows_column(rows: Vec<Row>, bindings: &mut HashMap<WidgetId, Binding>) -> Flex {
     let mut column = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch);
@@ -23,7 +22,7 @@ pub(super) fn rows_column(rows: Vec<Row>, bindings: &mut HashMap<WidgetId, Bindi
     for (i, row) in rows.into_iter().enumerate() {
         column = column.with_fixed(row_widget(row, bindings));
         if i + 1 < count {
-            column = column.with_fixed(Rule::new(Axis::Horizontal, || theme::current().border_default));
+            column = column.with_fixed(Rule::divider());
         }
     }
     column

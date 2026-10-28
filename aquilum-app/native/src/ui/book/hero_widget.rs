@@ -44,7 +44,7 @@ pub fn hero(view: HeroView) -> (NewWidget<Hero>, HeroIds) {
     let thumbnail = view.book.map(|book| {
         let replace = NewWidget::new(IconButton::white(icons::UPLOAD, t("book.replaceBookCover")));
         ids.replace_book = Some(replace.id());
-        let widget = NewWidget::new(Thumbnail { image: book.cover, height: 0.0, replace: crate::ui::widgets::Appear::new(replace, crate::ui::widgets::FAST).to_pod(), hovered: false, baked: None });
+        let widget = NewWidget::new(Thumbnail { image: book.cover, height: 0.0, replace: Slot::appear(Slot::fit(replace.erased()), FAST).to_pod(), hovered: false, baked: None });
         ids.thumbnail = Some(Handle::of(&widget));
         widget
     });

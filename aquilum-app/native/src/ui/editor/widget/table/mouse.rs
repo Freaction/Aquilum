@@ -23,7 +23,7 @@ impl TextEditor {
         true
     }
 
-    pub(in super::super) fn table_press(&mut self, ctx: &mut EventCtx<'_>, point: Point, shift: bool, new_tab: bool, count: u8, grip: f64) -> bool {
+    pub(in super::super) fn table_press(&mut self, ctx: &mut EventCtx<'_>, point: Point, shift: bool, new_tab: bool, count: u8) -> bool {
         let Some((start, local)) = self.table_under(point) else {
             if self.table_active() {
                 self.leave_table();
@@ -41,26 +41,27 @@ impl TextEditor {
             return true;
         }
         let Some((session, view)) = self.table_parts() else { return false };
-        let outcome = session.press(view, local, shift, count, grip);
-        ctx.request_focus();
+        if view.hit(local, session.scroll_x, GRIP) != Hit::Bar {
+            ctx.request_focus();
+        }
+        let outcome = session.press(view, local, shift, count, GRIP);
         ctx.capture_pointer();
         self.apply(ctx, outcome);
         true
     }
 
-    pub(in super::super) fn table_move(&mut self, ctx: &mut EventCtx<'_>, point: Point, grip: f64) -> bool {
+    pub(in super::super) fn table_move(&mut self, ctx: &mut EventCtx<'_>, point: Point, pressed: bool) -> bool {
+        if !pressed {
+            self.table_release(ctx);
+        }
         let dragging = self.table.as_ref().is_some_and(|s| s.drag != Drag::None);
         let start = match (dragging, self.table_under(point)) {
             (true, _) => self.table.as_ref().map(|s| s.start),
             (false, Some((start, _))) => Some(start),
             (false, None) => {
-                if let Some(s) = self.table.as_mut()
-                    && s.hover.take().is_some()
-                {
-                    s.line = Line::None;
+                if self.table_unhover() {
                     ctx.request_render();
                 }
-                self.hovered_table = None;
                 return false;
             }
         };
@@ -74,17 +75,22 @@ impl TextEditor {
             ctx.request_render();
         }
         let local = self.embed_local_at(start, point);
-        let Some((session, view)) = self.table_parts() else { return false };
-        let outcome = session.moved(view, local, grip);
+        let Some((session, view)) = self.table_parts() else { return dragging };
+        let outcome = session.moved(view, local, GRIP);
         self.apply(ctx, outcome);
         dragging
+    }
+
+    pub(in super::super) fn table_unhover(&mut self) -> bool {
+        let session = self.table.as_mut().filter(|s| s.drag == Drag::None).is_some_and(|s| s.hover.take().is_some() | (std::mem::replace(&mut s.line, Line::None) != Line::None));
+        session | self.hovered_table.take().is_some()
     }
 
     pub(in super::super) fn table_release(&mut self, ctx: &mut EventCtx<'_>) {
         if self.table.as_ref().is_none_or(|s| s.drag == Drag::None) {
             return;
         }
-        let Some((session, view)) = self.table_parts() else { return };
+        let Some((session, view)) = self.table_parts() else { return self.leave_table() };
         let outcome = session.release(view);
         self.apply(ctx, outcome);
     }
@@ -119,9 +125,10 @@ impl TextEditor {
         let session = self.table.as_ref()?;
         Some(match (session.drag, session.hover?) {
             (Drag::Strip { moved: true, .. }, _) => CursorIcon::Grabbing,
+            (Drag::Bar, _) | (_, Hit::Bar) => session.bar.cursor(),
             (_, hit @ Hit::Cell(..)) if self.doc.table_at(session.start).is_some_and(|(_, view)| self.cell_link(view, session.start, hit).is_some()) => CursorIcon::Pointer,
             (_, Hit::Cell(..)) => CursorIcon::Text,
-            (_, Hit::Column(_) | Hit::Row(_)) => CursorIcon::Grab,
+            (_, Hit::Column(_) | Hit::Row(_)) => CursorIcon::Move,
             (_, Hit::ColumnBorder(_)) => CursorIcon::ColResize,
             (_, Hit::RowBorder(_)) => CursorIcon::RowResize,
             (_, Hit::AddRow | Hit::AddCol) => CursorIcon::Pointer,

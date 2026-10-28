@@ -4,7 +4,7 @@ use masonry::core::BrushIndex;
 use masonry::kurbo::{Point, Rect};
 use masonry::parley::Layout;
 
-use super::super::markdown::{DANGER, MUTED, SECONDARY, TEXT};
+use super::super::markdown::{DANGER, MUTED, SECONDARY, TEXT, line_middle};
 use super::super::resolve::{Fetch, Grid, Part, Shape};
 use super::super::table::fit_columns;
 use super::metrics::{BAR_HEIGHT, BAR_MIN, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, PENDING};
@@ -128,7 +128,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
             }
         }
         None => {
-            for row in &grid.rows {
+            for row in grid.rows.iter() {
                 let parts: Vec<Part> = row.iter().flatten().cloned().collect();
                 let check = task(&parts);
                 let (text, links) = cell_text(&parts);
@@ -142,7 +142,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
                         body.push(Item::Check(rect, done));
                         hits.push((rect, action, None));
                     }
-                    None => body.push(Item::Bullet(Point::new(PAD + BULLET_INDENT, y + CELL_Y + f64::from(layout.lines().next().map_or(0.0, |l| (l.metrics().block_min_coord + l.metrics().block_max_coord) / 2.0))))),
+                    None => body.push(Item::Bullet(Point::new(PAD + BULLET_INDENT, y + CELL_Y + line_middle(&layout)))),
                 }
                 let at = Point::new(PAD + indent, y + CELL_Y);
                 hits.extend(link_hits(&layout, at, &links));
@@ -163,7 +163,7 @@ fn column_widths(grid: &Grid, inner: f64, make: &mut dyn FnMut(&Spec) -> Layout<
     for (c, name) in grid.columns.iter().enumerate() {
         natural[c] = natural[c].max(f64::from(make(&Spec { bold: true, ..Spec::plain(name, Font::Editor, SECONDARY) }).width()));
     }
-    for row in &grid.rows {
+    for row in grid.rows.iter() {
         for (c, parts) in row.iter().enumerate() {
             let w = if parts.iter().any(|p| matches!(p, Part::Progress(_))) { BAR_MIN } else { f64::from(make(&Spec::plain(&cell_text(parts).0, Font::Editor, TEXT)).width()) };
             natural[c] = natural[c].max(w);
@@ -180,11 +180,11 @@ mod tests {
     #[test]
     fn a_dataview_table_card_spans_the_whole_column() {
         let cell = |text: &str| vec![Part::Text(text.into())];
-        let grid = Grid { shape: Shape::Table, title: None, columns: vec!["a".into(), "b".into()], rows: vec![vec![cell("1"), cell("2")]] };
+        let grid = Grid { shape: Shape::Table, title: None, columns: vec!["a".into(), "b".into()], rows: vec![vec![cell("1"), cell("2")]].into() };
         let drawing = dataview(&Fetch::Ready(grid), 800.0, &mut |_| Layout::default());
         let card = drawing.items.iter().find_map(|item| if let Item::Fill(shape, _) = item { Some(shape.rect().width()) } else { None });
         assert_eq!(card, Some(800.0));
-        let empty = dataview(&Fetch::Ready(Grid { shape: Shape::List, title: None, columns: Vec::new(), rows: Vec::new() }), 800.0, &mut |_| Layout::default());
+        let empty = dataview(&Fetch::Ready(Grid { shape: Shape::List, title: None, columns: Vec::new(), rows: Vec::new().into() }), 800.0, &mut |_| Layout::default());
         assert!(empty.items.iter().any(|item| matches!(item, Item::Text(_, _, text) if *text == t("search.noResults"))), "пустой результат подписан");
         assert_eq!(drawing.max_scroll(), 0.0, "узкая таблица не прокручивается");
     }
@@ -193,7 +193,7 @@ mod tests {
     fn a_wide_dataview_table_scrolls_sideways() {
         let columns: Vec<String> = (0..10).map(|i| format!("колонка {i}")).collect();
         let row = columns.iter().map(|c| vec![Part::Text(c.clone())]).collect();
-        let grid = Grid { shape: Shape::Table, title: None, columns, rows: vec![row] };
+        let grid = Grid { shape: Shape::Table, title: None, columns, rows: vec![row].into() };
         let drawing = dataview(&Fetch::Ready(grid), 400.0, &mut |_| Layout::default());
         assert!(drawing.max_scroll() > 0.0, "десять колонок в 400 px должны прокручиваться вбок");
     }

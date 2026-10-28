@@ -9,7 +9,7 @@ use super::damage::Damage;
 use super::live::{self, Motion};
 use super::paint::PaintError;
 use super::renderer::Renderer;
-use crate::cover::over;
+use crate::cover::{MotionPixels, over};
 use crate::output::{Area, Canvas, Target};
 use split::Part;
 
@@ -123,24 +123,20 @@ impl Renderer {
                 }
             };
             let (x, y, w, h) = layer.area;
-            {
-                let _zone = aq_trace::zone("живой слой: узор");
-                let rect = Rect::new(f64::from(x), f64::from(y), f64::from(x) + f64::from(w), f64::from(y) + f64::from(h));
-                live::draw(layer.transform, layer.shape, motion, rect, seconds, &mut self.scratch);
-            }
-            let motion_pixels = &self.scratch;
+            let rect = Rect::new(f64::from(x), f64::from(y), f64::from(x) + f64::from(w), f64::from(y) + f64::from(h));
             let _zone = aq_trace::zone("живой слой: холст");
             canvas.with_target(&mut |Target { pixels, width, .. }| {
                 let stride = usize::from(width);
                 let (x, y, w) = (usize::from(x), usize::from(y), usize::from(w));
-                for (row, ((below, top), (above, &(from, to)))) in cache.below.chunks_exact(w).zip(motion_pixels.chunks_exact(w)).zip(cache.above.chunks_exact(w).zip(&cache.spans)).enumerate() {
-                    let line = &mut pixels[(y + row) * stride + x..][..w];
-                    line.copy_from_slice(below);
-                    for (dest, &source) in line.iter_mut().zip(top) {
-                        if source != 0 {
-                            *dest = over((source & 0xff00_ff00) | (source & 0xff) << 16 | (source >> 16) & 0xff, *dest);
-                        }
-                    }
+                let region = &mut pixels[y * stride + x..];
+                for (line, below) in region.chunks_mut(stride).zip(cache.below.chunks_exact(w)) {
+                    line[..w].copy_from_slice(below);
+                }
+                {
+                    let _zone = aq_trace::zone("живой слой: узор");
+                    live::draw(layer.transform, layer.shape, motion, rect, seconds, MotionPixels { data: &mut *region, stride, canvas: true });
+                }
+                for (line, (above, &(from, to))) in region.chunks_mut(stride).zip(cache.above.chunks_exact(w).zip(&cache.spans)) {
                     for (dest, &source) in line[from..to].iter_mut().zip(&above[from..to]) {
                         if source >> 24 != 0 {
                             *dest = over(source, *dest);

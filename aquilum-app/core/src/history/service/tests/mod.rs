@@ -10,11 +10,12 @@ use std::path::{Path, PathBuf};
 
 mod moves;
 mod read;
+mod revert;
 
 struct Fixture {
-    _directory: tempfile::TempDir,
     data: PathBuf,
     vault: PathBuf,
+    _directory: tempfile::TempDir,
 }
 
 impl Fixture {

@@ -29,6 +29,9 @@ impl Widget for ReaderView {
             ctx.set_opacity(0.0);
             ctx.request_anim_frame();
         }
+        if matches!(event, Update::HoveredChanged(false)) && (self.set_hover(None) | self.hovered.take().is_some()) {
+            ctx.request_anim_frame();
+        }
         if matches!(event, Update::FontsChanged) {
             self.title_line.clear();
             self.pages_line.clear();

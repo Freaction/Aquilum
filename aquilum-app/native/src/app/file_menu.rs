@@ -28,7 +28,7 @@ impl App {
         if colored {
             labels.push((t("palette.color"), crate::ui::icons::PALETTE));
         }
-        let items: Vec<crate::ui::menu::Entry<'_>> = labels.iter().map(|(label, icon)| crate::ui::menu::Entry { label, icon: Some(*icon), disabled: false }).collect();
+        let items: Vec<crate::ui::menu::Entry<'_>> = labels.iter().map(|(label, icon)| crate::ui::menu::Entry { label, icon: Some(*icon), disabled: false, divided: false }).collect();
         let names: Vec<String> = std::iter::once(t("palette.none")).chain(palette::NAMES.iter().map(|name| palette::label(name))).collect();
         let theme = crate::ui::theme::current();
         let swatches: Vec<Swatch<'_>> = names.iter().zip(std::iter::once(None).chain(palette::NAMES.iter().map(|name| palette::color(name, &theme)))).map(|(label, color)| Swatch { label, color }).collect();
@@ -115,33 +115,8 @@ impl App {
                     MenuChoice::Item(_) | MenuChoice::Dismissed | MenuChoice::Hover(_) => {}
                 }
             }
-            Some(Popup::Delete { dialog, targets }) => match dialog.answer(id, action) {
-                Some(answer) => {
-                    crate::ui::dialog::close(root, dialog.layer);
-                    if answer == DialogAnswer::Confirm
-                        && let Some(workspace) = self.tree.root().map(Path::to_path_buf)
-                    {
-                        self.commit_note();
-                        file_ops::trash_all(&self.workspace.core, workspace, targets);
-                        self.tree.clear_selection(root);
-                    }
-                }
-                None => self.popup = Some(Popup::Delete { dialog, targets }),
-            },
-            Some(Popup::ResetGraph(dialog)) => match dialog.answer(id, action) {
-                Some(DialogAnswer::Confirm) => { crate::ui::dialog::close(root, dialog.layer); self.reset_graph_settings(root); }
-                Some(_) => crate::ui::dialog::close(root, dialog.layer),
-                None => self.popup = Some(Popup::ResetGraph(dialog)),
-            },
-            Some(Popup::ManualUpdate(dialog, url)) => match dialog.answer(id, action) {
-                Some(DialogAnswer::Confirm) => { crate::ui::dialog::close(root, dialog.layer); crate::system::open_url(&url); }
-                Some(_) => crate::ui::dialog::close(root, dialog.layer),
-                None => self.popup = Some(Popup::ManualUpdate(dialog, url)),
-            },
-            Some(Popup::VersionMenu { layer, index, commands }) => self.on_version_menu(root, layer, index, commands, action),
-            Some(Popup::TableMenu { layer, commands }) => self.on_table_menu(root, layer, commands, action),
-            Some(Popup::EditorMenu { layer, commands }) => self.on_editor_menu(root, layer, commands, action),
-            Some(Popup::NoteActionsMenu { layer }) => return self.on_note_actions_menu(root, layer, action),
+            Some(Popup::Confirm(dialog, then)) => self.on_confirm(root, dialog, then, id, action),
+            Some(Popup::Menu { layer, commands }) => return self.on_menu(root, layer, commands, action),
             Some(Popup::SortMenu { layer, button }) => match self.dropdown_answer(root, layer, button, id, action) {
                 None => self.popup = Some(Popup::SortMenu { layer, button }),
                 Some(chosen) => {
@@ -167,23 +142,20 @@ impl App {
         Outcome::default()
     }
 
-    /// `DeleteNotesDialog`: заголовок и текст зависят от числа целей и от того, папка ли это.
-    pub(super) fn confirm_delete(&mut self, root: &mut RenderRoot, targets: Vec<PathBuf>) {
-        let many = targets.len() > 1;
-        let folder = !many && targets.first().is_some_and(|p| p.is_dir());
-        let name = targets.first().and_then(|p| p.file_stem()).map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-        let count = targets.len().to_string();
-        let (title, description) = if many {
-            (t("confirm.notesTitle"), t_with("confirm.manyDescription", &[("count", &count)]))
-        } else if folder {
-            (t("confirm.folderTitle"), t_with("confirm.folderDescription", &[("name", &name)]))
-        } else {
-            (t("confirm.noteTitle"), t_with("confirm.noteDescription", &[("name", &name)]))
+    fn on_menu(&mut self, root: &mut RenderRoot, layer: WidgetId, commands: Vec<MenuCommand>, action: &ErasedAction) -> Outcome {
+        let Some(choice) = action.downcast_ref::<MenuChoice>() else {
+            self.popup = Some(Popup::Menu { layer, commands });
+            return Outcome::default();
         };
-        let confirm = if many { t_with("confirm.deleteMany", &[("count", &count)]) } else { t("common.delete") };
-        let (layer, dialog) = ConfirmDialog::new(&title, &description, &t("common.cancel"), &confirm);
-        root.add_layer(layer, Point::ORIGIN);
-        root.focus_on(Some(dialog.layer));
-        self.popup = Some(Popup::Delete { dialog, targets });
+        let MenuChoice::Item(item) = choice else { return Outcome::default() };
+        root.remove_layer(layer);
+        match commands.get(*item) {
+            Some(&MenuCommand::Version(index, command)) => self.version_command(root, index, command),
+            Some(&MenuCommand::Table(command)) => self.table_command(root, command),
+            Some(&MenuCommand::Editor(command)) => self.editor_command(root, command),
+            Some(&MenuCommand::Note(command)) => return self.note_command(root, command),
+            None => {}
+        }
+        Outcome::default()
     }
 }

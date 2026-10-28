@@ -76,7 +76,7 @@ final class ImeView extends View {
         text.replace(0, text.length(), value);
         Selection.setSelection(text, anchor, cursor);
         if (start >= 0) {
-            connection.mark(start, end);
+            connection.setComposingRegion(start, end);
         } else {
             BaseInputConnection.removeComposingSpans(text);
         }
@@ -138,10 +138,6 @@ final class ImeView extends View {
             return text;
         }
 
-        void mark(int start, int end) {
-            super.setComposingRegion(start, end);
-        }
-
         @Override
         public boolean beginBatchEdit() {
             batch++;
@@ -151,8 +147,7 @@ final class ImeView extends View {
         @Override
         public boolean endBatchEdit() {
             batch = Math.max(0, batch - 1);
-            edited(true);
-            return batch > 0;
+            return edited(batch > 0);
         }
 
         @Override
@@ -191,10 +186,18 @@ final class ImeView extends View {
         }
 
         @Override
-        public boolean performEditorAction(int action) {
-            sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER));
-            sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER));
-            return true;
+        public boolean sendKeyEvent(KeyEvent event) {
+            if (multiline && event.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    beginBatchEdit();
+                    finishComposingText();
+                    commitText("\n", 1);
+                    endBatchEdit();
+                }
+                return true;
+            }
+            send(false);
+            return super.sendKeyEvent(event);
         }
     }
 }

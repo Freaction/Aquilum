@@ -12,7 +12,6 @@ mod kbd;
 mod label;
 mod layout;
 mod sash;
-mod visible;
 
 pub use buttons::*;
 pub use appear::*;
@@ -25,7 +24,6 @@ pub use kbd::kbd;
 pub use label::{Font, Label, Leading, Paint, Scale};
 pub use layout::*;
 pub use sash::{Edge, Edged, Sash, SashAction};
-pub use visible::Visible;
 
 use masonry::core::{EventCtx, PointerButtonEvent, PointerEvent};
 

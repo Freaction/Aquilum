@@ -175,14 +175,14 @@ fn switching_classes_keeps_desktop_preferences() {
 #[test]
 fn safe_area_keeps_the_layout_clear_of_system_bars() {
     let mut h = at_width(360.0);
-    h.app.safe_area_changed(&mut h.root, Insets::new(0.0, 24.0, 0.0, 48.0));
+    h.app.fit_window(&mut h.root, h.app.window, Insets::new(0.0, 24.0, 0.0, 48.0));
     h.settle();
     let chrome = h.app.chrome.as_ref().unwrap();
     let (strip, pages) = (bounds(&h, chrome.tab_strip.id()), bounds(&h, chrome.pages.id()));
     assert!(strip.y0 >= 24.0, "заголовок под строкой состояния: {strip:?}");
     assert_eq!(pages.y1, f64::from(H) - 48.0, "низ над панелью навигации и клавиатурой");
     resize(&mut h, 900.0);
-    h.app.safe_area_changed(&mut h.root, Insets::new(30.0, 0.0, 0.0, 0.0));
+    h.app.fit_window(&mut h.root, h.app.window, Insets::new(30.0, 0.0, 0.0, 0.0));
     h.settle();
     let rail = bounds(&h, h.app.chrome.as_ref().unwrap().rail.id());
     assert_eq!(rail.x0, 30.0, "полоса значков правее выреза камеры");

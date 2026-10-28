@@ -1,7 +1,11 @@
+mod build;
 mod item;
 mod layer;
+mod place;
 mod shadow;
 mod sub;
+#[cfg(test)]
+mod tests;
 
 use super::icons;
 
@@ -21,4 +25,5 @@ pub struct Entry<'a> {
     pub label: &'a str,
     pub icon: Option<icons::Icon>,
     pub disabled: bool,
+    pub divided: bool,
 }

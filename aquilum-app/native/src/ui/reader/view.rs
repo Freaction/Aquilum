@@ -22,6 +22,8 @@ impl ReaderView {
             title_line: Line::default(),
             pages_line: Line::default(),
             header: size::SPACE_48,
+            insets: Insets::ZERO,
+            room: Rect::ZERO,
             body: Rect::ZERO,
             popover_rect: Rect::ZERO,
             hover: None,
@@ -47,6 +49,14 @@ impl ReaderView {
     pub fn set_settings(this: &mut WidgetMut<'_, Self>, settings: Settings) {
         if this.widget.settings != settings {
             this.widget.settings = settings;
+            this.widget.report = true;
+            this.ctx.request_layout();
+        }
+    }
+
+    pub fn set_insets(this: &mut WidgetMut<'_, Self>, insets: Insets) {
+        if this.widget.insets != insets {
+            this.widget.insets = insets;
             this.widget.report = true;
             this.ctx.request_layout();
         }

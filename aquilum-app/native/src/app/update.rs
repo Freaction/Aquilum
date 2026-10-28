@@ -2,7 +2,8 @@ use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, WidgetId};
 use masonry::kurbo::Point;
 
-use super::{App, Popup};
+use super::App;
+use super::confirm::Confirmed;
 use crate::i18n::{t, t_with};
 use crate::ui::update::{UpdateBar, UpdateSplash, update_bar};
 use crate::ui::widgets::{Pressed, Slot};
@@ -104,9 +105,7 @@ impl App {
     }
 
     pub(in crate::app) fn show_manual_update_dialog(&mut self, root: &mut RenderRoot, version: &str, url: &str) {
-        let (layer, dialog) = crate::ui::dialog::ConfirmDialog::new(&t("update.manualTitle"), &t_with("update.manualDesc", &[("version", version)]), &t("common.close"), &t("update.download"));
-        root.add_layer(layer, Point::ORIGIN);
-        root.focus_on(Some(dialog.layer));
-        self.popup = Some(Popup::ManualUpdate(dialog, url.to_owned()));
+        let description = t_with("update.manualDesc", &[("version", version)]);
+        self.ask(root, Confirmed::ManualUpdate(url.to_owned()), &t("update.manualTitle"), &description, &t("common.close"), &t("update.download"));
     }
 }

@@ -1,49 +1,33 @@
 use masonry::accesskit::{Node, Role};
 use masonry::core::keyboard::KeyState;
 use masonry::core::{
-    AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx,
-    TextEvent, Update, UpdateCtx, Widget, WidgetMut, WidgetPod,
+    AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update,
+    UpdateCtx, Widget, WidgetMut, WidgetPod,
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Axis, Point, Rect, RoundedRect, Size, Stroke};
 use masonry::layout::{LayoutSize, LenReq, Length};
-use masonry::properties::types::CrossAxisAlignment;
 use masonry::widgets::Flex;
 
-use super::item::{Kind, MenuItem};
-use super::sub::{Sub, Submenu, panel};
-use super::{Entry, MenuChoice, box_shadow};
+use super::sub::Sub;
+use super::{MenuChoice, box_shadow};
 use crate::ui::scroll::ScrollArea;
 use crate::ui::theme;
 use crate::ui::tokens::size;
 
 pub struct Menu {
-    child: WidgetPod<ScrollArea<Flex>>,
-    label: String,
-    width: Option<f64>,
-    max_width: f64,
-    max_height: f64,
-    exclude: Option<Rect>,
-    sub: Option<Sub>,
-    main: Size,
+    pub(super) child: WidgetPod<ScrollArea<Flex>>,
+    pub(super) label: String,
+    pub(super) width: Option<f64>,
+    pub(super) max_width: f64,
+    pub(super) max_height: f64,
+    pub(super) exclude: Option<Rect>,
+    pub(super) sub: Option<Sub>,
+    pub(super) main: Size,
 }
 
 impl Menu {
-    pub const LIST_MAX_HEIGHT: f64 = 256.0;
-
-    const MIN_WIDTH: f64 = 128.0;
-
-    pub fn new(label: &str, items: &[&str]) -> NewWidget<Self> {
-        Self::build(label, &plain_entries(items), None, None, None)
-    }
-
-    pub fn entries(label: &str, entries: &[Entry<'_>]) -> NewWidget<Self> {
-        Self::build(label, entries, None, None, None)
-    }
-
-    pub fn with_submenu(label: &str, entries: &[Entry<'_>], sub: &Submenu<'_>) -> NewWidget<Self> {
-        Self::build(label, entries, None, None, Some(sub))
-    }
+    pub(super) const MIN_WIDTH: f64 = 128.0;
 
     pub fn show_sub(this: &mut WidgetMut<'_, Self>, shown: bool) {
         let Some(sub) = &mut this.widget.sub else { return };
@@ -53,73 +37,6 @@ impl Menu {
             this.ctx.request_layout();
         }
     }
-
-    pub fn list(label: &str, items: &[&str], checked: usize, trigger: Rect) -> NewWidget<Self> {
-        let mut menu = Self::build(label, &plain_entries(items), Some(checked), Some(trigger.width()), None);
-        menu.widget.max_height = Self::LIST_MAX_HEIGHT;
-        menu.widget.exclude = Some(trigger);
-        menu
-    }
-
-    pub fn dropdown(label: &str, items: &[&str], checked: usize, trigger: Rect, window: Size, width: f64) -> NewWidget<Self> {
-        let mut menu = Self::list(label, items, checked, trigger);
-        menu.widget.width = Some(width);
-        menu.widget.max_width = width;
-        menu.widget.max_height = (window.height - Self::dropdown_origin(trigger, window, width).y - size::SPACE_8).max(MenuItem::height());
-        menu
-    }
-
-    pub fn context_origin(at: Point, items: usize, window: Size) -> Point {
-        let size = Self::estimated_size(items);
-        let x = if at.x + size.width > window.width { (at.x - size.width).max(size::SPACE_8) } else { at.x };
-        let y = if at.y + size.height > window.height { (at.y - size.height).max(size::SPACE_8) } else { at.y };
-        Point::new(x, y)
-    }
-
-    pub fn list_origin(trigger: Rect, items: usize, window: Size) -> Point {
-        let height = Self::estimated_size(items).height.min(Self::LIST_MAX_HEIGHT);
-        let below = trigger.y1 + size::SPACE_4;
-        let y = if below + height > window.height - size::SPACE_8 { (trigger.y0 - size::SPACE_4 - height).max(size::SPACE_8) } else { below };
-        Point::new(trigger.x0, y)
-    }
-
-    pub fn dropdown_origin(trigger: Rect, window: Size, width: f64) -> Point {
-        let right = (window.width - width - size::SPACE_8).max(size::SPACE_8);
-        Point::new((trigger.x1 - width).clamp(size::SPACE_8, right), trigger.y1 + size::SPACE_4)
-    }
-
-    fn build(label: &str, items: &[Entry<'_>], checked: Option<usize>, width: Option<f64>, sub: Option<&Submenu<'_>>) -> NewWidget<Self> {
-        let mut column = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch);
-        for (index, item) in items.iter().enumerate() {
-            let kind = match sub {
-                Some(sub) if sub.at == index => Kind::Parent,
-                Some(_) => Kind::Watched,
-                None => Kind::Plain,
-            };
-            column = column.with_fixed(NewWidget::new(MenuItem::new(index, item.label, item.icon, item.disabled, checked == Some(index), checked.is_some(), kind)));
-        }
-        let scroll = NewWidget::new(ScrollArea::new(panel(column)));
-        NewWidget::new(Menu {
-            child: scroll.to_pod(),
-            label: label.to_owned(),
-            width,
-            max_width: f64::INFINITY,
-            max_height: f64::INFINITY,
-            exclude: None,
-            sub: sub.map(Sub::new),
-            main: Size::ZERO,
-        })
-    }
-
-    pub fn estimated_size(items: usize) -> Size {
-        let items = items as f64;
-        let height = items * MenuItem::height() + (items + 1.0) * size::GAP_XS;
-        Size::new(Self::MIN_WIDTH + 32.0, height)
-    }
-}
-
-fn plain_entries<'a>(items: &[&'a str]) -> Vec<Entry<'a>> {
-    items.iter().map(|&label| Entry { label, icon: None, disabled: false }).collect()
 }
 
 fn paint_panel(painter: &mut Painter<'_>, rect: Rect) {
@@ -182,7 +99,7 @@ impl Widget for Menu {
         let panel = sub.measure(ctx);
         match axis {
             Axis::Horizontal => Length::px(main + size::GAP_XS + panel.width),
-            Axis::Vertical => Length::px(main.max(sub.top() + panel.height)),
+            Axis::Vertical => Length::px(main.max(sub.top + panel.height)),
         }
     }
 
@@ -193,7 +110,7 @@ impl Widget for Menu {
         ctx.run_layout(&mut self.child, main);
         ctx.place_child(&mut self.child, Point::ORIGIN);
         if let Some(sub) = self.sub.as_mut().filter(|sub| sub.shown) {
-            let origin = Point::new(main.width + size::GAP_XS, sub.top());
+            let origin = Point::new(main.width + size::GAP_XS, sub.top);
             sub.place(ctx, origin);
         }
     }

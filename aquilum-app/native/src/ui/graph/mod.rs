@@ -31,14 +31,11 @@ mod widget;
 use labels::Label;
 
 const LABEL_GAP: f64 = 4.0;
-const MAX_EDGES: usize = 600_000;
 const FADE: f64 = 0.07;
 const SETTLED: f64 = 0.02;
 const CAMERA_SETTLE: Duration = Duration::from_millis(400);
 const SETTINGS_WIDTH: f64 = 240.0;
 pub const PANEL_PADDING: f64 = crate::ui::tokens::size::SPACE_16;
-const DRAFT_BUDGET: Duration = Duration::from_millis(12);
-const DRAFT_SCALE: f64 = 0.5;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Heat {
@@ -129,7 +126,5 @@ pub struct GraphView {
     animating: bool,
     scale_factor: f64,
     surfaces: crate::render::Surfaces,
-    draft: bool,
-    cost: Duration,
     screen: Vec<[f32; 2]>,
 }

@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use aquilum_core::settings::models::AppConfig;
 use masonry::accesskit::Role;
 use masonry::app::RenderRoot;
-use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
-use masonry::kurbo::{Axis, Size};
+use masonry::core::{NewWidget, PropertySet, WidgetId};
+use masonry::kurbo::Size;
 use masonry::layout::Length;
 use masonry::properties::types::CrossAxisAlignment;
 use masonry::properties::{Gap, Padding};
@@ -20,14 +20,14 @@ use masonry::widgets::{Flex, SizedBox};
 
 use crate::i18n::t;
 use crate::interface::{Screen, WidthClass};
-use crate::ui::dialog::{CardSize, DialogIds, Modal, header};
+use crate::ui::dialog::{CardSize, DialogIds, Modal, header, ruled};
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
+use crate::ui::icons;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::text::label;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{IconButton, ItemButton, Label, Leading, Rule};
-use crate::ui::{icons, theme};
+use crate::ui::widgets::{IconButton, ItemButton, Label, Leading};
 use layout::{block_widget, rows_column};
 pub use panes::{Pane, Panes};
 use schema::{Action, Context, Number, Row, Section, Setter};
@@ -122,11 +122,6 @@ fn nav(section: Section, compact: bool) -> (NewWidget<Flex>, Vec<(WidgetId, Sect
     (column, ids)
 }
 
-fn ruled(head: NewWidget<impl Widget>) -> NewWidget<Flex> {
-    let rule = Rule::new(Axis::Horizontal, || theme::current().border_default);
-    NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(head).with_fixed(rule))
-}
-
 pub fn card(config: &AppConfig, ctx: &Context, section: Section) -> (NewWidget<Flex>, impl FnOnce(WidgetId) -> SettingsDialog) {
     let close = NewWidget::new(IconButton::new(icons::X, t("settings.close")));
     let close_sub = NewWidget::new(IconButton::new(icons::X, t("settings.close")));
@@ -143,7 +138,7 @@ pub fn card(config: &AppConfig, ctx: &Context, section: Section) -> (NewWidget<F
     let (blocks, bindings) = content(config, ctx, section);
     let content = NewWidget::new(ScrollArea::new(blocks));
     let (list_handle, content_handle) = (Handle::of(&list), Handle::of(&content));
-    let panes = Panes::new(ruled(header(&t("settings.title"), Some(close))), ruled(sub), list, content);
+    let panes = Panes::new(NewWidget::new(ruled(header(&t("settings.title"), Some(close)))), NewWidget::new(ruled(sub)), list, content);
     let panes_handle = Handle::of(&panes);
 
     let card = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with(panes, 1.0);

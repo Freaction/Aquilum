@@ -59,6 +59,7 @@ impl Frames {
         let (layers, _) = h.root.redraw();
         let t = std::time::Instant::now();
         let mut shown = self.partial.draw_frame(&layers, self.width, self.height, self.scale, theme::background(), false).unwrap();
+        #[cfg(not(target_os = "android"))]
         crate::output::merge(&mut shown);
         let time = t.elapsed();
         let differ = if self.check {

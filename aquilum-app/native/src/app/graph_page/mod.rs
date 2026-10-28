@@ -160,7 +160,7 @@ impl App {
     #[cfg(test)]
     pub(super) fn reset_graph_dialog_layer(&self) -> Option<WidgetId> {
         match &self.popup {
-            Some(Popup::ResetGraph(dialog)) => Some(dialog.layer),
+            Some(Popup::Confirm(dialog, crate::app::confirm::Confirmed::ResetGraph)) => Some(dialog.layer),
             _ => None,
         }
     }

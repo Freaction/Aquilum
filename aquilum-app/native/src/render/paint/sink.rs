@@ -109,6 +109,12 @@ impl PaintSink for Painter {
     }
 
     fn fill(&mut self, draw: FillRef<'_>) {
+        if let Some(id) = self.after {
+            if matches!(&draw.brush, BrushRef::Image(image) if image.image.data.id() == id) {
+                self.after = None;
+            }
+            return;
+        }
         if self.error.is_some() || convert::invisible(&draw.brush, draw.composite) || self.offscreen(draw.transform.transform_rect_bbox(convert::shape_bounds(&draw.shape))) {
             return;
         }
@@ -142,7 +148,7 @@ impl PaintSink for Painter {
 
     fn stroke(&mut self, draw: StrokeRef<'_>) {
         let w = draw.stroke.width.max(1.0) * draw.stroke.miter_limit.max(1.0);
-        if self.error.is_some() || convert::invisible(&draw.brush, draw.composite) || self.offscreen(draw.transform.transform_rect_bbox(convert::shape_bounds(&draw.shape).inflate(w, w))) {
+        if self.error.is_some() || self.after.is_some() || convert::invisible(&draw.brush, draw.composite) || self.offscreen(draw.transform.transform_rect_bbox(convert::shape_bounds(&draw.shape).inflate(w, w))) {
             return;
         }
         let paint = convert::brush_to_paint(draw.brush, draw.composite, &mut self.images);
@@ -160,14 +166,14 @@ impl PaintSink for Painter {
     }
 
     fn glyph_run(&mut self, draw: GlyphRunRef<'_>, glyphs: &mut dyn Iterator<Item = SceneGlyph>) {
-        if self.error.is_some() {
+        if self.error.is_some() || self.after.is_some() {
             return;
         }
         self.draw_glyph_run(draw, glyphs);
     }
 
     fn blurred_rounded_rect(&mut self, draw: BlurredRoundedRect) {
-        if self.error.is_some() {
+        if self.error.is_some() || self.after.is_some() {
             return;
         }
         self.set_transform(draw.transform);

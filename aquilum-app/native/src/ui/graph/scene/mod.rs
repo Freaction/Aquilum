@@ -14,27 +14,28 @@ impl GraphView {
         let _zone = aq_trace::zone("граф: сцена");
         let graph = self.graph.clone()?;
         let tm = theme::current();
-        let sf = if self.draft { self.scale_factor * DRAFT_SCALE } else { self.scale_factor };
+        let sf = self.scale_factor;
         let (width, height) = ((self.size.width * sf).round() as usize, (self.size.height * sf).round() as usize);
         if width == 0 || height == 0 {
             return None;
         }
         let s = self.display.spread;
-        let (cx, cy, scale) = (self.camera.center_x, self.camera.center_y, self.camera.scale);
+        let (camera, cy, scale) = (self.camera, self.camera.center_y, self.camera.scale);
         let (half_w, half_h) = (self.size.width / 2.0, self.size.height / 2.0);
         {
             use rayon::prelude::*;
             let _zone = aq_trace::zone("граф: экран");
             self.screen.resize(graph.len(), [0.0; 2]);
             self.screen.par_iter_mut().zip(self.positions.par_iter()).for_each(|(out, &[x, y])| {
-                *out = [(((f64::from(x) * s - cx) * scale + half_w) * sf) as f32, ((half_h - (f64::from(y) * s - cy) * scale) * sf) as f32];
+                let (dx, dy) = camera.to_offset(f64::from(x) * s, f64::from(y) * s);
+                *out = [((dx + half_w) * sf) as f32, ((dy + half_h) * sf) as f32];
             });
         }
         let ideal = EDGE_WORLD_HALF_WIDTH * scale;
         let half = ideal.clamp(EDGE_MIN_HALF, EDGE_MAX_HALF);
         let density = (EDGE_REFERENCE / (graph.edges.len().max(1) as f64)).sqrt().clamp(0.3, 1.0);
         let thickness = (half * 2.0 * sf).min(1.0);
-        let biggest = (graph::world_radius(graph.max_degree, self.display.node_size, s) * scale).clamp(graph::SUB_PIXEL_RADIUS, graph::MAX_NODE_PIXELS) + 2.0;
+        let biggest = graph::radius_pixels(graph.max_degree, scale, self.display.node_size, s) + 2.0;
         let frame = Frame {
             graph: &graph,
             screen: &self.screen,
@@ -70,9 +71,9 @@ impl GraphView {
         };
         let read = readable(scale * s);
         let mut stamps = Vec::new();
-        for &(node, fade, focused) in self.shown_labels.iter().filter(|_| !self.draft) {
+        for &(node, fade, focused) in &self.shown_labels {
             let Some(sprite) = self.sprites.get(&node) else { continue };
-            let alpha = fade * if focused { 1.0 } else { read } * (1.0 + self.dimming * ((graph::DIMMED_STRENGTH + (1.0 - graph::DIMMED_STRENGTH) * f64::from(self.intensity[node])) - 1.0));
+            let alpha = fade * if focused { 1.0 } else { read } * graph::dimmed(self.dimming, f64::from(self.intensity[node]));
             if alpha <= SETTLED {
                 continue;
             }
@@ -90,12 +91,9 @@ impl GraphView {
         }
         let _zone = aq_trace::zone("граф: растр");
         let mut surfaces = std::mem::take(&mut self.surfaces);
-        let mut image = surfaces.frame(width as u16, height as u16, rgb(tm.graph_backdrop), |pixels| raster::bands(width, height, pixels, |band| frame.draw(band, &stamps)));
+        let image = surfaces.frame(width as u16, height as u16, |pixels| raster::bands(width, height, pixels, rgb(tm.graph_backdrop), |band| frame.draw(band, &stamps)));
         drop(stamps);
         self.surfaces = surfaces;
-        if self.draft {
-            image = image.with_quality(masonry::peniko::ImageQuality::Medium);
-        }
         Some((image, sf))
     }
 }

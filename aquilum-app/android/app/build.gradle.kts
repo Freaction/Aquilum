@@ -3,6 +3,7 @@ plugins {
 }
 
 val appVersion: String = providers.gradleProperty("appVersion").getOrElse("0.0.0")
+val shrink = providers.gradleProperty("shrink").isPresent
 
 android {
     namespace = "com.dmitriy.aquilum"
@@ -25,7 +26,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = shrink
+            isShrinkResources = shrink
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug")
         }
     }

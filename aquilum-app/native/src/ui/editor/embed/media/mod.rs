@@ -1,11 +1,13 @@
 mod controls;
+mod format;
 mod hit;
 mod markdown;
 mod paint;
 mod view;
 
+pub use format::{format, media_line};
 pub use hit::{MediaHit, MediaOverlay};
-pub use markdown::{EmbedLine, format, is_embed, is_html_image, media_line, parse};
+pub use markdown::{EmbedLine, is_embed, is_html_image, parse};
 pub use paint::draw_image;
 pub use view::MediaView;
 
@@ -21,4 +23,4 @@ pub const MIN_WIDTH: f64 = 96.0;
 const MIN_HEIGHT: f64 = 48.0;
 const VIDEO_MIN_HEIGHT: f64 = 120.0;
 pub const MIN_CROP: f64 = 5.0;
-const FULL: [f64; 4] = [0.0, 0.0, 100.0, 100.0];
+pub const FULL: [f64; 4] = [0.0, 0.0, 100.0, 100.0];

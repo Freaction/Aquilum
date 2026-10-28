@@ -4,8 +4,9 @@ pub(super) fn tab_style() -> text::Style {
     text::Style { size: size::TABS_FONT_SIZE as f32, weight: 400.0, line_height: size::TAB_CONTENT_HEIGHT }
 }
 
-pub(super) fn tab_width(ctx: &mut MeasureCtx<'_>, title: &str, icon: bool) -> f64 {
-    let title = text::measure(ctx, title, tab_style()).ceil();
+pub(super) fn tab_width(ctx: &mut MeasureCtx<'_>, line: &mut text::Line, title: &str, icon: bool) -> f64 {
+    let (fcx, lcx) = ctx.text_contexts();
+    let title = line.width(fcx, lcx, title, tab_style()).ceil();
     let icon = if icon { size::SIZE_16 + size::TAB_GAP } else { 0.0 };
     (size::SPACE_12 * 2.0 + icon + title + size::SIZE_32).clamp(size::TAB_MIN_WIDTH, size::TAB_MAX_WIDTH)
 }
@@ -112,7 +113,7 @@ impl Widget for TabButton {
     fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, _len_req: LenReq, _cross: Option<Length>) -> Length {
         match axis {
             Axis::Vertical => Length::px(size::TABS_HEIGHT),
-            Axis::Horizontal => Length::px(tab_width(ctx, &self.title, self.icon.is_some())),
+            Axis::Horizontal => Length::px(tab_width(ctx, &mut self.line, &self.title, self.icon.is_some())),
         }
     }
 

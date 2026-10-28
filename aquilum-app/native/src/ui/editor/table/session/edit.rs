@@ -2,6 +2,7 @@ use masonry::kurbo::{Point, Rect};
 use masonry::parley::{Affinity, Cursor};
 
 use super::{Outcome, Session};
+use crate::ui::editor::caret::around;
 use crate::ui::editor::markdown::range_rects;
 use crate::ui::editor::table::view::TableView;
 
@@ -58,12 +59,10 @@ impl Session {
 
     pub fn delete_around(&mut self, view: &TableView, before: usize, after: usize) -> Outcome {
         self.edit(view, |value, caret, anchor| {
-            let (a, b) = ((*caret).min(*anchor), (*caret).max(*anchor));
-            let start = value.floor_char_boundary(a.saturating_sub(before));
-            let end = value.floor_char_boundary((b + after).min(value.len()));
-            value.replace_range(b..end, "");
-            value.replace_range(start..a, "");
-            (*caret, *anchor) = (*caret - (a - start), *anchor - (a - start));
+            let [head, tail] = around((*caret).min(*anchor)..(*caret).max(*anchor), before, after, value.len(), |at| value.floor_char_boundary(at));
+            value.replace_range(tail, "");
+            value.replace_range(head.clone(), "");
+            (*caret, *anchor) = (*caret - head.len(), *anchor - head.len());
         })
     }
 

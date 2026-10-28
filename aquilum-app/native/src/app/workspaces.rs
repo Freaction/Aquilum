@@ -56,10 +56,8 @@ impl App {
             }
         };
         let (layer, dialog) = workspaces::dialog(&known, self.tree.root(), error.as_deref(), self.signed_in());
-        root.add_layer(layer, Point::ORIGIN);
-        root.focus_on(Some(dialog.layer));
         let cloud = dialog.cloud.map(|slot| self.list_cloud(slot));
-        self.popup = Some(Popup::Workspaces(WorkspacesState { dialog, forget: None, cloud }));
+        self.show_layer(root, layer, Point::ORIGIN, |_| Popup::Workspaces(WorkspacesState { dialog, forget: None, cloud }));
     }
 
     fn close_workspaces(&mut self, root: &mut RenderRoot) {

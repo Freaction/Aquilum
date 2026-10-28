@@ -8,7 +8,7 @@ pub use raster::Cell;
 #[cfg(test)]
 pub use raster::expand;
 
-pub use motion::{Target as MotionTarget, animated, forget_tile, fps as motion_fps, over, render as render_motion};
+pub use motion::{Pixels as MotionPixels, Target as MotionTarget, animated, forget_tile, fps as motion_fps, over, render as render_motion};
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -162,7 +162,8 @@ mod tests {
             let base = super::raster::expand(&super::render_pattern(id, w as u32, h as u32, 1.0).unwrap(), w as u32, h as u32);
             for t in [0.0, 0.5, 20.0] {
                 let mut motion = vec![0u32; w * h];
-                let mut target = super::MotionTarget { pixels: &mut motion, width: w, height: h, origin: (0.0, 0.0), scale: 1.0, size: (w as f64, h as f64), radius: 12.0 };
+                let pixels = super::MotionPixels { data: &mut motion, stride: w, canvas: false };
+                let mut target = super::MotionTarget { pixels, width: w, height: h, origin: (0.0, 0.0), scale: 1.0, size: (w as f64, h as f64), radius: 12.0 };
                 super::render_motion(id, &mut target, t, 900.0);
                 let pixels: Vec<u8> = base
                     .chunks_exact(4)
@@ -183,7 +184,8 @@ mod tests {
             let started = std::time::Instant::now();
             for frame in 0..200 {
                 pixels.fill(0);
-                let mut target = super::MotionTarget { pixels: &mut pixels, width: w, height: h, origin: (0.0, 0.0), scale, size: (w as f64 / scale, h as f64 / scale), radius: 12.0 };
+                let data = super::MotionPixels { data: &mut pixels, stride: w, canvas: false };
+                let mut target = super::MotionTarget { pixels: data, width: w, height: h, origin: (0.0, 0.0), scale, size: (w as f64 / scale, h as f64 / scale), radius: 12.0 };
                 super::render_motion(id, &mut target, f64::from(frame) / 45.0, 900.0);
             }
             eprintln!("{id}: {:.3} мс на кадр", started.elapsed().as_secs_f64() * 1000.0 / 200.0);

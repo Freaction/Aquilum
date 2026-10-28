@@ -165,6 +165,7 @@
   --q-dialog-overlay-bg: var(--q-bg-overlay-subtle);
   --q-dialog-border: var(--q-border-subtle);
   --q-dialog-shadow: var(--q-elevation-float);
+  --q-menu-divider: var(--q-icon-quiet);
 
   --q-confirm-dialog-width: 20.5rem;
   --q-workspace-dialog-width: var(--q-size-448);

@@ -1,4 +1,4 @@
-use super::{Target, over, pack};
+use super::{Target, pack};
 
 const PARTICLES: u32 = 40;
 const COLOR: [u8; 3] = [153, 255, 255];
@@ -30,11 +30,11 @@ pub(super) fn draw(t: &mut Target<'_>, seconds: f64, viewport: f64) {
         let (x0, x1) = ((cx - radius).floor().max(0.0) as usize, ((cx + radius).ceil().max(0.0) as usize).min(t.width));
         let (y0, y1) = ((cy - radius).floor().max(0.0) as usize, ((cy + radius).ceil().max(0.0) as usize).min(t.height));
         for y in y0..y1 {
+            let mut row = t.row(y);
             for x in x0..x1 {
                 let d = ((x as f64 + 0.5 - cx).powi(2) + (y as f64 + 0.5 - cy).powi(2)).sqrt() / radius;
                 if d < 1.0 {
-                    let pixel = &mut t.pixels[y * t.width + x];
-                    *pixel = over(pack(COLOR, opacity * (1.0 - d)), *pixel);
+                    row.put(x, pack(COLOR, opacity * (1.0 - d)));
                 }
             }
         }

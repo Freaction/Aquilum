@@ -4,7 +4,7 @@ use masonry::kurbo::{Point, Vec2};
 
 use super::scale::Scale;
 use crate::fling::{Fling, Trail};
-use crate::ui::keymap::gesture::{DOUBLE_TAP, DOUBLE_TAP_SLOP, FLING_MAX_VELOCITY, FLING_MIN_VELOCITY, LONG_PRESS, TOUCH_SLOP};
+use crate::ui::keymap::gesture::{DOUBLE_TAP, DOUBLE_TAP_SLOP, FLING_MAX_VELOCITY, FLING_MIN_VELOCITY, LONG_PRESS, TAP_TIMEOUT, TOUCH_SLOP};
 
 #[derive(Clone, Copy, Default, PartialEq)]
 enum Phase {
@@ -36,6 +36,7 @@ pub struct Touch {
     zoom: f64,
     fling: Option<Fling>,
     tap: Option<(Instant, Point, u8)>,
+    settled: bool,
 }
 
 impl Touch {
@@ -50,6 +51,7 @@ impl Touch {
             self.travel = Vec2::ZERO;
             self.trail = Trail::touch();
             self.moved = Some(at);
+            self.settled = false;
             let repeated = self.tap.take().filter(|&(up, from, _)| at.saturating_duration_since(up) <= DOUBLE_TAP && (position - from).hypot() < DOUBLE_TAP_SLOP * dp);
             self.phase = match (self.fling.take(), repeated) {
                 (Some(_), _) => Phase::Scrolling,
@@ -120,8 +122,14 @@ impl Touch {
         }
     }
 
+    pub fn settle(&mut self, now: Instant) -> Option<Point> {
+        let due = matches!(self.phase, Phase::Pressed(at, _) if !self.settled && now >= at + TAP_TIMEOUT);
+        self.settled |= due;
+        due.then_some(self.down)
+    }
+
     pub fn long_press(&mut self, now: Instant) -> Option<Point> {
-        self.deadline().is_some_and(|due| now >= due).then(|| {
+        matches!(self.phase, Phase::Pressed(at, _) if now >= at + LONG_PRESS).then(|| {
             self.phase = Phase::Done;
             self.down
         })
@@ -129,7 +137,7 @@ impl Touch {
 
     pub fn deadline(&self) -> Option<Instant> {
         match self.phase {
-            Phase::Pressed(at, _) => Some(at + LONG_PRESS),
+            Phase::Pressed(at, _) => Some(at + if self.settled { LONG_PRESS } else { TAP_TIMEOUT }),
             _ => None,
         }
     }

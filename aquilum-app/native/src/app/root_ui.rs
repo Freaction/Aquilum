@@ -4,7 +4,7 @@ use crate::interface::Side;
 impl App {
     pub fn root_widget(&mut self, system_dark: bool) -> NewWidget<dyn Widget> {
         self.system_dark = system_dark;
-        ui::widgets::Appear::new(Slot::new(self.build_ui()).with_tag(ROOT_TAG), ui::widgets::NORMAL).erased()
+        Slot::appear(Slot::new(self.build_ui()), ui::widgets::NORMAL).with_tag(ROOT_TAG).erased()
     }
 
     pub(in crate::app) fn visible_panels(&self) -> (bool, bool) {
@@ -25,14 +25,14 @@ impl App {
         self.show_update_bar(root);
     }
 
-    pub(in crate::app) fn restyle(&mut self, root: &mut RenderRoot, fonts: bool) {
-        self.apply_appearance();
+    pub(in crate::app) fn restyle(&mut self, root: &mut RenderRoot, fonts: bool, primary: Option<&str>) {
+        self.apply_appearance(primary);
         root.restyle(Arc::new(theme::default_properties()), fonts);
     }
 
-    fn apply_appearance(&self) {
+    fn apply_appearance(&self, primary: Option<&str>) {
         let config = self.workspace.core.settings.get_config();
-        theme::apply_setting(&config.ui.theme, self.system_dark, &config.ui.primary_color);
+        theme::apply_setting(&config.ui.theme, self.system_dark, primary.unwrap_or(&config.ui.primary_color));
         crate::ui::motion::set(config.ui.animations);
         i18n::set_language(&config.ui.language);
         theme::set_ui_font(UiFont {
@@ -53,7 +53,7 @@ impl App {
     }
 
     fn build_ui(&mut self) -> NewWidget<dyn Widget> {
-        self.apply_appearance();
+        self.apply_appearance(None);
         let workspace_name = self
             .tree
             .root()

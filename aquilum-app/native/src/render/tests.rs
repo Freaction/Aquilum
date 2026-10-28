@@ -93,7 +93,7 @@ fn big_image_frame_cost() {
 fn published_frame_survives_regions_that_miss_it() {
     use masonry::kurbo::Affine;
     let mut surfaces = surface::Surfaces::default();
-    let frame = surfaces.frame(8, 8, [200, 30, 30], |_| {});
+    let frame = surfaces.frame(8, 8, |pixels| pixels.chunks_exact_mut(4).for_each(|pixel| pixel.copy_from_slice(&[200, 30, 30, 255])));
     let mut painter = paint::Painter::new(8, 8, paint::settings(0));
     let mut center = |with_image: bool| {
         painter.begin(0, 0, 8, 8);
@@ -129,4 +129,31 @@ fn overlay_leaves_no_trace() {
     assert_ne!(canvas.2, clean, "подсветка видна");
     stamps.restore(&mut canvas);
     assert_eq!(canvas.2, clean, "после подсветки холст прежний");
+}
+
+#[test]
+fn graph_frame_is_copied_exactly_like_the_rasterizer_draws_it() {
+    use crate::graph::Graph;
+    use crate::ui::graph::{Display, GraphView, Status};
+    let days = vec![20_000.0f32; 4];
+    let paths = (0..4).map(|i| format!("{i}.md")).collect();
+    let graph = Graph::new(vec![[0.0, 0.0], [1.0, 0.5], [0.3, 1.2], [1.4, 1.1]], days.clone(), days, vec![2, 2, 1, 1], vec![[0, 1], [1, 2], [0, 3]], paths);
+    let scale = 1.5;
+    let view = GraphView::new(Some(Arc::new(graph)), Status::Ready, Display::default(), None, None);
+    let mut root = RenderRoot::new(view.erased(), |_| (), crate::test_dir::options(u32::from(W), u32::from(H), scale));
+    let _ = root.redraw();
+    let (layers, _) = root.redraw();
+    let mut renderer = Renderer::new(0);
+    renderer.render(&layers, W, H, scale, BG).expect("кадр");
+    assert!(renderer.blitted, "картинка графа копируется напрямую");
+    let frame = renderer.frame(&layers).expect("кадр");
+    let mut painter = paint::Painter::new(W, H, paint::settings(0));
+    painter.begin(0, 0, W, H);
+    frame.paint_into(&mut painter);
+    painter.finish().unwrap();
+    let mut expected = vec![0u32; usize::from(W) * usize::from(H)];
+    let pixmap = vello_cpu::PixmapMut::new(W, H, bytemuck::cast_slice_mut(&mut expected)).unwrap();
+    painter.ctx.render_with(pixmap, &mut painter.resources, vello_cpu::RasterizerSettings { pixel_format: PIXEL_FORMAT, ..Default::default() });
+    let differ = renderer.frame_pixels().iter().zip(&expected).filter(|(a, b)| a != b).count();
+    assert_eq!(differ, 0, "кадр с прямым копированием совпадает с растеризатором");
 }

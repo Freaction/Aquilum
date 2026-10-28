@@ -53,8 +53,6 @@ impl GraphView {
             animating: false,
             scale_factor: 1.0,
             surfaces: crate::render::Surfaces::default(),
-            draft: false,
-            cost: std::time::Duration::ZERO,
             screen: Vec::new(),
         };
         if let Some(graph) = graph {

@@ -4,10 +4,7 @@ default-members = ["core", "native"]
 resolver = "2"
 
 [profile.release]
-lto = "thin"
-codegen-units = 8
 incremental = true
-strip = true
 opt-level = "s"
 
 [profile.release.package.aquilum-native]

@@ -11,6 +11,7 @@ mod scan;
 mod store;
 #[cfg(test)]
 mod testing;
+mod window;
 
 use std::path::{Path, PathBuf};
 

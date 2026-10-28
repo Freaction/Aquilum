@@ -10,7 +10,7 @@ fn open_env_note(h: &mut Harness) {
 
 fn restyle_cost(b: &mut Bench, fonts: bool) -> (Duration, Duration, Duration) {
     let t = Instant::now();
-    b.h.app.restyle(&mut b.h.root, fonts);
+    b.h.app.restyle(&mut b.h.root, fonts, None);
     let built = t.elapsed();
     let (layers, _) = b.h.root.redraw();
     let scene = t.elapsed() - built;
@@ -98,14 +98,15 @@ fn typing_cost() {
 #[test]
 #[ignore]
 fn resize_cost() {
-    let scale = 1.75;
+    let scale = bench_scale(1.75);
+    let (width, height) = bench_size().unwrap_or((2400, 1500));
     let mut h = Harness::with(None, scale);
     open_env_note(&mut h);
-    let mut renderer = Renderer::new(4);
+    let mut renderer = Renderer::new(raster_threads());
     let (mut scene, mut raster) = (Duration::ZERO, Duration::ZERO);
     let n = 30u32;
     for i in 0..n {
-        let (w, hh) = (2400 - i * 8, 1500 - i * 4);
+        let (w, hh) = (width - i * 8, height - i * 4);
         let t0 = Instant::now();
         h.root.handle_window_event(masonry::core::WindowEvent::Resize(PhysicalSize::new(w, hh)));
         h.app.window_resized(&mut h.root, Size::new(f64::from(w) / scale, f64::from(hh) / scale));

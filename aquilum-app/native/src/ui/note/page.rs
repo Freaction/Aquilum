@@ -14,7 +14,7 @@ use crate::ui::icons;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::style;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{ButtonSize, Caption, IconButton, Slot, TextButton, Variant, Visible};
+use crate::ui::widgets::{ButtonSize, Caption, IconButton, Slot, TextButton, Variant};
 
 pub struct NoteView<'a> {
     pub file_name: &'a str,
@@ -37,8 +37,8 @@ pub struct NoteIds {
     pub forward: WidgetId,
     pub focus: WidgetId,
     pub focus_button: Handle<TextButton>,
-    pub focus_shown: Handle<Visible>,
-    pub focus_hidden: Vec<Handle<Visible>>,
+    pub focus_shown: Handle<Slot>,
+    pub focus_hidden: Vec<Handle<Slot>>,
     pub search: WidgetId,
     pub more: WidgetId,
     pub error_slot: Handle<Slot>,
@@ -86,18 +86,18 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let focus = NewWidget::new(TextButton::new(t("editor.focusMode"), Variant::Ghost).size(ButtonSize::Xs).pressed(view.focus_mode));
     let focus_id = focus.id();
     let focus_button = Handle::of(&focus);
-    let focus = Visible::new(focus, !view.compact);
+    let focus = Slot::shown(focus, !view.compact);
     let focus_shown = Handle::of(&focus);
     let search = NewWidget::new(IconButton::new(icons::SEARCH, t("editor.findInNote")));
     let search_id = search.id();
-    let search = Visible::new(search, !view.focus_mode);
+    let search = Slot::shown(search, !view.focus_mode);
     let more = NewWidget::new(IconButton::new(icons::MORE_HORIZONTAL, t("editor.noteActions")));
     let more_id = more.id();
     let name = NewWidget::new(Caption::new(view.file_name));
     let name_handle = Handle::of(&name);
-    let name = Visible::new(name, !view.focus_mode);
+    let name = Slot::shown(name, !view.focus_mode);
     let left = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(back).with_fixed(forward);
-    let left = Visible::new(NewWidget::new(left).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4)))), !view.focus_mode);
+    let left = Slot::shown(NewWidget::new(left).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4)))), !view.focus_mode);
     let focus_hidden = vec![Handle::of(&left), Handle::of(&name), Handle::of(&search)];
     let right = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(focus).with_fixed(search).with_fixed(more);
     let right = NewWidget::new(right).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))));

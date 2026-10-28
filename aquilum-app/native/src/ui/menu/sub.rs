@@ -21,7 +21,7 @@ pub struct Submenu<'a> {
 }
 
 pub(super) struct Sub {
-    pub(super) at: usize,
+    pub(super) top: f64,
     pub(super) panel: WidgetPod<Flex>,
     pub(super) shown: bool,
     pub(super) rect: Rect,
@@ -32,10 +32,6 @@ pub(super) fn panel(column: Flex) -> NewWidget<Flex> {
 }
 
 impl Sub {
-    pub(super) fn top(&self) -> f64 {
-        self.at as f64 * (MenuItem::height() + size::GAP_XS)
-    }
-
     pub(super) fn measure(&mut self, ctx: &mut MeasureCtx<'_>) -> Size {
         let width = ctx.compute_length(&mut self.panel, LenReq::MaxContent.into(), LayoutSize::NONE, Axis::Horizontal, None);
         let context = LayoutSize::maybe(Axis::Horizontal, Some(width));
@@ -50,11 +46,11 @@ impl Sub {
         ctx.place_child(&mut self.panel, origin);
     }
 
-    pub(super) fn new(spec: &Submenu<'_>) -> Self {
+    pub(super) fn new(spec: &Submenu<'_>, top: f64) -> Self {
         let mut column = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch);
         for (index, swatch) in spec.items.iter().enumerate() {
             column = column.with_fixed(NewWidget::new(MenuItem::swatch(index, swatch.label, swatch.color, spec.checked == index)));
         }
-        Sub { at: spec.at, panel: panel(column).to_pod(), shown: false, rect: Rect::ZERO }
+        Sub { top, panel: panel(column).to_pod(), shown: false, rect: Rect::ZERO }
     }
 }

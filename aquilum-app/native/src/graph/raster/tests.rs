@@ -12,7 +12,7 @@ fn draws_discs_lines_and_sprites_in_every_band() {
     let disc = Disc { center: [150.0, 100.0], radius: 20.0, body: [255, 0, 0], rim: [255, 255, 255], inner: 18.0, alpha: 1.0 };
     let stamp = Stamp { sprite: &sprite, x: 5, y: 130, fill: [0, 0, 255], halo: [0, 0, 0], alpha: 1.0 };
     let mut pixels = vec![0u8; 300 * 200 * 4];
-    bands(300, 200, &mut pixels, |band| {
+    bands(300, 200, &mut pixels, [0, 0, 0], |band| {
         band.line(&edge);
         band.disc(&disc);
         band.stamp(&stamp);

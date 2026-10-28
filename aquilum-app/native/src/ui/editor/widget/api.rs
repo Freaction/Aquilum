@@ -43,6 +43,17 @@ impl TextEditor {
         this.ctx.request_render();
     }
 
+    pub fn can_undo(&self, redo: bool) -> bool {
+        self.history.has(redo)
+    }
+
+    pub fn undo(this: &mut WidgetMut<'_, Self>, redo: bool) {
+        if this.widget.rewind(redo) {
+            this.widget.follow_caret = true;
+            Self::edited(this);
+        }
+    }
+
     pub fn keep_caret(this: &mut WidgetMut<'_, Self>) {
         this.widget.follow_caret = true;
         Self::repaint(this);

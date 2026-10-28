@@ -3,12 +3,11 @@ use std::ops::Range;
 use masonry::core::{BrushIndex, render_text};
 use masonry::imaging::record::Glyph;
 use masonry::imaging::{Composite, GroupRef, PaintSink, Painter};
-use masonry::kurbo::{Affine, BezPath, Cap, Circle, Join, Point, Rect, RoundedRect, Stroke};
+use masonry::kurbo::{Affine, BezPath, Point, Rect, RoundedRect, Stroke};
 use masonry::parley::Layout;
 use masonry::peniko::{BlendMode, Brush, BrushRef, Color, Fill, FontData, ImageBrush, Style};
 
 use super::super::markdown;
-use super::metrics::COVER_RADIUS;
 use super::panel;
 use crate::ui::theme;
 
@@ -152,22 +151,7 @@ pub(super) fn paint_item<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, it
             let y = r.y0 + (r.height() - h * k) / 2.0 - f64::from(image.image.height) * t / 100.0 * k;
             painter.with_fill_clip(r.to_rounded_rect(shape.radii()), |painter| painter.draw_image(image, Affine::translate((x, y)) * Affine::scale(k)));
         }
-        Item::Check(rect, done) => {
-            let tm = theme::current();
-            let r = at.transform_rect_bbox(*rect);
-            let shape = r.to_rounded_rect(COVER_RADIUS);
-            if *done {
-                painter.fill(shape, tm.bg_accent).draw();
-                let c = r.center();
-                let mut check = BezPath::new();
-                check.move_to((c.x - 4.5, c.y + 0.5));
-                check.line_to((c.x - 1.5, c.y + 3.5));
-                check.line_to((c.x + 4.5, c.y - 3.0));
-                painter.stroke(&check, &Stroke::new(2.0).with_caps(Cap::Round).with_join(Join::Round), tm.icon_on_accent).draw();
-            } else {
-                painter.fill(shape, tm.bg_surface_overlay).draw();
-            }
-        }
+        Item::Check(rect, done) => markdown::paint_check(painter, at.transform_rect_bbox(*rect), *done),
         Item::Button(shape, enabled) => {
             let hovered = *enabled && hover == Some(shape.rect());
             let shape = at.transform_rect_bbox(shape.rect()).to_rounded_rect(shape.radii());
@@ -178,7 +162,7 @@ pub(super) fn paint_item<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, it
                 dimmed(painter, paint);
             }
         }
-        Item::Bullet(p) => painter.fill(Circle::new(at * *p, 2.5), theme::current().editor_list_marker_color).draw(),
+        Item::Bullet(p) => markdown::paint_bullet(painter, at * *p),
         Item::Dim(inner) => dimmed(painter, |painter| paint_item(painter, inner, at, palette, hover)),
         Item::Path(path, color, stroke) => match stroke {
             Some(stroke) => painter.stroke(path, stroke, ink(color, palette)).transform(at).draw(),

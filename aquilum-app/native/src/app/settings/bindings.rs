@@ -84,9 +84,7 @@ impl App {
     }
 
     pub(super) fn preview_color(&mut self, root: &mut RenderRoot, dialog: &mut SettingsDialog, swatch: WidgetId, hex: &str) {
-        let config = self.workspace.core.settings.get_config();
-        theme::apply_setting(&config.ui.theme, self.system_dark, hex);
-        root.restyle(std::sync::Arc::new(theme::default_properties()), false);
+        self.restyle(root, false, Some(hex));
         let Some(&Binding::Color(setter)) = dialog.bindings.get(&swatch) else { return };
         let shown = hex.to_uppercase();
         for (id, binding) in &mut dialog.bindings {

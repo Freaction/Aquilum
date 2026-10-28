@@ -2,6 +2,8 @@ mod checkpoints;
 mod classify;
 mod edges;
 mod edit;
+#[cfg(test)]
+mod embed_tests;
 mod embeds;
 mod estimate;
 mod full;
@@ -22,6 +24,8 @@ mod reveal_tests;
 mod source;
 mod scan;
 mod sparse;
+#[cfg(test)]
+mod style_tests;
 #[cfg(test)]
 mod tests;
 mod text;

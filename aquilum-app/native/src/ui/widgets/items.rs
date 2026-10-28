@@ -134,8 +134,9 @@ impl Widget for Chip {
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
 
     fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, _len_req: LenReq, _cross: Option<Length>) -> Length {
+        let (fcx, lcx) = ctx.text_contexts();
         Length::px(match axis {
-            Axis::Horizontal => text::measure(ctx, &self.label, text::Style::ui(size::SIZE_20)).ceil() + size::SPACE_12 * 2.0,
+            Axis::Horizontal => self.line.width(fcx, lcx, &self.label, text::Style::ui(size::SIZE_20)).ceil() + size::SPACE_12 * 2.0,
             Axis::Vertical => size::SIZE_20 + size::SPACE_4 * 2.0,
         })
     }

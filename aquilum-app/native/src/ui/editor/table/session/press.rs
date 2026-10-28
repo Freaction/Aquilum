@@ -1,7 +1,8 @@
 use masonry::kurbo::Point;
 use masonry::parley::Selection;
 
-use super::{Drag, Outcome, Session, caret_in};
+use super::{Drag, Outcome, Session};
+use crate::ui::editor::caret;
 use crate::ui::editor::table::model::Range2;
 use crate::ui::editor::table::view::{Hit, TableView};
 
@@ -57,7 +58,7 @@ impl Session {
                 }
                 3.. => (0, value.len()),
                 _ => {
-                    let at = caret_in(cell, value, local);
+                    let (at, _) = caret::hit(&cell.layout, value, local);
                     (at, at)
                 }
             };

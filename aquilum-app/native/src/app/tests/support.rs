@@ -31,7 +31,7 @@ pub(super) fn bench_scale(default: f64) -> f64 {
 }
 
 pub(super) fn raster_threads() -> u16 {
-    std::thread::available_parallelism().map_or(4, |n| n.get() as u16 - 1)
+    std::env::var("AQUILUM_BENCH_THREADS").ok().and_then(|v| v.parse().ok()).unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get() as u16 - 1))
 }
 
 pub(super) fn channel(pixel: u32, shift: u32) -> i32 {
@@ -81,6 +81,13 @@ impl Harness {
     pub(super) fn step(&mut self) {
         self.app.on_core_events(&mut self.root);
         let _ = self.root.redraw();
+    }
+
+    pub(super) fn wait_for(&mut self, done: impl Fn(&Harness) -> bool) -> bool {
+        wait_until(300, 20, || {
+            self.step();
+            done(self)
+        })
     }
 
     pub(super) fn scroll(&mut self, at: (f64, f64), scale: f64, delta: (f64, f64)) {

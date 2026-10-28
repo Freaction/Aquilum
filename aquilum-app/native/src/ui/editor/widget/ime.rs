@@ -72,13 +72,22 @@ impl TextEditor {
     }
 
     pub(super) fn finish_compose(&mut self, ctx: &mut EventCtx<'_>) {
+        if self.take_compose() {
+            self.changed(ctx);
+        }
+    }
+
+    pub fn commit_compose(this: &mut WidgetMut<'_, Self>) {
+        if this.widget.take_compose() {
+            Self::edited(this);
+        }
+    }
+
+    fn take_compose(&mut self) -> bool {
         if let Some(session) = &mut self.table {
             session.compose = None;
         }
-        if let Some((text, _)) = self.compose.take() {
-            self.insert(&text, Kind::Other);
-            self.changed(ctx);
-        }
+        self.compose.take().map(|(text, _)| self.insert(&text, Kind::Other)).is_some()
     }
 
     #[cfg(target_os = "android")]
@@ -90,10 +99,8 @@ impl TextEditor {
     }
 
     fn delete_surrounding(&mut self, before: usize, after: usize) {
-        let range = self.selection();
-        let start = self.doc.floor(range.start.saturating_sub(before));
-        let end = self.doc.floor((range.end + after).min(self.doc.len()));
-        let edits = [start..range.start, range.end..end].into_iter().filter(|r| !r.is_empty()).map(|r| (r, String::new())).collect();
+        let around = crate::ui::editor::caret::around(self.selection(), before, after, self.doc.len(), |at| self.doc.floor(at));
+        let edits = around.into_iter().filter(|r| !r.is_empty()).map(|r| (r, String::new())).collect();
         self.dispatch(edits, None, Kind::Other);
     }
 }

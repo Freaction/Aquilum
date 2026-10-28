@@ -1,7 +1,8 @@
 use masonry::core::StyleSet;
-use masonry::parley::{Affinity, Cursor, FontContext, LayoutContext};
+use masonry::parley::{FontContext, LayoutContext};
 
 use super::super::embed::panel::PAD;
+use super::super::markdown::x_at;
 use super::tests::markdown;
 use super::{Document, Fold};
 
@@ -41,6 +42,21 @@ fn a_code_block_keeps_its_height_and_closing_line_when_entered() {
     let line = doc.markdown.as_ref().map_or(0.0, |fonts| f64::from(fonts.line));
     assert!(outside[2] >= line + PAD - 0.5, "нижнее ограждение схлопнулось: {outside:?}");
     assert_eq!(heights(&mut doc, Some(9)), outside, "блок кода меняет высоту при входе каретки");
+}
+
+#[test]
+fn a_caret_moving_through_plain_words_keeps_the_paragraph_layout() {
+    let mut doc = markdown("слово **жирное** слово");
+    doc.keep = (0.0, 10_000.0);
+    let (mut fcx, mut lcx, styles) = (FontContext::default(), LayoutContext::new(), StyleSet::new(16.0));
+    let mut laid_for = |doc: &mut Document, caret: usize| {
+        doc.layout(&mut fcx, &mut lcx, &styles, Some(600.0), None, Some(caret..caret));
+        doc.paragraph(0).decor().selection.clone()
+    };
+    assert_eq!(laid_for(&mut doc, 2), Some(2..2));
+    assert_eq!(laid_for(&mut doc, 6), Some(2..2), "каретка в простом слове пересобрала абзац");
+    let bold = "слово ".len();
+    assert_eq!(laid_for(&mut doc, bold), Some(bold..bold), "каретка у разметки её не раскрыла");
 }
 
 #[test]
@@ -88,10 +104,7 @@ fn quote_markers_stay_by_their_bars_in_list_items_and_definitions() {
     doc.keep = (0.0, 10_000.0);
     let (mut fcx, mut lcx, styles) = (FontContext::default(), LayoutContext::new(), StyleSet::new(16.0));
     doc.layout(&mut fcx, &mut lcx, &styles, Some(600.0), None, Some(0..text.len()));
-    let x = |doc: &Document, line: usize, at: usize| {
-        let layout = doc.paragraph(line).layout();
-        doc.origin(line).x + f64::from(Cursor::from_byte_index(layout, at, Affinity::Downstream).geometry(layout, 0.0).x0)
-    };
+    let x = |doc: &Document, line: usize, at: usize| doc.origin(line).x + x_at(doc.paragraph(line).layout(), at);
     for line in [1, 2, 3, 4, 6] {
         assert_eq!(x(&doc, line, 0), x(&doc, 0, 0), "первый `>` строки {line} уехал от полосы");
     }

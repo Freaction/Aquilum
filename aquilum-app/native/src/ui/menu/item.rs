@@ -102,7 +102,8 @@ impl Widget for MenuItem {
             (Axis::Vertical, _) => Length::px(Self::height()),
             (Axis::Horizontal, LenReq::FitContent(space)) => space,
             (Axis::Horizontal, _) => {
-                let width = text::measure(ctx, &self.label, text::Style::ui(size::SIZE_20));
+                let (fcx, lcx) = ctx.text_contexts();
+                let width = self.line.width(fcx, lcx, &self.label, text::Style::ui(size::SIZE_20));
                 let icon = if self.leads() { size::SIZE_20 + size::GAP_MD } else { 0.0 };
                 let check = if self.checkable || self.kind == Kind::Parent { size::SIZE_20 + size::GAP_MD } else { 0.0 };
                 Length::px(width.ceil() + size::PADDING_XS * 2.0 + icon + check)

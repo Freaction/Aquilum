@@ -65,9 +65,20 @@ impl PaintSink for Tracker {
                 GeometryRef::RoundedRect(rounded) => rounded.radii().top_left * draw.transform.as_coeffs()[0].abs(),
                 _ => 0.0,
             };
-            let shape = RoundedRect::from_rect(bounds, radius);
+            let shape = RoundedRect::from_rect(bounds.with_origin((bounds.x0.round(), bounds.y0.round())), radius);
             self.sprites.push(Sprite { id: image.image.data.id(), shape, clip: level.clip, color, covered: false });
             return;
+        }
+        if let BrushRef::Image(image) = &draw.brush
+            && level.region.is_none()
+            && !level.faded
+            && draw.brush_transform.is_none()
+            && draw.composite.alpha >= 1.0
+            && draw.composite.blend == BlendMode::default()
+            && crate::render::blit::fits(draw.transform)
+            && crate::render::surface::find(image.image.data.id()).is_some()
+        {
+            self.blit = Some(crate::render::blit::Blit { id: image.image.data.id(), transform: draw.transform, rect: bounds.intersect(level.clip) });
         }
         if let BrushRef::Image(image) = &draw.brush
             && crate::render::live::motion(image.image.data.id()).is_some()

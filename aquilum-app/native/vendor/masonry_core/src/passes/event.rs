@@ -156,8 +156,9 @@ pub(crate) fn run_on_pointer_event_pass(root: &mut RenderRoot, event: &PointerEv
     );
 
     let event_pos = try_event_position(event).map(|p| p.to_logical(root.global_state.scale_factor));
+    let touch_motion = matches!(event, PointerEvent::Scroll(PointerScrollEvent { pointer, .. }) | PointerEvent::Gesture(PointerGestureEvent { pointer, .. }) if pointer.pointer_type == PointerType::Touch);
 
-    if event_pos != root.global_state.last_mouse_pos {
+    if !touch_motion && event_pos != root.global_state.last_mouse_pos {
         root.global_state.last_mouse_pos = event_pos;
     }
     root.global_state.needs_pointer_pass = true;

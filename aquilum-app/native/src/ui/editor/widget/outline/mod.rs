@@ -1,5 +1,6 @@
 use super::*;
 
+mod guides;
 mod indent;
 mod item;
 mod newline;

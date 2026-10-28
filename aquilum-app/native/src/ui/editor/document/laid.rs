@@ -9,7 +9,7 @@ use super::super::highlight::Lang;
 use super::super::markdown::{self, Block, Decor, Fonts};
 use super::{Document, text};
 
-pub(super) static PLAIN: Decor = Decor { x: 0.0, inset: 0.0, pad: (0.0, 0.0), hang: None, nowrap: false, codes: Vec::new(), marks: Vec::new(), tags: Vec::new(), links: Vec::new(), selection: None, boxes: Vec::new(), pictures: Vec::new() };
+pub(super) static PLAIN: Decor = Decor { x: 0.0, inset: 0.0, pad: (0.0, 0.0), hang: None, nowrap: false, codes: Vec::new(), marks: Vec::new(), tags: Vec::new(), links: Vec::new(), selection: None, reveals: Vec::new(), boxes: Vec::new(), pictures: Vec::new() };
 
 pub(super) struct Laid {
     pub(super) layout: Layout<BrushIndex>,

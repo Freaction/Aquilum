@@ -24,10 +24,9 @@ impl DropdownButton {
     }
 }
 
-fn open_menu(ctx: &mut EventCtx<'_>) {
-    let origin = ctx.to_window(Point::ZERO);
-    let rect = Rect::from_origin_size(origin, ctx.content_box().size());
-    ctx.submit_action::<Changed>(Changed::OpenMenu(rect));
+fn open(ctx: &mut EventCtx<'_>, action: fn(Rect) -> Changed) {
+    let rect = ctx.window_transform().transform_rect_bbox(ctx.border_box());
+    ctx.submit_action::<Changed>(action(rect));
 }
 
 impl Widget for DropdownButton {
@@ -35,13 +34,13 @@ impl Widget for DropdownButton {
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         if self.press.pointer(ctx, event) {
-            open_menu(ctx);
+            open(ctx, Changed::OpenMenu);
         }
     }
 
     fn on_access_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &AccessEvent) {
         if event.action == Action::Click {
-            open_menu(ctx);
+            open(ctx, Changed::OpenMenu);
         }
     }
 
@@ -118,8 +117,7 @@ impl Widget for Swatch {
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         if self.press.pointer(ctx, event) {
-            let rect = ctx.window_transform().transform_rect_bbox(ctx.border_box());
-            ctx.submit_action::<Changed>(Changed::OpenColor(rect));
+            open(ctx, Changed::OpenColor);
         }
     }
 
@@ -152,8 +150,7 @@ impl Widget for Swatch {
 
     fn on_access_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &AccessEvent) {
         if event.action == Action::Click {
-            let rect = ctx.window_transform().transform_rect_bbox(ctx.border_box());
-            ctx.submit_action::<Changed>(Changed::OpenColor(rect));
+            open(ctx, Changed::OpenColor);
         }
     }
 

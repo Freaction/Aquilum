@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use masonry::core::{BrushIndex, StyleSet};
-use masonry::parley::{Affinity, Alignment, AlignmentOptions, Cursor, FontContext, FontWeight, IndentOptions, Layout, LayoutContext, OverflowWrap, StyleProperty};
+use masonry::parley::{Alignment, AlignmentOptions, FontContext, FontWeight, IndentOptions, Layout, LayoutContext, OverflowWrap, StyleProperty};
 
 use super::super::embed::{Font, Spec};
 use super::super::markdown::{self, Block, Decor, Fonts, Frame};
@@ -20,7 +20,7 @@ pub fn measure(fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, style
     fonts.ch = mono(SAMPLE).width() / SAMPLE.len() as f32;
     fonts.digits = SAMPLE.char_indices().map(|(i, _)| mono(&i.to_string())).collect();
     let quote = spec_layout(fcx, lcx, styles, fonts, &Spec::plain("> >", Font::Editor, markdown::TEXT));
-    let x = |at: usize| Cursor::from_byte_index(&quote, at, Affinity::Downstream).geometry(&quote, 0.0).x0 as f32;
+    let x = |at: usize| markdown::x_at(&quote, at) as f32;
     (fonts.mark, fonts.space, fonts.line) = (x(1), x(2) - x(1), quote.height());
 }
 
@@ -92,8 +92,7 @@ pub fn build(
     let wrap = decor.wrap(width);
     if let Some(hang) = decor.hang.filter(|h| !decor.nowrap && *h > 0 && *h <= text.len()) {
         layout.break_all_lines(None);
-        let x = Cursor::from_byte_index(&layout, hang, Affinity::Downstream).geometry(&layout, 0.0).x0;
-        layout.set_text_indent(x as f32, IndentOptions { each_line: false, hanging: true });
+        layout.set_text_indent(markdown::x_at(&layout, hang) as f32, IndentOptions { each_line: false, hanging: true });
     }
     layout.break_all_lines(wrap);
     layout.align(align, AlignmentOptions::default());

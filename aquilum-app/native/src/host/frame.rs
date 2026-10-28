@@ -40,10 +40,7 @@ impl Host {
             self.background = Some(background);
             set_background(&*window, background);
             let rgba = background.to_rgba8();
-            #[cfg(target_os = "android")]
-            output.set_background(u32::from_ne_bytes([rgba.r, rgba.g, rgba.b, rgba.a]));
-            #[cfg(not(target_os = "android"))]
-            output.set_background(u32::from_be_bytes([rgba.a, rgba.r, rgba.g, rgba.b]));
+            output.set_background(crate::render::in_canvas_order(u32::from_ne_bytes([rgba.r, rgba.g, rgba.b, rgba.a])));
         }
         let full = std::mem::take(&mut self.full_next) || output.fresh();
         let raster_start = Instant::now();

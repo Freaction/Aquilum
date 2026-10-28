@@ -17,7 +17,7 @@ fn app_starts_with_manual_update_popup_after_repeated_failures() {
 
     // Проверяем, что открылся диалог предложения скачать вручную
     assert!(
-        matches!(h.app.popup, Some(Popup::ManualUpdate(_, _))),
+        matches!(h.app.popup, Some(Popup::Confirm(_, crate::app::confirm::Confirmed::ManualUpdate(_)))),
         "диалог ручного обновления не открылся после неудачных попыток"
     );
 

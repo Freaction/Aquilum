@@ -42,7 +42,7 @@ impl TextEditor {
                     ctx.set_clipboard(text);
                 }
             }
-            (Some(Command::Undo | Command::Redo), _) => edited = self.undo(command == Some(Command::Redo)),
+            (Some(Command::Undo | Command::Redo), _) => edited = self.rewind(command == Some(Command::Redo)),
             (Some(Command::SelectAll), _) => {
                 self.anchor = 0;
                 self.focus = self.doc.len();

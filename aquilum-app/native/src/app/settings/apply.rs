@@ -132,19 +132,16 @@ impl App {
                 set(&mut after, &value);
                 let language_changed = before.ui.language != after.ui.language;
                 let colors_changed = before.ui.theme != after.ui.theme || before.ui.primary_color != after.ui.primary_color;
-                let fonts_changed = before.ui.font.font_family != after.ui.font.font_family
-                    || before.ui.font.font_weight != after.ui.font.font_weight
-                    || before.ui.font.font_size_base != after.ui.font.font_size_base
-                    || before.editor.font.font_family != after.editor.font.font_family
-                    || before.editor.font.font_weight != after.editor.font.font_weight
-                    || before.editor.font.font_size_base != after.editor.font.font_size_base
+                let fonts_changed = before.ui.font != after.ui.font
+                    || before.editor.font != after.editor.font
                     || before.editor.line_height != after.editor.line_height
                     || before.editor.max_width_ch != after.editor.max_width_ch;
-                let mcp_changed = serde_json::to_value(&before.mcp).ok() != serde_json::to_value(&after.mcp).ok();
+                let mcp_changed = before.mcp != after.mcp;
                 let retention = before.trash.retention_days != after.trash.retention_days || before.history.retention_days != after.history.retention_days;
-                let json = |c: &aquilum_core::settings::models::AppConfig| serde_json::to_value((&c.analysis, &c.search)).ok();
-                let analysis_changed = json(&before) != json(&after);
+                let analysis_changed = before.analysis != after.analysis || before.search != after.search;
                 let methods_toggled = crate::links::Method::enabled(&before).is_empty() != crate::links::Method::enabled(&after).is_empty();
+                let smart = crate::ui::editor::Smart::from_config(&after);
+                let smart_changed = smart != crate::ui::editor::Smart::from_config(&before);
                 crate::ui::motion::set(after.ui.animations);
                 let rows_changed = before.ui.animations != after.ui.animations
                     || before.analysis.enable_bm25f != after.analysis.enable_bm25f
@@ -170,6 +167,8 @@ impl App {
                     Effect::Content
                 } else if analysis_changed {
                     Effect::Panel
+                } else if smart_changed {
+                    Effect::Smart(smart)
                 } else {
                     Effect::None
                 }

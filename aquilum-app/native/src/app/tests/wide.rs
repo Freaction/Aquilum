@@ -71,10 +71,43 @@ fn width_change_is_animated_and_instant_without_animations() {
 fn note_actions_menu_toggles_full_width() {
     let mut h = wide_window();
     h.app.open_note_actions_menu(&mut h.root, Point::new(500.0, 40.0));
-    let Some(Popup::NoteActionsMenu { layer }) = &h.app.popup else { panic!("меню действий не открыто") };
+    let Some(Popup::Menu { layer, .. }) = &h.app.popup else { panic!("меню действий не открыто") };
     let layer = *layer;
-    h.act(layer, crate::ui::menu::MenuChoice::Item(0));
-    assert!(h.app.interface.wide(), "первый пункт меню — «Во всю ширину»");
+    h.act(layer, crate::ui::menu::MenuChoice::Item(2));
+    assert!(h.app.interface.wide(), "третий пункт меню — «Во всю ширину»");
+}
+
+fn choose(h: &mut Harness, command: crate::app::note_page::menu::NoteCommand) {
+    h.app.open_note_actions_menu(&mut h.root, Point::new(10.0, 40.0));
+    let Some(Popup::Menu { layer, commands }) = &h.app.popup else { panic!("меню действий не открыто") };
+    let (layer, item) = (*layer, commands.iter().position(|&c| c == crate::app::MenuCommand::Note(command)).expect("пункт в меню"));
+    h.act(layer, crate::ui::menu::MenuChoice::Item(item));
+}
+
+#[test]
+fn the_note_menu_undoes_and_redoes_typing() {
+    use crate::app::note_page::menu::NoteCommand;
+    let mut h = wide_window();
+    h.focus_editor();
+    h.type_text("!");
+    let typed = h.body_text();
+    choose(&mut h, NoteCommand::Undo);
+    assert_eq!(h.body_text(), "текст");
+    choose(&mut h, NoteCommand::Redo);
+    assert_eq!(h.body_text(), typed);
+}
+
+#[test]
+fn a_phone_has_no_full_width_item() {
+    use crate::app::note_page::menu::NoteCommand;
+    let mut h = super::adaptive::at_width(360.0);
+    let note = h.write_note("Заметка.md", "текст");
+    h.open(note);
+    h.settle();
+    h.app.open_note_actions_menu(&mut h.root, Point::new(10.0, 40.0));
+    let Some(Popup::Menu { commands, .. }) = &h.app.popup else { panic!("меню действий не открыто") };
+    let has = |command| commands.contains(&crate::app::MenuCommand::Note(command));
+    assert!(!has(NoteCommand::Wide) && has(NoteCommand::Undo));
 }
 
 #[test]

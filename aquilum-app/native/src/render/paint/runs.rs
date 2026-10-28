@@ -15,8 +15,9 @@ impl Painter {
         if area.width() < 1.0 || area.height() < 1.0 {
             return;
         }
-        let mut pixels = Vec::new();
-        live::draw(transform, rounded, motion, area, self.seconds, &mut pixels);
+        let stride = area.width() as usize;
+        let mut pixels = vec![0; stride * area.height() as usize];
+        live::draw(transform, rounded, motion, area, self.seconds, crate::cover::MotionPixels { data: &mut pixels, stride, canvas: false });
         let metadata = vello_cpu::PixelMetadata::new(masonry::peniko::ImageAlphaType::AlphaPremultiplied, true);
         let pixmap = vello_cpu::Pixmap::from_parts(bytemuck::cast_slice::<u32, u8>(&pixels).to_vec(), area.width() as u16, area.height() as u16, metadata);
         let sampler = masonry::peniko::ImageSampler::default().with_quality(masonry::peniko::ImageQuality::Low);

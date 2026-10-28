@@ -8,6 +8,7 @@ pub enum Gesture {
 }
 
 pub const TOUCH_SLOP: f64 = 8.0;
+pub const TAP_TIMEOUT: Duration = Duration::from_millis(100);
 pub const LONG_PRESS: Duration = Duration::from_millis(400);
 pub const DOUBLE_TAP: Duration = Duration::from_millis(300);
 pub const DOUBLE_TAP_SLOP: f64 = 100.0;

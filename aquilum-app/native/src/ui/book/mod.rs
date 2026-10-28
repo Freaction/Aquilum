@@ -19,7 +19,7 @@ use super::icons;
 use super::menu::box_shadow;
 use super::theme;
 use super::tokens::size;
-use super::widgets::{ButtonSize, IconButton, TextButton, Variant};
+use super::widgets::{ButtonSize, FAST, IconButton, Slot, TextButton, Variant};
 use crate::cover;
 use crate::i18n::t;
 

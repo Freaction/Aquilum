@@ -100,6 +100,10 @@ impl Camera {
         zooming || gliding
     }
 
+    pub fn to_offset(&self, world_x: f64, world_y: f64) -> (f64, f64) {
+        ((world_x - self.center_x) * self.scale, (self.center_y - world_y) * self.scale)
+    }
+
     pub fn to_world(&self, offset_x: f64, offset_y: f64) -> (f64, f64) {
         (self.center_x + offset_x / self.scale, self.center_y - offset_y / self.scale)
     }

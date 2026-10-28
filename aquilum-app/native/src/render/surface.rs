@@ -35,7 +35,7 @@ impl Surfaces {
         self.pool.len()
     }
 
-    pub fn frame(&mut self, width: u16, height: u16, fill: [u8; 3], draw: impl FnOnce(&mut [u8])) -> ImageBrush {
+    pub fn frame(&mut self, width: u16, height: u16, draw: impl FnOnce(&mut [u8])) -> ImageBrush {
         if self.pool.len() > POOL {
             let mut excess = self.pool.len() - POOL;
             self.pool.retain_mut(|p| {
@@ -51,8 +51,6 @@ impl Surfaces {
             self.pool.len() - 1
         });
         let pixmap = Arc::get_mut(&mut self.pool[index]).expect("свободный буфер");
-        let color = vello_cpu::peniko::color::PremulRgba8 { r: fill[0], g: fill[1], b: fill[2], a: 255 };
-        pixmap.data_mut().fill(color);
         draw(pixmap.data_as_u8_slice_mut());
         let blob: Blob<u8> = Blob::new(Arc::new(Vec::new()));
         let id = blob.id();

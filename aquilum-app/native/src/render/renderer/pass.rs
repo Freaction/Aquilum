@@ -2,12 +2,12 @@ use masonry::app::VisualLayerPlan;
 use masonry::kurbo::Rect;
 use vello_cpu::{PixmapMut, RasterizerSettings, TargetInit};
 
-use super::Renderer;
+use super::{Frame, Renderer};
 use crate::output::{Area, Canvas, Target};
 use crate::render::damage::Damage;
 use crate::render::layer::{Layer, area, area_of};
 use crate::render::overlay::Mark;
-use crate::render::paint::PaintError;
+use crate::render::paint::{PaintError, Painter};
 use crate::render::sprite::{self, Sprite};
 use crate::render::stamp::covering;
 
@@ -69,6 +69,14 @@ impl Renderer {
         for &rect in &damage.areas {
             self.overlay.flash(area(rect), Mark::Raster);
         }
+        let blit = self.tracker.blit.and_then(|blit| {
+            let (pixmap, _) = crate::render::surface::find(blit.id)?;
+            Some((blit, blit.inner(&pixmap)?, pixmap))
+        });
+        #[cfg(test)]
+        {
+            self.blitted = blit.is_some();
+        }
         let painter = &mut self.painter;
         painter.seconds = seconds;
         let mut result = Ok(());
@@ -77,20 +85,21 @@ impl Renderer {
                 let _zone = aq_trace::zone("сдвиг прокрутки");
                 crate::render::scroll::shift_rows(pixels, usize::from(width), *shift);
             }
-            for &(x, y, w, h) in &damage.areas {
-                {
-                    let _zone = aq_trace::zone("кодирование");
-                    painter.begin(x, y, w, h);
-                    frame.paint_into(painter);
-                    if let Err(err) = painter.finish() {
+            for &area in &damage.areas {
+                let inside = blit.as_ref().and_then(|(_, inner, _)| overlap(area, *inner));
+                for part in around(area, inside) {
+                    if let Err(err) = raster(painter, &frame, pixels, width, height, part, None) {
                         result = Err(err);
                         return;
                     }
                 }
-                let _zone = aq_trace::zone("растеризация");
-                let pixmap = PixmapMut::new(width, height, bytemuck::cast_slice_mut(&mut *pixels)).expect("холст вывода");
-                let settings = RasterizerSettings { target_init: TargetInit::SrcOver, pixel_format: crate::render::PIXEL_FORMAT, offset: (x, y) };
-                painter.ctx.render_with(pixmap, &mut painter.resources, settings);
+                if let (Some(part), Some((blit, _, pixmap))) = (inside, &blit) {
+                    blit.copy(pixmap, pixels, usize::from(width), part);
+                    if let Err(err) = raster(painter, &frame, pixels, width, height, part, Some(blit.id)) {
+                        result = Err(err);
+                        return;
+                    }
+                }
             }
         });
         if result.is_err() {
@@ -111,4 +120,31 @@ impl Renderer {
         outlines.extend(self.sprites.iter().filter(|s| !s.covered).map(|s| (covering(s.bounds()), Mark::Sprite)));
         self.overlay.show(canvas, &mut self.stamps, &outlines)
     }
+}
+
+fn raster(painter: &mut Painter, frame: &Frame<'_>, pixels: &mut [u32], width: u16, height: u16, (x, y, w, h): (u16, u16, u16, u16), after: Option<u64>) -> Result<(), PaintError> {
+    {
+        let _zone = aq_trace::zone("кодирование");
+        painter.begin(x, y, w, h);
+        painter.after = after;
+        frame.paint_into(painter);
+        painter.finish()?;
+    }
+    let _zone = aq_trace::zone("растеризация");
+    let pixmap = PixmapMut::new(width, height, bytemuck::cast_slice_mut(pixels)).expect("холст вывода");
+    let settings = RasterizerSettings { target_init: TargetInit::SrcOver, pixel_format: crate::render::PIXEL_FORMAT, offset: (x, y) };
+    painter.ctx.render_with(pixmap, &mut painter.resources, settings);
+    Ok(())
+}
+
+fn overlap((x, y, w, h): (u16, u16, u16, u16), inner: Rect) -> Option<(u16, u16, u16, u16)> {
+    let r = Rect::new(f64::from(x), f64::from(y), f64::from(x) + f64::from(w), f64::from(y) + f64::from(h)).intersect(inner);
+    (r.width() > 0.0 && r.height() > 0.0).then(|| (r.x0 as u16, r.y0 as u16, r.width() as u16, r.height() as u16))
+}
+
+fn around(area: (u16, u16, u16, u16), inside: Option<(u16, u16, u16, u16)>) -> Vec<(u16, u16, u16, u16)> {
+    let Some((ix, iy, iw, ih)) = inside else { return vec![area] };
+    let (x, y, w, h) = area;
+    let parts = [(x, y, w, iy - y), (x, iy + ih, w, y + h - iy - ih), (x, iy, ix - x, ih), (ix + iw, iy, x + w - ix - iw, ih)];
+    parts.into_iter().filter(|&(_, _, w, h)| w > 0 && h > 0).collect()
 }

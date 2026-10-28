@@ -3,11 +3,12 @@ use super::{locate, report, HistoryService, Roots};
 use crate::files::document::hash_file;
 use crate::history::changes::{self, Hunk};
 use crate::history::rebuild::{rebuild, Rebuilt};
-use crate::history::revert::{self, Window};
+use crate::history::revert::{self, Reverted};
 use crate::history::store;
 use crate::text::content::{read_string, Content};
 use std::cell::OnceCell;
 use std::fs;
+use std::io;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -22,12 +23,6 @@ const FULL_VIEW: usize = 1 << 20;
 pub struct VersionTexts {
     pub text: String,
     pub previous: Option<String>,
-}
-
-pub struct Reverting {
-    pub windows: Vec<Window>,
-    pub previous: Rebuilt,
-    pub version: Rebuilt,
 }
 
 pub enum VersionView {
@@ -84,15 +79,13 @@ impl HistoryService {
         store::versions(&located.dir).iter().any(|version| version.id == id).then(|| rebuild(&located.dir, id).ok()).flatten()
     }
 
-    pub fn revert_plan(&self, roots: Roots<'_>, note: &Path, id: &str, current: &dyn Content) -> Option<Reverting> {
+    pub fn revert(&self, roots: Roots<'_>, note: &Path, id: &str, current: Box<dyn Content>) -> io::Result<Reverted> {
         let mut state = self.lock();
-        let located = locate(&mut state, roots, note)?;
+        let missing = || io::Error::new(io::ErrorKind::NotFound, format!("нет версии {id} или версии перед ней"));
+        let located = locate(&mut state, roots, note).ok_or_else(missing)?;
         let versions = store::versions(&located.dir);
-        let index = versions.iter().position(|version| version.id == id)?;
-        let previous = rebuild(&located.dir, &versions[index.checked_sub(1)?].id).ok()?;
-        let version = rebuild(&located.dir, id).ok()?;
-        let windows = revert::plan(&located.dir, &versions, index, current).ok()?;
-        Some(Reverting { windows, previous, version })
+        let index = versions.iter().position(|version| version.id == id).filter(|&index| index > 0).ok_or_else(missing)?;
+        revert::revert(&located.dir, &versions, index, current)
     }
 
     pub fn view(&self, roots: Roots<'_>, note: &Path, id: &str) -> Option<VersionView> {

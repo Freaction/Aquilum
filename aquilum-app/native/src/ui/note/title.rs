@@ -6,13 +6,12 @@ use masonry::core::{
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Point, Size};
 use masonry::layout::{LenDef, LenReq, Length, SizeDef};
-use masonry::parley::style::StyleProperty;
-use masonry::parley::{FontWeight, Layout, LineHeight};
+use masonry::parley::Layout;
 
 use crate::i18n::t;
 use crate::ui::editor::TextEditor;
-use crate::ui::theme;
 use crate::ui::tokens::{number, size};
+use crate::ui::{text, theme};
 
 #[derive(Debug)]
 pub enum TitleAction {
@@ -83,14 +82,11 @@ impl Widget for TitleField {
         }
         let font = theme::editor_font_settings();
         let hint = self.hint.get_or_insert_with(|| {
-            let text = t("editor.untitled");
+            let hint = t("editor.untitled");
             let (font_cx, layout_cx) = ctx.text_contexts();
-            let mut builder = layout_cx.ranged_builder(font_cx, &text, 1.0, true);
-            builder.push_default(StyleProperty::FontFamily(theme::editor_font(&font.family)));
-            builder.push_default(StyleProperty::FontSize(size::FONT_SIZE_24 as f32));
-            builder.push_default(StyleProperty::FontWeight(FontWeight::new(number::EDITOR_HEADING_WEIGHT as f32)));
-            builder.push_default(StyleProperty::LineHeight(LineHeight::FontSizeRelative(font.line_height)));
-            let mut layout = builder.build(&text);
+            let size = size::FONT_SIZE_24 as f32;
+            let style = text::Style { size, weight: number::EDITOR_HEADING_WEIGHT as f32, line_height: f64::from(size * font.line_height) };
+            let mut layout = text::builder(font_cx, layout_cx, &hint, theme::editor_font(&font.family), style).build(&hint);
             layout.break_all_lines(None);
             layout
         });

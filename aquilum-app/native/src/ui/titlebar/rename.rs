@@ -2,6 +2,7 @@ use super::*;
 
 pub struct TabRename {
     title: String,
+    line: text::Line,
     field: WidgetPod<TextEditor>,
 }
 
@@ -9,7 +10,7 @@ impl TabRename {
     pub fn new(title: &str) -> (NewWidget<Self>, Handle<TextEditor>) {
         let field = NewWidget::new(TextEditor::single_line(title).styled(crate::ui::style::tab_text)).with_class(crate::ui::style::TAB_FIELD);
         let handle = Handle::of(&field);
-        (NewWidget::new(TabRename { title: title.to_owned(), field: field.to_pod() }), handle)
+        (NewWidget::new(TabRename { title: title.to_owned(), line: text::Line::default(), field: field.to_pod() }), handle)
     }
 }
 
@@ -29,7 +30,7 @@ impl Widget for TabRename {
     fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, _len_req: LenReq, _cross: Option<Length>) -> Length {
         match axis {
             Axis::Vertical => Length::px(size::TABS_HEIGHT),
-            Axis::Horizontal => Length::px(tab_width(ctx, &self.title, false)),
+            Axis::Horizontal => Length::px(tab_width(ctx, &mut self.line, &self.title, false)),
         }
     }
 

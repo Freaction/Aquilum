@@ -4,6 +4,7 @@ use masonry::parley::Layout;
 
 use super::super::markdown::{ACCENT, MUTED, ON_ACCENT, SUCCESS, TEXT};
 use super::super::resolve::{Book, Fetch};
+use super::media::FULL;
 use super::metrics::{COVER_H, COVER_RADIUS, COVER_W};
 use super::panel::PAD;
 use super::{Drawing, Font, Item, Spec, Tone};
@@ -42,7 +43,7 @@ fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>
     };
     let cover = Rect::new(pad, top + pad, pad + COVER_W, top + pad + COVER_H).to_rounded_rect(COVER_RADIUS);
     items.push(Item::Fill(cover, Tone::CoverBg));
-    items.push(Item::Image(cover, book.cover.unwrap_or_else(crate::images::default_book_cover), [0.0, 0.0, 100.0, 100.0]));
+    items.push(Item::Image(cover, book.cover.unwrap_or_else(crate::images::default_book_cover), FULL));
     let ui = size::FONT_SIZE_UI_BASE as u8;
     let progress_text = book.pages.map_or_else(|| t("book.progressUnknown"), |(a, b)| t_with("book.progress", &[("current", &a.to_string()), ("total", &b.to_string())]));
     let done = book.pages.is_some_and(|(a, b)| b > 0 && a >= b);

@@ -7,10 +7,14 @@ const MAX_WORLD_RADIUS: f64 = 0.7;
 pub const SUB_PIXEL_RADIUS: f64 = 0.75;
 pub const MAX_NODE_PIXELS: f64 = 160.0;
 const HIGHLIGHT_FALLOFF: f64 = 0.8;
-pub const DIMMED_STRENGTH: f64 = 0.28;
+const DIMMED_STRENGTH: f64 = 0.28;
 
 pub fn highlight_state(mark: u8) -> f64 {
     if mark < 1 { 0.0 } else { HIGHLIGHT_FALLOFF.powi(i32::from(mark) - 1) }
+}
+
+pub fn dimmed(dimming: f64, state: f64) -> f64 {
+    1.0 + dimming * (DIMMED_STRENGTH + (1.0 - DIMMED_STRENGTH) * state - 1.0)
 }
 
 pub fn world_radius(degree: u32, size: f64, spread: f64) -> f64 {

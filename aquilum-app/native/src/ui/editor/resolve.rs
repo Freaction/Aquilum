@@ -33,7 +33,7 @@ pub struct Grid {
     pub shape: Shape,
     pub title: Option<String>,
     pub columns: Vec<String>,
-    pub rows: Vec<Vec<Vec<Part>>>,
+    pub rows: Arc<[Vec<Vec<Part>>]>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

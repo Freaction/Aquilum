@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use masonry::kurbo::{Point, Vec2};
 
 use super::detector::Touch;
-use crate::ui::keymap::gesture::LONG_PRESS;
+use crate::ui::keymap::gesture::{LONG_PRESS, TAP_TIMEOUT};
 
 const DP: f64 = 2.0;
 const FRAME: Duration = Duration::from_millis(8);
@@ -72,6 +72,7 @@ fn a_drag_past_the_slop_scrolls_with_the_finger_without_a_jump() {
     touch.moved(1, Point::new(100.0, 150.0), ms(start, 24));
     assert!(near(scrolled(&mut touch, ms(start, 24)), Vec2::new(0.0, 20.0)));
     assert_eq!(touch.deadline(), None, "прокрутка отменяет долгое нажатие");
+    assert_eq!(touch.settle(ms(start, 100)), None, "палец ушёл в прокрутку раньше, чем устоялся, — границу под ним не хватаем");
     assert_eq!(touch.up(1, Point::new(100.0, 150.0), ms(start, 100)), None);
     assert_eq!(scrolled(&mut touch, ms(start, 108)), Vec2::ZERO, "палец стоял перед отрывом — инерции нет");
     assert!(!touch.active());
@@ -82,6 +83,10 @@ fn holding_still_opens_the_context_menu_once_and_does_not_click() {
     let start = Instant::now();
     let mut touch = Touch::default();
     touch.down(1, Point::new(50.0, 60.0), start, DP);
+    assert_eq!(touch.deadline(), Some(start + TAP_TIMEOUT));
+    assert_eq!(touch.settle(ms(start, 99)), None);
+    assert_eq!(touch.settle(ms(start, 100)), Some(Point::new(50.0, 60.0)));
+    assert_eq!(touch.settle(ms(start, 150)), None, "палец устаивается один раз");
     assert_eq!(touch.deadline(), Some(start + LONG_PRESS));
     touch.moved(1, Point::new(53.0, 62.0), ms(start, 200));
     assert_eq!(touch.long_press(ms(start, 399)), None);
@@ -150,7 +155,7 @@ fn a_cancelled_touch_neither_clicks_nor_presses_long() {
 fn a_held_finger_drags_instead_of_scrolling() {
     let (mut touch, start) = (Touch::default(), Instant::now());
     touch.down(1, Point::new(100.0, 100.0), start, DP);
-    assert!(touch.pressed());
+    assert_eq!(touch.settle(ms(start, 100)), Some(Point::new(100.0, 100.0)));
     touch.hold(false);
     touch.moved(1, Point::new(100.0, 300.0), ms(start, 50));
     assert!(near(scrolled(&mut touch, ms(start, 58)), Vec2::ZERO), "удержание не прокручивает");

@@ -33,9 +33,11 @@ impl Host {
             self.touch.down(finger.into_raw(), at, now, dp);
             if held.is_some() {
                 self.pointer_event(PointerEvent::Cancel(TOUCH));
-            } else if self.touch.pressed() && self.grabs(at) {
-                self.touch.hold(false);
-                self.touch_button_event(at, PointerButton::Primary, 1, true);
+            } else if self.touch.pressed() {
+                self.finish_word();
+                if !self.grab(at, pointer::thumb) {
+                    self.pointer_event(PointerEvent::Leave(TOUCH));
+                }
             }
         } else if let Some((at, count)) = self.touch.up(finger.into_raw(), at, now) {
             self.touch_click(at, PointerButton::Primary, count);
@@ -65,6 +67,9 @@ impl Host {
     }
 
     pub(super) fn touch_due(&mut self, now: Instant) {
+        if let Some(at) = self.touch.settle(now) {
+            self.grab(at, pointer::drags);
+        }
         let Some(at) = self.touch.long_press(now) else { return };
         if self.root.as_ref().is_some_and(|root| pointer::selects(root.cursor_icon())) {
             self.touch.hold(true);
@@ -104,9 +109,14 @@ impl Host {
         }
     }
 
-    fn grabs(&mut self, at: Point) -> bool {
+    fn grab(&mut self, at: Point, takes: fn(masonry::core::CursorIcon) -> bool) -> bool {
         self.touch_move(at, PointerButtons::new());
-        self.root.as_ref().is_some_and(|root| pointer::drags(root.cursor_icon()))
+        let grabbed = self.root.as_ref().is_some_and(|root| takes(root.cursor_icon()));
+        if grabbed {
+            self.touch.hold(false);
+            self.touch_button_event(at, PointerButton::Primary, 1, true);
+        }
+        grabbed
     }
 
     fn touch_move(&mut self, at: Point, buttons: PointerButtons) {

@@ -43,13 +43,13 @@ fn indent(builder: &mut RangedBuilder<'_, BrushIndex>, frame: &Frame, by: f64, d
     }
 }
 
-fn style_frame(builder: &mut RangedBuilder<'_, BrushIndex>, frame: &Frame, text: &str, selection: Option<&Range<usize>>, fonts: &Fonts, decor: &mut Decor) {
+fn style_frame(builder: &mut RangedBuilder<'_, BrushIndex>, frame: &Frame, text: &str, fonts: &Fonts, decor: &mut Decor) {
     let cut = frame.cut(text);
     hide(builder, 0..cut, 0.0);
     decor.x = frame.origin(text, fonts);
     decor.pad.1 = f64::from(frame.closes) * PAD;
     if frame.quote > frame.panel {
-        push(builder, StyleProperty::Brush(if Part::Quote.shown(selection, &(cut..frame.marker)) { SYNTAX } else { HIDDEN }), cut..frame.marker);
+        push(builder, StyleProperty::Brush(if decor.shown(Part::Quote, cut..frame.marker) { SYNTAX } else { HIDDEN }), cut..frame.marker);
         decor.hang = Some(frame.lead);
     }
     hide(builder, frame.marker..frame.lead, 0.0);
@@ -57,12 +57,11 @@ fn style_frame(builder: &mut RangedBuilder<'_, BrushIndex>, frame: &Frame, text:
 
 pub fn style(builder: &mut RangedBuilder<'_, BrushIndex>, frame: &Frame, block: &Block, text: &str, selection: Option<Range<usize>>, context: &Context, width: Option<f32>) -> Decor {
     let fonts = context.fonts;
-    let mut decor = Decor { selection: selection.clone(), ..Decor::default() };
-    let selection = selection.as_ref();
+    let mut decor = Decor { selection, ..Decor::default() };
     for (i, _) in text.match_indices('\t') {
         hide(builder, i..i + 1, fonts.ch * TAB_SIZE);
     }
-    style_frame(builder, frame, text, selection, fonts, &mut decor);
+    style_frame(builder, frame, text, fonts, &mut decor);
     let spaces = text.len() - text.trim_start().len();
     let content = block.content(frame).max(spaces).min(text.len());
     let empty = text[content..].trim().is_empty();
@@ -75,7 +74,7 @@ pub fn style(builder: &mut RangedBuilder<'_, BrushIndex>, frame: &Frame, block: 
             return decor;
         }
         Block::Underline | Block::Rule => {
-            let shown = if matches!(block, Block::Underline) { context.inside } else { Part::Rule.shown(selection, &(frame.lead..text.len())) };
+            let shown = if matches!(block, Block::Underline) { context.inside } else { decor.shown(Part::Rule, frame.lead..text.len()) };
             push(builder, StyleProperty::Brush(if shown { SYNTAX } else { HIDDEN }), frame.lead..text.len());
             return decor;
         }
@@ -90,9 +89,9 @@ pub fn style(builder: &mut RangedBuilder<'_, BrushIndex>, frame: &Frame, block: 
             push(builder, StyleProperty::Brush(SYNTAX), spaces..spaces + key);
             return decor;
         }
-        Block::Heading { level, marker } => style_heading(builder, text, frame.lead, *level, *marker, empty || Part::Heading.shown(selection, &(frame.lead..frame.lead + marker)), fonts),
-        Block::Item(item) => style_item(builder, item, frame, selection, fonts, &mut decor),
-        Block::Callout { range, kind } => match (kind, Part::CalloutName.shown(selection, range)) {
+        Block::Heading { level, marker } => style_heading(builder, text, frame.lead, *level, *marker, empty || decor.shown(Part::Heading, frame.lead..frame.lead + marker), fonts),
+        Block::Item(item) => style_item(builder, item, frame, fonts, &mut decor),
+        Block::Callout { range, kind } => match (kind, decor.shown(Part::CalloutName, range.clone())) {
             (Callout::Typed(index), _) if frame.panels > 0 => style_callout(builder, frame, text, range, KINDS[usize::from(*index)].tone, fonts, &mut decor),
             (Callout::Typed(_), _) => push(builder, StyleProperty::Brush(SYNTAX), range.clone()),
             (_, true) => push(builder, StyleProperty::Brush(SYNTAX), range.clone()),
@@ -108,6 +107,6 @@ pub fn style(builder: &mut RangedBuilder<'_, BrushIndex>, frame: &Frame, block: 
         decor.inset = decor.x + frame.right();
     }
     let room = width.map_or(f64::INFINITY, |w| f64::from(w) - decor.inset);
-    style_spans(builder, text, content, selection, context, room, &mut decor);
+    style_spans(builder, text, content, context, room, &mut decor);
     decor
 }

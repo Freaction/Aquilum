@@ -76,12 +76,14 @@ impl Band<'_> {
     }
 }
 
-pub fn bands(width: usize, height: usize, pixels: &mut [u8], draw: impl Fn(&mut Band<'_>) + Sync) {
+pub fn bands(width: usize, height: usize, pixels: &mut [u8], back: Rgb, draw: impl Fn(&mut Band<'_>) + Sync) {
     if width == 0 || height == 0 || pixels.len() < width * height * 4 {
         return;
     }
     use rayon::prelude::*;
+    let fill = [back[0], back[1], back[2], 255];
     pixels[..width * height * 4].par_chunks_mut(BAND * width * 4).enumerate().for_each(|(index, chunk)| {
+        chunk.chunks_exact_mut(4).for_each(|pixel| pixel.copy_from_slice(&fill));
         let rows = index * BAND..((index + 1) * BAND).min(height);
         draw(&mut Band { rows, width, pixels: chunk });
     });

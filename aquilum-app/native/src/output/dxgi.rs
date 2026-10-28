@@ -7,8 +7,8 @@ use winit::event_loop::OwnedDisplayHandle;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use super::device::{capacity, create, rect, region, texture, Gpu, GROWTH};
-use super::{Area, Canvas, Target};
+use super::device::{capacity, create, rect, region, texture, Gpu, BUFFERS, GROWTH};
+use super::{Area, Canvas, History, Target};
 
 pub struct Output {
     hwnd: HWND,
@@ -17,6 +17,7 @@ pub struct Output {
     capacity: (u32, u32),
     fresh: bool,
     background: u32,
+    history: History,
 }
 
 impl Output {
@@ -29,7 +30,7 @@ impl Output {
         let size = (size.width.max(1), size.height.max(1));
         let capacity = (size.0.next_multiple_of(GROWTH), size.1.next_multiple_of(GROWTH));
         let gpu = create(hwnd, capacity.0, capacity.1)?;
-        Ok(Output { hwnd, gpu: Some(gpu), size, capacity, fresh: true, background: 0 })
+        Ok(Output { hwnd, gpu: Some(gpu), size, capacity, fresh: true, background: 0, history: History::default() })
     }
 
     fn lost(&mut self, err: impl std::fmt::Display) {
@@ -57,7 +58,6 @@ impl Output {
         let _zone = aq_trace::zone("размер цепочки");
         unsafe { gpu.chain.ResizeBuffers(0, capacity.0, capacity.1, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG(0)) }.map_err(|e| format!("размер цепочки: {e}"))?;
         gpu.canvas = texture(&gpu.device, capacity.0, capacity.1).map_err(|e| format!("холст: {e}"))?;
-        gpu.back = 0;
         self.capacity = capacity;
         self.clear();
         Ok(())
@@ -76,38 +76,30 @@ impl Output {
     }
 
     fn clear(&mut self) {
-        let (background, (w, h)) = (self.background, self.capacity);
+        let background = self.background;
         self.with_target(&mut |target| target.pixels.fill(background));
-        if let Some(gpu) = &mut self.gpu {
-            gpu.stale = std::array::from_fn(|_| vec![Area { x: 0, y: 0, w, h }]);
-        }
+        self.history.reset();
     }
 
     pub fn fresh(&self) -> bool {
         self.fresh
     }
 
-
     pub fn present(&mut self, dirty: &[Area]) {
         let _zone = aq_trace::zone("вывод");
         let Some(gpu) = &mut self.gpu else { return };
-        for stale in &mut gpu.stale {
-            stale.extend_from_slice(dirty);
-            super::merge(stale);
-        }
-        let copy = std::mem::take(&mut gpu.stale[gpu.back]);
-        if copy.is_empty() {
-            return;
-        }
-        gpu.back = (gpu.back + 1) % gpu.stale.len();
-        let mut rects: Vec<_> = copy.iter().map(|a| rect(*a)).collect();
+        let age = if self.fresh { 0 } else { BUFFERS as usize };
+        let (areas, missing) = self.history.frame(dirty, age);
+        let whole = missing.is_none();
+        let copy = missing.unwrap_or_else(|| vec![Area { x: 0, y: 0, w: self.capacity.0, h: self.capacity.1 }]);
+        let mut rects: Vec<_> = areas.iter().map(|a| rect(*a)).collect();
         let result = unsafe {
             gpu.chain.GetBuffer::<ID3D11Texture2D>(0).and_then(|back| {
                 for area in &copy {
                     gpu.context.CopySubresourceRegion(&back, 0, area.x, area.y, 0, &gpu.canvas, 0, Some(&region(*area)));
                 }
                 let params = DXGI_PRESENT_PARAMETERS {
-                    DirtyRectsCount: if self.fresh { 0 } else { rects.len() as u32 },
+                    DirtyRectsCount: if whole { 0 } else { rects.len() as u32 },
                     pDirtyRects: rects.as_mut_ptr(),
                     pScrollRect: std::ptr::null_mut(),
                     pScrollOffset: std::ptr::null_mut(),

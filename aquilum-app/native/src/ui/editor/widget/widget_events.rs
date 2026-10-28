@@ -59,14 +59,7 @@ impl TextEditor {
     }
 
     pub(super) fn do_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
-        if !self.laid_out() {
-            return;
-        }
-        if let PointerEvent::Down(PointerButtonEvent { pointer: device, .. }) = event
-            && pointer::commits_word(device.pointer_type)
-        {
-            self.finish_compose(ctx);
-        } else if self.compose.is_some() {
+        if !self.laid_out() || self.compose.is_some() {
             return;
         }
         match event {
@@ -74,7 +67,7 @@ impl TextEditor {
                 self.close_suggest();
                 let point = ctx.local_position(state.position);
                 let new_tab = pointer::new_tab(state.modifiers);
-                if self.table_press(ctx, point, crate::ui::keymap::extend(state.modifiers), new_tab, state.count, pointer::grip(device.pointer_type))
+                if self.table_press(ctx, point, crate::ui::keymap::extend(state.modifiers), new_tab, state.count)
                     || self.media_press(ctx, point, state.count, pointer::reach(device.pointer_type))
                     || self.code_press(ctx, point)
                     || self.card_click(ctx, point, new_tab)
@@ -100,12 +93,17 @@ impl TextEditor {
             PointerEvent::Move(PointerUpdate { current, pointer: device, .. }) => {
                 let point = ctx.local_position(current.position);
                 self.hover_text(ctx, point);
-                if self.media_move(ctx, point, pointer::reach(device.pointer_type)) || self.table_move(ctx, point, pointer::grip(device.pointer_type)) || self.code_drag(ctx, point) || !ctx.is_active() || self.table_active() {
+                if self.media_move(ctx, point, pointer::reach(device.pointer_type)) || self.table_move(ctx, point, !current.buttons.is_empty()) || self.code_drag(ctx, point) {
+                    ctx.set_handled();
+                    return;
+                }
+                if !ctx.is_active() || self.table_active() {
                     return;
                 }
                 self.drag_at = Some(ctx.window_transform() * point);
-                self.drag_select(point);
-                self.refresh(ctx);
+                if self.drag_select(point) {
+                    self.refresh(ctx);
+                }
             }
             PointerEvent::Down(PointerButtonEvent { button, state, .. }) if pointer::context(*button) => {
                 let point = ctx.local_position(state.position);
@@ -119,20 +117,11 @@ impl TextEditor {
                     }
                 }
             }
-            PointerEvent::Up(_) => {
+            PointerEvent::Up(_) | PointerEvent::Cancel(_) => {
                 self.drag_at = None;
                 self.media_release(ctx);
                 self.table_release(ctx);
                 self.code_release();
-            }
-            PointerEvent::Leave(_) => {
-                self.media_leave(ctx);
-                if self.hovered_link.take().is_some() | self.code_bar.take().is_some() {
-                    ctx.request_render();
-                }
-                if self.hovered_table.take().is_some() {
-                    ctx.request_render();
-                }
             }
             PointerEvent::Scroll(scroll) => {
                 let point = ctx.local_position(scroll.state.position);

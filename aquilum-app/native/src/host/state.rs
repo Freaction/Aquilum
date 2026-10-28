@@ -37,8 +37,7 @@ impl Host {
     pub(super) fn fit_window(&mut self) {
         let (window, insets) = (self.logical_size(), self.safe_area());
         if let Some(root) = &mut self.root {
-            self.app.window_resized(root, window);
-            self.app.safe_area_changed(root, insets);
+            self.app.fit_window(root, window, insets);
         }
     }
 

@@ -9,13 +9,14 @@ impl App {
     }
 
     pub fn deadline(&self) -> Option<Instant> {
-        [self.note.as_ref().and_then(Note::deadline), self.view_due, self.hold].into_iter().flatten().min()
+        [self.note.as_ref().and_then(Note::deadline), self.view_due, self.hold, self.reader_due()].into_iter().flatten().min()
     }
 
     pub fn tick(&mut self, root: &mut RenderRoot, now: Instant) {
         if self.view_due.is_some_and(|t| t <= now) {
             self.flush_view();
         }
+        self.settle_reader(root, now);
         if let Some(note) = self.note.as_mut()
             && note.tick(&self.workspace.core, &self.text, now)
         {

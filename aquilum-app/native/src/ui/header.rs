@@ -9,7 +9,7 @@ use super::handle::Handle;
 use super::icons::Icon;
 use super::titlebar::{OWN_CONTROLS, TabStrip};
 use super::tokens::size;
-use super::widgets::{Collapse, IconButton, Underlined, Visible};
+use super::widgets::{Collapse, IconButton, Slot, Underlined};
 use super::{icons, theme};
 use crate::i18n;
 
@@ -19,12 +19,12 @@ pub(super) struct Titlebar {
     pub(super) tab_list: WidgetId,
     pub(super) strip: Handle<TabStrip>,
     pub(super) toggle: WidgetId,
-    pub(super) toggle_shown: Handle<Visible>,
+    pub(super) toggle_shown: Handle<Slot>,
     pub(super) settings: WidgetId,
-    pub(super) settings_shown: Handle<Visible>,
+    pub(super) settings_shown: Handle<Slot>,
     pub(super) inset: Handle<Collapse>,
     pub(super) drawer: WidgetId,
-    pub(super) drawer_shown: Handle<Visible>,
+    pub(super) drawer_shown: Handle<Slot>,
 }
 
 pub fn panel_label(open: bool) -> &'static str {
@@ -39,12 +39,12 @@ fn controls_inset(panel_open: bool, panel_from: bool) -> NewWidget<Collapse> {
     Collapse::new(NewWidget::new(SizedBox::empty()).erased(), controls_width(), !panel_open, !panel_from, on_header)
 }
 
-fn edge_button(icon: Icon, label: &str, shown: bool) -> (NewWidget<Visible>, WidgetId) {
+fn edge_button(icon: Icon, label: &str, shown: bool) -> (NewWidget<Slot>, WidgetId) {
     let button = NewWidget::new(IconButton::new(icon, i18n::t(label)));
     let id = button.id();
     let row = NewWidget::new(Flex::row().with_fixed(button))
         .with_props(PropertySet::new().with(Padding { top: Length::ZERO, bottom: Length::ZERO, left: Length::px(size::SPACE_4), right: Length::px(size::SPACE_4) }));
-    (Visible::new(row, shown), id)
+    (Slot::shown(row, shown), id)
 }
 
 pub(super) fn titlebar(tabs: Vec<NewWidget<dyn Widget>>, active: usize, panel_open: bool, panel_from: bool, focus_mode: bool, compact: bool) -> Titlebar {
@@ -61,7 +61,7 @@ pub(super) fn titlebar(tabs: Vec<NewWidget<dyn Widget>>, active: usize, panel_op
     );
     let toggle = NewWidget::new(IconButton::new(icons::PANEL_RIGHT, i18n::t(panel_label(panel_open))));
     let toggle_id = toggle.id();
-    let toggle = Visible::new(toggle, !focus_mode);
+    let toggle = Slot::shown(toggle, !focus_mode);
     let toggle_shown = Handle::of(&toggle);
     let menu = NewWidget::new(Flex::row().with_fixed(toggle))
         .with_props(PropertySet::new().with(Padding::from_vh(Length::px(size::SPACE_4), Length::px(size::SPACE_6))));

@@ -34,8 +34,8 @@ impl Segmented {
         text::Style::ui(size::SIZE_20)
     }
 
-    fn naturals(&self, fcx: &mut masonry::parley::FontContext, lcx: &mut masonry::parley::LayoutContext<masonry::core::BrushIndex>) -> Vec<f64> {
-        self.options.iter().map(|o| text::measure_with(fcx, lcx, o, Self::style()).ceil() + size::PADDING_XS * 2.0).collect()
+    fn naturals(&mut self, fcx: &mut masonry::parley::FontContext, lcx: &mut masonry::parley::LayoutContext<masonry::core::BrushIndex>) -> Vec<f64> {
+        self.lines.iter_mut().zip(&self.options).map(|(line, o)| line.width(fcx, lcx, o, Self::style()).ceil() + size::PADDING_XS * 2.0).collect()
     }
 
     fn total(widths: &[f64]) -> f64 {
@@ -117,8 +117,7 @@ impl Widget for Segmented {
 
     fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
         let goal = self.selected as f64;
-        let step = crate::ui::motion::step(interval as f64 / 1e9, crate::ui::motion::MEDIUM);
-        self.shown = if self.shown < goal { (self.shown + step).min(goal) } else { (self.shown - step).max(goal) };
+        self.shown = motion::approach(self.shown, goal, motion::step(interval as f64 / 1e9, motion::MEDIUM));
         ctx.request_paint_only();
         if self.shown != goal {
             ctx.request_anim_frame();

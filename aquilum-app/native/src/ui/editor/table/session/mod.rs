@@ -1,10 +1,10 @@
 use std::ops::Range;
 
 use masonry::kurbo::{Axis, Point};
-use masonry::parley::Cursor;
 
 use super::model::{Range2, Table};
-use super::view::{Cell, Hit, Line, Overlay, TableView};
+use super::view::{Hit, Line, Overlay, TableView};
+use crate::ui::editor::caret;
 use crate::ui::scroll::bar::Scrollbar;
 
 mod drag;
@@ -46,17 +46,13 @@ pub enum Outcome {
     Copy(String),
 }
 
-pub(super) fn caret_in(cell: &Cell, value: &str, at: Point) -> usize {
-    value.floor_char_boundary(Cursor::from_point(&cell.layout, at.x as f32, at.y as f32).index())
-}
-
 impl Session {
     pub fn new(start: usize) -> Self {
         Session { start, active: None, caret: 0, anchor: 0, compose: None, range: None, range_anchor: None, drag: Drag::None, hover: None, scroll_x: 0.0, line: Line::None, menu_cell: None, bar: Scrollbar::new(Axis::Horizontal) }
     }
 
     pub fn overlay(&self, hovered: bool) -> Overlay {
-        Overlay { selection: self.range, hover: self.hover, line: self.line, scroll_x: self.scroll_x, hovered, bar_active: self.bar.active(), search: None }
+        Overlay { selection: self.range, hover: self.hover, line: self.line, scroll_x: self.scroll_x, hovered: hovered || self.active.is_some(), bar_active: self.bar.active(), search: None }
     }
 
     pub(super) fn enter(&mut self, cell: (usize, usize), caret: usize) {
@@ -72,7 +68,7 @@ impl Session {
         let (r, c) = view.model.anchor(r, c);
         let value = view.model.value(r, c);
         let caret = match (at, view.cell(r, c)) {
-            (Some(p), Some(cell)) => caret_in(cell, value, p),
+            (Some(p), Some(cell)) => caret::hit(&cell.layout, value, p).0,
             _ => value.len(),
         };
         self.enter((r, c), caret);

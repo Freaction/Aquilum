@@ -42,14 +42,12 @@ impl ReaderView {
                     return;
                 }
                 let hover = self.body.contains(p).then(|| self.side(p, update.pointer.pointer_type));
-                self.set_hover(ctx, hover);
+                if self.set_hover(hover) {
+                    ctx.request_anim_frame();
+                }
                 let local = p - self.body.origin().to_vec2();
                 let quote = if self.popover.is_some() { None } else { self.quote_rects.iter().position(|(_, rects)| rects.iter().any(|r| r.contains(local))) };
                 self.set_quote_hover(ctx, quote);
-            }
-            PointerEvent::Leave(_) => {
-                self.set_hover(ctx, None);
-                self.set_quote_hover(ctx, None);
             }
             PointerEvent::Down(down) if keymap::pointer::press(down.button) => {
                 let p = ctx.local_position(down.state.position);
@@ -91,7 +89,7 @@ impl ReaderView {
                 }
                 ctx.request_layout();
             }
-            PointerEvent::Scroll(PointerScrollEvent { delta, .. }) => {
+            PointerEvent::Scroll(PointerScrollEvent { delta, state, .. }) => {
                 if self.popover.is_some() {
                     return;
                 }
@@ -102,10 +100,10 @@ impl ReaderView {
                     self.moved(ctx, changed);
                     return;
                 }
-                let now = std::time::Instant::now();
-                let ongoing = self.swipe.filter(|&(at, _)| now.saturating_duration_since(at) < keymap::gesture::PAGE_GESTURE_GAP);
-                let turned = ongoing.is_some_and(|(_, turned)| turned);
-                self.swipe = Some((now, turned));
+                let (now, from) = (std::time::Instant::now(), ctx.local_position(state.position));
+                let ongoing = self.swipe.filter(|&(at, _, start)| start == from && now.saturating_duration_since(at) < keymap::gesture::PAGE_GESTURE_GAP);
+                let turned = ongoing.is_some_and(|(_, turned, _)| turned);
+                self.swipe = Some((now, turned, from));
                 if ongoing.is_none() {
                     self.wheel = 0.0;
                 }
@@ -116,7 +114,7 @@ impl ReaderView {
                 if self.wheel.abs() >= keymap::gesture::WHEEL_PAGE_TURN {
                     let side = if self.wheel > 0.0 { Side::Next } else { Side::Prev };
                     self.wheel = 0.0;
-                    self.swipe = Some((now, true));
+                    self.swipe = Some((now, true, from));
                     self.turn(ctx, side);
                 }
             }

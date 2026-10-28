@@ -1,16 +1,14 @@
 use masonry::accesskit::Role;
 use masonry::core::{ErasedAction, NewWidget, PropertySet, WidgetId};
-use masonry::kurbo::Axis;
 use masonry::layout::Length;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{Gap, Padding};
 use masonry::widgets::Flex;
 
-use super::{CardSize, DialogAnswer, Modal, header};
+use super::{CardSize, DialogAnswer, Modal, card, header};
 use crate::ui::text::selectable;
-use crate::ui::theme;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{Leading, Pressed, Rule, TextButton, Variant};
+use crate::ui::widgets::{Leading, Pressed, TextButton, Variant};
 
 pub struct ConfirmDialog;
 
@@ -31,15 +29,7 @@ impl ConfirmDialog {
                 .with(Gap::new(Length::px(size::DIALOG_GAP)))
                 .with(Padding::all(Length::px(size::DIALOG_PADDING))),
         );
-        let border = || Rule::new(Axis::Horizontal, || theme::current().border_default);
-        let card = Flex::column()
-            .cross_axis_alignment(CrossAxisAlignment::Stretch)
-            .with_fixed(header)
-            .with_fixed(border())
-            .with_fixed(content)
-            .with_fixed(border())
-            .with_fixed(footer);
-        let dialog = Modal::new(NewWidget::new(card), title, CardSize::Fit(size::CONFIRM_DIALOG_WIDTH), Role::AlertDialog, true);
+        let dialog = Modal::new(card(header, content, footer), title, CardSize::Fit(size::CONFIRM_DIALOG_WIDTH), Role::AlertDialog, true);
         let ids = DialogIds::of(&dialog, (cancel_id, confirm_id));
         (dialog, ids)
     }

@@ -1,13 +1,12 @@
 use masonry::app::RenderRoot;
-use masonry::core::{ErasedAction, WidgetId};
 use masonry::kurbo::Point;
 
-use super::super::{App, Popup};
+use super::super::{App, MenuCommand, Popup};
 use crate::frontmatter;
 use crate::i18n::t;
 use crate::ui::editor::{TableCommand, TextEditor};
 use crate::ui::icons;
-use crate::ui::menu::{Entry, Menu, MenuChoice};
+use crate::ui::menu::{Entry, Menu};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum EditorCommand {
@@ -21,20 +20,13 @@ pub enum EditorCommand {
 impl App {
     pub(in crate::app) fn open_table_menu(&mut self, root: &mut RenderRoot, at: Point, commands: Vec<(TableCommand, bool)>) {
         let labels: Vec<String> = commands.iter().map(|(c, _)| t(c.label_key())).collect();
-        let entries: Vec<Entry<'_>> = commands.iter().zip(&labels).map(|((c, enabled), label)| Entry { label, icon: Some(c.icon()), disabled: !enabled }).collect();
+        let entries: Vec<Entry<'_>> = commands.iter().zip(&labels).map(|((c, enabled), label)| Entry { label, icon: Some(c.icon()), disabled: !enabled, divided: false }).collect();
         let menu = Menu::entries(&t("editor.table.menuAria"), &entries);
-        let commands: Vec<TableCommand> = commands.into_iter().map(|(c, _)| c).collect();
-        self.show_layer(root, menu, Menu::context_origin(at, entries.len(), self.window), |layer| Popup::TableMenu { layer, commands });
+        let commands = commands.into_iter().map(|(c, _)| MenuCommand::Table(c)).collect();
+        self.show_layer(root, menu, Menu::context_origin(at, entries.len(), self.window), |layer| Popup::Menu { layer, commands });
     }
 
-    pub(in crate::app) fn on_table_menu(&mut self, root: &mut RenderRoot, layer: WidgetId, commands: Vec<TableCommand>, action: &ErasedAction) {
-        let Some(choice) = action.downcast_ref::<MenuChoice>() else {
-            self.popup = Some(Popup::TableMenu { layer, commands });
-            return;
-        };
-        let MenuChoice::Item(item) = choice else { return };
-        root.remove_layer(layer);
-        let Some(&command) = commands.get(*item) else { return };
+    pub(in crate::app) fn table_command(&mut self, root: &mut RenderRoot, command: TableCommand) {
         if let Some(ids) = &self.note_ids {
             let body = ids.body.id();
             root.focus_on(Some(body));
@@ -44,32 +36,27 @@ impl App {
 
     pub(in crate::app) fn open_editor_context_menu(&mut self, root: &mut RenderRoot, at: Point, has_selection: bool) {
         let has_frontmatter = self.has_frontmatter();
-        let commands = vec![
+        let commands = [
             EditorCommand::Copy,
             EditorCommand::Paste,
             EditorCommand::InsertBook,
             EditorCommand::InsertTable,
             EditorCommand::InsertFrontmatter,
-        ];
+        ]
+        .map(MenuCommand::Editor)
+        .to_vec();
         let entries = [
-            Entry { label: &t("common.copy"), icon: Some(icons::COPY), disabled: !has_selection },
-            Entry { label: &t("common.paste"), icon: Some(icons::CLIPBOARD), disabled: false },
-            Entry { label: &t("editor.insertBook"), icon: Some(icons::BOOK_OPEN), disabled: false },
-            Entry { label: &t("editor.insertTable"), icon: Some(icons::TABLE), disabled: false },
-            Entry { label: &t("editor.insertFrontmatter"), icon: Some(icons::TAG), disabled: has_frontmatter },
+            Entry { label: &t("common.copy"), icon: Some(icons::COPY), disabled: !has_selection, divided: false },
+            Entry { label: &t("common.paste"), icon: Some(icons::CLIPBOARD), disabled: false, divided: false },
+            Entry { label: &t("editor.insertBook"), icon: Some(icons::BOOK_OPEN), disabled: false, divided: false },
+            Entry { label: &t("editor.insertTable"), icon: Some(icons::TABLE), disabled: false, divided: false },
+            Entry { label: &t("editor.insertFrontmatter"), icon: Some(icons::TAG), disabled: has_frontmatter, divided: false },
         ];
         let menu = Menu::entries(&t("editor.actions"), &entries);
-        self.show_layer(root, menu, Menu::context_origin(at, entries.len(), self.window), |layer| Popup::EditorMenu { layer, commands });
+        self.show_layer(root, menu, Menu::context_origin(at, entries.len(), self.window), |layer| Popup::Menu { layer, commands });
     }
 
-    pub(in crate::app) fn on_editor_menu(&mut self, root: &mut RenderRoot, layer: WidgetId, commands: Vec<EditorCommand>, action: &ErasedAction) {
-        let Some(choice) = action.downcast_ref::<MenuChoice>() else {
-            self.popup = Some(Popup::EditorMenu { layer, commands });
-            return;
-        };
-        let MenuChoice::Item(item) = choice else { return };
-        root.remove_layer(layer);
-        let Some(&command) = commands.get(*item) else { return };
+    pub(in crate::app) fn editor_command(&mut self, root: &mut RenderRoot, command: EditorCommand) {
         let Some(ids) = &self.note_ids else { return };
         let body = ids.body;
         root.focus_on(Some(body.id()));

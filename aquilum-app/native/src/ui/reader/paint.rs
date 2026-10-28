@@ -5,21 +5,23 @@ impl ReaderView {
         let tm = theme::current();
         let window = ctx.content_box();
         painter.fill(window, tm.bg_canvas).draw();
-        let header = Rect::new(0.0, 0.0, window.width(), self.header);
+        let room = self.room;
+        let header = Rect::new(0.0, 0.0, window.width(), room.y0 + self.header);
         painter.fill(header, tm.bg_surface).draw();
-        let border = self.header + size::BORDER_1 / 2.0;
+        let border = header.y1 + size::BORDER_1 / 2.0;
         painter.stroke(&Segment::new((0.0, border), (window.width(), border)), &Stroke::new(size::BORDER_1), tm.border_subtle).draw();
 
         let line = Self::line_height();
         let side = size::SPACE_12 + size::SIZE_32 * 2.0 + size::SPACE_4 + size::SPACE_12;
-        let inner = (window.width() - side * 2.0).max(1.0);
-        let top = ((self.header - line * 2.0 - size::SPACE_2) / 2.0).round();
+        let inner = (room.width() - side * 2.0).max(1.0);
+        let top = room.y0 + ((self.header - line * 2.0 - size::SPACE_2) / 2.0).round();
+        let centered = |width: f32| room.x0 + (room.width() - f64::from(width)) / 2.0;
         let title = if self.title.is_empty() { t("reader.book") } else { self.title.clone() };
         let layout = self.title_line.layout(ctx, &title, inner, Style::ui(line));
-        render_text(painter, Affine::translate(((window.width() - f64::from(layout.width())) / 2.0, top)), layout, &[tm.text_primary.into()], true);
+        render_text(painter, Affine::translate((centered(layout.width()), top)), layout, &[tm.text_primary.into()], true);
         let pages = format!("{}/{}", self.current(), self.total);
         let layout = self.pages_line.layout(ctx, &pages, inner, Style::ui(line));
-        render_text(painter, Affine::translate(((window.width() - f64::from(layout.width())) / 2.0, top + line + size::SPACE_2)), layout, &[tm.text_secondary.into()], true);
+        render_text(painter, Affine::translate((centered(layout.width()), top + line + size::SPACE_2)), layout, &[tm.text_secondary.into()], true);
 
         let body = self.body;
         let offset = body.origin().to_vec2();
@@ -88,25 +90,23 @@ impl ReaderView {
         if self.zones.iter().any(|z| z.value() > 0.0) {
             let hover = self.hover.flatten();
             let nav = keymap::pointer::page_zone(PointerType::Mouse, body.width());
+            let reach = self.session.visible().first().map_or(nav, |(column, ..)| column.x0.min(nav)) / 2.0;
             for (side, zone_alpha) in [(Side::Prev, self.zones[0].value()), (Side::Next, self.zones[1].value())] {
-                let zone = match side {
-                    Side::Prev => Rect::new(body.x0, body.y0, body.x0 + nav, body.y1),
-                    Side::Next => Rect::new(body.x1 - nav, body.y0, body.x1, body.y1),
-                };
+                let x = if side == Side::Prev { body.x0 + reach } else { body.x1 - reach };
                 let active = hover == Some(side);
                 let color = if active { tm.text_primary } else { tm.text_secondary }.multiply_alpha(zone_alpha as f32);
                 let icon = if side == Side::Prev { icons::CHEVRON_LEFT } else { icons::CHEVRON_RIGHT };
                 let glyph = size::SIZE_24;
-                icon.draw(painter, zone.center() - Vec2::new(glyph / 2.0, glyph / 2.0), glyph, 2.0, color);
+                icon.draw(painter, Point::new(x, body.center().y) - Vec2::new(glyph / 2.0, glyph / 2.0), glyph, 2.0, color);
             }
         }
 
-        let footer = window.height() - PROGRESS - size::BORDER_1;
+        let footer = room.y1 - PROGRESS - size::BORDER_1;
         painter.fill(Rect::new(0.0, footer, window.width(), window.height()), tm.bg_surface).draw();
         painter.stroke(&Segment::new((0.0, footer + 0.5), (window.width(), footer + 0.5)), &Stroke::new(size::BORDER_1), tm.border_subtle).draw();
-        let bar = Rect::new(0.0, window.height() - PROGRESS, window.width(), window.height());
+        let bar = Rect::new(room.x0, room.y1 - PROGRESS, room.x1, room.y1);
         painter.fill(bar, tm.bg_surface_subtle).draw();
-        painter.fill(Rect::new(0.0, bar.y0, bar.width() * self.bar.value(), bar.y1), tm.text_primary.multiply_alpha(0.45)).draw();
+        painter.fill(Rect::new(bar.x0, bar.y0, bar.x0 + bar.width() * self.bar.value(), bar.y1), tm.text_primary.multiply_alpha(0.45)).draw();
 
         if self.quote_button.is_some() && self.ordered().is_some() && !self.selecting {
             let shape = RoundedRect::from_rect(self.toolbar, size::RADIUS_XL);

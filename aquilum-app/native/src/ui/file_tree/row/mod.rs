@@ -38,6 +38,11 @@ impl TreeRow {
         TreeRow { row, pressed: false, down_at: None, dragging: false, drop_over: false, texts: Texts::default() }
     }
 
+    #[cfg(test)]
+    pub fn name(&self) -> &str {
+        &self.row.name
+    }
+
     pub fn set_drop_over(this: &mut WidgetMut<'_, Self>, drop_over: bool) {
         if this.widget.drop_over != drop_over {
             this.widget.drop_over = drop_over;

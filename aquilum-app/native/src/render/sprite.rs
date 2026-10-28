@@ -1,16 +1,19 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
-use masonry::kurbo::{Rect, RoundedRect};
+use masonry::kurbo::{Rect, RoundedRect, Vec2};
 use masonry::peniko::{Color, ImageBrush};
 
-use super::stamp::{Stamps, blend, covering};
+use super::in_canvas_order;
+use super::stamp::{Stamps, covering};
+use crate::cover::over;
 use crate::output::{Area, Canvas};
 
-#[derive(Clone, Copy)]
 struct Entry {
     color: Color,
     covered: bool,
+    baked: Option<(Key, Rc<Vec<u32>>)>,
 }
 
 thread_local! {
@@ -37,7 +40,7 @@ pub fn marker() -> ImageBrush {
 }
 
 pub fn paint(marker: &ImageBrush, color: Color) {
-    SPRITES.with_borrow_mut(|s| s.entry(marker.image.data.id()).or_insert(Entry { color, covered: false }).color = color);
+    SPRITES.with_borrow_mut(|s| s.entry(marker.image.data.id()).or_insert(Entry { color, covered: false, baked: None }).color = color);
 }
 
 pub fn forget(marker: &ImageBrush) {
@@ -75,16 +78,49 @@ pub(super) fn stamp(sprites: &[Sprite], canvas: &mut dyn Canvas, stamps: &mut St
             if area.w == 0 || area.h == 0 {
                 continue;
             }
-            let color = sprite.color.premultiply().components;
-            let (shape, clip) = (sprite.shape, sprite.clip);
+            let pixels = baked(sprite, area);
+            let width = area.w as usize;
             stamps.apply(&mut target, area, |x, y, pixel| {
-                let coverage = coverage(shape, clip, f64::from(x) + 0.5, f64::from(y) + 0.5);
-                if coverage > 0.0 {
-                    *pixel = blend(*pixel, color, coverage);
-                }
+                *pixel = over(pixels[(y - area.y) as usize * width + (x - area.x) as usize], *pixel);
             });
         }
     });
+}
+
+#[derive(PartialEq)]
+struct Key {
+    shape: RoundedRect,
+    clip: Rect,
+    color: Color,
+    size: (u32, u32),
+}
+
+fn baked(sprite: &Sprite, area: Area) -> Rc<Vec<u32>> {
+    let origin = Vec2::new(f64::from(area.x), f64::from(area.y));
+    let (w, h) = (f64::from(area.w), f64::from(area.h));
+    let key = Key { shape: sprite.shape - origin, clip: (sprite.clip - origin).intersect(Rect::new(-1.0, -1.0, w + 1.0, h + 1.0)), color: sprite.color, size: (area.w, area.h) };
+    SPRITES.with_borrow_mut(|s| {
+        let entry = s.get_mut(&sprite.id)?;
+        if let Some((kept, pixels)) = &entry.baked
+            && *kept == key
+        {
+            return Some(Rc::clone(pixels));
+        }
+        let color = key.color.premultiply().components;
+        let pixels: Rc<Vec<u32>> = Rc::new(
+            (0..area.h)
+                .flat_map(|y| (0..area.w).map(move |x| (x, y)))
+                .map(|(x, y)| {
+                    let c = coverage(key.shape, key.clip, f64::from(x) + 0.5, f64::from(y) + 0.5);
+                    let channel = |v: f32| (v * c * 255.0).round() as u8;
+                    in_canvas_order(u32::from_ne_bytes([channel(color[0]), channel(color[1]), channel(color[2]), channel(color[3])]))
+                })
+                .collect(),
+        );
+        entry.baked = Some((key, Rc::clone(&pixels)));
+        Some(pixels)
+    })
+    .unwrap_or_default()
 }
 
 fn coverage(shape: RoundedRect, clip: Rect, x: f64, y: f64) -> f32 {
@@ -93,7 +129,8 @@ fn coverage(shape: RoundedRect, clip: Rect, x: f64, y: f64) -> f32 {
     let center = rect.center();
     let qx = (x - center.x).abs() - (rect.width() / 2.0 - radius);
     let qy = (y - center.y).abs() - (rect.height() / 2.0 - radius);
-    let distance = qx.max(0.0).hypot(qy.max(0.0)) + qx.max(qy).min(0.0) - radius;
+    let (ox, oy) = (qx.max(0.0), qy.max(0.0));
+    let distance = (ox * ox + oy * oy).sqrt() + qx.max(qy).min(0.0) - radius;
     let edge = |a: f64, b: f64| (b - a + 0.5).clamp(0.0, 1.0);
     let clipped = edge(clip.x0, x).min(edge(x, clip.x1)).min(edge(clip.y0, y)).min(edge(y, clip.y1));
     ((0.5 - distance).clamp(0.0, 1.0) * clipped) as f32

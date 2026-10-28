@@ -1,0 +1,2 @@
+-keep class com.dmitriy.aquilum.** { *; }
+-keep class com.google.androidgamesdk.** { *; }

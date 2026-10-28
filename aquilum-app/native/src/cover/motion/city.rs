@@ -43,18 +43,18 @@ pub(super) fn draw(t: &mut Target<'_>, seconds: f64) {
     while x < w && x < start + STRIP {
         let left = (x * t.scale - t.origin.0).round() as isize;
         x += WIDTH;
+        let right = (x * t.scale - t.origin.0).round() as isize;
+        let (from, to) = (left.max(0), right.min(left + tw as isize).min(t.width as isize));
+        if to <= from {
+            continue;
+        }
         for j in 0..th {
             let y = top + j as isize;
             if y < 0 || y >= t.height as isize {
                 continue;
             }
-            let (from, to) = (left.max(0), (left + tw as isize).min(t.width as isize));
-            if to <= from {
-                continue;
-            }
             let row = &tile[j * tw..(j + 1) * tw];
-            let dest = &mut t.pixels[y as usize * t.width..];
-            dest[from as usize..to as usize].copy_from_slice(&row[(from - left) as usize..(to - left) as usize]);
+            t.row(y as usize).put_slice(from as usize, &row[(from - left) as usize..(to - left) as usize]);
         }
     }
 }

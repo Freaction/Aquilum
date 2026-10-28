@@ -98,6 +98,15 @@ impl Scrollbar {
         self.hovered || self.drag.is_some()
     }
 
+    pub fn cursor(&self) -> masonry::core::CursorIcon {
+        use masonry::core::CursorIcon;
+        match (self.drag.is_some(), self.hovered) {
+            (true, _) => CursorIcon::Grabbing,
+            (false, true) => CursorIcon::Grab,
+            _ => CursorIcon::Default,
+        }
+    }
+
     pub fn hover(&mut self, at: Option<Point>, span: &Span) -> bool {
         let hovered = at.is_some_and(|at| span.max() > 0.0 && self.thumb(span).contains(at));
         std::mem::replace(&mut self.hovered, hovered) != hovered

@@ -5,6 +5,10 @@ impl TextEditor {
         self.selected_text().unwrap_or_default()
     }
 
+    pub fn table_marks(&self) -> Option<(bool, usize)> {
+        self.table.as_ref().map(|s| (s.range.is_some(), s.caret.abs_diff(s.anchor)))
+    }
+
     pub fn image_source_shown(&self) -> bool {
         self.doc.source.is_some()
     }

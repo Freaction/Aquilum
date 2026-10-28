@@ -5,6 +5,7 @@ use masonry::kurbo::{Axis, Point, Rect, Size};
 use masonry::layout::{LayoutSize, LenReq, Length};
 use masonry::peniko::Color;
 
+use crate::ui::theme;
 use crate::ui::tokens::size;
 
 pub struct Rule {
@@ -20,6 +21,10 @@ impl Rule {
 
     pub fn on(axis: Axis, color: fn() -> Color, base: fn() -> Color) -> NewWidget<Self> {
         NewWidget::new(Rule { axis, color, base: Some(base) })
+    }
+
+    pub fn divider() -> NewWidget<Self> {
+        Self::new(Axis::Horizontal, || theme::current().border_default)
     }
 }
 

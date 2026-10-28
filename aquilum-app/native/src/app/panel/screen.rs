@@ -36,27 +36,20 @@ impl App {
     }
 
     pub fn window_resized(&mut self, root: &mut RenderRoot, window: Size) {
-        self.window = window;
+        self.fit_window(root, window, self.interface.screen().insets);
+    }
+
+    pub fn fit_window(&mut self, root: &mut RenderRoot, window: Size, insets: Insets) {
+        let before = self.interface.screen();
         let compact = window.width > 0.0 && WidthClass::of(window.width) == WidthClass::Compact;
-        let screen = self.interface.screen();
-        let drawer = if compact == screen.compact { screen.drawer } else { None };
-        self.fit_screen(root, Screen { compact, drawer, ..screen });
-    }
-
-    pub fn safe_area_changed(&mut self, root: &mut RenderRoot, insets: Insets) {
-        let screen = self.interface.screen();
-        self.fit_screen(root, Screen { insets, ..screen });
-        if insets.y1 > screen.insets.y1 {
-            self.keep_caret(root);
-        }
-    }
-
-    fn fit_screen(&mut self, root: &mut RenderRoot, screen: Screen) {
-        let class = screen.compact != self.compact();
+        let drawer = if compact == before.compact { before.drawer } else { None };
+        let class = compact != before.compact;
         let hidden = !self.shown.is_some_and(|(_, panel)| panel);
-        self.interface.set_screen(screen);
+        self.window = window;
+        self.interface.set_screen(Screen { compact, drawer, insets, ..before });
         self.apply_panels(root, false);
         self.fit_settings(root);
+        self.fit_reader(root);
         if class {
             self.apply_focus(root);
             self.fit_note_page(root);
@@ -70,6 +63,9 @@ impl App {
         let height = self.room().height;
         if let Some((hero, _)) = self.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()) {
             hero.edit(root, |mut hero| crate::ui::book::Hero::set_viewport(&mut hero, height));
+        }
+        if insets.y1 > before.insets.y1 {
+            self.keep_caret(root);
         }
     }
 

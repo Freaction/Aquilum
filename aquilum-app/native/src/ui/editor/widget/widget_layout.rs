@@ -15,6 +15,11 @@ impl TextEditor {
                 self.doc.fonts_changed();
                 ctx.request_layout();
             }
+            Update::HoveredChanged(false) => {
+                if self.media_leave() | self.hovered_link.take().is_some() | self.code_bar.take_if(|(_, bar)| !bar.dragging()).is_some() | self.table_unhover() {
+                    ctx.request_render();
+                }
+            }
             Update::FocusChanged(focused) => {
                 self.focused = *focused;
                 if *focused {
@@ -69,13 +74,11 @@ impl TextEditor {
     }
 
     pub(super) fn do_compose(&mut self, ctx: &mut ComposeCtx<'_>) {
-        if let Some(at) = self.drag_at.filter(|_| ctx.is_active()) {
-            let before = (self.anchor, self.focus);
-            self.drag_select(ctx.window_transform().inverse() * at);
-            if (self.anchor, self.focus) != before {
-                ctx.request_layout();
-                ctx.request_paint_only();
-            }
+        if let Some(at) = self.drag_at.filter(|_| ctx.is_active())
+            && self.drag_select(ctx.window_transform().inverse() * at)
+        {
+            ctx.request_layout();
+            ctx.request_paint_only();
         }
         let (top, bottom) = super::visible(ctx.window_transform(), ctx.window_size());
         if top < self.painted.0 || bottom > self.painted.1 {
@@ -105,7 +108,7 @@ impl TextEditor {
     pub(super) fn do_get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
         self.media_cursor()
             .or_else(|| self.table_cursor().filter(|_| self.hovered_table.is_some()))
-            .or(self.code_bar.map(|_| CursorIcon::Default))
+            .or(self.code_bar.map(|(_, bar)| bar.cursor()))
             .or(self.pointer_hover.then_some(CursorIcon::Pointer))
             .unwrap_or(CursorIcon::Text)
     }

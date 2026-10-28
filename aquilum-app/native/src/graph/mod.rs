@@ -8,7 +8,7 @@ mod snapshot;
 #[cfg(test)]
 mod tests;
 
-pub use metrics::{DIMMED_STRENGTH, MAX_NODE_PIXELS, MIN_SPREAD, SUB_PIXEL_RADIUS, highlight_state, radius_pixels, world_radius};
+pub use metrics::{MAX_NODE_PIXELS, MIN_SPREAD, SUB_PIXEL_RADIUS, dimmed, highlight_state, radius_pixels, world_radius};
 pub use snapshot::load;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

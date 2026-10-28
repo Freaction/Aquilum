@@ -5,7 +5,7 @@ use masonry::core::{
     QueryCtx, RegisterCtx, TextEvent, Update, UpdateCtx, Widget, WidgetId, WidgetMut, WidgetPod, render_text,
 };
 use masonry::imaging::Painter;
-use masonry::kurbo::{Affine, Axis, Line as Segment, Point, Rect, RoundedRect, Size, Stroke, Vec2};
+use masonry::kurbo::{Affine, Axis, Insets, Line as Segment, Point, Rect, RoundedRect, Size, Stroke, Vec2};
 use masonry::layout::{LayoutSize, LenDef, LenReq, Length, SizeDef};
 
 use super::icons;
@@ -54,13 +54,15 @@ pub struct ReaderView {
     fraction: f64,
     report: bool,
     wheel: f64,
-    swipe: Option<(std::time::Instant, bool)>,
+    swipe: Option<(std::time::Instant, bool, Point)>,
     settings_button: WidgetPod<IconButton>,
     close: WidgetPod<IconButton>,
     popover: Option<WidgetPod<dyn Widget>>,
     title_line: Line,
     pages_line: Line,
     header: f64,
+    insets: Insets,
+    room: Rect,
     body: Rect,
     popover_rect: Rect,
     hover: Option<Option<Side>>,

@@ -1,107 +1,6 @@
 use super::*;
 
 #[test]
-fn note_reopens_at_saved_scroll_position() {
-    use masonry::core::{PointerScrollEvent, ScrollDelta};
-    let mut h = Harness::new();
-    let long = h.vault.path().join("Длинная.md");
-    let body: String = (0..300).map(|i| format!("Абзац {i}\n\n")).collect();
-    std::fs::write(&long, &body).unwrap();
-    let other = h.vault.path().join("Другая.md");
-    std::fs::write(&other, "текст").unwrap();
-    h.open(long.clone());
-    let _ = h.root.redraw();
-    let state = pointer_at(600.0, 300.0, 1.0);
-    h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, -2500.0)), state }));
-    h.deliver();
-    let saved = note_offset(&h);
-    assert!(saved > 2000.0, "прокрутка не сработала: {saved}");
-    h.open(other);
-    let _ = h.root.redraw();
-    h.open(long);
-    let _ = h.root.redraw();
-    assert!(h.app.restore_view(&mut h.root), "позиция не восстановлена");
-    let _ = h.root.redraw();
-    let restored = note_offset(&h);
-    assert!((restored - saved).abs() < 1.0, "сохранено {saved}, восстановлено {restored}");
-}
-
-#[test]
-#[ignore]
-fn real_tree_after_focus_mode() {
-    let out = std::path::PathBuf::from(std::env::var("AQ_OUT").unwrap());
-    let vault = std::path::PathBuf::from(std::env::var("AQ_VAULT").unwrap());
-    let mut h = Harness::with(Some(&vault), 1.0);
-    for _ in 0..100 {
-        h.app.on_core_events(&mut h.root);
-        let _ = h.root.redraw();
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
-    let shot = |h: &mut Harness, name: &str| {
-        for _ in 0..20 {
-            h.app.on_core_events(&mut h.root);
-            h.deliver();
-        }
-        let (layers, _) = h.root.redraw();
-        let mut r = crate::render::Renderer::new(2);
-        r.render(&layers, W as u16, H as u16, 1.0, theme::background()).unwrap();
-        std::fs::write(out.join(name), r.png()).unwrap();
-    };
-    shot(&mut h, "tree-before.png");
-    h.app.toggle_focus_mode(&mut h.root);
-    shot(&mut h, "tree-focus.png");
-    h.app.toggle_focus_mode(&mut h.root);
-    shot(&mut h, "tree-after.png");
-}
-
-#[test]
-fn tree_rows_survive_focus_mode() {
-    let vault = crate::test_dir::tempdir();
-    for i in 0..1000 {
-        std::fs::write(vault.path().join(format!("Заметка {i:04}.md")), "текст").unwrap();
-    }
-    let mut h = Harness::with(Some(vault.path()), 1.0);
-    h.open(vault.path().join("Заметка 0900.md"));
-    h.deliver();
-    let offset = |h: &Harness| scroll_offset(h, h.app.tree.scroll_id().unwrap());
-    let before = (offset(&h), h.app.tree.built_rows());
-    h.app.toggle_focus_mode(&mut h.root);
-    h.deliver();
-    h.app.toggle_focus_mode(&mut h.root);
-    h.deliver();
-    let after = (offset(&h), h.app.tree.built_rows());
-    assert_eq!(before, after);
-}
-
-#[test]
-fn focus_mode_removes_the_rail_and_puts_settings_in_the_top_left_corner() {
-    let mut h = Harness::new();
-    h.open(h.vault.path().join("a.md"));
-    h.settle();
-    let (rail, settings, strip, toggle) = {
-        let chrome = h.app.chrome.as_ref().unwrap();
-        (chrome.rail.id(), chrome.rail_settings, chrome.tab_strip.id(), chrome.toggle_sidebar)
-    };
-    let bounds = |h: &Harness, id| h.root.get_widget(id).unwrap().ctx().bounding_box();
-    let (before, tabs) = (bounds(&h, toggle), bounds(&h, strip));
-    assert!(bounds(&h, rail).width() > 0.0, "ряд значков слева не виден до режима фокуса");
-    h.app.toggle_focus_mode(&mut h.root);
-    h.settle();
-    assert_eq!(bounds(&h, rail).width(), 0.0, "ряд значков остался в режиме фокуса");
-    let corner = bounds(&h, settings);
-    assert_eq!((corner.x0, corner.y0, corner.width(), corner.height()), (before.x0, before.y0, before.width(), before.height()), "настройки не на месте кнопки левого сайдбара");
-    assert!(bounds(&h, strip).x0 >= corner.x1, "вкладки наезжают на кнопку настроек");
-    h.click(corner.center().x, corner.center().y);
-    assert!(h.section().is_some(), "кнопка в углу не открыла настройки");
-    h.escape();
-    h.app.toggle_focus_mode(&mut h.root);
-    h.settle();
-    assert!(bounds(&h, rail).width() > 0.0, "ряд значков не вернулся");
-    assert!(h.root.get_widget(settings).unwrap().ctx().is_stashed(), "кнопка настроек в углу осталась после выхода из режима");
-    assert_eq!(bounds(&h, strip).x0, tabs.x0, "после выхода из режима вкладки сдвинуты");
-}
-
-#[test]
 fn wiki_link_opens_note_from_subfolder_without_creating_duplicate() {
     let mut h = Harness::new();
     let vault = h.vault.path().to_path_buf();
@@ -175,19 +74,8 @@ pages: 10/100
 ```
 ")).unwrap();
     h.open(note);
-    let wait = |h: &mut Harness, done: &dyn Fn(&Harness) -> bool| {
-        for _ in 0..300 {
-            h.app.on_core_events(&mut h.root);
-            let _ = h.root.redraw();
-            if done(h) {
-                return true;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(20));
-        }
-        false
-    };
     let embeds = |h: &Harness| h.app.embeds.as_ref().unwrap().clone();
-    let ok = wait(&mut h, &|h| embeds(h).cached_book("📖 Книга").is_some_and(|b| b.pages == Some((10, 100))) && embeds(h).cached_rows(query) == Some(2));
+    let ok = h.wait_for(|h| embeds(h).cached_book("📖 Книга").is_some_and(|b| b.pages == Some((10, 100))) && embeds(h).cached_rows(query) == Some(2));
     assert!(ok, "{:?} {:?}", embeds(&h).cached_book("📖 Книга"), embeds(&h).cached_rows(query));
     let core = h.app.workspace.core.clone();
     let hash = aquilum_core::files::document::hash_file(&book).unwrap();
@@ -196,9 +84,9 @@ author: Второй
 pages: 50/100
 ---
 ", Some(&hash), aquilum_core::history::Source::Me, None).unwrap();
-    assert!(wait(&mut h, &|h| embeds(h).cached_book("📖 Книга").is_some_and(|b| b.pages == Some((50, 100)) && b.author == "Второй")), "виджет книги не обновился");
+    assert!(h.wait_for(|h| embeds(h).cached_book("📖 Книга").is_some_and(|b| b.pages == Some((50, 100)) && b.author == "Второй")), "виджет книги не обновился");
     aquilum_core::files::gate::create(&core, &vault.join("новая.md"), &"[[📖 Книга]]", aquilum_core::history::Source::Me, None).unwrap();
-    assert!(wait(&mut h, &|h| embeds(h).cached_rows(query) == Some(3)), "новая ссылка не попала в таблицу");
+    assert!(h.wait_for(|h| embeds(h).cached_rows(query) == Some(3)), "новая ссылка не попала в таблицу");
 }
 
 #[test]
@@ -217,72 +105,4 @@ fn tree_rows_return_after_small_scroll_up() {
         h.deliver();
     }
     assert_eq!(h.app.tree.built_rows().start, 0, "после возврата наверх верхние строки не построены");
-}
-
-#[test]
-fn note_search_button_sits_left_of_the_menu_opens_the_find_bar_and_hides_in_focus_mode() {
-    let mut h = Harness::new();
-    h.open(h.vault.path().join("a.md"));
-    h.settle();
-    let (search, more) = {
-        let ids = h.app.note_ids.as_ref().unwrap();
-        (ids.search, ids.more)
-    };
-    let bounds = |h: &Harness, id| h.root.get_widget(id).unwrap().ctx().bounding_box();
-    assert!(bounds(&h, search).x1 <= bounds(&h, more).x0, "поиск не слева от троеточия");
-    assert!(h.app.find.is_none());
-    let center = bounds(&h, search).center();
-    h.click(center.x, center.y);
-    assert!(h.app.find.is_some(), "кнопка не открыла поиск по заметке");
-    h.app.toggle_focus_mode(&mut h.root);
-    h.settle();
-    assert!(h.root.get_widget(search).unwrap().ctx().is_stashed(), "кнопка поиска осталась в режиме фокуса");
-    h.app.toggle_focus_mode(&mut h.root);
-    h.settle();
-    assert!(!h.root.get_widget(search).unwrap().ctx().is_stashed(), "кнопка поиска не вернулась после режима фокуса");
-}
-
-fn long_note(h: &Harness) -> std::path::PathBuf {
-    let path = h.vault.path().join("Длинная.md");
-    let body: String = (0..400)
-        .map(|i| match i % 4 {
-            0 => format!("Абзац {i}: {}
-
-", "длинный текст абзаца, который переносится на несколько строк, ".repeat(6)),
-            1 => format!("## Заголовок {i}
-
-"),
-            _ => format!("Абзац {i}
-
-"),
-        })
-        .collect();
-    std::fs::write(&path, body).unwrap();
-    path
-}
-
-#[test]
-fn a_restarted_app_reopens_a_long_note_at_the_place_it_was_left() {
-    use masonry::core::{PointerScrollEvent, ScrollDelta};
-    let mut h = Harness::new();
-    let long = long_note(&h);
-    h.open(long);
-    let _ = h.root.redraw();
-    let state = pointer_at(600.0, 300.0, 1.0);
-    h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::PixelDelta(PhysicalPosition::new(0.0, -9000.0)), state }));
-    h.settle();
-    h.deliver();
-    h.app.capture_view(&h.root);
-    let saved = h.app.view.expect("позиция запомнена");
-    let mut h = h.restarted(1.0);
-    h.app.restore(&mut h.root);
-    h.parked();
-    for _ in 0..3 {
-        h.app.restore_view(&mut h.root);
-        let _ = h.root.redraw();
-    }
-    h.app.capture_view(&h.root);
-    let reopened = h.app.view.expect("позиция после перезапуска");
-    assert_eq!(reopened.0, saved.0, "после перезапуска открылась другая часть заметки");
-    assert!((reopened.1 - saved.1).abs() < 1.0, "сдвиг внутри абзаца: было {}, стало {}", saved.1, reopened.1);
 }

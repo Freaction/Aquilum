@@ -6,6 +6,7 @@ use masonry::peniko::ImageBrush;
 
 use super::super::embed::Formula;
 use super::super::resolve::Resolver;
+use super::reveal::{Part, Reveal};
 
 pub enum Boxed {
     Formula(Formula),
@@ -31,6 +32,7 @@ pub struct Decor {
     pub tags: Vec<(Range<usize>, Option<usize>)>,
     pub links: Vec<Link>,
     pub selection: Option<Range<usize>>,
+    pub reveals: Vec<(Reveal, Range<usize>)>,
     pub boxes: Vec<Boxed>,
     pub pictures: Vec<(String, bool, u64)>,
 }
@@ -38,6 +40,17 @@ pub struct Decor {
 impl Decor {
     pub fn wrap(&self, width: Option<f32>) -> Option<f32> {
         width.filter(|_| !self.nowrap).map(|w| (w - self.inset as f32).max(0.0))
+    }
+
+    pub(super) fn shown(&mut self, part: Part, range: Range<usize>) -> bool {
+        let reveal = part.reveal();
+        let opened = reveal.opened(self.selection.as_ref(), &range);
+        self.reveals.push((reveal, range));
+        opened
+    }
+
+    pub fn reveal_changes(&self, selection: Option<&Range<usize>>) -> bool {
+        self.reveals.iter().any(|(reveal, range)| reveal.opened(self.selection.as_ref(), range) != reveal.opened(selection, range))
     }
 
     pub fn stale(&self, resolver: &dyn Resolver) -> bool {

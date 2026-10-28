@@ -50,9 +50,17 @@ impl ColorPicker {
     }
 
     fn choose(&mut self, ctx: &mut EventCtx<'_>, color: masonry::peniko::Color) {
+        let before = self.hex();
         let rgba = color.to_rgba8();
         (self.hue, self.saturation, self.value) = hsv(rgba.r, rgba.g, rgba.b);
-        ctx.submit_action::<Picked>(Picked::Color(self.hex()));
+        self.changed(ctx, &before);
+    }
+
+    fn changed(&self, ctx: &mut EventCtx<'_>, before: &str) {
+        let hex = self.hex();
+        if hex != before {
+            ctx.submit_action::<Picked>(Picked::Color(hex));
+        }
         ctx.request_paint_only();
     }
 
@@ -67,6 +75,7 @@ impl ColorPicker {
     }
 
     fn pick(&mut self, ctx: &mut EventCtx<'_>, part: Part, at: Point) {
+        let before = self.hex();
         let bounds = ctx.content_box();
         match part {
             Part::Field => {
@@ -79,8 +88,7 @@ impl ColorPicker {
                 self.hue = ((at.x - h.x0) / h.width()).clamp(0.0, 1.0) * 360.0;
             }
         }
-        ctx.submit_action::<Picked>(Picked::Color(self.hex()));
-        ctx.request_paint_only();
+        self.changed(ctx, &before);
     }
 
     fn close(&self, ctx: &mut EventCtx<'_>) {

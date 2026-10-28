@@ -617,7 +617,6 @@
     "heatCreated": "created",
     "loading": "loading…",
     "notesVisible": "{{visible}} of {{total}} notes",
-    "drawnEdges": "links drawn: {{count}}",
     "scale": "scale {{scale}}",
     "filteredOut": "The date filter hid every note",
     "showAll": "Show all",

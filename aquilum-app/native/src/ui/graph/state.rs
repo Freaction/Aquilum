@@ -26,10 +26,8 @@ impl GraphView {
     pub(super) fn screen(&self, node: usize) -> Point {
         let [x, y] = self.positions[node];
         let s = self.display.spread;
-        Point::new(
-            (f64::from(x) * s - self.camera.center_x) * self.camera.scale + self.size.width / 2.0,
-            self.size.height / 2.0 - (f64::from(y) * s - self.camera.center_y) * self.camera.scale,
-        )
+        let (dx, dy) = self.camera.to_offset(f64::from(x) * s, f64::from(y) * s);
+        Point::new(dx + self.size.width / 2.0, dy + self.size.height / 2.0)
     }
 
     pub(super) fn radius(&self, graph: &Graph, node: usize) -> f64 {

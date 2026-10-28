@@ -48,3 +48,48 @@ fn escape_closes_suggestions_without_editing() {
     assert!(h.app.suggest_layer.is_none(), "Esc не закрыл подсказки");
     assert_eq!(h.body_text(), "---\nPAGE_c\n---\nтекст");
 }
+
+#[test]
+fn typing_suggests_notes_and_enter_links_them() {
+    let mut h = Harness::new();
+    let vault = h.vault.path().to_path_buf();
+    std::fs::write(vault.join("Проектирование.md"), "x").unwrap();
+    let note = vault.join("Черновик.md");
+    std::fs::write(&note, "").unwrap();
+    h.app.tree.paths_changed(&mut h.root, &[vault.join("Проектирование.md"), note.clone()]);
+    h.open(note);
+    let _ = h.root.redraw();
+    let editor = h.app.editor_id().unwrap();
+    h.root.handle_text_event(TextEvent::WindowFocusChange(true));
+    h.root.focus_on(Some(editor));
+    let text = |h: &Harness| h.root.get_widget(editor).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).unwrap().inner().text();
+    for round in ["", "[["] {
+        for ch in round.chars().chain("Прое".chars()) {
+            h.key(Key::Character(ch.to_string().into()), Modifiers::empty());
+        }
+        let mut shown = false;
+        for _ in 0..200 {
+            h.app.on_core_events(&mut h.root);
+            let _ = h.root.redraw();
+            if h.app.suggest_layer.is_some() {
+                shown = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(shown, "список подсказок не появился ({round:?}): {:?}", text(&h));
+        if let Ok(out) = std::env::var("AQ_OUT") {
+            let (layers, _) = h.root.redraw();
+            let mut r = crate::render::Renderer::new(2);
+            r.render(&layers, W as u16, H as u16, 1.0, theme::background()).unwrap();
+            std::fs::write(std::path::Path::new(&out).join(format!("suggest-{}.png", round.len())), r.png()).unwrap();
+        }
+        h.key(Key::Named(NamedKey::Enter), Modifiers::empty());
+        let _ = h.root.redraw();
+        h.app.on_core_events(&mut h.root);
+        assert!(text(&h).ends_with("[[Проектирование]]"), "{:?}", text(&h));
+        assert!(h.app.suggest_layer.is_none(), "список не закрылся");
+        h.key(Key::Character(" ".into()), Modifiers::empty());
+    }
+    assert_eq!(text(&h), "[[Проектирование]] [[Проектирование]] ");
+}

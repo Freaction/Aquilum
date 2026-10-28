@@ -7,13 +7,12 @@ use masonry::core::{
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Point, Size};
 use masonry::layout::{LenReq, Length};
-use masonry::parley::style::StyleProperty;
-use masonry::parley::LineHeight;
+use masonry::parley::FontWeight;
 use masonry::widgets::{Flex, SizedBox};
 
 use crate::i18n::t;
 use crate::ui::icons;
-use crate::ui::theme;
+use crate::ui::{text, theme};
 use crate::ui::tokens::size;
 use crate::ui::widgets::Press;
 
@@ -49,13 +48,8 @@ impl MetadataToggle {
     ) -> &masonry::parley::Layout<BrushIndex> {
         self.layout.get_or_insert_with(|| {
             let font = theme::editor_font_settings();
-            let mut builder = layout_cx.ranged_builder(font_cx, &self.label, 1.0, true);
-            builder.push_default(StyleProperty::FontFamily(theme::editor_font(&font.family)));
-            builder.push_default(StyleProperty::FontSize(font.size));
-            builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(
-                f64::from(font.size) as f32 * TOGGLE_LINE as f32,
-            )));
-            let mut layout = builder.build(&self.label);
+            let style = text::Style { size: font.size, weight: FontWeight::NORMAL.value(), line_height: f64::from(font.size * TOGGLE_LINE as f32) };
+            let mut layout = text::builder(font_cx, layout_cx, &self.label, theme::editor_font(&font.family), style).build(&self.label);
             layout.break_all_lines(None);
             layout
         })

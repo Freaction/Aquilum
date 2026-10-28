@@ -35,10 +35,13 @@ impl<W: Widget> Widget for ScrollArea<W> {
 
     fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, interval: u64) {
         let seconds = (interval as f64 / 1e9).min(0.05);
+        let before = self.offset;
         if self.edge != 0.0 {
             let reach = self.edge.clamp(-EDGE_SCROLL_REACH, EDGE_SCROLL_REACH);
             self.jump(self.offset + reach * EDGE_SCROLL_RATE * seconds);
-            ctx.request_anim_frame();
+            if self.offset != before {
+                ctx.request_anim_frame();
+            }
         } else {
             let Some(mut glide) = self.glide else { return };
             let running = glide.advance(seconds);
@@ -48,9 +51,11 @@ impl<W: Widget> Widget for ScrollArea<W> {
                 ctx.request_anim_frame();
             }
         }
-        ctx.request_compose();
-        ctx.request_post_paint();
-        ctx.submit_action::<Scrolled>(Scrolled(self.offset));
+        if self.offset != before {
+            ctx.request_compose();
+            ctx.request_post_paint();
+            ctx.submit_action::<Scrolled>(Scrolled(self.offset));
+        }
     }
 
     fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
@@ -122,6 +127,7 @@ impl<W: Widget> Widget for ScrollArea<W> {
     }
 
     fn compose(&mut self, ctx: &mut ComposeCtx<'_>) {
+        self.clamp();
         let scale = ctx.scale_factor();
         let offset = (self.offset * scale).round() / scale;
         let shift = self.shift(offset);
@@ -150,11 +156,7 @@ impl<W: Widget> Widget for ScrollArea<W> {
     }
 
     fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
-        match (self.bar.dragging(), self.bar.active()) {
-            (true, _) => CursorIcon::Grabbing,
-            (false, true) => CursorIcon::Grab,
-            _ => CursorIcon::Default,
-        }
+        self.bar.cursor()
     }
 
     fn accessibility_role(&self) -> Role {

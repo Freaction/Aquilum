@@ -75,10 +75,15 @@ impl<W: Widget> ScrollArea<W> {
         this.ctx.children_changed();
     }
 
+    pub fn child_mut<'t>(this: &'t mut WidgetMut<'_, Self>) -> WidgetMut<'t, W> {
+        this.ctx.get_mut(&mut this.widget.child)
+    }
+
     pub fn set_offset(this: &mut WidgetMut<'_, Self>, offset: f64) {
         this.widget.glide = None;
         this.widget.offset = offset.max(0.0);
-        this.ctx.request_layout();
+        this.ctx.request_compose();
+        this.ctx.request_post_paint();
     }
 
     #[cfg(feature = "memory-probe")]

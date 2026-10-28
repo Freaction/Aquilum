@@ -7,7 +7,7 @@ pub struct PageCover {
     position: f64,
     repositioning: bool,
     drag: Option<(f64, f64)>,
-    actions: WidgetPod<crate::ui::widgets::Appear>,
+    actions: WidgetPod<Slot>,
     book: Option<WidgetPod<TextButton>>,
     show_actions: bool,
     baked: Option<(BakeKey, ImageBrush)>,
@@ -24,7 +24,7 @@ impl Drop for PageCover {
 
 impl PageCover {
     pub(super) fn new(visual: Visual, position: f64, actions: NewWidget<ActionBar>, book: Option<NewWidget<TextButton>>) -> NewWidget<Self> {
-        NewWidget::new(PageCover { visual, position, repositioning: false, drag: None, actions: crate::ui::widgets::Appear::new(actions, crate::ui::widgets::FAST).to_pod(), book: book.map(NewWidget::to_pod), show_actions: false, baked: None, live: None })
+        NewWidget::new(PageCover { visual, position, repositioning: false, drag: None, actions: Slot::appear(Slot::fit(actions.erased()), FAST).to_pod(), book: book.map(NewWidget::to_pod), show_actions: false, baked: None, live: None })
     }
 
     pub fn refresh(this: &mut WidgetMut<'_, Self>) {

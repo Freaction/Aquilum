@@ -6,10 +6,11 @@ use masonry::core::{
 use masonry::imaging::Painter;
 use masonry::kurbo::{Axis, Point, Size};
 use masonry::layout::{LenDef, LenReq, Length, SizeDef};
-use masonry::parley::style::StyleProperty;
+use masonry::parley::FontWeight;
 use masonry::widgets::Flex;
 
 use crate::ui::motion::{self, EASE_IN_OUT, approach};
+use crate::ui::text;
 use crate::ui::theme::{self, EditorFont};
 use crate::ui::widgets::bezier;
 use crate::ui::tokens::size;
@@ -17,10 +18,8 @@ use crate::ui::tokens::size;
 pub fn ch_width(ctx: &mut MeasureCtx<'_>) -> f64 {
     let font = theme::editor_font_settings();
     let (font_cx, layout_cx) = ctx.text_contexts();
-    let mut builder = layout_cx.ranged_builder(font_cx, "0", 1.0, true);
-    builder.push_default(StyleProperty::FontFamily(theme::editor_font(&font.family)));
-    builder.push_default(StyleProperty::FontSize(font.size));
-    let mut layout = builder.build("0");
+    let style = text::Style { size: font.size, weight: FontWeight::NORMAL.value(), line_height: f64::from(font.size) };
+    let mut layout = text::builder(font_cx, layout_cx, "0", theme::editor_font(&font.family), style).build("0");
     layout.break_all_lines(None);
     (f64::from(layout.width()) * f64::from(font.max_width_ch)).round()
 }

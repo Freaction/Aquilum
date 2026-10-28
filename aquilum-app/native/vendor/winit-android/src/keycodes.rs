@@ -241,9 +241,9 @@ pub fn to_logical(key_char: Option<KeyMapChar>, keycode: Keycode) -> Key {
     let native = NativeKey::Android(keycode.into());
 
     match key_char {
-        Some(KeyMapChar::Unicode(c)) => Key::Character(smol_str::SmolStr::from_iter([c])),
+        Some(KeyMapChar::Unicode(c)) if !c.is_control() => Key::Character(smol_str::SmolStr::from_iter([c])),
         Some(KeyMapChar::CombiningAccent(c)) => Key::Dead(Some(c)),
-        None | Some(KeyMapChar::None) => match keycode {
+        _ => match keycode {
             // Using `BrowserHome` instead of `GoHome` according to
             // https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key/Key_Values
             Home => Key::Named(NamedKey::BrowserHome),

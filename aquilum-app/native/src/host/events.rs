@@ -18,7 +18,12 @@ impl ApplicationHandler for Host {
         self.layers = None;
     }
 
-    fn suspended(&mut self, _: &dyn ActiveEventLoop) {
+    fn suspended(&mut self, event_loop: &dyn ActiveEventLoop) {
+        self.finish_word();
+        self.handle_signals(event_loop);
+        if let Some(root) = &mut self.root {
+            self.app.save_reader(root);
+        }
         self.app.persist();
         self.trim();
     }

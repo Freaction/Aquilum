@@ -4,22 +4,19 @@ use masonry::layout::Length;
 use masonry::properties::types::CrossAxisAlignment;
 use masonry::properties::{Gap, Padding};
 use masonry::layout::UnitPoint;
-use masonry::widgets::{ChildAlignment, Flex, SizedBox, ZStack};
+use masonry::widgets::{ChildAlignment, Flex, ZStack};
 
 use super::model::comparable;
 use super::pinned::Pinned;
 use super::pins::pins;
 use super::parts::{empty_state, rename_field, toolbar};
 use super::row::TreeRow;
+use super::window::spacer;
 use super::{FileTree, MARGIN, SPAN, step};
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::tokens::size;
-
-fn spacer(rows: usize) -> NewWidget<SizedBox> {
-    NewWidget::new(SizedBox::empty().height(Length::px(rows as f64 * step() - size::SPACE_2)))
-}
 
 impl FileTree {
     pub fn widget(&mut self) -> NewWidget<Flex> {
@@ -122,8 +119,7 @@ impl FileTree {
         let visible = (offset / step()) as usize;
         let first = Self::first_near(offset);
         if visible < self.first || first.abs_diff(self.first) > MARGIN / 2 {
-            self.first = first;
-            self.refresh(root);
+            self.slide(root, first);
         }
     }
 

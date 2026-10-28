@@ -66,7 +66,11 @@ impl Widget for TabStrip {
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         match event {
-            PointerEvent::Scroll(PointerScrollEvent { delta, .. }) => self.pan.wheel(ctx, delta),
+            PointerEvent::Scroll(PointerScrollEvent { delta, .. }) => {
+                if self.pan.wheel(ctx, delta) {
+                    ctx.request_layout();
+                }
+            }
             PointerEvent::Down(e) if pointer::press(e.button) => {
                 let x = ctx.local_position(e.state.position).x + self.pan.offset;
                 match self.boxes.iter().position(|&(left, width)| x >= left && x < left + width) {

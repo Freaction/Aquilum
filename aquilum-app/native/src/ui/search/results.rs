@@ -1,6 +1,6 @@
 use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
 use crate::ui::keymap::{self, Command, Scope};
-use masonry::kurbo::{Axis, Size};
+use masonry::kurbo::Size;
 use masonry::layout::Length;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{Gap, Padding};
@@ -11,7 +11,7 @@ use crate::i18n::t;
 use crate::ui::icons::Icon;
 use crate::ui::theme;
 use crate::ui::tokens::{number, size};
-use crate::ui::widgets::{IconView, Label, Leading, MaxWidth, Paint, Rule, Scale, Slot, kbd};
+use crate::ui::widgets::{IconView, Label, Leading, MaxWidth, Paint, Scale, kbd};
 
 pub fn empty_state(icon: Icon, title: &str, description: &str) -> NewWidget<Flex> {
     empty_state_with(icon, title, Some(description), None)
@@ -77,11 +77,6 @@ pub fn footer() -> NewWidget<Flex> {
 
 pub fn template_footer() -> NewWidget<Flex> {
     hints(&[(arrows(), t("search.navigate")), (key(Command::ListOpen), t("search.open")), (keymap::label(Scope::Dialog, Command::Close), t("templateDialog.close"))])
-}
-
-pub fn dialog_card(head: NewWidget<Flex>, body: NewWidget<Slot>, footer: NewWidget<Flex>) -> NewWidget<Flex> {
-    let rule = || Rule::new(Axis::Horizontal, || theme::current().border_default);
-    NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(head).with_fixed(rule()).with(body, 1.0).with_fixed(rule()).with_fixed(footer))
 }
 
 pub fn card_size(room: Size) -> Size {

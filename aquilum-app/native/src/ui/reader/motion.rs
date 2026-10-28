@@ -76,26 +76,24 @@ impl ReaderView {
             Side::Prev => self.session.prev(),
             Side::Next => self.session.next(),
         };
+        if self.set_hover(None) {
+            ctx.request_anim_frame();
+        }
         self.moved(ctx, changed);
     }
 
-    pub(super) fn set_hover(&mut self, ctx: &mut EventCtx<'_>, hover: Option<Option<Side>>) {
+    pub(super) fn set_hover(&mut self, hover: Option<Option<Side>>) -> bool {
         if hover == self.hover {
-            return;
+            return false;
         }
         self.hover = hover;
-        let mut moving = false;
         for (zone, side) in self.zones.iter_mut().zip([Side::Prev, Side::Next]) {
-            let target = match hover {
+            zone.set(match hover {
                 None => 0.0,
                 Some(over) if over == Some(side) => 1.0,
                 Some(_) => 0.7,
-            };
-            moving |= zone.set(target);
+            });
         }
-        if moving {
-            ctx.request_anim_frame();
-        }
-        ctx.request_paint_only();
+        true
     }
 }

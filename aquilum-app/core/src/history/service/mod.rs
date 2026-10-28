@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::SystemTime;
 
-pub use read::{HistoryPage, Reverting, VersionTexts, VersionView};
+pub use read::{HistoryPage, VersionTexts, VersionView};
 pub use save::{Change, NoteWrite};
 
 const DEVICE_FILE: &str = "device-id";

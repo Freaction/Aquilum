@@ -1,3 +1,4 @@
+mod position;
 mod quote;
 
 use std::collections::HashMap;
@@ -5,7 +6,6 @@ use std::path::{Path, PathBuf};
 
 use aquilum_core::history::Source;
 use aquilum_core::settings::models::AppConfig;
-use aquilum_core::ui_state::models::SaveReaderStateInput;
 use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, NewWidget, PropertySet, WidgetId};
 use masonry::kurbo::Point;
@@ -14,7 +14,7 @@ use masonry::properties::Padding;
 
 use super::book::synthetic_pages;
 use super::{App, Outcome, Popup};
-use crate::frontmatter::{self, BOOK_FILE, PAGES, READ_PERCENT, READER_POSITION};
+use crate::frontmatter::{self, BOOK_FILE, PAGES};
 use crate::reader::page;
 use crate::reader::session::{Session, Target};
 use crate::ui::reader::{ReaderAction, ReaderIds, ReaderView};
@@ -32,6 +32,7 @@ pub(super) struct ReaderState {
     pub(super) bindings: HashMap<WidgetId, Binding>,
     peek: bool,
     target: Option<PathBuf>,
+    moved: Option<position::Moved>,
 }
 
 pub(super) struct Opening {
@@ -97,9 +98,17 @@ impl App {
         let layer = view.id();
         root.add_layer(view, Point::ORIGIN);
         root.focus_on(Some(layer));
-        let state = ReaderState { layer, ids, page, key, workspace: workspace_id, total, bindings: HashMap::new(), peek, target };
+        let state = ReaderState { layer, ids, page, key, workspace: workspace_id, total, bindings: HashMap::new(), peek, target, moved: None };
         self.refresh_reader_quotes(root, &state);
         self.popup = Some(Popup::Reader(Box::new(state)));
+        self.fit_reader(root);
+    }
+
+    pub(in crate::app) fn fit_reader(&self, root: &mut RenderRoot) {
+        if let Some(Popup::Reader(state)) = &self.popup {
+            let insets = self.interface.screen().insets;
+            root.edit_widget(state.layer, |mut w| ReaderView::set_insets(&mut w.downcast(), insets));
+        }
     }
 
     pub(super) fn on_reader_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Outcome {
@@ -107,13 +116,13 @@ impl App {
         if let Some(action) = action.downcast_ref::<ReaderAction>() {
             match action {
                 ReaderAction::Close => {
-                    root.remove_layer(state.layer);
+                    self.close_reader(root, state);
                     return Outcome::default();
                 }
                 ReaderAction::Settings => self.toggle_reader_settings(root, &mut state),
-                ReaderAction::Moved { cfi, fraction } => self.reader_moved(root, &state, cfi, *fraction),
+                ReaderAction::Moved { cfi, fraction } => state.moved(cfi, *fraction),
                 ReaderAction::QuoteRef(cfi) => {
-                    root.remove_layer(state.layer);
+                    self.close_reader(root, state);
                     self.reveal_quote(root, cfi);
                     return Outcome::default();
                 }
@@ -124,7 +133,7 @@ impl App {
                 self.add_quote(root, &state, &text, &cfi);
             }
         } else if action.downcast_ref::<Pressed>().is_some() && id == state.ids.close {
-            root.remove_layer(state.layer);
+            self.close_reader(root, state);
             return Outcome::default();
         } else if action.downcast_ref::<Pressed>().is_some() && id == state.ids.settings {
             self.toggle_reader_settings(root, &mut state);
@@ -152,21 +161,5 @@ impl App {
         let padded = NewWidget::new(masonry::widgets::Flex::column().cross_axis_alignment(masonry::properties::types::CrossAxisAlignment::Stretch).with_fixed(rows))
             .with_props(PropertySet::new().with(Padding::from_vh(Length::px(size::SPACE_4), Length::px(size::SPACE_12))));
         root.edit_widget(state.layer, |mut w| ReaderView::set_popover(&mut w.downcast(), Some(padded.erased())));
-    }
-
-    fn reader_moved(&mut self, root: &mut RenderRoot, state: &ReaderState, cfi: &str, fraction: f64) {
-        if state.peek {
-            return;
-        }
-        let current = ((fraction.clamp(0.0, 1.0) * f64::from(state.total)).round() as u32).min(state.total);
-        if let Some(workspace_id) = state.workspace {
-            let input = SaveReaderStateInput { workspace_id, book_file: state.key.clone(), current: i64::from(current), cfi: Some(cfi.to_owned()), now_ms: crate::dates::now_ms() };
-            if let Err(error) = self.workspace.core.ui_state.save_reader_state(&input) {
-                report!("позиция чтения не сохранена: {error:?}");
-            }
-        }
-        let Some(page) = state.page.clone() else { return };
-        let percent = ((f64::from(current) / f64::from(state.total)) * 100.0).round().clamp(0.0, 100.0);
-        self.write_fields(root, &page, Source::Reading, &[(PAGES, format!("{current}/{}", state.total)), (READER_POSITION, cfi.to_owned()), (READ_PERCENT, format!("{percent}"))]);
     }
 }

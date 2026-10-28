@@ -107,7 +107,8 @@ impl Widget for TextButton {
         match axis {
             Axis::Vertical => Length::px(self.size.height()),
             Axis::Horizontal => {
-                let width = text::measure(ctx, &self.label, self.size.text());
+                let (fcx, lcx) = ctx.text_contexts();
+                let width = self.line.width(fcx, lcx, &self.label, self.size.text());
                 Length::px(width.ceil() + self.chrome())
             }
         }

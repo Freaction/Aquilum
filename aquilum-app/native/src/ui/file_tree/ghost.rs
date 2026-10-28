@@ -57,8 +57,9 @@ impl Widget for DragGhost {
 
     fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, _len_req: LenReq, _cross: Option<Length>) -> Length {
         // `padding: 4px 12px`.
+        let (fcx, lcx) = ctx.text_contexts();
         match axis {
-            Axis::Horizontal => Length::px(text::measure(ctx, &self.label, Self::style()).ceil() + size::SPACE_12 * 2.0),
+            Axis::Horizontal => Length::px(self.line.width(fcx, lcx, &self.label, Self::style()).ceil() + size::SPACE_12 * 2.0),
             Axis::Vertical => Length::px(Self::style().line_height + size::SPACE_4 * 2.0),
         }
     }

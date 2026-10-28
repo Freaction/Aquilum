@@ -55,14 +55,19 @@ impl TextEditor {
         self.column = None;
     }
 
-    pub(super) fn drag_select(&mut self, point: Point) {
-        let Some((count, first)) = self.unit.clone() else {
-            let target = self.hit(point);
-            self.move_to(target, true);
-            return;
-        };
-        let under = self.unit_at(point, count);
-        (self.anchor, self.focus) = if under.start < first.start { (first.end, under.start) } else { (first.start, first.end.max(under.end)) };
-        self.column = None;
+    pub(super) fn drag_select(&mut self, point: Point) -> bool {
+        let before = (self.anchor, self.focus);
+        match self.unit.clone() {
+            Some((count, first)) => {
+                let under = self.unit_at(point, count);
+                (self.anchor, self.focus) = if under.start < first.start { (first.end, under.start) } else { (first.start, first.end.max(under.end)) };
+                self.column = None;
+            }
+            None => {
+                let target = self.hit(point);
+                self.move_to(target, true);
+            }
+        }
+        (self.anchor, self.focus) != before
     }
 }

@@ -94,6 +94,7 @@ fn changing_the_font_size_back_and_forth_keeps_the_reading_place() {
         h.deliver();
     }
     assert_eq!(h.config().reader.font.font_size_base, size);
+    settle_position(&mut h);
     assert_eq!(position(&page), before, "после возврата размера шрифта читалка открыла другое место");
 }
 
@@ -131,11 +132,13 @@ fn a_long_swipe_turns_one_page() {
     }
     let _ = h.root.redraw();
     h.deliver();
+    settle_position(&mut h);
     let moved = std::fs::read_to_string(&page).unwrap();
     assert!(!moved.contains("pages: 0/"), "свайп не перелистнул: {moved}");
     h.key(Key::Named(NamedKey::ArrowLeft), Modifiers::empty());
     let _ = h.root.redraw();
     h.deliver();
+    settle_position(&mut h);
     let back = std::fs::read_to_string(&page).unwrap();
     assert!(back.contains("pages: 0/"), "свайп с инерцией перелистнул больше одной страницы: {moved}");
 }

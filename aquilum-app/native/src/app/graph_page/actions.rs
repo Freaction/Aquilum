@@ -2,13 +2,10 @@ use std::path::PathBuf;
 
 use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, WidgetId};
-use masonry::kurbo::Point;
 
 use super::{App, depth_hint};
-use crate::app::Popup;
 use crate::i18n::t;
 use crate::interface::GraphPrefs;
-use crate::ui::dialog::ConfirmDialog;
 use crate::ui::graph::GraphAction;
 use crate::ui::settings::controls::{Changed, Segmented, Slider, Switch};
 use crate::ui::widgets::{IconButton, Pressed};
@@ -90,15 +87,7 @@ impl App {
     }
 
     pub(in crate::app) fn confirm_reset_graph(&mut self, root: &mut RenderRoot) {
-        let (layer, dialog) = ConfirmDialog::new(
-            &t("graph.resetTitle"),
-            &t("graph.resetDescription"),
-            &t("common.cancel"),
-            &t("graph.resetConfirm"),
-        );
-        root.add_layer(layer, Point::ORIGIN);
-        root.focus_on(Some(dialog.layer));
-        self.popup = Some(Popup::ResetGraph(dialog));
+        self.ask(root, crate::app::confirm::Confirmed::ResetGraph, &t("graph.resetTitle"), &t("graph.resetDescription"), &t("common.cancel"), &t("graph.resetConfirm"));
     }
 
     pub(in crate::app) fn reset_graph_settings(&mut self, root: &mut RenderRoot) {

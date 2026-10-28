@@ -12,7 +12,7 @@ use masonry::layout::{LayoutSize, LenDef, LenReq, Length, SizeDef};
 use crate::ui::text::Line;
 use crate::ui::theme;
 use crate::ui::tokens::size;
-use super::{CAMERA_SETTLE, DRAFT_BUDGET, Drag, GraphAction, GraphView, PANEL_PADDING, SETTINGS_WIDTH, Status};
+use super::{CAMERA_SETTLE, Drag, GraphAction, GraphView, PANEL_PADDING, SETTINGS_WIDTH, Status};
 use crate::i18n::t;
 
 impl Widget for GraphView {
@@ -29,7 +29,6 @@ impl Widget for GraphView {
         let mut busy = self.step(seconds);
         let (fcx, lcx) = ctx.text_contexts();
         busy |= self.step_labels(seconds, fcx, lcx);
-        ctx.request_paint_only();
         if let Some(at) = self.moved_at
             && now.duration_since(at) >= CAMERA_SETTLE
         {
@@ -41,9 +40,11 @@ impl Widget for GraphView {
             let node = self.node_at(p);
             busy |= self.hover(node);
         }
-        let moving = busy || self.drag.as_ref().is_some_and(Drag::panning);
-        self.draft = moving && (self.draft || self.cost > DRAFT_BUDGET);
-        if busy || self.moved_at.is_some() || std::mem::take(&mut self.animating) {
+        let changed = std::mem::take(&mut self.animating);
+        if busy || changed {
+            ctx.request_paint_only();
+        }
+        if busy || self.moved_at.is_some() || changed {
             ctx.request_anim_frame();
         }
     }
@@ -55,6 +56,7 @@ impl Widget for GraphView {
                 self.sprites.clear();
                 self.status_lines.clear();
                 self.notice = [Line::default(), Line::default()];
+                self.animating = true;
                 ctx.request_anim_frame();
             }
             _ => {}
@@ -132,11 +134,9 @@ impl Widget for GraphView {
         }
         self.scale_factor = ctx.scale_factor();
         let Some(graph) = self.graph.clone() else { return };
-        let started = Instant::now();
         if let Some((image, scale)) = self.scene() {
             painter.draw_image(&image, Affine::scale(1.0 / scale));
         }
-        self.cost = started.elapsed();
         self.paint_status(ctx, painter, &graph);
         if self.visible == 0 && graph.len() > 0 {
             self.paint_notice(ctx, painter, &t("graph.filteredOut"), None, Some(&t("graph.showAll")));

@@ -1,6 +1,7 @@
 use masonry::kurbo::Point;
 
-use super::{Drag, Outcome, Session, caret_in};
+use super::{Drag, Outcome, Session};
+use crate::ui::editor::caret;
 use crate::ui::editor::table::model::{MIN_COL, MIN_ROW, Range2, Table};
 use crate::ui::editor::table::view::{Hit, Line, TableView};
 use crate::ui::keymap::gesture::DRAG_SLOP;
@@ -32,7 +33,7 @@ impl Session {
                     if self.active == Some((r, c))
                         && let Some(cell) = view.cell(r, c)
                     {
-                        self.caret = caret_in(cell, view.model.value(r, c), local);
+                        self.caret = caret::hit(&cell.layout, view.model.value(r, c), local).0;
                         return (Outcome::Repaint, Line::None);
                     }
                 }

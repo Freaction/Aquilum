@@ -20,8 +20,8 @@ pub use inline::bare_urls;
 #[cfg(test)]
 pub use inline::{Kind as SpanKind, hashtags, inline as inline_spans};
 pub use mark::{Mark, enclosing, word_at};
-pub use metrics::{CHECKBOX, Fonts, LIST_LEVEL, LIST_START, QUOTE_BAR};
-pub use paint::{paint_backgrounds, paint_boxes, range_rects};
+pub use metrics::{BULLET, CHECKBOX, Fonts, LIST_LEVEL, LIST_START, QUOTE_BAR, QUOTE_INSET};
+pub use paint::{line_at, line_middle, paint_backgrounds, paint_boxes, paint_bullet, paint_check, range_rects, x_at};
 pub use reveal::{Part, Reveal, touches};
 #[cfg(test)]
 pub use paint::tag_chips;

@@ -2,21 +2,19 @@ use masonry::core::{BrushIndex, PaintCtx, render_text};
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Point, Rect, RoundedRect};
 use masonry::parley::style::StyleProperty;
-use masonry::parley::{Affinity, Cursor, FontWeight, Layout, LineHeight, Selection};
+use masonry::parley::{Affinity, Cursor, Layout, Selection};
 use masonry::peniko::Color;
 
 use super::card::{CardData, Marks};
+use crate::ui::text::{Style, builder};
 use crate::ui::theme;
 use crate::ui::tokens::{number, size};
 
 pub(super) fn marked_layout(ctx: &mut PaintCtx<'_>, text: &str, marks: &[(usize, usize)], line_height: f32, width: Option<f32>) -> Layout<BrushIndex> {
     let font = theme::ui_font_settings();
     let (font_cx, layout_cx) = ctx.text_contexts();
-    let mut builder = layout_cx.ranged_builder(font_cx, text, 1.0, true);
-    builder.push_default(StyleProperty::FontFamily(theme::ui_font(&font.family)));
-    builder.push_default(StyleProperty::FontSize(size::FONT_SIZE_UI_BASE as f32));
-    builder.push_default(StyleProperty::FontWeight(FontWeight::new(font.weight)));
-    builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(line_height)));
+    let style = Style { size: size::FONT_SIZE_UI_BASE as f32, weight: font.weight, line_height: f64::from(line_height) };
+    let mut builder = builder(font_cx, layout_cx, text, theme::ui_font(&font.family), style);
     for &(start, end) in marks {
         builder.push(StyleProperty::Brush(BrushIndex(1)), start..end);
     }

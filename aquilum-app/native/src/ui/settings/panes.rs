@@ -9,7 +9,7 @@ use masonry::layout::{LenReq, Length};
 
 use crate::ui::theme;
 use crate::ui::tokens::size;
-use crate::ui::widgets::Rule;
+use crate::ui::widgets::{Rule, place};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Pane {
@@ -50,6 +50,9 @@ impl Panes {
     }
 
     pub fn set(this: &mut WidgetMut<'_, Self>, pane: Pane, insets: Insets) {
+        if this.widget.pane == pane && this.widget.insets == insets {
+            return;
+        }
         this.widget.pane = pane;
         this.widget.insets = insets;
         for (pod, shown) in this.widget.pods.iter_mut().zip(pane.shown()) {
@@ -57,11 +60,6 @@ impl Panes {
         }
         this.ctx.request_layout();
     }
-}
-
-fn place(ctx: &mut LayoutCtx<'_>, pod: &mut WidgetPod<dyn Widget>, rect: Rect) {
-    ctx.run_layout(pod, Size::new(rect.width().max(0.0), rect.height().max(0.0)));
-    ctx.place_child(pod, rect.origin());
 }
 
 impl Widget for Panes {
@@ -80,8 +78,6 @@ impl Widget for Panes {
             }
         }
     }
-
-    fn on_anim_frame(&mut self, _ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, _interval: u64) {}
 
     fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, _len_req: LenReq, _cross: Option<Length>) -> Length {
         ctx.context_size().length(axis).unwrap_or(Length::ZERO)

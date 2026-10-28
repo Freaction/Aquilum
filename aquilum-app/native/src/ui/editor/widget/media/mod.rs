@@ -4,11 +4,9 @@ mod mouse;
 mod probe;
 
 use super::*;
-use crate::ui::editor::embed::media::{self, EmbedLine};
+use crate::ui::editor::embed::media::{self, EmbedLine, FULL};
 use crate::ui::editor::embed::{MediaHit, MediaOverlay, MediaView, View};
 use crate::ui::editor::resolve::Request;
-
-const FULL: [f64; 4] = [0.0, 0.0, 100.0, 100.0];
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Drag {
@@ -121,7 +119,7 @@ impl TextEditor {
     }
 
     pub(super) fn media_tick(&mut self, ctx: &mut UpdateCtx<'_>, interval: u64) {
-        if let Some((_, intro)) = &mut self.media.bar {
+        if let Some((_, intro)) = self.media.bar.as_mut().filter(|(_, intro)| intro.running()) {
             if intro.advance(interval) {
                 ctx.request_anim_frame();
             }
@@ -129,10 +127,12 @@ impl TextEditor {
         }
     }
 
-    pub(super) fn media_leave(&mut self, ctx: &mut EventCtx<'_>) {
-        if self.media.drag.is_none() && self.media.hover.take().is_some() {
-            ctx.request_render();
+    pub(super) fn media_leave(&mut self) -> bool {
+        let left = self.media.drag.is_none() && self.media.hover.take().is_some();
+        if left {
+            self.media.bar = None;
         }
+        left
     }
 
     pub(super) fn media_cursor(&self) -> Option<CursorIcon> {

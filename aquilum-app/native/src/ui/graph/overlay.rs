@@ -2,16 +2,10 @@ use super::*;
 
 impl GraphView {
     pub(super) fn paint_status(&mut self, ctx: &mut PaintCtx<'_>, painter: &mut Painter<'_>, graph: &Graph) {
-        let tm = theme::current();
         let total = graph.len();
         let first = if self.visible < total { t_with("graph.notesVisible", &[("visible", &self.visible.to_string()), ("total", &total.to_string())]) } else { plural("graph.notes", total as u64) };
-        let mut parts = vec![first, plural("graph.edges", graph.edges.len() as u64)];
-        if graph.edges.len() > MAX_EDGES {
-            parts.push(t_with("graph.drawnEdges", &[("count", &MAX_EDGES.to_string())]));
-        }
-        parts.push(t_with("graph.scale", &[("scale", &format!("{:.2}", self.camera.scale))]));
+        let parts = [first, plural("graph.edges", graph.edges.len() as u64), t_with("graph.scale", &[("scale", &format!("{:.2}", self.camera.scale))])];
         self.pill(ctx, painter, &parts);
-        let _ = tm;
     }
 
     pub(super) fn pill(&mut self, ctx: &mut PaintCtx<'_>, painter: &mut Painter<'_>, parts: &[String]) {

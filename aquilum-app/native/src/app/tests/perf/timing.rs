@@ -17,8 +17,6 @@ fn frame_parts() {
     std::fs::write(&note, format!("{head}{body}")).unwrap();
     b.h.open(note);
     b.h.wait_cover(!head.is_empty());
-    let threads: u16 = std::env::var("AQUILUM_BENCH_THREADS").ok().and_then(|v| v.parse().ok()).unwrap_or_else(raster_threads);
-    b.renderer = Renderer::new(threads);
     let (mut scene, mut raster) = (Duration::ZERO, Duration::ZERO);
     let frames = 60u32;
     for i in 0..frames {

@@ -92,6 +92,13 @@ impl Host {
         crate::android::ime::report(base, crate::ime_sync::AppState { text, anchor, cursor, preedit: editor.composing() });
     }
 
+    pub(super) fn finish_word(&mut self) {
+        let Some(root) = &mut self.root else { return };
+        if let Some(id) = root.focused_widget().filter(|&id| root.get_widget(id).is_some_and(|w| w.downcast::<TextEditor>().is_some())) {
+            root.edit_widget(id, |mut widget| TextEditor::commit_compose(&mut widget.downcast::<TextEditor>()));
+        }
+    }
+
     #[cfg(target_os = "android")]
     pub(super) fn ime_tapped(&self) {
         if self.ime_enabled && self.root.as_ref().and_then(focused_editor).is_some() {

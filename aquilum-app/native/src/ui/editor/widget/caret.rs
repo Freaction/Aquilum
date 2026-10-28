@@ -1,20 +1,5 @@
-use unicode_segmentation::GraphemeCursor;
-
 use super::*;
-
-fn on_boundary(text: &str, index: usize) -> bool {
-    GraphemeCursor::new(index, text.len(), true).is_boundary(text, 0).unwrap_or(true)
-}
-
-fn nearest_boundary(text: &str, index: usize) -> usize {
-    let index = index.min(text.len());
-    if on_boundary(text, index) {
-        return index;
-    }
-    let before = GraphemeCursor::new(index, text.len(), true).prev_boundary(text, 0).ok().flatten().unwrap_or(0);
-    let after = GraphemeCursor::new(index, text.len(), true).next_boundary(text, 0).ok().flatten().unwrap_or(text.len());
-    if index - before <= after - index { before } else { after }
-}
+use crate::ui::editor::caret;
 
 impl TextEditor {
     pub(super) fn local(&self, offset: usize) -> (usize, usize, Option<&Layout<BrushIndex>>) {
@@ -62,9 +47,7 @@ impl TextEditor {
         };
         let cursor = Cursor::from_byte_index(layout, local + compose, affinity);
         let line = rect(cursor.geometry(layout, size::CARET_WIDTH as f32), 0.0);
-        let middle = line.center().y as f32;
-        let metrics = layout.lines().map(|l| *l.metrics()).find(|m| m.block_min_coord <= middle && middle < m.block_max_coord);
-        let (top, bottom) = metrics.map_or((line.y0, line.y1), |m| (f64::from(m.block_min_coord), f64::from(m.block_max_coord)));
+        let (top, bottom) = markdown::line_at(layout, line.center().y).map_or((line.y0, line.y1), |m| (f64::from(m.block_min_coord), f64::from(m.block_max_coord)));
         let half = (bottom - top) / 2.0;
         let origin = self.doc.origin(i);
         let center = (top + bottom) / 2.0 + origin.y;
@@ -102,11 +85,9 @@ impl TextEditor {
             let below = point.y > (self.doc.top(head) + self.doc.bottom(head)) / 2.0;
             return (if below { (self.doc.folded_end(head) + 1).min(self.doc.len()) } else { self.doc.paragraph(head).start }, Affinity::Downstream);
         }
-        let local = point - self.doc.origin(i);
         let Some(layout) = p.laid() else { return (p.start, Affinity::Downstream) };
-        let cursor = Cursor::from_point(layout, local.x as f32, local.y as f32);
-        let text = self.doc.slice(p.range());
-        (p.start + nearest_boundary(text, cursor.index()), cursor.affinity())
+        let (local, affinity) = caret::hit(layout, self.doc.slice(p.range()), point - self.doc.origin(i));
+        (p.start + local, affinity)
     }
 
     pub(super) fn step(&self, forward: bool, word: bool) -> (usize, Affinity) {
@@ -125,21 +106,7 @@ impl TextEditor {
                 None => (0, Affinity::Downstream),
             };
         }
-        let advance = |cursor: Cursor| match (forward, word) {
-            (true, false) => cursor.next_visual(layout),
-            (false, false) => cursor.previous_visual(layout),
-            (true, true) => cursor.next_visual_word(layout),
-            (false, true) => cursor.previous_visual_word(layout),
-        };
-        let text = self.doc.slice(p.range());
-        let mut moved = advance(Cursor::from_byte_index(layout, local, self.affinity));
-        while !on_boundary(text, moved.index()) {
-            let next = advance(moved);
-            if next.index() == moved.index() {
-                break;
-            }
-            moved = next;
-        }
+        let moved = caret::step(layout, self.doc.slice(p.range()), Cursor::from_byte_index(layout, local, self.affinity), forward, word);
         (p.start + moved.index(), moved.affinity())
     }
 

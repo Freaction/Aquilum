@@ -38,3 +38,5 @@ pub const SHUFFLE: Icon = Icon::lucide(&[
     Shape::Path("M2 6h1.972a4 4 0 0 1 3.6 2.2"),
     Shape::Path("M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"),
 ]);
+pub const UNDO: Icon = Icon::lucide(&[Shape::Path("M9 14 4 9l5-5"), Shape::Path("M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11")]);
+pub const REDO: Icon = Icon::lucide(&[Shape::Path("m15 14 5-5-5-5"), Shape::Path("M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13")]);

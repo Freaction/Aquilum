@@ -60,7 +60,7 @@ fn the_keyboard_does_not_cover_the_caret() {
     let at = body.get(&h.root).map(|w| w.inner().offset_at(w.ctx().window_transform().inverse(), low)).unwrap();
     body.edit(&mut h.root, |mut editor| crate::ui::editor::TextEditor::select_byte_range(&mut editor, at, at));
     h.settle();
-    h.app.safe_area_changed(&mut h.root, masonry::kurbo::Insets::new(0.0, 0.0, 0.0, 300.0));
+    h.app.fit_window(&mut h.root, h.app.window, masonry::kurbo::Insets::new(0.0, 0.0, 0.0, 300.0));
     h.settle();
     let w = body.get(&h.root).unwrap();
     let caret = w.ctx().window_transform().transform_rect_bbox(w.inner().caret_rect());
