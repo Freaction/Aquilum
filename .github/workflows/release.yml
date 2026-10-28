@@ -17,6 +17,9 @@ permissions:
 env:
   CARGO_PACKAGER_VERSION: 0.11.8
   NFPM_VERSION: 2.47.0
+  CARGO_PROFILE_RELEASE_LTO: fat
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
+  CARGO_PROFILE_RELEASE_STRIP: true
 
 jobs:
   windows:
@@ -458,7 +461,7 @@ jobs:
           version=$(grep -m1 '^version' native/Cargo.toml | cut -d'"' -f2)
           echo "VERSION=$version" >> "$GITHUB_ENV"
           cargo ndk -t arm64-v8a -P 26 -o android/app/src/main/jniLibs build -p aquilum-android --release
-          gradle -p android --quiet assembleRelease "-PappVersion=$version"
+          gradle -p android --quiet assembleRelease "-PappVersion=$version" -Pshrink
           mkdir -p "$GITHUB_WORKSPACE/dist"
           cp android/app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/dist/Aquilum_${version}_arm64.apk"
 
