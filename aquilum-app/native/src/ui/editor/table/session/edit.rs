@@ -2,7 +2,7 @@ use masonry::kurbo::{Point, Rect};
 use masonry::parley::{Affinity, Cursor};
 
 use super::{Outcome, Session};
-use crate::ui::editor::caret::around;
+use crate::ui::editor::caret::{self, around};
 use crate::ui::editor::markdown::range_rects;
 use crate::ui::editor::table::view::TableView;
 
@@ -51,8 +51,9 @@ impl Session {
     }
 
     pub fn delete(&mut self, view: &TableView, forward: bool, word: bool) -> Outcome {
-        if self.caret == self.anchor {
-            self.step(view, forward, word, true);
+        if self.caret == self.anchor && let Some((r, c)) = self.active {
+            let range = caret::erase(view.model.value(r, c), self.caret, forward, word);
+            (self.anchor, self.caret) = (range.start, range.end);
         }
         self.insert(view, "")
     }

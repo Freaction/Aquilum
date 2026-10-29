@@ -60,6 +60,7 @@ impl TextEditor {
             if media.video.is_none() {
                 let hover = self.hovered_link.filter(|(start, _)| *start == p.start).map(|(_, hit)| hit);
                 embed.view.paint(painter, self.embed_x(i), top, &palette, &overlay, &media, hover);
+                self.paint_block_bar(painter, p.start);
             }
             self.paint_link_hover(painter, i);
         }

@@ -25,3 +25,9 @@ impl TextEditor {
         })
     }
 }
+
+impl TextEditor {
+    pub fn card_scrollbar(&self) -> Option<crate::ui::scroll::bar::Span> {
+        self.doc.paragraphs().filter(|p| p.fold == Fold::Head).find_map(|p| self.block_span(p.start))
+    }
+}

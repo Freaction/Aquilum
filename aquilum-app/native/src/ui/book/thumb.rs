@@ -70,7 +70,7 @@ impl Widget for Thumbnail {
             return;
         }
         match keymap::command(&[Scope::Text, Scope::Image], &key.key, key.modifiers) {
-            Some(Command::Paste) => {
+            Some(Command::Paste | Command::PastePlain) => {
                 ctx.submit_action::<ThumbAction>(ThumbAction::Paste);
                 ctx.set_handled();
             }

@@ -73,3 +73,18 @@ fn expanded_folder_stays_pinned_and_a_click_on_it_collapses_the_folder() {
     assert_eq!(h.app.tree.names(), ["Проекты", "a"]);
     assert!(h.app.tree.offset() < 40.0, "дерево не вернулось к строке свёрнутой папки: {}", h.app.tree.offset());
 }
+
+#[test]
+fn a_note_opened_far_down_an_open_folder_shows_that_folder_pinned_without_scrolling() {
+    let mut h = Harness::new();
+    counted(&mut h);
+    let folder = folder_with_notes(&mut h, "Проекты", 60);
+    open_folder(&mut h, "Проекты");
+    h.settle();
+    h.deliver();
+    assert!(h.open(folder.join("заметка 55.md")));
+    h.settle();
+    h.deliver();
+    assert!(h.app.tree.offset() > 0.0, "список не прокрутился к открытой заметке");
+    assert_eq!(h.app.tree.pinned_names(&h.root), ["Проекты"], "закреплённая папка не появилась без прокрутки");
+}

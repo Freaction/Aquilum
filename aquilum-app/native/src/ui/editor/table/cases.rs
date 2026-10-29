@@ -169,6 +169,24 @@ fn words_with_spaces_can_be_typed_one_key_at_a_time() {
 }
 
 #[test]
+fn a_cell_deletes_by_character_and_by_word_in_both_directions() {
+    let deleted = |forward: bool, word: bool, caret: usize| {
+        let t = table("| раз два | b |\n| --- | --- |\n| 1 | 2 |");
+        let view = blank_view(&t);
+        let mut session = Session::new(0);
+        session.active = Some((0, 0));
+        (session.caret, session.anchor) = (caret, caret);
+        let Outcome::Write(model) = session.delete(&view, forward, word) else { panic!("правка не записана") };
+        model.value(0, 0).to_owned()
+    };
+    assert_eq!(deleted(false, false, 13), "раз дв");
+    assert_eq!(deleted(false, true, 13), "раз ");
+    assert_eq!(deleted(true, false, 0), "аз два");
+    assert_eq!(deleted(true, true, 0), " два");
+    assert_eq!(deleted(true, true, 6), "раз");
+}
+
+#[test]
 fn the_cell_menu_starts_with_copying_the_whole_table() {
     let t = table("| a | b |\n| --- | --- |\n| 1 | 2 |");
     let view = blank_view(&t);

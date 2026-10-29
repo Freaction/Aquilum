@@ -42,7 +42,7 @@ fn copy_and_paste_go_through_the_system_clipboard() {
     assert!(crate::clipboard::copy(copied.unwrap()), "системный буфер не принял текст");
     assert_eq!(crate::clipboard::text().as_deref(), Some("первая строка"), "из системного буфера вернулось другое");
     assert!(crate::clipboard::copy("вставка\r\nиз буфера"));
-    assert!(h.app.paste(&mut h.root), "вставка не сработала");
+    assert!(h.app.paste(&mut h.root, false), "вставка не сработала");
     h.deliver();
     assert_eq!(h.body_text(), "вставка\nиз буфера");
     if let Some(text) = before {

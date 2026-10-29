@@ -96,20 +96,22 @@ impl TextEditor {
                 self.move_to(target, extend);
             }
             (Some(delete @ (Command::DeleteBackward | Command::DeleteWord)), _) => {
-                if !self.apply_multicursor_delete(false) && !self.handle_pair_backspace() {
-                    self.delete(false, delete == Command::DeleteWord);
+                let word = delete == Command::DeleteWord;
+                if !self.apply_multicursor_delete(false, word) && !self.handle_pair_backspace() {
+                    self.delete(false, word);
                 }
                 edited = true;
             }
             (Some(Command::LineDeleteBackward), _) => {
-                if !self.apply_multicursor_delete(false) {
+                if !self.apply_multicursor_delete(false, false) {
                     self.delete_to_line_start();
                 }
                 edited = true;
             }
             (Some(delete @ (Command::DeleteForward | Command::DeleteWordForward)), _) => {
-                if !self.apply_multicursor_delete(true) {
-                    self.delete(true, delete == Command::DeleteWordForward);
+                let word = delete == Command::DeleteWordForward;
+                if !self.apply_multicursor_delete(true, word) {
+                    self.delete(true, word);
                 }
                 edited = true;
             }

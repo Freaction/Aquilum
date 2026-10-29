@@ -22,9 +22,7 @@ impl Host {
                 }
                 RenderRootSignal::SetCursor(cursor) => {
                     self.cursor = cursor;
-                    if self.resize_edge.is_none() {
-                        window.set_cursor(cursor.into());
-                    }
+                    self.show_cursor();
                 }
                 RenderRootSignal::SetTitle(title) => window.set_title(&title),
                 RenderRootSignal::TakeFocus => window.focus_window(),

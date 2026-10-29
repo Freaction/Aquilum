@@ -7,9 +7,9 @@ use masonry::parley::Layout;
 use super::super::markdown::{DANGER, MUTED, SECONDARY, TEXT, line_middle};
 use super::super::resolve::{Fetch, Grid, Part, Shape};
 use super::super::table::fit_columns;
-use super::metrics::{BAR_HEIGHT, BAR_MIN, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, PENDING};
+use super::metrics::{BAR_HEIGHT, BAR_MIN, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, COLUMN_MIN, PENDING};
 use super::panel::PAD;
-use super::{Action, Drawing, Font, Item, Spec, Tone, card, link_hits};
+use super::{Action, Drawing, Font, Item, Spec, Tone, link_hits};
 use crate::i18n::t;
 
 fn cell_text(parts: &[Part]) -> (String, Vec<(Range<usize>, String)>) {
@@ -37,20 +37,14 @@ fn task(parts: &[Part]) -> Option<(bool, Action)> {
 
 pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Drawing {
     let inner = (available - PAD * 2.0).max(1.0);
-    let mut items = Vec::new();
     let grid = match grid {
         Fetch::Ready(grid) if !grid.rows.is_empty() => grid,
-        Fetch::Pending => {
-            items.extend(card(available, PENDING));
-            return Drawing::new(PENDING, items);
-        }
+        Fetch::Pending => return Drawing::card(available, PENDING, Vec::new()),
         other => {
             let (message, brush) = if let Fetch::Missing(message) = other { (message.clone(), DANGER) } else { (t("search.noResults"), MUTED) };
             let layout = make(&Spec { wrap: Some(inner), ..Spec::plain(&message, Font::Editor, brush) });
             let height = f64::from(layout.height()) + PAD * 2.0;
-            items.extend(card(available, height));
-            items.push(Item::Text(Point::new(PAD, PAD), layout, message));
-            return Drawing::new(height, items);
+            return Drawing::card(available, height, vec![Item::Text(Point::new(PAD, PAD), layout, message)]);
         }
     };
     let side = if grid.shape == Shape::Table { PAD - CELL_X } else { PAD };
@@ -151,10 +145,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
             }
         }
     }
-    let (height, width) = (y + PAD - CELL_Y, span + side * 2.0);
-    items.extend(card(width, height));
-    items.extend(body);
-    Drawing { hits, view: available, width, ..Drawing::new(height, items) }
+    Drawing { hits, width: span + side * 2.0, ..Drawing::card(available, y + PAD - CELL_Y, body) }
 }
 
 fn column_widths(grid: &Grid, inner: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Vec<f64> {
@@ -170,7 +161,7 @@ fn column_widths(grid: &Grid, inner: f64, make: &mut dyn FnMut(&Spec) -> Layout<
         }
     }
     let natural: Vec<f64> = natural.into_iter().map(|w| w + CELL_X * 2.0).collect();
-    fit_columns(&natural, inner)
+    fit_columns(&natural, inner, COLUMN_MIN)
 }
 
 #[cfg(test)]
@@ -182,8 +173,7 @@ mod tests {
         let cell = |text: &str| vec![Part::Text(text.into())];
         let grid = Grid { shape: Shape::Table, title: None, columns: vec!["a".into(), "b".into()], rows: vec![vec![cell("1"), cell("2")]].into() };
         let drawing = dataview(&Fetch::Ready(grid), 800.0, &mut |_| Layout::default());
-        let card = drawing.items.iter().find_map(|item| if let Item::Fill(shape, _) = item { Some(shape.rect().width()) } else { None });
-        assert_eq!(card, Some(800.0));
+        assert_eq!((drawing.view, drawing.width), (800.0, 800.0));
         let empty = dataview(&Fetch::Ready(Grid { shape: Shape::List, title: None, columns: Vec::new(), rows: Vec::new().into() }), 800.0, &mut |_| Layout::default());
         assert!(empty.items.iter().any(|item| matches!(item, Item::Text(_, _, text) if *text == t("search.noResults"))), "пустой результат подписан");
         assert_eq!(drawing.max_scroll(), 0.0, "узкая таблица не прокручивается");

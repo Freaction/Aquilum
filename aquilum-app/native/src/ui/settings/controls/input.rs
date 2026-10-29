@@ -5,12 +5,29 @@ pub struct Committed;
 
 pub struct InputBox<W: Widget> {
     child: WidgetPod<W>,
-    width: f64,
+    width: Option<f64>,
+    filled: bool,
 }
 
 impl<W: Widget> InputBox<W> {
     pub fn new(child: NewWidget<W>, width: f64) -> NewWidget<Self> {
-        NewWidget::new(InputBox { child: child.to_pod(), width })
+        NewWidget::new(InputBox { child: child.to_pod(), width: Some(width), filled: true })
+    }
+
+    pub fn compact(child: NewWidget<W>) -> NewWidget<Self> {
+        NewWidget::new(InputBox { child: child.to_pod(), width: None, filled: true })
+    }
+
+    pub fn unfilled(mut input: NewWidget<Self>) -> NewWidget<Self> {
+        input.widget.filled = false;
+        input
+    }
+
+    fn padding(&self) -> (f64, f64) {
+        match self.width {
+            Some(_) => (size::INPUT_PADDING_X, size::INPUT_PADDING_Y),
+            None => (size::INPUT_XS_PADDING_X, size::INPUT_XS_PADDING_Y),
+        }
     }
 }
 
@@ -30,31 +47,37 @@ impl<W: Widget> Widget for InputBox<W> {
         ctx.register_child(&mut self.child);
     }
 
-    fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, _len_req: LenReq, _cross: Option<Length>) -> Length {
-        match axis {
-            Axis::Horizontal => Length::px(self.width),
-            Axis::Vertical => {
-                let inner = self.width - size::INPUT_PADDING_X * 2.0;
+    fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, cross: Option<Length>) -> Length {
+        let (padding_x, padding_y) = self.padding();
+        match (axis, self.width, len_req) {
+            (Axis::Horizontal, Some(width), _) => Length::px(width),
+            (Axis::Horizontal, None, LenReq::FitContent(space)) => space,
+            (Axis::Horizontal, None, _) => Length::px(padding_x * 2.0),
+            (Axis::Vertical, ..) => {
+                let inner = self.width.or(cross.map(Length::get)).unwrap_or(0.0) - padding_x * 2.0;
                 let context = LayoutSize::maybe(Axis::Horizontal, Some(Length::px(inner)));
                 let height = ctx.compute_length(&mut self.child, LenReq::MaxContent.into(), context, Axis::Vertical, Some(Length::px(inner)));
-                Length::px(height.get().max(size::INPUT_CONTENT_HEIGHT) + size::INPUT_PADDING_Y * 2.0)
+                Length::px(height.get().max(size::INPUT_CONTENT_HEIGHT) + padding_y * 2.0)
             }
         }
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
-        let inner = Size::new(size_.width - size::INPUT_PADDING_X * 2.0, size_.height - size::INPUT_PADDING_Y * 2.0);
+        let (padding_x, padding_y) = self.padding();
+        let inner = Size::new(size_.width - padding_x * 2.0, size_.height - padding_y * 2.0);
         let child = ctx.compute_size(&mut self.child, SizeDef::new(LenDef::FitContent(Length::px(inner.width)), LenDef::MaxContent), inner.into());
         let child = Size::new(inner.width, child.height);
         ctx.run_layout(&mut self.child, child);
         let y = (size_.height - child.height) / 2.0;
-        ctx.place_child(&mut self.child, Point::new(size::INPUT_PADDING_X, y));
+        ctx.place_child(&mut self.child, Point::new(padding_x, y));
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
         let t = theme::current();
         let shape = RoundedRect::from_rect(ctx.content_box(), size::RADIUS_XL);
-        painter.fill(shape, t.bg_surface).draw();
+        if self.filled {
+            painter.fill(shape, t.bg_surface).draw();
+        }
         if ctx.has_focus_target() {
             let outer = RoundedRect::from_rect(ctx.content_box().inflate(2.5, 2.5), size::RADIUS_XL + 2.5);
             painter.stroke(&outer, &Stroke::new(3.0), t.border_focus_ring).draw();

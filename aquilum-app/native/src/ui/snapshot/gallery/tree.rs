@@ -25,6 +25,12 @@ pub(super) fn snapshots(scene: &Scene) {
     tree.start_rename(&mut root, scene.vault.join("Aquilum.md"));
     scene.save(&mut root, "rename");
 
+    let (mut root, mut tree) = scene.shell();
+    tree.filter(&mut root, "длин");
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    tree.poll(&mut root);
+    scene.save(&mut root, "filter");
+
     let (mut root, _) = scene.shell();
     let (dialog, _) = ConfirmDialog::new(
         "Удалить заметку?",

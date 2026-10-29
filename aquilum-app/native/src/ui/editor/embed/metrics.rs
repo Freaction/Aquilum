@@ -3,6 +3,7 @@ pub(super) const CELL_Y: f64 = 4.0;
 pub(super) const PENDING: f64 = 96.0;
 pub(super) const BAR_HEIGHT: f64 = 8.0;
 pub(super) const BAR_MIN: f64 = 120.0;
+pub(super) const COLUMN_MIN: f64 = 160.0;
 pub(super) const CHECK: f64 = super::super::markdown::CHECKBOX as f64;
 pub(super) const CHECK_GAP: f64 = 12.0;
 pub(super) const BULLET_INDENT: f64 = 12.0;

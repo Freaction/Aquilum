@@ -8,24 +8,32 @@ use super::model::Row;
 use crate::i18n::t;
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
+use crate::ui::search::{self, Placeholder};
 use crate::ui::tokens::size;
-use crate::ui::widgets::{IconButton, IconView, Label, Leading, TextButton, Variant};
+use crate::ui::widgets::{IconButton, IconView, Label, Leading, Slot, TextButton, Variant};
 use crate::ui::{icons, style, theme};
 
+#[derive(Clone, Copy)]
 pub(super) struct Toolbar {
     pub(super) new_note: WidgetId,
     pub(super) new_folder: WidgetId,
     pub(super) sort: WidgetId,
     pub(super) collapse: WidgetId,
+    pub(super) input: WidgetId,
+    pub(super) filter: Handle<TextEditor>,
+    pub(super) placeholder: Handle<Placeholder>,
+    pub(super) clear: Handle<IconButton>,
+    pub(super) clear_slot: Handle<Slot>,
 }
 
-pub(super) fn toolbar() -> (NewWidget<Flex>, Toolbar) {
+pub(super) fn toolbar(query: &str) -> (NewWidget<Flex>, Toolbar) {
     let button = |icon, label: &str| NewWidget::new(IconButton::new(icon, t(label)).small());
     let new_note = button(icons::SQUARE_PEN, "fileTree.newNote");
     let new_folder = button(icons::FOLDER_PLUS, "fileTree.newFolder");
     let sort = button(icons::ARROW_UP_NARROW_WIDE, "fileTree.sort");
     let collapse = button(icons::CHEVRONS_DOWN_UP, "fileTree.collapseAll");
-    let ids = Toolbar { new_note: new_note.id(), new_folder: new_folder.id(), sort: sort.id(), collapse: collapse.id() };
+    let search::FilterBox { widget: filter, field, placeholder, clear, clear_slot } = search::filter_box(query, t("fileTree.filter"));
+    let ids = Toolbar { new_note: new_note.id(), new_folder: new_folder.id(), sort: sort.id(), collapse: collapse.id(), input: filter.id(), filter: field, placeholder, clear, clear_slot };
     let group = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(new_note).with_fixed(new_folder).with_fixed(sort);
     let group = NewWidget::new(group).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_6))));
     let row = Flex::row()
@@ -39,12 +47,18 @@ pub(super) fn toolbar() -> (NewWidget<Flex>, Toolbar) {
         left: Length::ZERO,
         right: Length::ZERO,
     }));
-    let wrapper = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(row);
+    let filter = NewWidget::new(SizedBox::new(filter)).with_props(PropertySet::new().with(Padding {
+        top: Length::px(size::SPACE_8),
+        bottom: Length::px(size::SPACE_8),
+        left: Length::ZERO,
+        right: Length::ZERO,
+    }));
+    let wrapper = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(row).with_fixed(filter);
     let wrapper = NewWidget::new(wrapper).with_props(PropertySet::new().with(Padding {
         top: Length::px(size::SPACE_8),
         left: Length::px(size::SPACE_8),
         right: Length::px(size::SPACE_8),
-        bottom: Length::px(size::SPACE_8),
+        bottom: Length::ZERO,
     }));
     (wrapper, ids)
 }

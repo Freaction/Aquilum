@@ -4,14 +4,14 @@ use super::*;
 use crate::ui::editor::embed::View;
 use crate::ui::editor::highlight::Lang;
 use crate::ui::editor::embed::panel::{self, PAD};
-use crate::ui::scroll::bar::{Scrollbar, Span};
+use crate::ui::scroll::bar::Span;
 use masonry::core::render_text;
 use masonry::peniko::Brush;
 
 pub(super) const COPIED: std::time::Duration = std::time::Duration::from_millis(1500);
 
-struct Code {
-    first: usize,
+pub(super) struct Code {
+    pub(super) first: usize,
     last: usize,
     header: bool,
     digits: usize,
@@ -21,7 +21,7 @@ struct Code {
 }
 
 impl TextEditor {
-    fn code(&self, i: usize, fonts: &Fonts) -> Code {
+    pub(super) fn code(&self, i: usize, fonts: &Fonts) -> Code {
         let block = |j: usize| self.doc.block(j);
         let (first, last) = self.doc.code_run(i);
         let fenced = |j: usize| matches!(block(j), Block::Code { fence: true, .. });
@@ -41,7 +41,7 @@ impl TextEditor {
         self.doc.at_y(self.painted.0).max(*body.start())..=self.doc.at_y(self.painted.1).min(*body.end())
     }
 
-    fn code_span(&self, code: &Code) -> Option<Span> {
+    pub(super) fn code_span(&self, code: &Code) -> Option<Span> {
         if code.body.is_empty() {
             return None;
         }
@@ -51,21 +51,18 @@ impl TextEditor {
         (span.max() > 0.0).then(|| Span { offset: span.offset.min(span.max()), ..span })
     }
 
-    fn code_at(&self, point: Point) -> Option<(Code, f64)> {
+    pub(super) fn code_at(&self, point: Point) -> Option<Code> {
         let fonts = self.doc.markdown.as_ref()?;
         let code = self.code(self.index_at(point).filter(|&i| self.doc.block(i).is_code())?, fonts);
-        code.panel.contains(point).then_some((code, panel::header(fonts.line)))
+        (self.doc.paragraph(code.first).fold != Fold::Head && code.panel.contains(point)).then_some(code)
     }
 
-    fn copy_button(&self, code: &Code, header: f64, point: Point) -> bool {
-        code.header && panel::button(code.panel, header).contains(point)
+    fn copy_at(&self, point: Point) -> Option<Code> {
+        let header = panel::header(self.doc.markdown.as_ref()?.line);
+        self.code_at(point).filter(|code| code.header && panel::button(code.panel, header).contains(point))
     }
 
-    fn code_bar(&self, code: &Code) -> Scrollbar {
-        self.code_bar.filter(|(start, _)| *start == self.doc.paragraph(code.first).start).map_or(Scrollbar::new(Axis::Horizontal), |(_, bar)| bar)
-    }
-
-    fn scroll_code(&mut self, code: &Code, x: f64) {
+    pub(super) fn scroll_code(&mut self, code: &Code, x: f64) {
         let (start, end) = (self.doc.paragraph(*code.body.start()).start, self.doc.paragraph(*code.body.end()).end());
         self.doc.scrolls.retain(|(from, _, _)| *from != start);
         if x > 0.0 {
@@ -73,67 +70,19 @@ impl TextEditor {
         }
     }
 
-    pub(super) fn code_scroll(&mut self, ctx: &mut EventCtx<'_>, point: Point, dx: f64) -> bool {
-        let Some((code, _)) = self.code_at(point) else { return false };
-        let Some(span) = self.code_span(&code) else { return false };
-        self.scroll_code(&code, (span.offset + dx).clamp(0.0, span.max()));
-        ctx.request_render();
-        true
-    }
-
-    pub(super) fn code_press(&mut self, ctx: &mut EventCtx<'_>, point: Point) -> bool {
-        let Some((code, header)) = self.code_at(point) else { return false };
-        if self.copy_button(&code, header, point) {
-            let body: Vec<&str> = code.body.clone().map(|j| &self.doc.line(j)[self.doc.frame(j).lead..]).collect();
-            ctx.set_clipboard(body.join("\n"));
-            self.copied = Some((self.doc.paragraph(code.first).start, std::time::Instant::now()));
-            ctx.request_anim_frame();
-        } else {
-            let Some(span) = self.code_span(&code) else { return false };
-            let mut bar = self.code_bar(&code);
-            let Some(offset) = bar.press(point, &span) else { return false };
-            self.code_bar = Some((self.doc.paragraph(code.first).start, bar));
-            self.scroll_code(&code, offset);
-            ctx.capture_pointer();
-        }
+    pub(super) fn copy_press(&mut self, ctx: &mut EventCtx<'_>, point: Point) -> bool {
+        let Some(code) = self.copy_at(point) else { return false };
+        let body: Vec<&str> = code.body.clone().map(|j| &self.doc.line(j)[self.doc.frame(j).lead..]).collect();
+        ctx.set_clipboard(body.join("\n"));
+        self.copied = Some((self.doc.paragraph(code.first).start, std::time::Instant::now()));
+        ctx.request_anim_frame();
         ctx.set_handled();
         ctx.request_render();
         true
     }
 
-    pub(super) fn code_hover(&mut self, ctx: &mut EventCtx<'_>, point: Point) -> Option<usize> {
-        let found = self.code_at(point);
-        let button = found.as_ref().filter(|(code, header)| self.copy_button(code, *header, point)).map(|(code, _)| self.doc.paragraph(code.first).start);
-        if self.code_bar.is_some_and(|(_, bar)| bar.dragging()) {
-            return button;
-        }
-        let next = found.and_then(|(code, _)| Some((self.code_span(&code)?, code))).filter(|(span, _)| span.track.contains(point)).map(|(span, code)| {
-            let mut bar = self.code_bar(&code);
-            bar.hover(Some(point), &span);
-            (self.doc.paragraph(code.first).start, bar)
-        });
-        if next.map(|(start, bar)| (start, bar.active())) != self.code_bar.map(|(start, bar)| (start, bar.active())) {
-            ctx.request_render();
-        }
-        self.code_bar = next;
-        button
-    }
-
-    pub(super) fn code_drag(&mut self, ctx: &mut EventCtx<'_>, point: Point) -> bool {
-        let Some((start, bar)) = self.code_bar.filter(|(_, bar)| bar.dragging()) else { return false };
-        let Some(fonts) = self.doc.markdown.as_ref() else { return false };
-        let code = self.code(self.doc.at_offset(start), fonts);
-        if let Some(offset) = self.code_span(&code).and_then(|span| bar.drag(point, &span)) {
-            self.scroll_code(&code, offset);
-            ctx.request_render();
-        }
-        true
-    }
-
-    pub(super) fn code_release(&mut self) {
-        if let Some((_, bar)) = &mut self.code_bar {
-            bar.release();
-        }
+    pub(super) fn copy_hover(&self, point: Point) -> Option<usize> {
+        self.copy_at(point).map(|code| self.doc.paragraph(code.first).start)
     }
 
     pub(super) fn follow_code(&mut self) {
@@ -172,9 +121,7 @@ impl TextEditor {
         let (hovered, done) = (self.hovered_link == Some((start, 0)), self.copied.is_some_and(|(at, _)| at == start));
         let header = code.header.then(|| panel::Header { height: panel::header(fonts.line), icon: None, button: Some((crate::ui::icons::COPY, hovered, done)) });
         panel::paint(painter, code.panel, panel::Tone::Surface, header);
-        if let Some(span) = self.code_span(&code) {
-            self.code_bar(&code).paint(painter, &span);
-        }
+        self.paint_block_bar(painter, start);
         if let (Fold::Below, Some(View::Drawing(preview))) = (self.doc.paragraph(code.last).fold, self.doc.paragraph(code.first).embed.map(|e| &e.view)) {
             preview.paint(painter, self.embed_x(code.first), code.panel.y1 - preview.height, 0.0, palette, None, None);
         }

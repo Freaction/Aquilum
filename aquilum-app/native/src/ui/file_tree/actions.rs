@@ -32,7 +32,7 @@ impl FileTree {
         if Some(id) == self.create_button && action.downcast_ref::<Pressed>().is_some() {
             return Some(TreeAction::CreateNote);
         }
-        if let Some(toolbar) = &self.toolbar
+        if let Some(toolbar) = self.toolbar
             && action.downcast_ref::<Pressed>().is_some()
         {
             if id == toolbar.collapse {
@@ -41,6 +41,11 @@ impl FileTree {
                     self.first = Self::first_near(self.offset);
                     self.refresh(root);
                 }
+                return None;
+            }
+            if id == toolbar.clear.id() {
+                self.filter(root, "");
+                root.focus_on(Some(toolbar.filter.id()));
                 return None;
             }
             let folder = self.model.target_folder();
@@ -55,6 +60,19 @@ impl FileTree {
             }
         }
         if let Some(text) = action.downcast_ref::<TextAction>() {
+            if self.toolbar.is_some_and(|toolbar| toolbar.filter.id() == id) {
+                return match text {
+                    TextAction::Changed(query) => {
+                        self.set_filter(root, query);
+                        None
+                    }
+                    TextAction::Cancelled => {
+                        self.filter(root, "");
+                        None
+                    }
+                    TextAction::Entered(_) | TextAction::Edited(_) | TextAction::Page { .. } | TextAction::Line { .. } => None,
+                };
+            }
             return match text {
                 TextAction::Entered(name) => self.commit_rename(root, name),
                 TextAction::Cancelled => {

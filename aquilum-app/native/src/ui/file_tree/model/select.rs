@@ -29,7 +29,7 @@ impl TreeModel {
             let key = comparable(&row.path);
             self.selected = HashSet::from([key.clone()]);
             self.anchor = Some(row.path.clone());
-            if self.expanded.remove(&key).is_none() {
+            if self.filter.is_none() && self.expanded.remove(&key).is_none() {
                 self.expanded.insert(key.clone(), row.path.clone());
                 if !self.directories.contains_key(&key) {
                     self.load(&row.path);

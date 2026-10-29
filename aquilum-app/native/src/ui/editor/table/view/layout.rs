@@ -6,7 +6,7 @@ use super::{ADD, GAP, Line, PAD_Y, STRIP, STRIP_PAD, TOP, Cell, TableView, lette
 
 const UNBOUNDED: f64 = 1.0e6;
 use crate::ui::editor::markdown::Decor;
-use crate::ui::editor::table::fit_columns;
+use crate::ui::editor::table::{NARROWEST, fit_columns};
 use crate::ui::editor::table::model::{Align, DEFAULT_COL, Range2, Table};
 use crate::ui::scroll::bar::Span;
 use crate::ui::tokens::size;
@@ -19,7 +19,7 @@ impl Table {
         let corner = numbers.iter().map(|l| f64::from(l.width()) + STRIP_PAD * 2.0).fold(STRIP, f64::max);
         let scroll_w = (available - ADD).max(STRIP * 2.0);
         let pad = size::EDITOR_TABLE_CELL_PADDING;
-        let widths = if self.explicit { self.widths.clone() } else { fit_columns(&self.natural(pad, &mut make), scroll_w - corner - GAP - size::BORDER_1) };
+        let widths = if self.explicit { self.widths.clone() } else { fit_columns(&self.natural(pad, &mut make), scroll_w - corner - GAP - size::BORDER_1, NARROWEST) };
         let mut xs = vec![0.0];
         for w in &widths {
             xs.push(xs.last().copied().unwrap_or(0.0) + w);

@@ -55,6 +55,12 @@ pub(crate) const PRIMARY_MOUSE: PointerInfo = PointerInfo {
     pointer_type: PointerType::Mouse,
 };
 
+pub(crate) const TOUCH: PointerInfo = PointerInfo {
+    pointer_id: Some(PointerId::PRIMARY),
+    persistent_device_id: None,
+    pointer_type: PointerType::Touch,
+};
+
 const RESIZE_BORDER: f64 = 6.0;
 const NATIVE_FRAME: bool = cfg!(target_os = "macos");
 

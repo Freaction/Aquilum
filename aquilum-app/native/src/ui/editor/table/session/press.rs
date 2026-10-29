@@ -1,5 +1,4 @@
 use masonry::kurbo::Point;
-use masonry::parley::Selection;
 
 use super::{Drag, Outcome, Session};
 use crate::ui::editor::caret;
@@ -50,18 +49,8 @@ impl Session {
         if self.active != Some((r, c)) {
             self.activate(view, r, c, Some(local));
         } else if let Some(cell) = view.cell(r, c) {
-            let value = view.model.value(r, c);
-            (self.anchor, self.caret) = match count {
-                2 => {
-                    let word = Selection::word_from_point(&cell.layout, local.x as f32, local.y as f32).text_range();
-                    (word.start, word.end)
-                }
-                3.. => (0, value.len()),
-                _ => {
-                    let (at, _) = caret::hit(&cell.layout, value, local);
-                    (at, at)
-                }
-            };
+            let unit = caret::unit(&cell.layout, view.model.value(r, c), local, count);
+            (self.anchor, self.caret) = (unit.start, unit.end);
         }
         self.drag = Drag::Cells { from: (r, c), at: p, moved: false };
         Outcome::Repaint

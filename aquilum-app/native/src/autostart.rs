@@ -1,7 +1,9 @@
 const NAME: &str = "Aquilum";
 
+pub const SUPPORTED: bool = cfg!(not(any(target_os = "android", target_os = "ios")));
+
 pub fn available() -> bool {
-    cfg!(feature = "installed")
+    SUPPORTED && cfg!(feature = "installed")
 }
 
 fn executable() -> Option<String> {

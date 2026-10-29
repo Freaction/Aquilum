@@ -50,7 +50,7 @@ impl TextEditor {
             }
             Ime::Commit(text) => {
                 self.compose = None;
-                self.insert(text, Kind::Other);
+                self.insert(text, Kind::Typing);
                 edited = true;
             }
             Ime::DeleteSurrounding { before_bytes, after_bytes } => {
@@ -92,7 +92,7 @@ impl TextEditor {
         if let Some(session) = &mut self.table {
             session.compose = None;
         }
-        self.compose.take().map(|(text, _)| self.insert(&text, Kind::Other)).is_some()
+        self.compose.take().map(|(text, _)| self.insert(&text, Kind::Typing)).is_some()
     }
 
     #[cfg(target_os = "android")]
@@ -106,7 +106,7 @@ impl TextEditor {
     fn delete_surrounding(&mut self, before: usize, after: usize) {
         let around = crate::ui::editor::caret::around(self.selection(), before, after, self.doc.len(), |at| self.doc.floor(at));
         let edits = around.into_iter().filter(|r| !r.is_empty()).map(|r| (r, String::new())).collect();
-        self.dispatch(edits, None, Kind::Other);
+        self.dispatch(edits, None, Kind::Deleting);
     }
 }
 

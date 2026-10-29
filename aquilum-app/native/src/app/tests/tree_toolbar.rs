@@ -33,7 +33,10 @@ fn toolbar_is_four_small_buttons_above_the_tree() {
     assert_eq!(rects[0].x0, tree.x0 + size::SPACE_8);
     assert!(rects.iter().all(|r| r.y0 == rects[0].y0));
     let first = rect(&h, h.app.tree.row_id("a").expect("строка заметки"));
-    assert_eq!(first.y0 - rects[0].y1, size::SPACE_4 + size::SPACE_8, "между кнопками и деревом нет линии, только отступы");}
+    let field = rect(&h, h.app.tree.filter_field().expect("поле поиска"));
+    assert_eq!(field.y0 - size::INPUT_XS_PADDING_Y - rects[0].y1, size::SPACE_4 + size::SPACE_8, "поле поиска не под кнопками с отступом 8");
+    assert_eq!(first.y0 - (field.y1 + size::INPUT_XS_PADDING_Y), size::SPACE_8, "между полем и деревом нет линии, только отступы");
+}
 
 #[test]
 fn new_note_goes_into_clicked_folder_and_starts_rename() {

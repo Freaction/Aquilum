@@ -59,6 +59,7 @@ impl<W: Widget> Widget for ScrollArea<W> {
     }
 
     fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
+        let before = self.offset;
         if let Update::ScrollBy(dy) = event
             && self.axis == Axis::Vertical
         {
@@ -84,6 +85,9 @@ impl<W: Widget> Widget for ScrollArea<W> {
             self.clamp();
             ctx.request_compose();
             ctx.request_post_paint();
+        }
+        if self.announce && self.offset != before {
+            ctx.submit_action::<Scrolled>(Scrolled(self.offset));
         }
     }
 
@@ -121,7 +125,11 @@ impl<W: Widget> Widget for ScrollArea<W> {
         }
         ctx.run_layout(&mut self.child, child);
         self.content = child.get_coord(axis);
+        let before = self.offset;
         self.clamp();
+        if self.announce && self.offset != before {
+            ctx.submit_action::<Scrolled>(Scrolled(self.offset));
+        }
         ctx.set_clip_path(size.to_rect());
         ctx.place_child(&mut self.child, Point::ZERO);
     }

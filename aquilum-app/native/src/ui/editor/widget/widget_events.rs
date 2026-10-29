@@ -69,7 +69,8 @@ impl TextEditor {
                 let new_tab = pointer::new_tab(state.modifiers);
                 if self.table_press(ctx, point, crate::ui::keymap::extend(state.modifiers), new_tab, state.count)
                     || self.media_press(ctx, point, state.count, pointer::reach(device.pointer_type))
-                    || self.code_press(ctx, point)
+                    || self.copy_press(ctx, point)
+                    || self.bar_press(ctx, point)
                     || self.card_click(ctx, point, new_tab)
                     || self.toggle_task(ctx, point)
                     || self.open_link(ctx, point, new_tab)
@@ -93,7 +94,7 @@ impl TextEditor {
             PointerEvent::Move(PointerUpdate { current, pointer: device, .. }) => {
                 let point = ctx.local_position(current.position);
                 self.hover_text(ctx, point);
-                if self.media_move(ctx, point, pointer::reach(device.pointer_type)) || self.table_move(ctx, point, !current.buttons.is_empty()) || self.code_drag(ctx, point) {
+                if self.media_move(ctx, point, pointer::reach(device.pointer_type)) || self.table_move(ctx, point, !current.buttons.is_empty()) || self.bar_drag(ctx, point) {
                     ctx.set_handled();
                     return;
                 }
@@ -121,13 +122,13 @@ impl TextEditor {
                 self.drag_at = None;
                 self.media_release(ctx);
                 self.table_release(ctx);
-                self.code_release();
+                self.bar_release();
             }
             PointerEvent::Scroll(scroll) => {
                 let point = ctx.local_position(scroll.state.position);
                 let d = crate::ui::scroll::pixels(&scroll.delta, ctx.scale_factor(), ctx.content_box().width());
                 let dx = crate::ui::scroll::sideways(d, pointer::sideways(scroll.state.modifiers));
-                if dx != 0.0 && (self.table_scroll(ctx, point, -dx) || self.code_scroll(ctx, point, -dx) || self.card_scroll(ctx, point, -dx)) {
+                if dx != 0.0 && (self.table_scroll(ctx, point, -dx) || self.block_scroll(ctx, point, -dx)) {
                     ctx.set_handled();
                 }
             }

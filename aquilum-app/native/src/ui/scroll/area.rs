@@ -2,6 +2,7 @@ use masonry::core::{LayoutCtx, NewWidget, Widget, WidgetMut, WidgetPod};
 use masonry::kurbo::{Axis, Size, Vec2};
 use masonry::layout::{LenDef, Length, SizeDef};
 
+use super::Scrolled;
 use super::bar::{Scrollbar, Span};
 
 pub struct ScrollArea<W: Widget> {
@@ -15,6 +16,7 @@ pub struct ScrollArea<W: Widget> {
     pub(super) viewport: Size,
     pub(super) overflow: bool,
     pub(super) fill: bool,
+    pub(super) announce: bool,
     pub(super) bar: Scrollbar,
     pub(super) published: Option<u64>,
     pub(super) thumb: masonry::peniko::ImageBrush,
@@ -50,6 +52,7 @@ impl<W: Widget> ScrollArea<W> {
             viewport: Size::ZERO,
             overflow: false,
             fill: false,
+            announce: false,
             bar: Scrollbar::new(axis),
             published: None,
             thumb: crate::render::sprite::marker(),
@@ -70,6 +73,11 @@ impl<W: Widget> ScrollArea<W> {
         self
     }
 
+    pub fn announcing(mut self) -> Self {
+        self.announce = true;
+        self
+    }
+
     pub fn set_child(this: &mut WidgetMut<'_, Self>, child: NewWidget<W>) {
         this.ctx.remove_child(std::mem::replace(&mut this.widget.child, child.to_pod()));
         this.ctx.children_changed();
@@ -80,10 +88,14 @@ impl<W: Widget> ScrollArea<W> {
     }
 
     pub fn set_offset(this: &mut WidgetMut<'_, Self>, offset: f64) {
+        let before = this.widget.offset;
         this.widget.glide = None;
         this.widget.offset = offset.max(0.0);
         this.ctx.request_compose();
         this.ctx.request_post_paint();
+        if this.widget.announce && this.widget.offset != before {
+            this.ctx.submit_action::<Scrolled>(Scrolled(this.widget.offset));
+        }
     }
 
     #[cfg(feature = "memory-probe")]

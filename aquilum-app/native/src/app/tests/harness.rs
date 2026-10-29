@@ -114,7 +114,7 @@ impl Harness {
         let mut state = PointerState { modifiers, ..pointer_at(x, y, 1.0) };
         self.root.handle_pointer_event(moved(state.clone()));
         state.buttons.insert(PointerButton::Primary);
-        self.root.handle_pointer_event(PointerEvent::Down(primary(state.clone())));
+        self.app.pointer_event(&mut self.root, PointerEvent::Down(primary(state.clone())));
         state.buttons.remove(PointerButton::Primary);
         self.root.handle_pointer_event(PointerEvent::Up(primary(state)));
         self.deliver()

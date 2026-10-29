@@ -17,6 +17,22 @@ impl FileTree {
         self.toolbar.as_ref().map(|t| [t.new_note, t.new_folder, t.sort, t.collapse])
     }
 
+    pub fn filter_field(&self) -> Option<WidgetId> {
+        self.toolbar.as_ref().map(|t| t.filter.id())
+    }
+
+    pub fn clear_button(&self) -> Option<WidgetId> {
+        self.toolbar.as_ref().map(|t| t.clear.id())
+    }
+
+    pub fn filter_text(&self, root: &masonry::app::RenderRoot) -> String {
+        self.toolbar.and_then(|t| t.filter.get(root)).map(|field| field.inner().text()).unwrap_or_default()
+    }
+
+    pub fn marks(&self, name: &str) -> Vec<(usize, usize)> {
+        self.model.rows().iter().find(|r| r.name == name).map(|r| r.marks.clone()).unwrap_or_default()
+    }
+
     pub fn row_id(&self, name: &str) -> Option<WidgetId> {
         let index = self.model.rows().iter().position(|r| r.name == name)?;
         self.row_ids.get(index.checked_sub(self.first)?).copied()

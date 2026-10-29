@@ -13,12 +13,6 @@ use crate::ui::keymap::{Gesture, pointer};
 
 pub(super) use detector::Touch;
 
-const TOUCH: PointerInfo = PointerInfo {
-    pointer_id: Some(PointerId::PRIMARY),
-    persistent_device_id: None,
-    pointer_type: PointerType::Touch,
-};
-
 fn point(position: PhysicalPosition<f64>) -> Point {
     Point::new(position.x, position.y)
 }

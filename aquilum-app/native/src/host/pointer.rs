@@ -54,7 +54,7 @@ impl Host {
 
     pub(super) fn pointer_event(&mut self, event: PointerEvent) {
         if let Some(root) = &mut self.root {
-            root.handle_pointer_event(event);
+            self.app.pointer_event(root, event);
         }
     }
 

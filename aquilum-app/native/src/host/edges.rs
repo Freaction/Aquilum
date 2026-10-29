@@ -41,8 +41,12 @@ impl Host {
         let edge = if framed { None } else { edge_at(position, window.surface_size(), window.scale_factor()) };
         if edge != self.resize_edge {
             self.resize_edge = edge;
-            let cursor = edge.map_or(self.cursor, CursorIcon::from);
-            self.window().set_cursor(cursor.into());
+            self.show_cursor();
         }
+    }
+
+    pub(super) fn show_cursor(&self) {
+        let cursor = self.resize_edge.map_or(crate::ui::keymap::pointer::shown(self.cursor), CursorIcon::from);
+        self.window().set_cursor(cursor.into());
     }
 }

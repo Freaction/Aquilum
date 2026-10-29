@@ -27,7 +27,7 @@ pub struct TextEditor {
     pub(super) hovered_table: Option<usize>,
     pub(super) embed_scrolls: std::collections::HashMap<usize, f64>,
     pub(super) clips: Vec<(std::ops::RangeInclusive<usize>, Rect)>,
-    pub(super) code_bar: Option<(usize, crate::ui::scroll::bar::Scrollbar)>,
+    pub(super) block_bar: Option<(usize, crate::ui::scroll::bar::Scrollbar)>,
     pub(super) copied: Option<(usize, std::time::Instant)>,
     pub(super) media: media::MediaState,
     pub(super) videos: crate::video::Owned,

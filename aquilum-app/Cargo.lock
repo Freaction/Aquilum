@@ -187,7 +187,7 @@ version = "0.1.0"
 
 [[package]]
 name = "aquilum-android"
-version = "0.3.21"
+version = "0.3.22"
 dependencies = [
  "aquilum-native",
  "jni",
@@ -195,7 +195,7 @@ dependencies = [
 
 [[package]]
 name = "aquilum-core"
-version = "0.3.21"
+version = "0.3.22"
 dependencies = [
  "atomic-write-file",
  "base64",
@@ -224,7 +224,7 @@ dependencies = [
 
 [[package]]
 name = "aquilum-native"
-version = "0.3.21"
+version = "0.3.22"
 dependencies = [
  "accesskit_macos",
  "accesskit_unix",
@@ -894,7 +894,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2fa28d21af9044d49bcfb1eceddeeb9fadc6a17207c6a1bf0d841ef0bd9ad36e"
 dependencies = [
  "str_indices",
- "unicode-segmentation",
 ]
 
 [[package]]

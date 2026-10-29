@@ -1,6 +1,6 @@
 use super::{
-    canonical_workspace, is_hidden, is_markdown, markdown_files, relative_slash_path, same_path,
-    same_workspace, strip_markdown_extension, strip_root,
+    canonical_workspace, is_hidden, is_markdown, markdown_files, relative_slash_path,
+    same_workspace, strip_markdown_extension,
 };
 use std::path::Path;
 
@@ -13,6 +13,7 @@ fn accepts_markdown_case_insensitively() {
 #[cfg(windows)]
 #[test]
 fn paths_differing_only_by_cyrillic_case_are_the_same() {
+    use super::{same_path, strip_root};
     assert!(same_path(Path::new("C:/База/Идея.md"), Path::new(r"c:\БАЗА\идея.md")));
     assert!(!same_path(Path::new("C:/База/Идея.md"), Path::new("C:/База/Идеи.md")));
     assert_eq!(

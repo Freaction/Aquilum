@@ -5,7 +5,7 @@ pub(super) struct Frames {
     pub(super) scale: f64,
     pub(super) width: u16,
     pub(super) height: u16,
-    partial: Renderer,
+    pub(super) partial: Renderer,
     check: bool,
 }
 

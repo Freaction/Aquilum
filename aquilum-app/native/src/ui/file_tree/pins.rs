@@ -33,7 +33,7 @@ mod tests {
     const STEP: f64 = 10.0;
 
     fn row(name: &str, depth: usize, folder: bool) -> Row {
-        Row { path: PathBuf::from(name), name: name.into(), folder, depth, expanded: folder, color: None, items: None, guides: Vec::new(), active: false, selected: false }
+        Row { path: PathBuf::from(name), name: name.into(), folder, depth, expanded: folder, color: None, items: None, guides: Vec::new(), marks: Vec::new(), active: false, selected: false }
     }
 
     fn rows() -> Vec<Row> {

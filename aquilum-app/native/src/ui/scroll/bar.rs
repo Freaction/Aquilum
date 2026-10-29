@@ -100,11 +100,7 @@ impl Scrollbar {
 
     pub fn cursor(&self) -> masonry::core::CursorIcon {
         use masonry::core::CursorIcon;
-        match (self.drag.is_some(), self.hovered) {
-            (true, _) => CursorIcon::Grabbing,
-            (false, true) => CursorIcon::Grab,
-            _ => CursorIcon::Default,
-        }
+        if self.active() { CursorIcon::Grab } else { CursorIcon::Default }
     }
 
     pub fn hover(&mut self, at: Option<Point>, span: &Span) -> bool {

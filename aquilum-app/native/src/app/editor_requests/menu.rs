@@ -68,7 +68,7 @@ impl App {
                 }
             }
             EditorCommand::Paste => {
-                self.paste(root);
+                self.paste(root, false);
             }
             EditorCommand::InsertBook => {
                 body.edit(root, |mut e| TextEditor::insert_text(&mut e, "> [!book] [[Название книги]]\n"));

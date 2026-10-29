@@ -92,9 +92,9 @@ impl Host {
             return;
         }
         if state == KeyState::Down
-            && keymap::command(&[Scope::Text], &key, self.modifiers) == Some(Command::Paste)
+            && let Some(paste @ (Command::Paste | Command::PastePlain)) = keymap::command(&[Scope::Text], &key, self.modifiers)
             && let Some(root) = &mut self.root
-            && self.app.paste(root)
+            && self.app.paste(root, paste == Command::PastePlain)
         {
             return;
         }

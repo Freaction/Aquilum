@@ -1,6 +1,7 @@
 mod actions;
 mod build;
 mod drag;
+mod filter;
 mod ghost;
 pub mod model;
 mod parts;
@@ -25,7 +26,7 @@ use crate::ui::scroll::ScrollArea;
 use crate::ui::tokens::size;
 
 use drag::Drag;
-use model::{Counts, TreeModel};
+use model::{Counts, Lists, TreeModel};
 pub use model::{Press, Sort};
 use parts::Toolbar;
 use pinned::Pinned;
@@ -50,6 +51,7 @@ pub struct FileTree {
     scroll: Option<Handle<ScrollArea<Flex>>>,
     pinned: Option<Handle<Pinned>>,
     counting: Option<std::sync::mpsc::Receiver<Counts>>,
+    indexing: Option<std::sync::mpsc::Receiver<Lists>>,
     wake: std::sync::Arc<dyn Fn() + Send + Sync>,
     rename: Option<Handle<TextEditor>>,
     store: ExpandedStore,
@@ -82,14 +84,15 @@ impl FileTree {
             scroll: None,
             pinned: None,
             counting: None,
-            wake: std::sync::Arc::clone(&wake),
+            indexing: None,
+            wake,
             rename: None,
             store,
             first: 0,
             offset: 0.0,
             toolbar: None,
         };
-        tree.count_notes(wake);
+        tree.count_notes();
         tree
     }
 
@@ -112,6 +115,9 @@ impl FileTree {
     }
 
     pub fn reveal(&mut self, root: &mut RenderRoot, path: &Path) {
+        if self.model.filtering() && self.model.index_of(path).is_none() {
+            self.filter(root, "");
+        }
         self.model.expand_to(path);
         self.save_expanded();
         let index = self.model.index_of(path);
@@ -131,6 +137,7 @@ impl FileTree {
 
     pub fn paths_changed(&mut self, root: &mut RenderRoot, paths: &[PathBuf]) {
         self.model.refresh_paths(paths);
+        self.reindex();
         self.refresh(root);
     }
 

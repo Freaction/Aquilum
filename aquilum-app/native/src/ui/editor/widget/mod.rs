@@ -27,6 +27,7 @@ use crate::ui::theme;
 
 mod api;
 mod build;
+mod block_bar;
 mod caret;
 mod code;
 mod edit;

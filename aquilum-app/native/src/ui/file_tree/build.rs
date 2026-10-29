@@ -13,14 +13,16 @@ use super::parts::{empty_state, rename_field, toolbar};
 use super::row::TreeRow;
 use super::window::spacer;
 use super::{FileTree, MARGIN, SPAN, step};
+use crate::i18n::t;
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::tokens::size;
+use crate::ui::{icons, search};
 
 impl FileTree {
     pub fn widget(&mut self) -> NewWidget<Flex> {
-        let scroll = NewWidget::new(ScrollArea::new(self.list()).fill(true).at(self.offset));
+        let scroll = NewWidget::new(ScrollArea::new(self.list()).fill(true).announcing().at(self.offset));
         self.scroll = Some(Handle::of(&scroll));
         let pinned = NewWidget::new(Pinned::new(&self.pins(), self.model.rows()));
         self.pinned = Some(Handle::of(&pinned));
@@ -28,7 +30,7 @@ impl FileTree {
         let mut column = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch);
         self.toolbar = None;
         if self.model.root().is_some() {
-            let (toolbar, ids) = toolbar();
+            let (toolbar, ids) = toolbar(self.model.filter_query());
             self.toolbar = Some(ids);
             column = column.with_fixed(toolbar);
         }
@@ -40,6 +42,9 @@ impl FileTree {
         self.create_button = None;
         self.rename = None;
         if self.model.root().is_some() && self.model.rows().is_empty() {
+            if self.model.filtering() {
+                return if self.model.indexed() { search::empty_state_with(icons::SEARCH_X, &t("search.noResults"), None, None) } else { NewWidget::new(Flex::column()) };
+            }
             let (state, button) = empty_state();
             self.create_button = Some(button);
             return state;
@@ -138,11 +143,8 @@ impl FileTree {
     fn scroll_to(&mut self, root: &mut RenderRoot, index: usize) {
         let top = index as f64 * step();
         let bottom = top + step() - size::SPACE_2;
-        if let Some(offset) = self.scroll.and_then(|scroll| scroll.edit(root, |mut scroll| {
-            ScrollArea::reveal(&mut scroll, top, bottom);
-            scroll.widget.offset()
-        })) {
-            self.offset = offset;
+        if let Some(scroll) = self.scroll {
+            scroll.edit(root, |mut scroll| ScrollArea::reveal(&mut scroll, top, bottom));
         }
     }
 }

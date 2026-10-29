@@ -68,6 +68,7 @@ pub enum Command {
     Copy,
     Cut,
     Paste,
+    PastePlain,
     Undo,
     Redo,
     SelectAll,

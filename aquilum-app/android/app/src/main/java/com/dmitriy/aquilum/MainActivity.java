@@ -154,13 +154,20 @@ public class MainActivity extends GameActivity {
         clipboard.setPrimaryClip(ClipData.newPlainText("Aquilum", text));
     }
 
-    public String pasteText() {
+    private ClipData.Item pasted() {
         ClipData clip = getSystemService(ClipboardManager.class).getPrimaryClip();
-        if (clip == null || clip.getItemCount() == 0) {
-            return null;
-        }
-        CharSequence text = clip.getItemAt(0).coerceToText(this);
+        return clip == null || clip.getItemCount() == 0 ? null : clip.getItemAt(0);
+    }
+
+    public String pasteText() {
+        ClipData.Item item = pasted();
+        CharSequence text = item == null ? null : item.coerceToText(this);
         return text == null ? null : text.toString();
+    }
+
+    public String pasteHtml() {
+        ClipData.Item item = pasted();
+        return item == null ? null : item.getHtmlText();
     }
 
     public String updateFile() {

@@ -2,7 +2,7 @@ use std::sync::{Mutex, TryLockError};
 
 static CLIPBOARD: Mutex<Option<arboard::Clipboard>> = Mutex::new(None);
 
-fn with<T>(work: impl FnOnce(&mut arboard::Clipboard) -> Result<T, arboard::Error>) -> Option<T> {
+fn access<T>(work: impl FnOnce(&mut arboard::Clipboard) -> Option<T>) -> Option<T> {
     let mut guard = match CLIPBOARD.try_lock() {
         Ok(guard) => guard,
         Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
@@ -11,14 +11,18 @@ fn with<T>(work: impl FnOnce(&mut arboard::Clipboard) -> Result<T, arboard::Erro
     if guard.is_none() {
         *guard = arboard::Clipboard::new().map_err(|error| report!("буфер обмена недоступен: {error}")).ok();
     }
-    match work(guard.as_mut()?) {
+    work(guard.as_mut()?)
+}
+
+fn with<T>(work: impl FnOnce(&mut arboard::Clipboard) -> Result<T, arboard::Error>) -> Option<T> {
+    access(|clipboard| match work(clipboard) {
         Ok(value) => Some(value),
         Err(arboard::Error::ContentNotAvailable) => None,
         Err(error) => {
             report!("буфер обмена: {error}");
             None
         }
-    }
+    })
 }
 
 pub fn copy(text: impl Into<String>) -> bool {
@@ -27,6 +31,10 @@ pub fn copy(text: impl Into<String>) -> bool {
 
 pub fn text() -> Option<String> {
     with(arboard::Clipboard::get_text)
+}
+
+pub fn html() -> Option<String> {
+    access(|clipboard| clipboard.get().html().ok())
 }
 
 pub fn png() -> Option<Vec<u8>> {

@@ -9,14 +9,15 @@ use masonry::peniko::{BlendMode, Brush, BrushRef, Color, Fill, FontData, ImageBr
 
 use super::super::markdown;
 use super::panel;
+use crate::ui::scroll::bar::Span;
 use crate::ui::theme;
+use crate::ui::tokens::size;
 
 const UNDERLINE: f64 = 1.0;
 const UNDERLINE_GAP: f64 = 2.0;
 
 #[derive(Clone, Copy)]
 pub(super) enum Tone {
-    Panel,
     Divider,
     Accent,
     AccentSubtle,
@@ -55,8 +56,21 @@ impl Drawing {
         Drawing { height, items, hits: Vec::new(), view: 0.0, width: 0.0 }
     }
 
+    pub(super) fn card(width: f64, height: f64, items: Vec<Item>) -> Self {
+        Drawing { view: width, width, ..Drawing::new(height, items) }
+    }
+
     pub fn max_scroll(&self) -> f64 {
         (self.width - self.view).max(0.0)
+    }
+
+    pub fn scrolled(&self, offset: f64) -> f64 {
+        offset.clamp(0.0, self.max_scroll())
+    }
+
+    pub fn scrollbar(&self, x: f64, y: f64, offset: f64) -> Option<Span> {
+        let track = Rect::new(x, y + self.height - size::SCROLLBAR_WIDTH, x + self.view, y + self.height);
+        (self.max_scroll() > 0.0).then(|| Span { track, viewport: self.view, content: self.width, offset: self.scrolled(offset) })
     }
 
     pub fn action_at(&self, p: Point) -> Option<&Action> {
@@ -81,11 +95,12 @@ impl Drawing {
     }
 
     pub fn paint(&self, painter: &mut Painter<'_>, x: f64, y: f64, scroll: f64, palette: &[Brush], hover: Option<usize>, search: Option<&crate::ui::editor::Search>) {
-        if self.max_scroll() > 0.0 {
-            painter.with_fill_clip(Rect::new(x, y, x + self.view, y + self.height), |painter| self.draw(painter, x - scroll, y, palette, hover, search));
-        } else {
-            self.draw(painter, x, y, palette, hover, search);
+        if self.view <= 0.0 {
+            return self.draw(painter, x, y, palette, hover, search);
         }
+        let frame = Rect::new(x, y, x + self.view, y + self.height).to_rounded_rect(panel::RADIUS);
+        painter.fill(frame, panel::Tone::Surface.fill()).draw();
+        painter.with_fill_clip(frame, |painter| self.draw(painter, x - self.scrolled(scroll), y, palette, hover, search));
     }
 
     fn draw<S: PaintSink + ?Sized>(&self, painter: &mut Painter<'_, S>, x: f64, y: f64, palette: &[Brush], hover: Option<usize>, search: Option<&crate::ui::editor::Search>) {
@@ -120,14 +135,9 @@ pub(super) fn link_hits(layout: &Layout<BrushIndex>, at: Point, links: &[(Range<
     out
 }
 
-pub(super) fn card(width: f64, height: f64) -> [Item; 1] {
-    [Item::Fill(Rect::new(0.0, 0.0, width, height).to_rounded_rect(panel::RADIUS), Tone::Panel)]
-}
-
 fn color(tone: Tone) -> Color {
     let tm = theme::current();
     match tone {
-        Tone::Panel => panel::Tone::Surface.fill(),
         Tone::Divider => tm.block_divider,
         Tone::Accent => tm.bg_accent,
         Tone::AccentSubtle => tm.bg_accent_subtle,

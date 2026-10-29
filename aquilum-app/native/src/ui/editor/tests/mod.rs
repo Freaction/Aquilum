@@ -1,4 +1,5 @@
 mod cards;
+mod dataview_scroll;
 mod emoji;
 mod clipboard;
 mod images;

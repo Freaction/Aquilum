@@ -48,6 +48,10 @@ pub fn thumb(cursor: CursorIcon) -> bool {
     matches!(cursor, CursorIcon::Grab | CursorIcon::Grabbing)
 }
 
+pub fn shown(cursor: CursorIcon) -> CursorIcon {
+    if cursor == CursorIcon::Grab { CursorIcon::Default } else { cursor }
+}
+
 pub fn selects(cursor: CursorIcon) -> bool {
     cursor == CursorIcon::Text
 }

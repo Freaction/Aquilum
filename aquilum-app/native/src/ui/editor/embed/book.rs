@@ -86,7 +86,7 @@ fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>
 pub fn books(rows: &[Row], available: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Drawing {
     let row_h = COVER_H + PAD * 2.0;
     let height = row_h * rows.len() as f64;
-    let mut items: Vec<Item> = super::card(available, height).into();
+    let mut items = Vec::new();
     let mut hits = Vec::new();
     for (i, entry) in rows.iter().enumerate() {
         let top = row_h * i as f64;
@@ -95,5 +95,5 @@ pub fn books(rows: &[Row], available: f64, make: &mut dyn FnMut(&Spec) -> Layout
         }
         row(&mut items, &mut hits, entry, top, available, make);
     }
-    Drawing { hits, ..Drawing::new(height, items) }
+    Drawing { hits, ..Drawing::card(available, height, items) }
 }

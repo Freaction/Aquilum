@@ -90,5 +90,7 @@ pub fn paint(ctx: &mut PaintCtx<'_>, painter: &mut Painter<'_>, bounds: Rect, ro
     }
     let text_color = tint.unwrap_or(if row.selected { t.text_primary } else { t.sidebar_text });
     let layout = texts.name.layout(ctx, &row.name, available, style);
-    render_text(painter, Affine::translate((bounds.x0 + text_x(row.depth), top)), layout, &[text_color.into()], true);
+    let origin = Point::new(bounds.x0 + text_x(row.depth), top);
+    text::paint_marks(painter, layout, &row.marks, origin);
+    render_text(painter, Affine::translate(origin.to_vec2()), layout, &[text_color.into()], true);
 }

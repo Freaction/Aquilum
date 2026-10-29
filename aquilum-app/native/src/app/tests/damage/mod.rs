@@ -4,6 +4,7 @@ use masonry::core::WidgetId;
 use masonry::kurbo::Rect;
 
 mod checks;
+mod dataview;
 mod frames;
 mod reports;
 mod sash;

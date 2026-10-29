@@ -5,6 +5,7 @@ use aquilum_core::files::models::{FileItem, FileItemType};
 use aquilum_core::files::workspace::read_directory_impl;
 
 use super::comparable;
+use super::vault::walk;
 
 #[derive(Default)]
 pub struct Counts {
@@ -29,11 +30,9 @@ impl Counts {
     }
 
     fn add(&mut self, dir: &Path) {
-        let (items, folders) = read(dir);
-        self.own.insert(comparable(dir), items);
-        for folder in folders {
-            self.add(&folder);
-        }
+        walk(dir, |key, items| {
+            self.own.insert(key, items.len() as u32);
+        });
     }
 
     fn forget(&mut self, key: &str) {
@@ -73,5 +72,23 @@ impl Counts {
         let key = comparable(dir);
         let own = *self.own.get(&key)?;
         Some(own + self.own.range(subtree(&key)).map(|(_, items)| items).sum::<u32>())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::file_tree::model::tests::tree;
+
+    #[test]
+    fn the_scan_counts_every_folder_and_a_refresh_adds_a_new_subtree() {
+        let (dir, _model) = tree();
+        let mut counts = Counts::scan(dir.path());
+        assert_eq!(counts.total(dir.path()), Some(9));
+        assert_eq!(counts.total(&dir.path().join("Проекты")), Some(3));
+        std::fs::create_dir_all(dir.path().join("Проекты/Новая")).unwrap();
+        std::fs::write(dir.path().join("Проекты/Новая/файл.md"), "").unwrap();
+        counts.refresh(&dir.path().join("Проекты"));
+        assert_eq!(counts.total(dir.path()), Some(11));
     }
 }

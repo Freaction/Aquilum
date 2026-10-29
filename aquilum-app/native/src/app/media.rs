@@ -17,7 +17,19 @@ fn natural_width(source: &Source<'_>) -> Option<f64> {
 }
 
 impl App {
-    pub fn paste(&mut self, root: &mut RenderRoot) -> bool {
+    fn paste_formatted(&self, root: &mut RenderRoot) -> bool {
+        let Some(ids) = self.note_ids.as_ref().filter(|ids| root.focused_widget() == Some(ids.body.id())) else { return false };
+        if !self.workspace.core.settings.get_config().editor.paste_formatting {
+            return false;
+        }
+        let Some(markdown) = crate::clipboard::html().and_then(|html| aquilum_core::markdown::html::to_markdown(&html)) else { return false };
+        ids.body.edit(root, |mut editor| TextEditor::paste_markdown(&mut editor, &markdown)).unwrap_or(false)
+    }
+
+    pub fn paste(&mut self, root: &mut RenderRoot, plain: bool) -> bool {
+        if !plain && self.paste_formatted(root) {
+            return true;
+        }
         if let Some(text) = crate::clipboard::text() {
             root.handle_text_event(masonry::core::TextEvent::ClipboardPaste(text));
             return true;

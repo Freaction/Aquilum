@@ -83,8 +83,7 @@ impl TextEditor {
             self.replace(range, "", Kind::Other);
             return;
         }
-        let (target, _) = self.step(forward, word);
-        let range = self.focus.min(target)..self.focus.max(target);
+        let range = self.doc.erase(self.focus, forward, word);
         if !range.is_empty() {
             self.replace(range, "", Kind::Deleting);
         }
@@ -97,8 +96,9 @@ impl TextEditor {
             return;
         }
         let (target, _) = self.line_edge(false);
-        if target < self.focus {
-            self.replace(target..self.focus, "", Kind::Other);
+        let start = if target < self.focus { target } else { self.doc.erase(self.focus, false, false).start };
+        if start < self.focus {
+            self.replace(start..self.focus, "", Kind::Other);
         }
     }
 

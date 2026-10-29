@@ -3,7 +3,7 @@ use std::time::UNIX_EPOCH;
 
 use super::*;
 
-fn tree() -> (tempfile::TempDir, TreeModel) {
+pub(super) fn tree() -> (tempfile::TempDir, TreeModel) {
     let dir = crate::test_dir::tempdir();
     let root = dir.path();
     std::fs::create_dir_all(root.join("Проекты/Вложенная")).unwrap();
@@ -20,7 +20,7 @@ fn tree() -> (tempfile::TempDir, TreeModel) {
     (dir, model)
 }
 
-fn names(model: &TreeModel) -> Vec<(String, usize)> {
+pub(super) fn names(model: &TreeModel) -> Vec<(String, usize)> {
     model.rows().iter().map(|r| (r.name.clone(), r.depth)).collect()
 }
 
@@ -75,7 +75,7 @@ fn drop_rules() {
     assert_eq!(model.drop_target(&readme, index(&model, "Aquilum")), Some(projects));
 }
 
-fn touch(path: &Path, seconds: u64) {
+pub(super) fn touch(path: &Path, seconds: u64) {
     let file = std::fs::File::options().write(true).open(path).unwrap();
     file.set_modified(UNIX_EPOCH + std::time::Duration::from_secs(seconds)).unwrap();
 }

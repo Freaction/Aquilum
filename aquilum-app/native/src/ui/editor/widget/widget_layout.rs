@@ -16,7 +16,7 @@ impl TextEditor {
                 ctx.request_layout();
             }
             Update::HoveredChanged(false) => {
-                if self.media_leave() | self.hovered_link.take().is_some() | self.code_bar.take_if(|(_, bar)| !bar.dragging()).is_some() | self.table_unhover() {
+                if self.media_leave() | self.hovered_link.take().is_some() | self.block_bar.take_if(|(_, bar)| !bar.dragging()).is_some() | self.table_unhover() {
                     ctx.request_render();
                 }
             }
@@ -108,7 +108,7 @@ impl TextEditor {
     pub(super) fn do_get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
         self.media_cursor()
             .or_else(|| self.table_cursor().filter(|_| self.hovered_table.is_some()))
-            .or(self.code_bar.map(|(_, bar)| bar.cursor()))
+            .or(self.block_bar.map(|(_, bar)| bar.cursor()))
             .or(self.pointer_hover.then_some(CursorIcon::Pointer))
             .unwrap_or(CursorIcon::Text)
     }

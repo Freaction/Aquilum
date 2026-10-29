@@ -1,5 +1,6 @@
 mod adaptive;
 mod damage;
+mod dataview_scroll;
 mod dialogs;
 mod external;
 mod focus_mode;
@@ -22,6 +23,8 @@ mod support;
 mod tab_list;
 mod templates;
 mod text_files;
+mod tree_filter;
+mod tree_focus;
 mod tree_pins;
 mod tree_toolbar;
 mod updater;

@@ -93,6 +93,7 @@ pub(super) fn editor(config: &AppConfig) -> Vec<Block> {
                 switch("coloredTags", e.colored_tags, |c, v| c.editor.colored_tags = flag(v)),
                 switch("selectionMatches", e.selection_matches, |c, v| c.editor.selection_matches = flag(v)),
                 switch("autoLinkTitle", e.auto_link_title, |c, v| c.editor.auto_link_title = flag(v)),
+                switch("pasteFormatting", e.paste_formatting, |c, v| c.editor.paste_formatting = flag(v)),
             ],
         },
         Block {

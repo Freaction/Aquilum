@@ -9,13 +9,18 @@ impl Session {
         let Some((r, c)) = self.active else { return };
         let Some(cell) = view.cell(r, c) else { return };
         let value = view.model.value(r, c);
-        if !extend && self.caret != self.anchor {
+        if !extend && !word && self.caret != self.anchor {
             self.caret = if forward { self.caret.max(self.anchor) } else { self.caret.min(self.anchor) };
             self.anchor = self.caret;
             return;
         }
         let from = Cursor::from_byte_index(&cell.layout, self.caret.min(value.len()), Affinity::Downstream);
-        self.caret = caret::step(&cell.layout, value, from, forward, word).index();
+        let hop = |cursor| caret::step(&cell.layout, value, cursor, forward, word);
+        let mut moved = hop(from);
+        if moved.index() == from.index() {
+            moved = hop(moved);
+        }
+        self.caret = moved.index();
         if !extend {
             self.anchor = self.caret;
         }

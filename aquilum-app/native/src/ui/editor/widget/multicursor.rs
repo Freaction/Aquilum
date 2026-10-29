@@ -49,15 +49,9 @@ impl TextEditor {
         self.each_cursor(Kind::Typing, |_, range| Some((range, text.to_owned())))
     }
 
-    pub(super) fn apply_multicursor_delete(&mut self, forward: bool) -> bool {
+    pub(super) fn apply_multicursor_delete(&mut self, forward: bool, word: bool) -> bool {
         self.each_cursor(Kind::Deleting, |doc, range| {
-            let range = if !range.is_empty() {
-                range
-            } else if forward {
-                range.start..range.start + doc.next_grapheme(range.start)
-            } else {
-                range.start - doc.previous_grapheme(range.start)..range.start
-            };
+            let range = if range.is_empty() { doc.erase(range.start, forward, word) } else { range };
             (!range.is_empty()).then_some((range, String::new()))
         })
     }
@@ -98,7 +92,7 @@ mod tests {
         editor.apply_multicursor_typing("XY");
         assert_eq!(editor.doc.whole(), "abXYcdeXYfghXYij");
         assert_eq!(cursors(&editor), (4, vec![9, 14]));
-        editor.apply_multicursor_delete(false);
+        editor.apply_multicursor_delete(false, false);
         assert_eq!(editor.doc.whole(), "abXcdeXfghXij");
         assert_eq!(cursors(&editor), (3, vec![7, 11]));
     }
@@ -110,7 +104,17 @@ mod tests {
         let (thumb, accent) = ("a👍🏽".len(), "a👍🏽b e\u{301}".len());
         (editor.anchor, editor.focus) = (thumb, thumb);
         editor.add_cursor_at(accent);
-        editor.apply_multicursor_delete(false);
+        editor.apply_multicursor_delete(false, false);
         assert_eq!(editor.doc.whole(), "ab  c");
+    }
+
+    #[test]
+    fn every_cursor_deletes_a_whole_word() {
+        let mut editor = TextEditor::new("раз два\nтри четыре");
+        let (first, second) = ("раз два".len(), "раз два\nтри четыре".len());
+        (editor.anchor, editor.focus) = (first, first);
+        editor.add_cursor_at(second);
+        editor.apply_multicursor_delete(false, true);
+        assert_eq!(editor.doc.whole(), "раз \nтри ");
     }
 }

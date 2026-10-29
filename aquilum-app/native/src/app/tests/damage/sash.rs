@@ -12,7 +12,9 @@ fn dragging_the_sidebar_edge_repaints_the_edge_but_not_the_tree() {
     press(&mut h, at.x, at.y, spec.scale);
     h.deliver();
     let _ = frames.draw(&mut h);
-    let tree = Rect::new(0.0, 0.0, at.x - 4.0 * spec.scale, f64::from(spec.height));
+    let field = rect_of(&h, h.app.tree.filter_field().unwrap(), spec.scale);
+    let list_top = field.y1 + (crate::ui::tokens::size::INPUT_XS_PADDING_Y + crate::ui::tokens::size::SPACE_8) * spec.scale;
+    let tree = Rect::new(0.0, list_top, at.x - 4.0 * spec.scale, f64::from(spec.height));
     for i in 1..=6 {
         pointer(&mut h, at.x + f64::from(i) * 4.0 * spec.scale, at.y, spec.scale, true);
         h.deliver();

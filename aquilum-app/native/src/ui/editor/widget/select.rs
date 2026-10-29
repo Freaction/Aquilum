@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::editor::caret;
 
 impl TextEditor {
     pub fn selection(&self) -> Range<usize> {
@@ -26,16 +27,9 @@ impl TextEditor {
         let (offset, _) = self.hit(point);
         let i = self.doc.at_offset(offset);
         let p = self.doc.paragraph(i);
-        let local = point - self.shift() - self.doc.origin(i);
-        match count {
-            2 => {
-                let Some(layout) = p.laid() else { return offset..offset };
-                let r = Selection::word_from_point(layout, local.x as f32, local.y as f32).text_range();
-                p.start + r.start..p.start + r.end
-            }
-            3 => p.range(),
-            _ => offset..offset,
-        }
+        let Some(layout) = p.laid().filter(|_| count >= 2) else { return offset..offset };
+        let unit = caret::unit(layout, self.doc.slice(p.range()), point - self.shift() - self.doc.origin(i), count);
+        p.start + unit.start..p.start + unit.end
     }
 
     pub(super) fn select_at(&mut self, point: Point, count: u8, extend: bool) {

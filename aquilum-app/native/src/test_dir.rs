@@ -11,7 +11,7 @@ pub fn word_modifier() -> masonry::core::keyboard::Modifiers {
     if cfg!(target_os = "macos") { masonry::core::keyboard::Modifiers::ALT } else { masonry::core::keyboard::Modifiers::CONTROL }
 }
 
-pub(crate) use crate::host::PRIMARY_MOUSE as MOUSE;
+pub(crate) use crate::host::{PRIMARY_MOUSE as MOUSE, TOUCH};
 
 pub fn options(width: u32, height: u32, scale_factor: f64) -> masonry::app::RenderRootOptions {
     masonry::app::RenderRootOptions {

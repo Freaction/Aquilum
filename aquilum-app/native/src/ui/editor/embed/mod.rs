@@ -11,7 +11,7 @@ use masonry::imaging::Painter;
 use masonry::peniko::Brush;
 
 use super::table::{Overlay, TableView};
-use drawing::{Item, Tone, card, link_hits};
+use drawing::{Item, Tone, link_hits};
 
 pub use book::{Row as BookRow, books};
 pub use dataview::dataview;

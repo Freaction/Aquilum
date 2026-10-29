@@ -2,10 +2,13 @@
 //! места (как `white-space: nowrap; text-overflow: ellipsis`).
 
 use masonry::core::{BrushIndex, PaintCtx};
+use masonry::imaging::Painter;
+use masonry::kurbo::{Point, Rect, RoundedRect};
 use masonry::parley::style::StyleProperty;
-use masonry::parley::{FontContext, FontFamily, FontWeight, Layout, LayoutContext, LineHeight, RangedBuilder};
+use masonry::parley::{Affinity, Cursor, FontContext, FontFamily, FontWeight, Layout, LayoutContext, LineHeight, RangedBuilder, Selection};
 
 use super::theme;
+use super::tokens::size;
 
 /// Начертание строки: кегль и вес (по умолчанию — из настроек шрифта интерфейса), высота строки.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -106,4 +109,15 @@ pub fn label(text: &str, paint: super::widgets::Paint, weight: Option<f32>, lead
 
 pub fn selectable(text: &str, paint: super::widgets::Paint, weight: Option<f32>, leading: super::widgets::Leading) -> masonry::core::NewWidget<super::widgets::Label> {
     masonry::core::NewWidget::new(plain(text, paint, weight, leading).selectable())
+}
+
+pub fn paint_marks(painter: &mut Painter<'_>, layout: &Layout<BrushIndex>, marks: &[(usize, usize)], origin: Point) {
+    let color = theme::current().search_match_bg;
+    for &(start, end) in marks {
+        let selection = Selection::new(Cursor::from_byte_index(layout, start, Affinity::Downstream), Cursor::from_byte_index(layout, end, Affinity::Upstream));
+        for (rect, _) in selection.geometry(layout) {
+            let rect = Rect::new(rect.x0, rect.y0, rect.x1, rect.y1) + origin.to_vec2();
+            painter.fill(RoundedRect::from_rect(rect, size::ROUNDED_SM), color).draw();
+        }
+    }
 }

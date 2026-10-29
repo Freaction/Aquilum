@@ -28,15 +28,11 @@ pub struct FindBar {
 }
 
 pub fn find_bar() -> (NewWidget<dyn Widget>, FindBar) {
-    let (placeholder, field, placeholder_handle) = search::field("", t("editor.find"));
+    let (placeholder, field, placeholder_handle) = search::field("", t("editor.find"), size::SIZE_24);
     let counter = NewWidget::new(Label::new("0/0", |t| t.text_muted).nowrap());
     let counter_handle = Handle::of(&counter);
-    let input = Flex::row()
-        .cross_axis_alignment(CrossAxisAlignment::Center)
-        .with_fixed(IconView::new(icons::SEARCH, size::SIZE_16, size::SIZE_16, 1.4, || theme::current().icon_secondary))
-        .with(placeholder, 1.0)
-        .with_fixed(counter);
-    let input = InputBox::new(NewWidget::new(input).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_6)))), size::PAGE_SEARCH_MAX_WIDTH);
+    let icon = IconView::new(icons::SEARCH, size::SIZE_16, size::SIZE_16, 1.4, || theme::current().icon_secondary);
+    let input = InputBox::new(search::input_row(icon, placeholder, Some(search::after_gap(counter).erased())), size::PAGE_SEARCH_MAX_WIDTH);
     let button = |icon, label: &str| NewWidget::new(IconButton::new(icon, t(label)));
     let (prev, next, all, close) =
         (button(icons::ARROW_UP, "editor.prevMatch"), button(icons::ARROW_DOWN, "editor.nextMatch"), button(icons::TEXT_SELECT, "editor.selectAllMatches"), button(icons::X, "editor.closeSearch"));

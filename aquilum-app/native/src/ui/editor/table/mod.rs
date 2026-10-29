@@ -13,7 +13,7 @@ mod cases;
 #[cfg(test)]
 mod tests;
 
-pub use columns::fit as fit_columns;
+pub use columns::{NARROWEST, fit as fit_columns};
 pub use commands::Command;
 #[cfg(test)]
 pub use markdown::parse;

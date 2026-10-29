@@ -7,7 +7,7 @@ pub enum FileItemType {
     Folder,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct FileItem {
     pub id: String,
     pub name: String,

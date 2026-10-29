@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use super::Document;
+use crate::ui::editor::caret;
 
 impl Document {
     pub fn len(&self) -> usize {
@@ -45,12 +46,14 @@ impl Document {
         self.full.byte(at)
     }
 
-    pub fn next_grapheme(&self, at: usize) -> usize {
-        self.full.byte_slice(at..).graphemes().next().map_or(0, |g| g.len())
-    }
-
-    pub fn previous_grapheme(&self, at: usize) -> usize {
-        self.full.byte_slice(..at).graphemes().next_back().map_or(0, |g| g.len())
+    pub fn erase(&self, at: usize, forward: bool, word: bool) -> Range<usize> {
+        let line = self.line_at(at);
+        let local = caret::erase(&self.copy(line.clone()), at - line.start, forward, word);
+        match (local.is_empty(), forward) {
+            (false, _) => line.start + local.start..line.start + local.end,
+            (true, true) => at..(at + 1).min(self.len()),
+            (true, false) => at.saturating_sub(1)..at,
+        }
     }
 
     pub fn front(&self) -> usize {

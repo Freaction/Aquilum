@@ -157,6 +157,8 @@
   --q-input-gap: var(--q-space-6);
   --q-input-padding-x: var(--q-space-8);
   --q-input-padding-y: var(--q-space-6);
+  --q-input-xs-padding-x: var(--q-space-6);
+  --q-input-xs-padding-y: var(--q-space-4);
 
   --q-dialog-padding: var(--q-space-12);
   --q-dialog-gap: var(--q-space-8);

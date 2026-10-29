@@ -10,6 +10,10 @@ pub fn text() -> Option<String> {
     java::read_text(jni_str!("pasteText"))
 }
 
+pub fn html() -> Option<String> {
+    java::read_text(jni_str!("pasteHtml"))
+}
+
 pub fn png() -> Option<Vec<u8>> {
     None
 }

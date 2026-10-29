@@ -134,6 +134,14 @@ impl App {
         }
     }
 
+    pub fn pointer_event(&mut self, root: &mut RenderRoot, event: masonry::core::PointerEvent) {
+        if let masonry::core::PointerEvent::Down(press) = &event {
+            let at = press.state.position.to_logical::<f64>(press.state.scale_factor);
+            self.tree.press_outside(root, masonry::kurbo::Point::new(at.x, at.y));
+        }
+        root.handle_pointer_event(event);
+    }
+
     /// Действие в основном окне; `true` — сменилась открытая заметка (и заголовок окна).
     pub(super) fn on_main_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction, window: Size) -> bool {
         match self.tree.on_action(root, id, action) {

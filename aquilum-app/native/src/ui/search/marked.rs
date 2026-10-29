@@ -1,12 +1,12 @@
 use masonry::core::{BrushIndex, PaintCtx, render_text};
 use masonry::imaging::Painter;
-use masonry::kurbo::{Affine, Point, Rect, RoundedRect};
+use masonry::kurbo::{Affine, Point};
 use masonry::parley::style::StyleProperty;
-use masonry::parley::{Affinity, Cursor, Layout, Selection};
+use masonry::parley::Layout;
 use masonry::peniko::Color;
 
 use super::card::{CardData, Marks};
-use crate::ui::text::{Style, builder};
+use crate::ui::text::{self, Style, builder};
 use crate::ui::theme;
 use crate::ui::tokens::{number, size};
 
@@ -24,18 +24,8 @@ pub(super) fn marked_layout(ctx: &mut PaintCtx<'_>, text: &str, marks: &[(usize,
 }
 
 pub(super) fn paint_marked(painter: &mut Painter<'_>, layout: &Layout<BrushIndex>, marks: &[(usize, usize)], origin: Point, color: Color) {
-    let t = theme::current();
-    for &(start, end) in marks {
-        let selection = Selection::new(
-            Cursor::from_byte_index(layout, start, Affinity::Downstream),
-            Cursor::from_byte_index(layout, end, Affinity::Upstream),
-        );
-        for (rect, _) in selection.geometry(layout) {
-            let rect = Rect::new(rect.x0, rect.y0, rect.x1, rect.y1) + origin.to_vec2();
-            painter.fill(RoundedRect::from_rect(rect, size::ROUNDED_SM), t.search_match_bg).draw();
-        }
-    }
-    render_text(painter, Affine::translate(origin.to_vec2()), layout, &[color.into(), t.text_primary.into()], true);
+    text::paint_marks(painter, layout, marks, origin);
+    render_text(painter, Affine::translate(origin.to_vec2()), layout, &[color.into(), theme::current().text_primary.into()], true);
 }
 
 pub(super) const LINE: f32 = size::SIZE_20 as f32;
