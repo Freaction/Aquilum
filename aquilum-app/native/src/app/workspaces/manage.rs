@@ -34,7 +34,8 @@ impl App {
             items.iter().enumerate().map(|(index, (label, icon, disabled))| Entry { label, icon: Some(*icon), disabled: *disabled, divided: index == DELETE }).collect();
         let menu = Menu::entries(&t("workspaces.actions"), &entries);
         let layer = menu.id();
-        root.add_layer(menu, Menu::context_origin(at, entries.len(), self.window));
+        root.add_layer(menu, Point::ZERO);
+        self.place_layer(root, layer, masonry::kurbo::Rect::from_points(at, at));
         root.focus_on(Some(layer));
         state.open = Open::Menu(layer, vault);
     }

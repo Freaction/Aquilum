@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::book::CoverAction;
 
 #[test]
 fn cover_actions_rewrite_frontmatter() {
@@ -6,7 +7,11 @@ fn cover_actions_rewrite_frontmatter() {
     let mut h = Harness::new();
     let note = h.write_note("Книга.md", "---\ncover: true\ntype: book\nPage_cover: pattern:polka\nBook_cover: Files/x.png\n---\nтекст");
     h.open(note.clone());
-    let hero = |h: &Harness| h.app.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()).map(|(_, ids)| (ids.random, ids.remove, ids.thumbnail.map(|t| t.id())));
+    let hero = |h: &Harness| {
+        let (_, ids) = &h.app.note_ids.as_ref()?.hero;
+        let button = |wanted| ids.actions.iter().find(|&&(_, action)| action == wanted).map(|&(id, _)| id);
+        Some((button(CoverAction::Random), button(CoverAction::Remove), ids.thumbnail.map(|t| t.id())))
+    };
     let (random, _, _) = hero(&h).expect("обложка и книга");
     h.act(random.unwrap(), Pressed);
     let fields = crate::frontmatter::parse(&h.app.text.to_string()).unwrap();
@@ -74,8 +79,8 @@ fn cover_disappears_when_its_fields_are_removed() {
     assert_eq!(shown(&h).as_deref(), Some("tunne"), "обложка не сбросилась после правки узора");
     let cover = text.find("cover: true").unwrap();
     erase(&mut h, cover..cover + "cover: true\n".len());
-    assert!(h.app.note_ids.as_ref().unwrap().hero.is_none(), "обложка осталась без cover: true");
+    assert!(h.app.note_ids.as_ref().unwrap().hero.1.cover.is_none(), "обложка осталась без cover: true");
     h.type_text("cover: true\n");
-    assert!(h.app.note_ids.as_ref().unwrap().hero.is_some());
+    assert!(h.app.note_ids.as_ref().unwrap().hero.1.cover.is_some());
     let _ = h.root.redraw();
 }

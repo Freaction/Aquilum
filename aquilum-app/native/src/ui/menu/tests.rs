@@ -1,5 +1,6 @@
 use masonry::app::RenderRoot;
 use masonry::core::{Widget, WidgetRef};
+use masonry::kurbo::{Point, Rect, Size};
 
 use super::{Entry, Menu};
 use crate::ui::tokens::size;
@@ -17,6 +18,14 @@ fn rows(divided: bool) -> Vec<(f64, bool)> {
         list = list.children()[0];
     }
     list.children().iter().map(|child| (child.ctx().bounding_box().y0, child.downcast::<Rule>().is_some())).collect()
+}
+
+#[test]
+fn a_menu_stays_inside_the_safe_area() {
+    let (area, menu) = (Rect::new(0.0, 40.0, 360.0, 700.0), Size::new(180.0, 140.0));
+    assert_eq!(Menu::around(Rect::new(300.0, 0.0, 340.0, 20.0), menu, area), Point::new(172.0, 48.0), "под строкой состояния и у правого края");
+    assert_eq!(Menu::around(Rect::new(10.0, 650.0, 60.0, 670.0), menu, area), Point::new(10.0, 506.0), "у нижнего края — над выделением");
+    assert_eq!(Menu::around(Rect::new(10.0, 100.0, 60.0, 120.0), menu, area), Point::new(10.0, 124.0), "под выделением");
 }
 
 #[test]

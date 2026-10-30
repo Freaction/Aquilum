@@ -60,7 +60,7 @@ impl App {
     }
 
     fn set_book_busy(&self, root: &mut RenderRoot, busy: bool) {
-        if let Some(button) = self.note_ids.as_ref().and_then(|n| n.hero.as_ref()).and_then(|(_, ids)| ids.book_button) {
+        if let Some(button) = self.note_ids.as_ref().and_then(|n| n.hero.1.book_button) {
             button.edit(root, |mut b| TextButton::set_disabled(&mut b, busy));
         }
     }

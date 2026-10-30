@@ -1,7 +1,65 @@
 use super::*;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CoverAction {
+    Add,
+    Replace,
+    Random,
+    Reposition,
+    Remove,
+    UploadBook,
+}
+
+impl CoverAction {
+    pub fn list(image: Option<bool>, book: bool) -> Vec<CoverAction> {
+        use CoverAction::*;
+        [Add, Replace, Random, Reposition, Remove, UploadBook]
+            .into_iter()
+            .filter(|&action| match action {
+                Add => image.is_none(),
+                Replace | Remove => image.is_some(),
+                Reposition => image == Some(true),
+                Random => true,
+                UploadBook => book,
+            })
+            .collect()
+    }
+
+    pub fn entry(self) -> (String, icons::Icon) {
+        match self {
+            CoverAction::Add => (t("book.addPageCover"), icons::UPLOAD),
+            CoverAction::Replace => (t("book.replacePageCover"), icons::UPLOAD),
+            CoverAction::Random => (t("book.randomCover"), icons::SHUFFLE),
+            CoverAction::Reposition => (t("book.coverPosition"), icons::UNFOLD_VERTICAL),
+            CoverAction::Remove => (t("book.removePageCover"), icons::TRASH),
+            CoverAction::UploadBook => (t("book.uploadBookCover"), icons::BOOK_OPEN),
+        }
+    }
+}
+
 pub struct ActionBar {
-    pub(super) row: WidgetPod<Flex>,
+    row: WidgetPod<Flex>,
+}
+
+impl ActionBar {
+    pub(super) fn new(actions: &[CoverAction], ids: &mut HeroIds) -> NewWidget<Self> {
+        let mut row = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center);
+        for (index, &action) in actions.iter().enumerate() {
+            let (label, icon) = action.entry();
+            let reposition = action == CoverAction::Reposition;
+            let button = NewWidget::new(if reposition { IconButton::mode(icon, label, false) } else { IconButton::new(icon, label) });
+            if reposition {
+                ids.reposition = Some(Handle::of(&button));
+            }
+            ids.actions.push((button.id(), action));
+            if index > 0 {
+                row = row.with_fixed(crate::ui::widgets::Rule::new(Axis::Vertical, || theme::current().book_actions_divider));
+            }
+            row = row.with_fixed(button);
+        }
+        let row = NewWidget::new(row).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))));
+        NewWidget::new(ActionBar { row: row.to_pod() })
+    }
 }
 
 impl Widget for ActionBar {

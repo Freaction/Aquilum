@@ -2,6 +2,7 @@ use masonry::core::{ComposeCtx, CursorIcon, LayoutCtx, MeasureCtx, PropertiesMut
 use masonry::kurbo::{Axis, Point, Size};
 use masonry::layout::{LenReq, Length};
 use super::TextEditor;
+use crate::ui::editor::TextAction;
 
 impl TextEditor {
     pub(super) fn do_update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
@@ -26,6 +27,7 @@ impl TextEditor {
                     self.reset_blink();
                 } else {
                     self.hide_suggest();
+                    self.close_menu(|closed| ctx.submit_action::<TextAction>(closed));
                 }
                 ctx.request_layout();
                 ctx.request_render();
@@ -74,6 +76,9 @@ impl TextEditor {
     }
 
     pub(super) fn do_compose(&mut self, ctx: &mut ComposeCtx<'_>) {
+        if let Some(settle) = self.follow_menu(ctx.window_transform(), |hidden| ctx.submit_action::<TextAction>(hidden)) {
+            crate::ui::timer::wake(ctx.widget_id(), settle);
+        }
         if let Some(at) = self.drag_at.filter(|_| ctx.is_active())
             && self.drag_select(ctx.window_transform().inverse() * at)
         {
@@ -87,7 +92,7 @@ impl TextEditor {
         if std::mem::take(&mut self.doc.rebroke) {
             ctx.request_layout();
         }
-        if self.single_line {
+        if self.single_line || self.doc.print {
             return;
         }
         if self.doc.track((top, bottom)) {

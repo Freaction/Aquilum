@@ -79,7 +79,7 @@ fn typing_filters_the_list_and_a_click_outside_closes_the_window() {
         _ => unreachable!(),
     };
     let cancel = masonry::core::ErasedAction::from(Box::new(DialogAnswer::Cancel));
-    h.app.on_action(&mut h.root, layer, cancel, Size::new(f64::from(W), f64::from(H)));
+    h.app.on_action(&mut h.root, layer, cancel);
     assert!(h.app.popup.is_none(), "щелчок вне окна не закрыл шаблоны");
 }
 

@@ -12,6 +12,7 @@ use crate::ui::tokens::size;
 
 impl TableView {
     pub fn paint(&self, painter: &mut Painter<'_>, x: f64, y: f64, palette: &[Brush], overlay: &Overlay) {
+        let x = if overlay.print { x - self.corner } else { x };
         let tm = theme::current();
         let s = overlay.scroll_x;
         let n = self.ys.len() - 1;
@@ -20,12 +21,14 @@ impl TableView {
         let stroke = Stroke::new(size::BORDER_1);
         let centered = |rect: Rect, label: &Layout<BrushIndex>| Affine::translate((x + rect.center().x - f64::from(label.width()) / 2.0, y + rect.center().y - f64::from(label.height()) / 2.0));
         painter.with_fill_clip(Rect::new(x + self.corner, y, x + self.scroll_w, y + self.height), |painter| {
-            for (c, label) in self.columns.iter().enumerate() {
-                let rect = Rect::new(tx + self.xs[c], PAD_Y, tx + self.xs[c + 1], PAD_Y + STRIP);
-                if overlay.hover == Some(Hit::Column(c)) {
-                    painter.fill(RoundedRect::from_rect(rect + Vec2::new(x, y), 2.0), tm.bg_surface_hover).draw();
+            if !overlay.print {
+                for (c, label) in self.columns.iter().enumerate() {
+                    let rect = Rect::new(tx + self.xs[c], PAD_Y, tx + self.xs[c + 1], PAD_Y + STRIP);
+                    if overlay.hover == Some(Hit::Column(c)) {
+                        painter.fill(RoundedRect::from_rect(rect + Vec2::new(x, y), 2.0), tm.bg_surface_hover).draw();
+                    }
+                    render_text(painter, centered(rect, label), label, palette, true);
                 }
-                render_text(painter, centered(rect, label), label, palette, true);
             }
             let mut seen = 0;
             for cell in &self.cells {
@@ -50,15 +53,17 @@ impl TableView {
                 painter.stroke(r.inset(-1.0), &Stroke::new(2.0), tm.border_accent).draw();
             }
         });
-        painter.with_fill_clip(Rect::new(x, y + TOP, x + self.corner, y + bottom), |painter| {
-            for (r, label) in self.numbers.iter().enumerate() {
-                let rect = Rect::new(0.0, TOP + self.ys[r], self.corner, TOP + self.ys[r + 1]);
-                if overlay.hover == Some(Hit::Row(r)) {
-                    painter.fill(RoundedRect::from_rect(rect + Vec2::new(x, y), 2.0), tm.bg_surface_hover).draw();
+        if !overlay.print {
+            painter.with_fill_clip(Rect::new(x, y + TOP, x + self.corner, y + bottom), |painter| {
+                for (r, label) in self.numbers.iter().enumerate() {
+                    let rect = Rect::new(0.0, TOP + self.ys[r], self.corner, TOP + self.ys[r + 1]);
+                    if overlay.hover == Some(Hit::Row(r)) {
+                        painter.fill(RoundedRect::from_rect(rect + Vec2::new(x, y), 2.0), tm.bg_surface_hover).draw();
+                    }
+                    render_text(painter, centered(rect, label), label, palette, true);
                 }
-                render_text(painter, centered(rect, label), label, palette, true);
-            }
-        });
+            });
+        }
         if overlay.hovered {
             let row = Rect::new(x, y + bottom, x + self.edge(), y + bottom + ADD);
             let col = Rect::new(x + self.edge(), y + PAD_Y, x + self.edge() + ADD, y + bottom);

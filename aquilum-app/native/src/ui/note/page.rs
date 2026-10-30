@@ -26,7 +26,7 @@ pub struct NoteView<'a> {
     pub focus_mode: bool,
     pub compact: bool,
     pub wide: bool,
-    pub hero: Option<crate::ui::book::HeroView>,
+    pub hero: crate::ui::book::HeroView,
     pub resolver: Option<std::sync::Arc<dyn crate::ui::editor::resolve::Resolver>>,
     pub smart: crate::ui::editor::Smart,
     pub wake: std::sync::Arc<dyn Fn() + Send + Sync>,
@@ -47,7 +47,7 @@ pub struct NoteIds {
     pub title: Handle<TextEditor>,
     pub metadata: Handle<Slot>,
     pub body: Handle<crate::ui::editor::TextEditor>,
-    pub hero: Option<(Handle<crate::ui::book::Hero>, crate::ui::book::HeroIds)>,
+    pub hero: (Handle<crate::ui::book::Hero>, crate::ui::book::HeroIds),
     pub hero_slot: Handle<Slot>,
     pub spacer: Handle<SizedBox>,
     pub wrapper: Handle<Flex>,
@@ -58,25 +58,16 @@ pub struct NoteIds {
 
 pub struct HeroParts {
     pub widget: NewWidget<dyn Widget>,
-    pub hero: Option<(Handle<crate::ui::book::Hero>, crate::ui::book::HeroIds)>,
+    pub hero: (Handle<crate::ui::book::Hero>, crate::ui::book::HeroIds),
     pub top: f64,
     pub inset: f64,
 }
 
-pub fn hero_parts(view: Option<crate::ui::book::HeroView>) -> HeroParts {
-    match view {
-        Some(view) => {
-            let (hero, ids) = crate::ui::book::hero(view);
-            let handle = Handle::of(&hero);
-            HeroParts { widget: hero.erased(), hero: Some((handle, ids)), top: size::SPACE_24, inset: size::EDITOR_PADDING_X * 2.0 }
-        }
-        None => HeroParts {
-            widget: NewWidget::new(SizedBox::empty().height(Length::ZERO)).erased(),
-            hero: None,
-            top: size::EDITOR_PADDING_Y,
-            inset: 0.0,
-        },
-    }
+pub fn hero_parts(view: crate::ui::book::HeroView) -> HeroParts {
+    let bare = view.cover.is_none() && view.book.is_none();
+    let (hero, ids) = crate::ui::book::hero(view);
+    let (top, inset) = if bare { (size::EDITOR_PADDING_Y, 0.0) } else { (size::SPACE_24, size::EDITOR_PADDING_X * 2.0) };
+    HeroParts { hero: (Handle::of(&hero), ids), widget: hero.erased(), top, inset }
 }
 
 pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {

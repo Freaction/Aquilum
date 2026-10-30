@@ -16,6 +16,7 @@ mod tests;
 pub use rename::rename_editor;
 pub use table::Command as TableCommand;
 pub use embed::media::media_line;
+pub use change::Change;
 pub use widget::{Search, Smart, Status, TextEditor};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -29,8 +30,17 @@ pub struct Edit {
 pub enum TextAction {
     Changed(String),
     Edited(Vec<Edit>),
+    Outside(Vec<(std::ops::Range<usize>, String)>),
     Entered(String),
     Cancelled,
     Page { down: bool, extend: bool },
     Line { down: bool },
+    Menu(Option<ContextMenu>),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ContextMenu {
+    pub around: masonry::kurbo::Rect,
+    pub selected: bool,
+    pub inserts: bool,
 }

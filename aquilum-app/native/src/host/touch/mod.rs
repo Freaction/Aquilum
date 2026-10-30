@@ -25,7 +25,7 @@ impl Host {
         if state == ElementState::Pressed {
             let dp = self.window().scale_factor();
             self.touch.down(finger.into_raw(), at, now, dp);
-            if held.is_some() {
+            if held {
                 self.pointer_event(PointerEvent::Cancel(TOUCH));
             } else if self.touch.pressed() {
                 self.finish_word();
@@ -35,12 +35,9 @@ impl Host {
             }
         } else if let Some((at, count)) = self.touch.up(finger.into_raw(), at, now) {
             self.touch_click(at, PointerButton::Primary, count);
-        } else if let Some(menu) = held.filter(|_| self.touch.held().is_none()) {
+        } else if held && !self.touch.held() {
             self.touch_button_event(at, PointerButton::Primary, 1, false);
             self.pointer_event(PointerEvent::Leave(TOUCH));
-            if menu {
-                self.touch_click(at, PointerButton::Secondary, 1);
-            }
         }
     }
 
@@ -48,13 +45,13 @@ impl Host {
         let now = Instant::now();
         self.touch_due(now);
         self.touch.moved(finger.into_raw(), point(position), now);
-        if self.touch.held().is_some() {
+        if self.touch.held() {
             self.touch_move(point(position), PointerButton::Primary.into());
         }
     }
 
     pub(super) fn touch_left(&mut self, finger: FingerId) {
-        if self.touch.held().is_some() {
+        if self.touch.held() {
             self.pointer_event(PointerEvent::Cancel(TOUCH));
         }
         self.touch.cancel(finger.into_raw());
@@ -66,7 +63,7 @@ impl Host {
         }
         let Some(at) = self.touch.long_press(now) else { return };
         if self.root.as_ref().is_some_and(|root| pointer::selects(root.cursor_icon())) {
-            self.touch.hold(true);
+            self.touch.hold();
             self.touch_button_event(at, PointerButton::Primary, 2, true);
         } else {
             self.run_gesture(Gesture::LongPress, at);
@@ -107,7 +104,7 @@ impl Host {
         self.touch_move(at, PointerButtons::new());
         let grabbed = self.root.as_ref().is_some_and(|root| takes(root.cursor_icon()));
         if grabbed {
-            self.touch.hold(false);
+            self.touch.hold();
             self.touch_button_event(at, PointerButton::Primary, 1, true);
         }
         grabbed

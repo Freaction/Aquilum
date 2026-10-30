@@ -153,6 +153,7 @@
   "theme": {
     "light": "Светлая",
     "dark": "Тёмная",
+    "red": "Красная",
     "system": "Системная"
   },
   "common": {
@@ -164,6 +165,7 @@
     "rename": "Переименовать",
     "duplicate": "Дублировать",
     "openFolder": "Открыть папку",
+    "cut": "Вырезать",
     "copy": "Копировать",
     "paste": "Вставить",
     "selectAll": "Выделить всё"
@@ -663,15 +665,17 @@
     }
   },
   "book": {
+    "addPageCover": "Добавить обложку страницы",
     "replacePageCover": "Заменить обложку страницы",
     "randomCover": "Случайная обложка",
     "done": "Готово",
     "coverPosition": "Положение обложки",
     "removePageCover": "Удалить обложку страницы",
+    "coverActions": "Действия с обложкой",
     "read": "Читать",
     "upload": "Загрузить книгу",
     "coverAria": "Обложка книги",
-    "replaceBookCover": "Заменить обложку книги",
+    "uploadBookCover": "Загрузить обложку книги",
     "progress": "Прогресс: {{current}}/{{total}}",
     "progressUnknown": "Прогресс: —",
     "author": "Автор"

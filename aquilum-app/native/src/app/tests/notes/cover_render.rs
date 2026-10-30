@@ -78,7 +78,7 @@ fn scroll_frame_times() {
         for _ in 0..1000 {
             let finished = crate::cover::take_finished();
             if finished {
-                if let Some(cover) = h.app.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()).and_then(|(_, ids)| ids.cover) {
+                if let Some(cover) = h.app.note_ids.as_ref().and_then(|ids| ids.hero.1.cover) {
                     cover.edit(&mut h.root, |mut c| crate::ui::book::PageCover::refresh(&mut c));
                 }
             }
@@ -123,7 +123,7 @@ fn every_pattern_is_painted_from_its_tile_like_from_the_whole_bake() {
         let mut checked = 0;
         for _ in 0..150 {
             h.wait_cover(false);
-            let cover = h.app.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()).and_then(|(_, ids)| ids.cover).expect("обложка");
+            let cover = h.app.note_ids.as_ref().and_then(|ids| ids.hero.1.cover).expect("обложка");
             cover.edit(&mut h.root, |mut c| crate::ui::book::PageCover::refresh(&mut c));
             h.anim(std::time::Duration::from_millis(16));
             let frame = h.frame(w, hh, scale);

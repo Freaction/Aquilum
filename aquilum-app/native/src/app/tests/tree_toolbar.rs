@@ -127,7 +127,7 @@ fn sort_menu_reorders_the_tree_and_remembers_the_choice() {
     assert!(list >= content + size::SIZE_20 + size::GAP_MD, "список сортировки уже подписей: {list} < {content} + галочка");
     let modified_new = Sort::ALL.iter().position(|s| *s == Sort::ModifiedNew).unwrap();
     let choice = masonry::core::ErasedAction::from(Box::new(crate::ui::menu::MenuChoice::Item(modified_new)));
-    h.app.on_action(&mut h.root, layer, choice, Size::new(f64::from(W), f64::from(H)));
+    h.app.on_action(&mut h.root, layer, choice);
     assert!(h.app.popup.is_none(), "меню не закрылось после выбора");
     assert_eq!(h.app.tree.names(), ["c", "b", "a"]);
     let reopened = FileTree::new(Some(vault), h._data.path(), std::sync::Arc::new(|| {}));

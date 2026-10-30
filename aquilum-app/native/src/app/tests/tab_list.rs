@@ -1,5 +1,5 @@
 use super::*;
-use crate::ui::menu::{Menu, MenuChoice};
+use crate::ui::menu::MenuChoice;
 use crate::ui::tokens::size;
 use masonry::core::WidgetId;
 use masonry::kurbo::Rect;
@@ -41,13 +41,16 @@ fn the_tab_list_button_sits_next_to_the_plus_and_the_list_picks_a_tab() {
         std::fs::write(std::path::Path::new(&out).join("tab-list.png"), h.frame(W as u16, H as u16, 1.0).png()).unwrap();
     }
     let menu = rect(&h, layer);
-    let tabs = h.app.tabs.tabs().len();
     assert_eq!(menu.width(), size::TAB_LIST_WIDTH);
     assert!(menu.x1 <= list.x1 + 0.5 && menu.y0 >= list.y1, "список не под кнопкой справа: {menu:?} против {list:?}");
-    let content = Menu::estimated_size(tabs).height;
+    let mut items = h.root.get_widget(layer).unwrap();
+    while items.children().len() == 1 {
+        items = items.children()[0];
+    }
+    let content = items.ctx().bounding_box().height();
     assert!((menu.height() - content).abs() < 1.0, "список прокручивается, хотя места хватает: {} против {content}", menu.height());
     let choice = masonry::core::ErasedAction::from(Box::new(MenuChoice::Item(1)));
-    h.app.on_action(&mut h.root, layer, choice, Size::new(f64::from(W), f64::from(H)));
+    h.app.on_action(&mut h.root, layer, choice);
     assert!(h.app.popup.is_none(), "список не закрылся после выбора");
     assert_eq!(h.app.tabs.active().path.as_deref(), h.app.tabs.tabs()[1].path.as_deref());
     assert!(paths.iter().any(|p| h.app.tabs.active().path.as_deref() == Some(p.as_path())), "выбрана не вкладка с заметкой");
@@ -78,7 +81,7 @@ fn the_active_tab_stays_in_view_when_tabs_overflow_the_strip() {
     };
     assert!(visible(&h), "новая вкладка в конце ленты не видна");
     let first = h.app.tabs.tabs()[0].id;
-    h.app.on_titlebar(&mut h.root, &crate::ui::titlebar::TitlebarAction::Select(first), Size::new(f64::from(W), f64::from(H)));
+    h.app.on_titlebar(&mut h.root, &crate::ui::titlebar::TitlebarAction::Select(first));
     h.settle();
     assert!(visible(&h), "первая вкладка не видна после выбора");
 }
@@ -91,7 +94,7 @@ fn a_dragged_sidebar_leaves_room_for_the_editor_and_resets_on_double_click() {
     let chrome = h.app.chrome.as_ref().unwrap();
     let (sash, sidebar, panel, rail) = (chrome.sidebar_sash, chrome.sidebar.id(), chrome.panel.id(), chrome.rail.id());
     let send = |h: &mut Harness, action: SashAction| {
-        h.app.on_action(&mut h.root, sash, masonry::core::ErasedAction::from(Box::new(action)), Size::new(f64::from(W), f64::from(H)));
+        h.app.on_action(&mut h.root, sash, masonry::core::ErasedAction::from(Box::new(action)));
         h.settle();
     };
     let start = rect(&h, sidebar).width();

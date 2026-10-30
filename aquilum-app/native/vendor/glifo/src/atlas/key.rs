@@ -65,6 +65,7 @@ pub struct GlyphCacheKey {
     pub context_color: AlphaColor<Srgb>,
     /// Pre-packed context color (premultiplied RGBA8 as u32) used in Hash/Eq.
     pub context_color_packed: u32,
+    pub red: bool,
     /// Synthetic embolden amount. Only non-zero for outline glyphs.
     pub embolden_x_bits: u32,
     /// Synthetic embolden amount. Only non-zero for outline glyphs.
@@ -106,6 +107,7 @@ impl GlyphCacheKey {
             subpixel_x: quantize_subpixel(fractional_x),
             context_color,
             context_color_packed,
+            red: false,
             embolden_x_bits: f32_bits(embolden.amount.xx),
             embolden_y_bits: f32_bits(embolden.amount.yy),
             embolden_join_bits: join_bits(embolden.join),
@@ -130,6 +132,7 @@ impl Hash for GlyphCacheKey {
         self.hinted.hash(state);
         self.subpixel_x.hash(state);
         self.context_color_packed.hash(state);
+        self.red.hash(state);
         self.embolden_x_bits.hash(state);
         self.embolden_y_bits.hash(state);
         self.embolden_join_bits.hash(state);
@@ -148,6 +151,7 @@ impl PartialEq for GlyphCacheKey {
             && self.size_bits == other.size_bits
             && self.hinted == other.hinted
             && self.context_color_packed == other.context_color_packed
+            && self.red == other.red
             && self.embolden_x_bits == other.embolden_x_bits
             && self.embolden_y_bits == other.embolden_y_bits
             && self.embolden_join_bits == other.embolden_join_bits
@@ -293,6 +297,7 @@ mod tests {
             subpixel_x: SUBPIXEL_COLR,
             context_color: BLACK,
             context_color_packed: packed,
+            red: false,
             embolden_x_bits: 0,
             embolden_y_bits: 0,
             embolden_join_bits: join_bits(Join::Miter),
@@ -309,6 +314,7 @@ mod tests {
             subpixel_x: SUBPIXEL_BITMAP,
             context_color: BLACK,
             context_color_packed: packed,
+            red: false,
             embolden_x_bits: 0,
             embolden_y_bits: 0,
             embolden_join_bits: join_bits(Join::Miter),

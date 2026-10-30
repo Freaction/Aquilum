@@ -39,6 +39,9 @@ impl Widget for PageCover {
 
     fn register_children(&mut self, ctx: &mut RegisterCtx<'_>) {
         ctx.register_child(&mut self.actions);
+        if let Some(more) = &mut self.more {
+            ctx.register_child(more);
+        }
         if let Some(book) = &mut self.book {
             ctx.register_child(book);
         }
@@ -49,19 +52,13 @@ impl Widget for PageCover {
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
-        let row = size::SIZE_32 + size::SPACE_3 * 2.0;
         let mut right = size_.width - CONTROLS_RIGHT;
-        let auto = SizeDef::new(LenDef::MaxContent, LenDef::MaxContent);
         if let Some(book) = &mut self.book {
-            let button = ctx.compute_size(book, auto, size_.into());
-            ctx.run_layout(book, button);
-            ctx.place_child(book, Point::new(right - button.width, CONTROLS_TOP + (row - button.height) / 2.0));
-            right -= button.width + size::SPACE_8;
+            right -= place_left_of(ctx, book, right, size_) + size::SPACE_8;
         }
-        if self.show_actions {
-            let bar = ctx.compute_size(&mut self.actions, auto, size_.into());
-            ctx.run_layout(&mut self.actions, bar);
-            ctx.place_child(&mut self.actions, Point::new(right - bar.width, CONTROLS_TOP + (row - bar.height) / 2.0));
+        let tools = if self.show_actions { Some(&mut self.actions) } else { self.more.as_mut() };
+        if let Some(tools) = tools {
+            place_left_of(ctx, tools, right, size_);
         }
     }
 
@@ -127,7 +124,16 @@ impl Widget for PageCover {
 
     fn children_ids(&self) -> ChildrenIds {
         let mut ids = vec![self.actions.id()];
+        ids.extend(self.more.as_ref().map(WidgetPod::id));
         ids.extend(self.book.as_ref().map(WidgetPod::id));
         ChildrenIds::from_slice(&ids)
     }
+}
+
+fn place_left_of(ctx: &mut LayoutCtx<'_>, pod: &mut WidgetPod<impl Widget>, right: f64, room: Size) -> f64 {
+    let row = size::SIZE_32 + size::SPACE_3 * 2.0;
+    let size_ = ctx.compute_size(pod, SizeDef::new(LenDef::MaxContent, LenDef::MaxContent), room.into());
+    ctx.run_layout(pod, size_);
+    ctx.place_child(pod, Point::new(right - size_.width, CONTROLS_TOP + (row - size_.height) / 2.0));
+    size_.width
 }

@@ -139,6 +139,10 @@ pub fn command(scopes: &[Scope], key: &Key, modifiers: Modifiers) -> Option<Comm
         .map(|binding| binding.command)
 }
 
+pub fn closes(key: &Key, modifiers: Modifiers) -> bool {
+    command(&[Scope::Dialog], key, modifiers) == Some(Command::Close)
+}
+
 pub fn gesture(scopes: &[Scope], gesture: Gesture) -> Option<Command> {
     BINDINGS.iter().filter(|binding| scopes.contains(&binding.scope)).find(|binding| binding.gestures.contains(&gesture)).map(|binding| binding.command)
 }

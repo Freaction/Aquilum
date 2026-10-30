@@ -59,6 +59,6 @@ pub use atlas::{
 pub use glyph::{
     AtlasCacher, FontEmbolden, Glyph, GlyphCaches, GlyphColr, GlyphPrepCache, GlyphPrepCacheMut,
     GlyphRenderError, GlyphRun, GlyphRunBackend, GlyphRunBuilder, GlyphRunRenderer,
-    GlyphSkipReason, HintCache, HintKey, NormalizedCoord, OutlineCache, SkippedGlyph,
+    GlyphSkipReason, HintCache, HintKey, NormalizedCoord, OutlineCache, SkippedGlyph, red, redden,
 };
 pub use interface::{DrawSink, GlyphRenderer};

@@ -119,7 +119,8 @@ impl TextEditor {
     fn paint_code(&self, painter: &mut Painter<'_>, code: Code, fonts: &Fonts, palette: &[Brush]) -> (RangeInclusive<usize>, Rect) {
         let start = self.doc.paragraph(code.first).start;
         let (hovered, done) = (self.hovered_link == Some((start, 0)), self.copied.is_some_and(|(at, _)| at == start));
-        let header = code.header.then(|| panel::Header { height: panel::header(fonts.line), icon: None, button: Some((crate::ui::icons::COPY, hovered, done)) });
+        let button = (!self.doc.print).then_some((crate::ui::icons::COPY, hovered, done));
+        let header = code.header.then(|| panel::Header { height: panel::header(fonts.line), icon: None, button });
         panel::paint(painter, code.panel, panel::Tone::Surface, header);
         self.paint_block_bar(painter, start);
         if let (Fold::Below, Some(View::Drawing(preview))) = (self.doc.paragraph(code.last).fold, self.doc.paragraph(code.first).embed.map(|e| &e.view)) {

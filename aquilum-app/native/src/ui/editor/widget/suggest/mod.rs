@@ -125,7 +125,7 @@ impl TextEditor {
         }
         let page = 8;
         let current = self.suggest.as_ref().map_or(0, |s| s.selected);
-        if keymap::command(&[Scope::Dialog], key, modifiers) == Some(Command::Close) {
+        if keymap::closes(key, modifiers) {
             self.close_suggest();
             return Some(false);
         }

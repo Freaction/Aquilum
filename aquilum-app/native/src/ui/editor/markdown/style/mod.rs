@@ -33,6 +33,7 @@ pub struct Context<'a> {
     pub resolver: Option<&'a dyn Resolver>,
     pub inside: bool,
     pub gutter: usize,
+    pub print: bool,
 }
 
 fn indent(builder: &mut RangedBuilder<'_, BrushIndex>, frame: &Frame, by: f64, decor: &mut Decor) {

@@ -32,7 +32,7 @@ impl TextEditor {
             let p = self.doc.paragraph(self.doc.at_offset(source));
             p.start == source && markdown::touches(Some(&selection), &p.range())
         });
-        if self.single_line {
+        if self.single_line || self.doc.print {
             self.doc.keep = (f64::NEG_INFINITY, f64::INFINITY);
         }
         self.doc.pins = [self.anchor, self.focus].into_iter().chain(self.extra_cursors.iter().flat_map(|&(a, f)| [a, f])).collect();

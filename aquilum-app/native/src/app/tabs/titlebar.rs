@@ -1,11 +1,10 @@
 use masonry::app::RenderRoot;
-use masonry::kurbo::Size;
 
 use super::super::{App, Outcome, WindowCommand};
 use crate::ui::titlebar::{TitlebarAction, WindowButton};
 
 impl App {
-    pub(in crate::app) fn on_titlebar(&mut self, root: &mut RenderRoot, action: &TitlebarAction, window_size: Size) -> Outcome {
+    pub(in crate::app) fn on_titlebar(&mut self, root: &mut RenderRoot, action: &TitlebarAction) -> Outcome {
         if self.renaming_tab.is_some() {
             self.finish_tab_rename(root, None);
         }
@@ -15,7 +14,7 @@ impl App {
                 let Some(path) = self.tabs.tabs().iter().find(|t| t.id == *id).and_then(|t| t.path.clone()) else {
                     return Outcome::default();
                 };
-                self.open_file_menu(root, vec![path.clone()], path, false, *at, window_size, Some(*id));
+                self.open_file_menu(root, vec![path.clone()], path, false, *at, Some(*id));
                 Outcome::default()
             }
             TitlebarAction::Reorder(from, to) => {

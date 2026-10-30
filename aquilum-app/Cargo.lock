@@ -187,7 +187,7 @@ version = "0.1.0"
 
 [[package]]
 name = "aquilum-android"
-version = "0.3.22"
+version = "0.3.23"
 dependencies = [
  "aquilum-native",
  "jni",
@@ -195,7 +195,7 @@ dependencies = [
 
 [[package]]
 name = "aquilum-core"
-version = "0.3.22"
+version = "0.3.23"
 dependencies = [
  "atomic-write-file",
  "base64",
@@ -224,7 +224,7 @@ dependencies = [
 
 [[package]]
 name = "aquilum-native"
-version = "0.3.22"
+version = "0.3.23"
 dependencies = [
  "accesskit_macos",
  "accesskit_unix",

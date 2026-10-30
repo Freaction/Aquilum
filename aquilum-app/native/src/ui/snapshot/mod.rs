@@ -34,7 +34,7 @@ fn parts(text: &str) -> RootParts<'_> {
             focus_mode: false,
             compact: false,
             wide: false,
-            hero: None,
+            hero: crate::ui::book::HeroView { cover: None, position: 50.0, book: None, viewport: f64::from(H), compact: false },
             resolver: None,
             smart: Default::default(),
             wake: std::sync::Arc::new(|| {}),

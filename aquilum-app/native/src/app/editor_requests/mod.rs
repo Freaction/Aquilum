@@ -16,7 +16,6 @@ impl App {
     pub(in crate::app) fn on_editor_request(&mut self, root: &mut RenderRoot, request: Request) -> bool {
         match request {
             Request::TableMenu { at, commands } => self.open_table_menu(root, at, commands),
-            Request::ContextMenu { at, has_selection } => self.open_editor_context_menu(root, at, has_selection),
             Request::Suggest(view) => self.show_suggest(root, view),
             Request::Read { file, page, title } => self.open_reader(root, super::reader::Opening { file, page, title, initial: None, peek: false }),
             Request::ToggleTask { target, line } => self.toggle_task_in_file(root, &target, line),
@@ -65,6 +64,18 @@ impl App {
         root.add_layer(widget, at);
         root.focus_on(Some(layer));
         self.popup = Some(popup(layer));
+    }
+
+    pub(in crate::app) fn show_menu(&mut self, root: &mut RenderRoot, menu: masonry::core::NewWidget<crate::ui::menu::Menu>, trigger: masonry::kurbo::Rect, popup: impl FnOnce(masonry::core::WidgetId) -> Popup) {
+        let layer = menu.id();
+        self.show_layer(root, menu, Point::ZERO, popup);
+        self.place_layer(root, layer, trigger);
+    }
+
+    pub(in crate::app) fn place_layer(&self, root: &mut RenderRoot, layer: masonry::core::WidgetId, trigger: masonry::kurbo::Rect) {
+        if let Some(size) = root.get_widget(layer).map(|w| w.ctx().bounding_box().size()) {
+            root.reposition_layer(layer, crate::ui::menu::Menu::around(trigger, size, self.room()));
+        }
     }
 }
 

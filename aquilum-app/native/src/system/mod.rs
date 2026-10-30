@@ -1,6 +1,14 @@
+mod launch;
+
 use std::path::Path;
 #[cfg(not(any(target_os = "windows", target_os = "android")))]
 use std::process::Command;
+
+#[cfg(not(any(target_os = "windows", target_os = "android")))]
+use launch::launch;
+pub use launch::{app_path, appimage, restart};
+
+pub const DESKTOP: bool = cfg!(not(any(target_os = "android", target_os = "ios")));
 
 #[cfg(target_os = "windows")]
 pub fn open(target: &str) {
@@ -37,10 +45,9 @@ pub fn login_links() -> Option<std::sync::mpsc::Receiver<String>> {
 
 #[cfg(not(any(target_os = "windows", target_os = "android")))]
 pub fn open(target: &str) {
-    let program = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
-    if let Err(error) = Command::new(program).arg(target).spawn() {
-        report!("{target} не открыт: {error}");
-    }
+    let mut command = Command::new(if cfg!(target_os = "macos") { "open" } else { "xdg-open" });
+    command.arg(target);
+    launch(command, target);
 }
 
 pub fn external_url(raw: &str) -> Option<&str> {
@@ -79,7 +86,7 @@ pub fn reveal(_: &Path) {}
 
 #[cfg(not(any(target_os = "windows", target_os = "android")))]
 pub fn reveal(path: &Path) {
-    let mut command = if cfg!(target_os = "macos") {
+    let command = if cfg!(target_os = "macos") {
         let mut command = Command::new("open");
         command.arg("-R").arg(path);
         command
@@ -88,9 +95,7 @@ pub fn reveal(path: &Path) {
         command.arg(path.parent().unwrap_or(path));
         command
     };
-    if let Err(error) = command.spawn() {
-        report!("{} не показан в папке: {error}", path.display());
-    }
+    launch(command, &path.display().to_string());
 }
 
 pub fn release_memory() {

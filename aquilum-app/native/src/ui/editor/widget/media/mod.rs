@@ -18,7 +18,7 @@ enum Drag {
 #[derive(Default)]
 pub(super) struct MediaState {
     hover: Option<(usize, MediaHit)>,
-    selected: Option<usize>,
+    pub(super) selected: Option<usize>,
     crop: Option<(usize, [f64; 4])>,
     drag: Option<(usize, Drag)>,
     bar: Option<(usize, crate::ui::widgets::Intro)>,
@@ -37,7 +37,7 @@ impl MediaState {
 }
 
 impl TextEditor {
-    fn media_view(&self, start: usize) -> Option<&MediaView> {
+    pub(super) fn media_view(&self, start: usize) -> Option<&MediaView> {
         let p = self.doc.paragraph(self.doc.at_offset(start));
         match (p.start == start, p.embed.map(|e| &e.view)) {
             (true, Some(View::Media(view))) => Some(view),
@@ -45,7 +45,7 @@ impl TextEditor {
         }
     }
 
-    fn media_under(&self, point: Point, reach: f64) -> Option<(usize, MediaHit)> {
+    pub(super) fn media_under(&self, point: Point, reach: f64) -> Option<(usize, MediaHit)> {
         if self.doc.markdown.is_none() || !self.laid_out() {
             return None;
         }
@@ -83,13 +83,25 @@ impl TextEditor {
         MediaOverlay { hovered: hover.is_some() || crop.is_some() || selected, selected, hover, crop, video, fade }
     }
 
-    fn rewrite(&mut self, start: usize, line: &EmbedLine) {
+    pub(super) fn media_source(&self, start: usize) -> std::ops::Range<usize> {
         let p = self.doc.paragraph(self.doc.at_offset(start));
-        let range = p.start + p.frame.lead..p.end();
+        p.start + p.frame.lead..p.end()
+    }
+
+    fn rewrite(&mut self, start: usize, line: &EmbedLine) {
+        let range = self.media_source(start);
         let text = media::format(line);
         if self.doc.slice(range.clone()) != text {
             self.dispatch(vec![(range, text)], None, Kind::Block);
         }
+    }
+
+    pub(super) fn remove_media(&mut self, start: usize) {
+        let p = self.doc.paragraph(self.doc.at_offset(start));
+        let range = p.start..(p.end() + 1).min(self.doc.len());
+        self.media.selected = None;
+        self.media.hover = None;
+        self.replace(range, "", Kind::Other);
     }
 
     fn end_crop(&mut self, apply: bool) {

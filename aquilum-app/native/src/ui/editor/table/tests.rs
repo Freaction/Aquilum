@@ -10,7 +10,7 @@ pub(super) fn table(text: &str) -> Table {
 }
 
 pub(super) fn blank_view(table: &Table) -> TableView {
-    table.layout(500.0, None, |_: &str, _: Option<f64>, _: Alignment, _: bool| (Layout::<BrushIndex>::default(), crate::ui::editor::markdown::Decor::default()))
+    table.layout(500.0, None, false, |_: &str, _: Option<f64>, _: Alignment, _: bool| (Layout::<BrushIndex>::default(), crate::ui::editor::markdown::Decor::default()))
 }
 
 #[test]
@@ -70,10 +70,10 @@ fn borders_are_found_where_they_are_painted_after_the_table_narrows() {
     use masonry::kurbo::Point;
     let make = |_: &str, _: Option<f64>, _: Alignment, _: bool| (Layout::<BrushIndex>::default(), crate::ui::editor::markdown::Decor::default());
     let wide = table("| a | b | c | d |\n| --- | --- | --- | --- |\n| 1 | 2 | 3 | 4 |\n<!--q-table:{\"merges\":[],\"cols\":[300,300,300,300]}-->");
-    let scroll = wide.layout(500.0, None, make).max_scroll();
+    let scroll = wide.layout(500.0, None, false, make).max_scroll();
     let mut narrow = wide.clone();
     narrow.widths = vec![300.0, 300.0, 36.0, 36.0];
-    let view = narrow.layout(500.0, None, make);
+    let view = narrow.layout(500.0, None, false, make);
     assert!(view.max_scroll() < scroll);
     let painted = view.border_line(Hit::ColumnBorder(0), view.max_scroll());
     assert_eq!(view.border_line(Hit::ColumnBorder(0), scroll), painted);

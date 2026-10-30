@@ -81,8 +81,7 @@ impl App {
         commands.push((VersionCommand::Rename, t("common.rename")));
         let labels: Vec<&str> = commands.iter().map(|(_, label)| label.as_str()).collect();
         let menu = Menu::new(&t("history.versionActions"), &labels);
-        let origin = Menu::context_origin(at, labels.len(), self.window);
-        self.show_layer(root, menu, origin, |layer| Popup::Menu { layer, commands: commands.into_iter().map(|(c, _)| MenuCommand::Version(index, c)).collect() });
+        self.show_menu(root, menu, masonry::kurbo::Rect::from_points(at, at), |layer| Popup::Menu { layer, commands: commands.into_iter().map(|(c, _)| MenuCommand::Version(index, c)).collect() });
     }
 
     pub(in crate::app) fn version_command(&mut self, root: &mut RenderRoot, index: usize, command: VersionCommand) {

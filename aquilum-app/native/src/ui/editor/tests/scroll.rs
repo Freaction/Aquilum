@@ -90,7 +90,7 @@ fn a_long_code_line_scrolls_sideways_instead_of_wrapping() {
 fn dragging_a_selection_past_the_edge_scrolls_smoothly() {
     use masonry::core::{PointerButton, PointerEvent, WindowEvent};
     use masonry::dpi::PhysicalPosition;
-    use crate::test_dir::{moved, pointer_at, primary};
+    use crate::test_dir::{MOUSE, moved, pointer_at, primary};
     let body: String = (0..200).map(|i| format!("Абзац {i}\n")).collect();
     let mut root = scrolled(TextEditor::new(&body), 400, 300);
     let page = root.get_widget_with_tag(PAGE).unwrap().id();
@@ -98,11 +98,11 @@ fn dragging_a_selection_past_the_edge_scrolls_smoothly() {
     let _ = root.redraw();
     let offset = |root: &RenderRoot| root.get_widget_with_tag(PAGE).unwrap().inner().offset();
     let mut state = pointer_at(100.0, 150.0, 1.0);
-    root.handle_pointer_event(moved(state.clone()));
+    root.handle_pointer_event(moved(MOUSE, state.clone()));
     state.buttons.insert(PointerButton::Primary);
     root.handle_pointer_event(PointerEvent::Down(primary(state.clone())));
     state.position = PhysicalPosition::new(100.0, -40.0);
-    root.handle_pointer_event(moved(state));
+    root.handle_pointer_event(moved(MOUSE, state));
     let _ = root.redraw();
     let mut last = offset(&root);
     for _ in 0..10 {

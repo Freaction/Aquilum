@@ -7,6 +7,7 @@ use winit::platform::android::EventLoopBuilderExtAndroid;
 use winit::platform::android::activity::AndroidApp;
 
 pub mod clipboard;
+pub mod documents;
 pub mod ime;
 mod java;
 mod links;

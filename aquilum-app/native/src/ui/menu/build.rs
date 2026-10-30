@@ -1,4 +1,4 @@
-use masonry::core::{NewWidget, PropertySet};
+use masonry::core::{NewWidget, PropertySet, WidgetId};
 use masonry::kurbo::{Axis, Rect, Size};
 use masonry::layout::Length;
 use masonry::properties::Padding;
@@ -37,6 +37,11 @@ impl Menu {
         menu
     }
 
+    pub fn holding(mut menu: NewWidget<Self>, focused: WidgetId) -> NewWidget<Self> {
+        menu.widget.holds = Some(focused);
+        menu
+    }
+
     pub fn dropdown(label: &str, items: &[&str], checked: usize, trigger: Rect, window: Size, width: f64) -> NewWidget<Self> {
         let mut menu = Self::list(label, items, checked, trigger);
         menu.widget.width = Some(width);
@@ -72,6 +77,7 @@ impl Menu {
                 Sub::new(sub, sub.at as f64 * (MenuItem::height() + size::GAP_XS) + dividers as f64 * (DIVIDER + size::GAP_XS))
             }),
             main: Size::ZERO,
+            holds: None,
         })
     }
 }

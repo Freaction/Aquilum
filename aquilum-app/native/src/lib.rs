@@ -82,7 +82,7 @@ mod window_state;
 mod workspace;
 
 #[cfg(target_os = "android")]
-pub use android::{ime::received as android_ime_state, link as android_link, main as android_main};
+pub use android::{documents::deliver as android_document, ime::received as android_ime_state, link as android_link, main as android_main};
 #[cfg(target_os = "android")]
 pub use ime_sync::{ImeState, Message as ImeMessage};
 #[cfg(target_os = "android")]

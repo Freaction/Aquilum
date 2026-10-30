@@ -76,6 +76,25 @@ fn table_damage_report() {
 
 #[test]
 #[ignore]
+fn full_frame_report() {
+    let spec = size();
+    let body = std::env::var("AQ_NOTE").map_or_else(|_| plain_body(60), |source| std::fs::read_to_string(source).unwrap());
+    let mut h = setup(spec, &body);
+    let (layers, _) = h.root.redraw();
+    let mut renderer = Renderer::new(raster_threads());
+    let mut times: Vec<f64> = (0..12)
+        .map(|_| {
+            let t = std::time::Instant::now();
+            renderer.draw_frame(&layers, spec.width as u16, spec.height as u16, spec.scale, theme::background(), true).unwrap();
+            t.elapsed().as_secs_f64() * 1000.0
+        })
+        .collect();
+    times.sort_by(f64::total_cmp);
+    eprintln!("полный кадр {}x{}@{}: медиана {:.2} мс, лучший {:.2} мс", spec.width, spec.height, spec.scale, times[6], times[0]);
+}
+
+#[test]
+#[ignore]
 fn caret_note_report() {
     let spec = size();
     let source = std::env::var("AQ_NOTE").unwrap();

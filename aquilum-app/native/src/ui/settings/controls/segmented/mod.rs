@@ -42,6 +42,11 @@ impl Segmented {
         widths.iter().sum::<f64>() + SEGMENT_GAP * widths.len().saturating_sub(1) as f64 + SEGMENT_PAD * 2.0
     }
 
+    #[cfg(test)]
+    pub fn segment(&self, index: usize) -> Option<Rect> {
+        self.rects.get(index).copied()
+    }
+
     fn segment_at(&self, p: Point) -> Option<usize> {
         self.rects.iter().position(|r| r.inflate(SEGMENT_GAP / 2.0, SEGMENT_PAD).contains(p))
     }

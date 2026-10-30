@@ -142,8 +142,7 @@ fn back_closes_the_top_element_then_walks_history() {
 fn back_closes_menus_like_their_own_dismissal() {
     let mut h = at_width(360.0);
     let folder = h.vault.path().to_path_buf();
-    let window = masonry::kurbo::Size::new(360.0, 640.0);
-    h.app.open_file_menu(&mut h.root, vec![folder.clone()], folder, true, masonry::kurbo::Point::new(100.0, 100.0), window, None);
+    h.app.open_file_menu(&mut h.root, vec![folder.clone()], folder, true, masonry::kurbo::Point::new(100.0, 100.0), None);
     let [_, _, sort, _] = h.app.tree.toolbar_ids().unwrap();
     for open in [None, Some(sort)] {
         if let Some(button) = open {

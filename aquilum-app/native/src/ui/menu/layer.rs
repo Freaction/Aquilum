@@ -2,7 +2,7 @@ use masonry::accesskit::{Node, Role};
 use masonry::core::keyboard::KeyState;
 use masonry::core::{
     AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update,
-    UpdateCtx, Widget, WidgetMut, WidgetPod,
+    UpdateCtx, Widget, WidgetId, WidgetMut, WidgetPod,
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Axis, Point, Rect, RoundedRect, Size, Stroke};
@@ -24,6 +24,7 @@ pub struct Menu {
     pub(super) exclude: Option<Rect>,
     pub(super) sub: Option<Sub>,
     pub(super) main: Size,
+    pub(super) holds: Option<WidgetId>,
 }
 
 impl Menu {
@@ -52,9 +53,15 @@ fn paint_panel(painter: &mut Painter<'_>, rect: Rect) {
 impl Widget for Menu {
     type Action = MenuChoice;
 
+    fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
+        if let (PointerEvent::Down(_), Some(focused)) = (event, self.holds) {
+            ctx.set_focus(focused);
+        }
+    }
+
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
         let close = match event {
-            TextEvent::Keyboard(k) => k.state == KeyState::Down && crate::ui::keymap::command(&[crate::ui::keymap::Scope::Dialog], &k.key, k.modifiers) == Some(crate::ui::keymap::Command::Close),
+            TextEvent::Keyboard(k) => k.state == KeyState::Down && crate::ui::keymap::closes(&k.key, k.modifiers),
             TextEvent::WindowFocusChange(false) => true,
             _ => false,
         };
@@ -145,6 +152,7 @@ impl Widget for Menu {
 impl Layer for Menu {
     fn capture_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         let (position, scroll) = match event {
+            _ if self.holds.is_some() => return,
             PointerEvent::Down(e) => (e.state.position, false),
             PointerEvent::Scroll(e) => (e.state.position, true),
             _ => return,

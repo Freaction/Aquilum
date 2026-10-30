@@ -10,8 +10,12 @@ impl TextEditor {
         self.shift().x + self.doc.paragraph(i).embed.map_or(0.0, |embed| embed.x)
     }
 
+    pub(super) fn embed_origin(&self, i: usize) -> Vec2 {
+        Vec2::new(self.embed_x(i), self.doc.top(i))
+    }
+
     pub(super) fn embed_local(&self, i: usize, point: Point) -> Point {
-        Point::new(point.x - self.embed_x(i), point.y - self.doc.top(i))
+        point - self.embed_origin(i)
     }
 
     pub(super) fn embed_local_at(&self, start: usize, point: Point) -> Point {

@@ -3,7 +3,7 @@ use aquilum_core::settings::models::{AppConfig, FontSettings};
 use super::{Control, Number, Row, Setter, Value};
 use crate::i18n::t;
 
-pub(super) const THEMES: [&str; 3] = ["system", "light", "dark"];
+pub(super) const THEMES: [&str; 4] = ["system", "light", "dark", "red"];
 pub(super) const LANGUAGES: [&str; 2] = ["ru", "en"];
 pub(super) const READER_FLOWS: [&str; 2] = ["paginated", "scrolled"];
 pub(super) const HISTORY_DAYS: [u32; 4] = [0, 30, 90, 365];

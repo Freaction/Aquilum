@@ -1,13 +1,12 @@
 use super::*;
 
 impl App {
-    /// Действие виджета; `window` — размер окна в логических пикселях (для меню у края).
-    pub fn on_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: ErasedAction, window: Size) -> Outcome {
+    pub fn on_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: ErasedAction) -> Outcome {
         if action.downcast_ref::<DialogAnswer>() == Some(&DialogAnswer::Closed) {
             root.remove_layer(id);
             return Outcome::default();
         }
-        if self.on_suggest_pick(root, id, &action) || self.on_find_action(root, id, &action) || self.on_sash(root, id, &action) {
+        if self.on_suggest_pick(root, id, &action) || self.on_editor_menu(root, id, &action) || self.on_find_action(root, id, &action) || self.on_sash(root, id, &action) {
             return Outcome::default();
         }
         if matches!(self.popup, Some(Popup::Settings { .. })) {
@@ -48,7 +47,7 @@ impl App {
             return outcome;
         }
         if let Some(titlebar) = action.downcast_ref::<TitlebarAction>() {
-            return self.on_titlebar(root, titlebar, window);
+            return self.on_titlebar(root, titlebar);
         }
         if self.is_tab_rename_field(id) {
             match action.downcast_ref::<TextAction>() {
@@ -91,7 +90,7 @@ impl App {
                 return Outcome::default();
             }
         }
-        let title = self.on_main_action(root, id, &action, window);
+        let title = self.on_main_action(root, id, &action);
         Outcome { title, ..Outcome::default() }
     }
 
@@ -143,7 +142,7 @@ impl App {
     }
 
     /// Действие в основном окне; `true` — сменилась открытая заметка (и заголовок окна).
-    pub(super) fn on_main_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction, window: Size) -> bool {
+    pub(super) fn on_main_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> bool {
         match self.tree.on_action(root, id, action) {
             Some(TreeAction::Open { path, new_tab }) => return self.open_in(root, path, new_tab),
             Some(TreeAction::Rename { from, to }) => {
@@ -173,7 +172,7 @@ impl App {
                 return false;
             }
             Some(TreeAction::ContextMenu { targets, clicked, folder, at }) => {
-                self.open_file_menu(root, targets, clicked, folder, at, window, None);
+                self.open_file_menu(root, targets, clicked, folder, at, None);
                 return false;
             }
             None => {}

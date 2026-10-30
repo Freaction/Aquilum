@@ -10,7 +10,7 @@ fn rect(h: &Harness, id: WidgetId) -> Rect {
 }
 
 fn open_menu(h: &mut Harness, folder: &std::path::Path) -> WidgetId {
-    h.app.open_file_menu(&mut h.root, vec![folder.to_path_buf()], folder.to_path_buf(), true, Point::new(300.0, 200.0), Size::new(1000.0, 600.0), None);
+    h.app.open_file_menu(&mut h.root, vec![folder.to_path_buf()], folder.to_path_buf(), true, Point::new(300.0, 200.0), None);
     let Some(Popup::FileMenu { layer, .. }) = &h.app.popup else { panic!("меню папки не открыто") };
     let layer = *layer;
     let _ = h.root.redraw();
@@ -45,7 +45,7 @@ fn folder_menu_opens_the_palette_on_hover_and_paints_the_folder() {
 fn files_have_no_color_item() {
     let mut h = Harness::new();
     let note = h.vault.path().join("a.md");
-    h.app.open_file_menu(&mut h.root, vec![note.clone()], note, false, Point::new(300.0, 200.0), Size::new(1000.0, 600.0), None);
+    h.app.open_file_menu(&mut h.root, vec![note.clone()], note, false, Point::new(300.0, 200.0), None);
     let Some(Popup::FileMenu { layer, .. }) = &h.app.popup else { panic!("меню не открыто") };
     let layer = *layer;
     let closed = rect(&h, layer).width();

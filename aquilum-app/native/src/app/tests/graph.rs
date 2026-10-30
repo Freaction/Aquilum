@@ -19,7 +19,7 @@ fn graph_tab_loads_opens_notes_and_unloads() {
     let mut opened = false;
     'scan: for y in (area.y0 as i32..area.y1 as i32).step_by(6) {
         for x in (area.x0 as i32..(area.x1 - 260.0) as i32).step_by(6) {
-            h.root.handle_pointer_event(moved(pointer_at(f64::from(x), f64::from(y), 1.0)));
+            h.root.handle_pointer_event(moved(MOUSE, pointer_at(f64::from(x), f64::from(y), 1.0)));
             if h.root.cursor_icon() == masonry::core::CursorIcon::Pointer {
                 h.click(f64::from(x), f64::from(y));
                 opened = true;
@@ -118,7 +118,7 @@ fn graph_snapshot() {
         h.root.handle_pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: MOUSE, delta: ScrollDelta::LineDelta(0.0, 1.0), state }));
     }
     shot(&mut h, "graph-zoom");
-    h.root.handle_pointer_event(moved(pointer_at(center.x, center.y, scale)));
+    h.root.handle_pointer_event(moved(MOUSE, pointer_at(center.x, center.y, scale)));
     shot(&mut h, "graph-hover");
 }
 

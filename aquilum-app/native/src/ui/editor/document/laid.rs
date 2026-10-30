@@ -24,7 +24,7 @@ impl Laid {
 
 impl Document {
     pub(super) fn context<'a>(&'a self, fonts: &'a Fonts) -> markdown::Context<'a> {
-        markdown::Context { fonts, unresolved: &self.unresolved.0, resolver: self.resolver.as_deref(), inside: false, gutter: 0 }
+        markdown::Context { fonts, unresolved: &self.unresolved.0, resolver: self.resolver.as_deref(), inside: false, gutter: 0, print: self.print }
     }
 
     pub(super) fn local_selection(&self, line: usize, selection: Option<&Range<usize>>) -> Option<Range<usize>> {

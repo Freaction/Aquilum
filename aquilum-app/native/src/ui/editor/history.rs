@@ -10,6 +10,7 @@ pub enum Kind {
     Deleting,
     Other,
     Block,
+    Outside,
 }
 
 #[derive(Clone, Debug)]
@@ -32,7 +33,7 @@ fn merge(last: &mut Change, next: &Change, kind: Kind) -> bool {
         Kind::Typing => next.removed.is_empty() && !next.inserted.contains('\n') && last.at + last.inserted.len() == next.at,
         Kind::Deleting => next.at + next.removed.len() == last.at || next.at == last.at,
         Kind::Block => next.at == last.at && last.inserted == next.removed,
-        Kind::Other => false,
+        Kind::Other | Kind::Outside => false,
     };
     if !merged {
         return false;

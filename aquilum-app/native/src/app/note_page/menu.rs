@@ -1,13 +1,12 @@
 use masonry::app::RenderRoot;
-use masonry::kurbo::Point;
+use masonry::kurbo::Rect;
 
-use super::super::{App, MENU_MARGIN, MenuCommand, Outcome, Popup};
+use super::super::{App, MenuCommand, Outcome, Popup};
 use crate::i18n::t;
+use crate::ui::book::CoverAction;
 use crate::ui::editor::TextEditor;
 use crate::ui::icons;
 use crate::ui::menu::{Entry, Menu};
-
-const ACTIONS_MENU_WIDTH: f64 = 220.0;
 
 #[derive(Clone, Copy, PartialEq)]
 pub(in crate::app) enum NoteCommand {
@@ -51,26 +50,28 @@ impl NoteCommand {
 }
 
 impl App {
-    pub(in crate::app) fn open_note_actions_menu(&mut self, root: &mut RenderRoot, at: Point) {
+    pub(in crate::app) fn open_note_actions_menu(&mut self, root: &mut RenderRoot, trigger: Rect) {
         let compact = self.compact();
-        let commands: Vec<NoteCommand> = NOTE_COMMANDS.into_iter().filter(|&command| !(compact && command == NoteCommand::Wide)).collect();
+        let fields = self.fields().unwrap_or_default();
+        let covers = if fields.has_page_cover() { Vec::new() } else { CoverAction::list(None, compact && fields.is_book()) };
+        let shown = |command: NoteCommand| !((compact && command == NoteCommand::Wide) || (!crate::system::DESKTOP && command == NoteCommand::Reveal));
         let body = self.note_ids.as_ref().and_then(|ids| ids.body.get(root));
         let can = |redo: bool| body.as_ref().is_some_and(|editor| editor.inner().can_undo(redo));
-        let disabled: Vec<bool> = commands.iter().map(|command| match command {
-            NoteCommand::Undo => !can(false),
-            NoteCommand::Redo => !can(true),
-            _ => false,
-        }).collect();
-        let labels: Vec<(String, icons::Icon)> = commands.iter().map(|command| command.entry(self.interface.wide())).collect();
-        let divided = |index: usize| index > 0 && commands[index - 1] == NoteCommand::Redo;
-        let entries: Vec<Entry<'_>> = labels.iter().zip(disabled).enumerate().map(|(index, ((label, icon), disabled))| Entry { label, icon: Some(*icon), disabled, divided: divided(index) }).collect();
+        let wide = self.interface.wide();
+        let notes = NOTE_COMMANDS.into_iter().filter(|&command| shown(command)).map(|command| {
+            let disabled = match command {
+                NoteCommand::Undo => !can(false),
+                NoteCommand::Redo => !can(true),
+                _ => false,
+            };
+            (MenuCommand::Note(command), command.entry(wide), disabled)
+        });
+        let items: Vec<(MenuCommand, (String, icons::Icon), bool)> = covers.into_iter().map(|action| (MenuCommand::Cover(action), action.entry(), false)).chain(notes).collect();
+        let divided = |index: usize| index > 0 && matches!((items[index - 1].0, items[index].0), (MenuCommand::Note(NoteCommand::Redo), _) | (MenuCommand::Cover(_), MenuCommand::Note(_)));
+        let entries: Vec<Entry<'_>> = items.iter().enumerate().map(|(index, (_, (label, icon), disabled))| Entry { label, icon: Some(*icon), disabled: *disabled, divided: divided(index) }).collect();
         let menu = Menu::entries(&t("editor.noteActions"), &entries);
-        let estimate = Menu::estimated_size(entries.len());
-        let (w, h) = (self.window.width, self.window.height);
-        let x = if at.x + ACTIONS_MENU_WIDTH > w { (w - ACTIONS_MENU_WIDTH - MENU_MARGIN).max(MENU_MARGIN) } else { at.x };
-        let y = if at.y + estimate.height > h { (at.y - estimate.height).max(MENU_MARGIN) } else { at.y };
-        let commands = commands.into_iter().map(MenuCommand::Note).collect();
-        self.show_layer(root, menu, Point::new(x, y), |layer| Popup::Menu { layer, commands });
+        let commands = items.iter().map(|&(command, ..)| command).collect();
+        self.show_menu(root, menu, trigger, |layer| Popup::Menu { layer, commands });
     }
 
     pub(in crate::app) fn note_command(&mut self, root: &mut RenderRoot, command: NoteCommand) -> Outcome {

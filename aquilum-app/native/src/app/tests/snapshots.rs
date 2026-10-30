@@ -163,7 +163,7 @@ fn note_snapshot() {
         }
         if let Some((x, y)) = std::env::var("AQ_HOVER").ok().and_then(|v| v.split_once(',').map(|(x, y)| (x.parse::<f64>().unwrap(), y.parse::<f64>().unwrap()))) {
             let state = pointer_at(x, y, scale);
-            h.root.handle_pointer_event(moved(state));
+            h.root.handle_pointer_event(moved(MOUSE, state));
         }
         let (layers, _) = h.root.redraw();
         let mut r = crate::render::Renderer::new(2);

@@ -8,6 +8,7 @@ use aquilum_core::history::Source;
 use masonry::app::RenderRoot;
 
 use super::super::App;
+use crate::ui::editor::{self, TextEditor};
 
 pub type Change = Option<(Range<usize>, String)>;
 
@@ -61,19 +62,19 @@ impl App {
     pub(in crate::app) fn change_note(&mut self, root: &mut RenderRoot, path: &Path, source: Source, change: impl Fn(&dyn Content) -> Change) -> bool {
         if self.shows(path) {
             let Some((range, insert)) = change(&crate::rope::Text(&self.text)) else { return false };
-            if let Some(note) = &mut self.note {
-                note.touch(range.clone(), insert.len());
-                note.save_soon();
-            }
+            let undoable = source == Source::Me;
             match &self.note_ids {
                 Some(ids) if range.start >= self.hidden => {
                     let body = range.start - self.hidden..range.end - self.hidden;
-                    ids.body.edit(root, |mut editor| crate::ui::editor::TextEditor::apply_external(&mut editor, body, &insert));
-                    self.adopt_body(root);
+                    ids.body.edit(root, |mut editor| TextEditor::apply_external(&mut editor, body, &insert, undoable));
                 }
-                _ => self.text.replace(range, &insert),
+                Some(ids) => {
+                    let change = editor::Change { at: range.start, removed: self.text.byte_slice(range.clone()).to_string(), inserted: insert.clone() };
+                    ids.body.edit(root, |mut editor| TextEditor::change_outside(&mut editor, change, undoable));
+                }
+                None => {}
             }
-            self.sync_body(root);
+            self.replace_text(root, range, &insert);
             return true;
         }
         let core = &self.workspace.core;
@@ -88,5 +89,14 @@ impl App {
                 false
             }
         }
+    }
+
+    pub(in crate::app) fn replace_text(&mut self, root: &mut RenderRoot, range: Range<usize>, insert: &str) {
+        if let Some(note) = &mut self.note {
+            note.touch(range.clone(), insert.len());
+            note.save_soon();
+        }
+        self.text.replace(range, insert);
+        self.sync_body(root);
     }
 }

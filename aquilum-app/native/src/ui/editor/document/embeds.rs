@@ -151,12 +151,12 @@ impl Document {
             return Some(embed.view.height());
         }
         let view = match fetched {
-            Fetched::Table => View::Table(table::parse_with(&lines, editing)?.layout(available, editing, |text, wrap, align, styled| match wrap {
+            Fetched::Table => View::Table(table::parse_with(&lines, editing)?.layout(available, editing, self.print, |text, wrap, align, styled| match wrap {
                 Some(w) if styled => text::build(fcx, lcx, styles, text, None, Some(w as f32), align, Some((&context, &Frame::default(), &Block::Text, None))),
                 Some(w) => (text::spec_layout(fcx, lcx, styles, fonts, &Spec { wrap: Some(w), align, ..Spec::plain(text, Font::Editor, markdown::TEXT) }), markdown::Decor::default()),
                 None => (text::spec_layout(fcx, lcx, styles, fonts, &Spec::plain(text, Font::Mono(LABEL_SIZE), markdown::SYNTAX)), markdown::Decor::default()),
             })),
-            Fetched::Grid(grid) => View::Drawing(embed::dataview(&grid, available, &mut |spec| text::spec_layout(fcx, lcx, styles, fonts, spec))),
+            Fetched::Grid(grid) => View::Drawing(embed::dataview(&grid, available, self.print, &mut |spec| text::spec_layout(fcx, lcx, styles, fonts, spec))),
             Fetched::Media(line, fetched) => View::Media(MediaView::new(&fetched, line, available, self.uncropped == Some(start))),
             Fetched::Books(rows) => View::Drawing(embed::books(&rows, available, &mut |spec| text::spec_layout(fcx, lcx, styles, fonts, spec))),
             Fetched::Math(body) => match embed::math(&body, f64::from(fonts.size), available) {

@@ -52,7 +52,7 @@ impl Session {
     }
 
     pub fn overlay(&self, hovered: bool) -> Overlay {
-        Overlay { selection: self.range, hover: self.hover, line: self.line, scroll_x: self.scroll_x, hovered: hovered || self.active.is_some(), bar_active: self.bar.active(), search: None }
+        Overlay { selection: self.range, hover: self.hover, line: self.line, scroll_x: self.scroll_x, hovered: hovered || self.active.is_some(), bar_active: self.bar.active(), ..Overlay::default() }
     }
 
     pub(super) fn enter(&mut self, cell: (usize, usize), caret: usize) {

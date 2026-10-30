@@ -1,4 +1,5 @@
 use masonry::core::{EventCtx, PointerButtonEvent, PointerEvent, PointerUpdate, PropertiesMut, TextEvent, UpdateCtx};
+use crate::ui::editor::TextAction;
 use crate::ui::keymap::pointer;
 use super::Kind;
 use super::paste;
@@ -41,9 +42,10 @@ impl TextEditor {
             self.copied = None;
             ctx.request_render();
         }
-        let copied = self.copied.map(|(_, at)| at + super::code::COPIED);
+        let settle = self.settle_menu(|shown| ctx.submit_action::<TextAction>(shown));
+        let next = self.copied.map(|(_, at)| at + super::code::COPIED).into_iter().chain(settle).min();
         if !(ctx.is_window_focused() && ctx.is_focus_target()) {
-            if let Some(at) = copied {
+            if let Some(at) = next {
                 crate::ui::timer::wake(ctx.widget_id(), at);
             }
             return;
@@ -55,16 +57,19 @@ impl TextEditor {
             ctx.request_post_paint();
         }
         let blink = self.blink_start + BLINK_HALF * (halves as u32 + 1);
-        crate::ui::timer::wake(ctx.widget_id(), copied.map_or(blink, |at| at.min(blink)));
+        crate::ui::timer::wake(ctx.widget_id(), next.map_or(blink, |at| at.min(blink)));
     }
 
     pub(super) fn do_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         if !self.laid_out() || self.compose.is_some() {
             return;
         }
+        if let PointerEvent::Down(_) = event {
+            self.close_suggest();
+            self.close_menu(|closed| ctx.submit_action::<TextAction>(closed));
+        }
         match event {
             PointerEvent::Down(PointerButtonEvent { button, state, pointer: device }) if pointer::press(*button) => {
-                self.close_suggest();
                 let point = ctx.local_position(state.position);
                 let new_tab = pointer::new_tab(state.modifiers);
                 if self.table_press(ctx, point, crate::ui::keymap::extend(state.modifiers), new_tab, state.count)
@@ -80,11 +85,13 @@ impl TextEditor {
                 if pointer::add_cursor(state.modifiers) {
                     let (offset, _) = self.hit(point);
                     self.add_cursor_at(offset);
-                } else if !crate::ui::keymap::extend(state.modifiers) {
-                    self.clear_extra_cursors();
-                    self.select_at(point, state.count, false);
                 } else {
-                    self.select_at(point, state.count, true);
+                    let extend = crate::ui::keymap::extend(state.modifiers);
+                    if !extend {
+                        self.clear_extra_cursors();
+                    }
+                    self.select_at(point, state.count, extend);
+                    self.menu = super::menu::Menu::Pressed(state.count);
                 }
                 ctx.request_focus();
                 ctx.capture_pointer();
@@ -106,23 +113,19 @@ impl TextEditor {
                     self.refresh(ctx);
                 }
             }
-            PointerEvent::Down(PointerButtonEvent { button, state, .. }) if pointer::context(*button) => {
-                let point = ctx.local_position(state.position);
-                if !self.table_context(ctx, point) {
-                    if let Some(resolver) = &self.doc.resolver {
-                        let at = ctx.window_transform() * point;
-                        resolver.request(crate::ui::editor::resolve::Request::ContextMenu {
-                            at,
-                            has_selection: !self.selection().is_empty(),
-                        });
-                    }
-                }
+            PointerEvent::Down(PointerButtonEvent { button, state, pointer: device }) if pointer::context(*button) => {
+                self.context_press(ctx, ctx.local_position(state.position), pointer::reach(device.pointer_type));
             }
             PointerEvent::Up(_) | PointerEvent::Cancel(_) => {
                 self.drag_at = None;
                 self.media_release(ctx);
                 self.table_release(ctx);
                 self.bar_release();
+                let up = match event {
+                    PointerEvent::Up(up) => Some((ctx.local_position(up.state.position), up.pointer.pointer_type)),
+                    _ => None,
+                };
+                self.release_menu(ctx, up);
             }
             PointerEvent::Scroll(scroll) => {
                 let point = ctx.local_position(scroll.state.position);
@@ -138,6 +141,9 @@ impl TextEditor {
 
     pub(super) fn do_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
         self.restart_blink(ctx);
+        if self.menu_text(ctx, event) {
+            return;
+        }
         if !matches!(event, TextEvent::WindowFocusChange(_)) {
             self.include_caret();
         }

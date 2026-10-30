@@ -43,10 +43,9 @@ impl Host {
         let mut title_changed = false;
         let mut rescale = false;
         let mut commands = Vec::new();
-        let size = self.logical_size();
         if let Some(root) = &mut self.root {
             for (action, id) in actions {
-                let outcome = self.app.on_action(root, id, action, size);
+                let outcome = self.app.on_action(root, id, action);
                 title_changed |= outcome.title;
                 rescale |= outcome.rescale;
                 commands.extend(outcome.window);

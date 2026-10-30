@@ -8,7 +8,10 @@ fn settings_dialog_applies_changes() {
     h.click(242.0, 578.0);
     assert_eq!(h.section(), Some(Section::Ui));
 
-    h.click(807.0, 236.0);
+    let themes = h.binding("переключатель темы", |b| matches!(b, Binding::Choice(_)));
+    let widget = h.root.get_widget(themes).unwrap();
+    let light = widget.downcast::<crate::ui::settings::controls::Segmented>().unwrap().inner().segment(1).unwrap().center() + widget.ctx().bounding_box().origin().to_vec2();
+    h.click(light.x, light.y);
     assert_eq!(h.config().ui.theme, "light");
     assert_eq!(h.section(), Some(Section::Ui));
 

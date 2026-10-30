@@ -6,8 +6,6 @@ use crate::i18n::t;
 use crate::ui::dialog::DialogAnswer;
 use crate::ui::editor::{TextAction, TextEditor};
 use aquilum_core::search::paths::same_path;
-use masonry::core::PointerButtonEvent;
-use masonry::kurbo::Point;
 
 fn synced(h: &Harness, path: &std::path::Path) -> bool {
     h.app.workspace.core.ui_state.workspace(path).unwrap().sync.enabled
@@ -19,17 +17,6 @@ fn answer_delete(h: &mut Harness, path: &std::path::Path, answer: DialogAnswer) 
     assert!(cancel.downcast_ref::<DialogAnswer>().is_some() && confirm != state(h).dialog.layer, "нет вопроса об удалении");
     h.act(confirm, answer);
     crate::disk::wait();
-}
-
-fn right_click(h: &mut Harness, at: Point) {
-    let mut pointer = pointer_at(at.x, at.y, 1.0);
-    h.root.handle_pointer_event(moved(pointer.clone()));
-    pointer.buttons.insert(PointerButton::Secondary);
-    let down = PointerButtonEvent { pointer: MOUSE, button: Some(PointerButton::Secondary), state: pointer.clone() };
-    h.root.handle_pointer_event(PointerEvent::Down(down));
-    pointer.buttons.remove(PointerButton::Secondary);
-    h.root.handle_pointer_event(PointerEvent::Up(PointerButtonEvent { pointer: MOUSE, button: Some(PointerButton::Secondary), state: pointer }));
-    h.deliver();
 }
 
 #[test]
@@ -136,7 +123,7 @@ fn deleting_the_open_vault_moves_on_and_the_last_one_leaves_the_empty_screen() {
     assert!(h.app.tree.root().is_none());
     assert!(rows(&h).is_empty());
     let buttons = &h.app.chrome.as_ref().unwrap().vault_buttons;
-    assert_eq!(buttons.open.is_some(), crate::native_dialog::PICKS_FOLDERS);
+    assert_eq!(buttons.open.is_some(), crate::system::DESKTOP);
     h.escape();
     assert!(h.app.popup.is_none());
     h.snapshot("no-vault.png");
@@ -187,6 +174,6 @@ fn the_vault_menu_opens_from_the_dots_and_a_right_click_and_back_closes_it() {
     assert!(menu_layer(&h).is_none(), "«Назад» не закрыл меню");
     assert!(matches!(h.app.popup, Some(Popup::Workspaces(_))));
 
-    right_click(&mut h, bounds.center());
+    h.press(pointer_at(bounds.center().x, bounds.center().y, 1.0), PointerButton::Secondary, MOUSE);
     assert!(menu_layer(&h).is_some(), "правый клик не открыл меню");
 }

@@ -27,7 +27,7 @@ impl TextEditor {
         }
     }
 
-    fn table_parts(&mut self) -> Option<(&mut Session, &TableView)> {
+    pub(super) fn table_parts(&mut self) -> Option<(&mut Session, &TableView)> {
         let session = self.table.as_mut()?;
         let (_, view) = self.doc.table_at(session.start)?;
         Some((session, view))
@@ -99,7 +99,7 @@ impl TextEditor {
         ctx.request_render();
     }
 
-    fn write_table(&mut self, model: &Table) {
+    pub(super) fn write_table(&mut self, model: &Table) {
         let Some(start) = self.table.as_ref().map(|s| s.start) else { return };
         let Some((range, _)) = self.doc.table_at(start) else { return };
         let i = self.doc.at_offset(range.start);
@@ -172,7 +172,7 @@ impl TextEditor {
         let (range, view) = self.doc.table_at(session.start)?;
         let i = self.doc.at_offset(range.start);
         let (at, height, selection) = session.caret_geometry(view)?;
-        let origin = Vec2::new(self.embed_x(i), self.doc.top(i));
+        let origin = self.embed_origin(i);
         let caret = Rect::new(at.x, at.y, at.x + size::CARET_WIDTH, at.y + height) + origin;
         Some((caret, selection.into_iter().map(|rect| rect + origin).collect()))
     }

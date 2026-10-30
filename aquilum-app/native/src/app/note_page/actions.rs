@@ -1,6 +1,5 @@
 use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, WidgetId};
-use masonry::kurbo::Point;
 use crate::ui::editor::TextAction;
 
 use super::super::{App, Outcome};
@@ -64,6 +63,12 @@ impl App {
                     scroll.edit(root, |mut area| ScrollArea::scroll_by(&mut area, line));
                 }
                 Some(TextAction::Edited(edits)) => self.body_edited(root, edits),
+                Some(TextAction::Outside(edits)) => {
+                    for (range, text) in edits {
+                        self.replace_text(root, range.clone(), text);
+                    }
+                    self.refresh_hero(root);
+                }
                 _ => {}
             }
             return Some(Outcome::default());
@@ -109,8 +114,8 @@ impl App {
                 return Some(Outcome::default());
             }
             if id == ids.more {
-                let transform = root.get_widget(id).map_or(Point::ORIGIN, |w| w.ctx().window_transform() * Point::ZERO);
-                self.open_note_actions_menu(root, Point::new(transform.x, transform.y + crate::ui::tokens::size::SIZE_32));
+                let trigger = root.get_widget(id).map_or(masonry::kurbo::Rect::ZERO, |w| w.ctx().bounding_box());
+                self.open_note_actions_menu(root, trigger);
                 return Some(Outcome::default());
             }
         }

@@ -80,10 +80,13 @@ pub(super) fn trash(config: &AppConfig, ctx: &Context) -> Vec<Block> {
             info(
                 t("settings.trash.deleted"),
                 Some(description),
-                Control::Buttons(vec![
-                    Button::new(t("settings.trash.open"), Action::OpenTrash).enabled(ctx.workspace.is_some()),
-                    Button::new(t("settings.trash.clear"), Action::Wipe(Wipe::Trash)).enabled(clearable),
-                ]),
+                Control::Buttons(
+                    crate::system::DESKTOP
+                        .then(|| Button::new(t("settings.trash.open"), Action::OpenTrash).enabled(ctx.workspace.is_some()))
+                        .into_iter()
+                        .chain([Button::new(t("settings.trash.clear"), Action::Wipe(Wipe::Trash)).enabled(clearable)])
+                        .collect(),
+                ),
             ),
         ],
     }];

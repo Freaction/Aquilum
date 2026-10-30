@@ -96,10 +96,14 @@ impl Harness {
     }
 
     pub(super) fn pointer_move(&mut self, x: f64, y: f64) {
-        self.root.handle_pointer_event(moved(pointer_at(x, y, 1.0)));
+        self.root.handle_pointer_event(moved(MOUSE, pointer_at(x, y, 1.0)));
     }
 
     pub(super) fn drag(&mut self, from: (f64, f64), to: (f64, f64)) -> Outcome {
+        self.drag_with(from, to, MOUSE)
+    }
+
+    pub(super) fn drag_with(&mut self, from: (f64, f64), to: (f64, f64), pointer: PointerInfo) -> Outcome {
         let state = |x: f64, y: f64, pressed: bool| {
             let mut state = pointer_at(x, y, 1.0);
             if pressed {
@@ -107,20 +111,20 @@ impl Harness {
             }
             state
         };
-        self.root.handle_pointer_event(moved(state(from.0, from.1, false)));
-        self.root.handle_pointer_event(PointerEvent::Down(primary(state(from.0, from.1, true))));
+        self.root.handle_pointer_event(moved(pointer, state(from.0, from.1, false)));
+        self.root.handle_pointer_event(PointerEvent::Down(PointerButtonEvent { pointer, ..primary(state(from.0, from.1, true)) }));
         for step in 1..=10 {
             let k = f64::from(step) / 10.0;
-            self.root.handle_pointer_event(moved(state(from.0 + (to.0 - from.0) * k, from.1 + (to.1 - from.1) * k, true)));
+            self.root.handle_pointer_event(moved(pointer, state(from.0 + (to.0 - from.0) * k, from.1 + (to.1 - from.1) * k, true)));
         }
-        self.root.handle_pointer_event(PointerEvent::Up(primary(state(to.0, to.1, false))));
+        self.root.handle_pointer_event(PointerEvent::Up(PointerButtonEvent { pointer, ..primary(state(to.0, to.1, false)) }));
         self.deliver()
     }
 
     pub(super) fn replace_body(&mut self, text: &str) {
         let body = self.app.note_ids.as_ref().unwrap().body;
         let range = 0..self.app.text.byte_len() - self.app.hidden;
-        body.edit(&mut self.root, |mut editor| crate::ui::editor::TextEditor::apply_external(&mut editor, range.clone(), text));
+        body.edit(&mut self.root, |mut editor| crate::ui::editor::TextEditor::apply_external(&mut editor, range.clone(), text, true));
         self.act(body.id(), crate::ui::editor::TextAction::Edited(vec![crate::ui::editor::Edit { range, inserted: text.len(), head: true }]));
     }
 

@@ -21,10 +21,10 @@ pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
         t("settings.ui.theme"),
         None,
         Control::Segmented {
-            options: vec![t("theme.system"), t("theme.light"), t("theme.dark")],
+            options: THEMES.iter().map(|theme| t(&format!("theme.{theme}"))).collect(),
             selected: position(&THEMES, &config.ui.theme.as_str()),
         },
-        |c, v| c.ui.theme = THEMES[index(v).min(2)].to_owned(),
+        |c, v| c.ui.theme = THEMES[index(v).min(THEMES.len() - 1)].to_owned(),
     );
     let language = row(
         t("settings.ui.language"),

@@ -12,20 +12,17 @@ impl App {
                     let hex = self.workspace.core.settings.get_config().ui.primary_color;
                     let picker = ColorPicker::new(&hex, *rect);
                     let layer = picker.id();
-                    let size = ColorPicker::size();
-                    let below = rect.y1 + size::SPACE_6;
-                    let y = if below + size.height > self.window.height { rect.y0 - size::SPACE_6 - size.height } else { below };
-                    let x = rect.x0.min(self.window.width - size.width - size::SPACE_8).max(size::SPACE_8);
-                    root.add_layer(picker, Point::new(x, y.max(size::SPACE_8)));
+                    root.add_layer(picker, Point::ZERO);
+                    self.place_layer(root, layer, *rect);
                     root.focus_on(Some(layer));
                     menu = Some(OpenMenu { layer, button: id });
                 }
                 (Some(Binding::Dropdown { options, selected, .. }), Changed::OpenMenu(rect)) => {
                     let items: Vec<&str> = options.iter().map(String::as_str).collect();
-                    let origin = Menu::list_origin(*rect, items.len(), self.window);
                     let list = Menu::list("", &items, *selected, *rect);
                     let layer = list.id();
-                    root.add_layer(list, origin);
+                    root.add_layer(list, Point::ZERO);
+                    self.place_layer(root, layer, *rect);
                     root.edit_widget(id, |mut w| DropdownButton::set_open(&mut w.downcast(), true));
                     root.focus_on(Some(layer));
                     menu = Some(OpenMenu { layer, button: id });

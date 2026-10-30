@@ -40,7 +40,7 @@ fn typing_markdown_never_breaks_layout() {
     let styles = StyleSet::new(16.0);
     let fonts = Fonts { ch: 8.0, ..Fonts::new(16.0, true, true) };
     let unresolved = HashSet::new();
-    let context = markdown::Context { fonts: &fonts, unresolved: &unresolved, resolver: None, inside: false, gutter: 0 };
+    let context = markdown::Context { fonts: &fonts, unresolved: &unresolved, resolver: None, inside: false, gutter: 0, print: false };
     for line in TYPED.lines() {
         for end in line.char_indices().map(|(i, _)| i).chain([line.len()]) {
             let text = &line[..end];

@@ -17,6 +17,9 @@ impl Document {
     }
 
     pub fn changed(&mut self) -> TextAction {
+        if !self.outside.is_empty() {
+            return TextAction::Outside(std::mem::take(&mut self.outside));
+        }
         let front = self.front;
         match self.edits.as_mut() {
             Some(edits) => {

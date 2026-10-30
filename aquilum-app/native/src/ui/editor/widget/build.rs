@@ -54,6 +54,7 @@ impl TextEditor {
             find: find::Find::default(),
             smart: Smart::default(),
             suggest_shown: None,
+            menu: Default::default(),
             hover_terms: Vec::new(),
             external_reveal: None,
             extra_cursors: Vec::new(),
@@ -64,6 +65,11 @@ impl TextEditor {
     pub fn single_line(text: &str) -> Self {
         let text = text.replace(['\r', '\n'], " ");
         TextEditor { single_line: true, ..TextEditor::new(&text) }
+    }
+
+    pub fn printed(mut self) -> Self {
+        self.doc.print = true;
+        self
     }
 
     pub fn wrapping(mut self) -> Self {

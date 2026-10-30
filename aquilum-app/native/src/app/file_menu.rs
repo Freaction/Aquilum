@@ -1,6 +1,7 @@
 use super::*;
 use crate::ui::menu::{Submenu, Swatch};
 use crate::ui::palette;
+use masonry::kurbo::Rect;
 
 impl App {
     pub(super) fn open_file_menu(
@@ -10,7 +11,6 @@ impl App {
         clicked: PathBuf,
         folder: bool,
         at: Point,
-        window: Size,
         tab: Option<Uuid>,
     ) {
         let label = if tab.is_some() {
@@ -34,7 +34,7 @@ impl App {
         let swatches: Vec<Swatch<'_>> = names.iter().zip(std::iter::once(None).chain(palette::NAMES.iter().map(|name| palette::color(name, &theme)))).map(|(label, color)| Swatch { label, color }).collect();
         let current = self.tree.color(&clicked).and_then(|name| palette::NAMES.iter().position(|known| *known == name)).map_or(0, |at| at + 1);
         let menu = if colored { Menu::with_submenu(&label, &items, &Submenu { at: MENU_COLOR, items: &swatches, checked: current }) } else { Menu::entries(&label, &items) };
-        self.show_layer(root, menu, Menu::context_origin(at, items.len(), window), |layer| Popup::FileMenu { layer, targets, clicked, tab });
+        self.show_menu(root, menu, Rect::from_points(at, at), |layer| Popup::FileMenu { layer, targets, clicked, tab });
     }
 
     pub(super) fn open_sort_menu(&mut self, root: &mut RenderRoot, button: WidgetId) {
@@ -42,10 +42,9 @@ impl App {
         let labels: Vec<String> = crate::ui::file_tree::Sort::ALL.iter().map(|s| t(s.label())).collect();
         let items: Vec<&str> = labels.iter().map(String::as_str).collect();
         let checked = crate::ui::file_tree::Sort::ALL.iter().position(|s| *s == self.tree.sort()).unwrap_or(0);
-        let origin = Menu::list_origin(trigger, items.len(), self.window);
         let menu = Menu::list(&t("fileTree.sort"), &items, checked, trigger);
         root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), true));
-        self.show_layer(root, menu, origin, |layer| Popup::SortMenu { layer, button });
+        self.show_menu(root, menu, trigger, |layer| Popup::SortMenu { layer, button });
     }
 
     pub(super) fn open_tabs_menu(&mut self, root: &mut RenderRoot, button: WidgetId) {
@@ -80,7 +79,7 @@ impl App {
 
     fn pick_tab(&mut self, root: &mut RenderRoot, index: usize) -> Outcome {
         let Some(id) = self.tabs.tabs().get(index).map(|tab| tab.id) else { return Outcome::default() };
-        self.on_titlebar(root, &crate::ui::titlebar::TitlebarAction::Select(id), self.window)
+        self.on_titlebar(root, &crate::ui::titlebar::TitlebarAction::Select(id))
     }
 
     pub(super) fn on_popup_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Outcome {
@@ -152,8 +151,8 @@ impl App {
         match commands.get(*item) {
             Some(&MenuCommand::Version(index, command)) => self.version_command(root, index, command),
             Some(&MenuCommand::Table(command)) => self.table_command(root, command),
-            Some(&MenuCommand::Editor(command)) => self.editor_command(root, command),
             Some(&MenuCommand::Note(command)) => return self.note_command(root, command),
+            Some(&MenuCommand::Cover(action)) => self.cover_action(root, action),
             None => {}
         }
         Outcome::default()

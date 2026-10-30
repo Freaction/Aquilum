@@ -38,7 +38,7 @@ use std::sync::Arc;
 use aquilum_core::settings::models::AppConfig;
 use masonry::app::{RenderRoot, RenderRootOptions, RenderRootSignal, WindowSizePolicy};
 use masonry::core::keyboard::{Code, Key, KeyState, Location, Modifiers, NamedKey};
-use masonry::core::{KeyboardEvent, PointerButton, PointerEvent, PointerState, TextEvent};
+use masonry::core::{KeyboardEvent, PointerButton, PointerButtonEvent, PointerEvent, PointerInfo, PointerState, TextEvent};
 use masonry::dpi::{PhysicalPosition, PhysicalSize};
 use masonry::kurbo::Size;
 
@@ -46,7 +46,7 @@ use super::{App, Outcome, Popup};
 use crate::ui::settings::schema::Section;
 use crate::ui::theme;
 use crate::workspace::Workspace;
-use crate::test_dir::{MOUSE, moved, pointer_at, primary};
+use crate::test_dir::{MOUSE, TOUCH, moved, pointer_at, primary};
 use support::*;
 
 const W: u32 = 1000;
@@ -63,6 +63,7 @@ struct Harness {
     root: RenderRoot,
     signals: Rc<RefCell<Vec<RenderRootSignal>>>,
     vault: tempfile::TempDir,
+    copied: Option<String>,
     _data: tempfile::TempDir,
     _theme: std::sync::MutexGuard<'static, ()>,
 }

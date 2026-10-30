@@ -143,6 +143,7 @@ pub struct RenderContext {
     pub(crate) aliasing_threshold: Option<u8>,
     pub(crate) encoded_paints: Vec<EncodedPaint>,
     pub(crate) filter: Option<Filter>,
+    pub(crate) red_glyphs: bool,
     #[cfg_attr(
         not(feature = "text"),
         allow(dead_code, reason = "used when the `text` feature is enabled")
@@ -217,7 +218,12 @@ impl RenderContext {
             temp_path,
             encoded_paints,
             filter: None,
+            red_glyphs: false,
         }
+    }
+
+    pub fn set_red_glyphs(&mut self, red: bool) {
+        self.red_glyphs = red;
     }
 
     fn transforms(&self) -> &Transforms {

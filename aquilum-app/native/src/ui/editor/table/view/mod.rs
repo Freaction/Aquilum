@@ -70,6 +70,7 @@ pub struct Overlay {
     pub hovered: bool,
     pub bar_active: bool,
     pub search: Option<crate::ui::editor::Search>,
+    pub print: bool,
 }
 
 pub struct TableView {

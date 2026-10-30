@@ -137,10 +137,8 @@ impl<'a, 'b> ColrPainter<'a, 'b> {
                 .color_records_array()?
                 .ok()?[palette_index as usize];
 
-            Some(
-                AlphaColor::from_rgba8(color.red, color.green, color.blue, color.alpha)
-                    .multiply_alpha(alpha),
-            )
+            let color = AlphaColor::from_rgba8(color.red, color.green, color.blue, color.alpha).multiply_alpha(alpha);
+            Some(if self.colr_glyph.red { crate::red(color) } else { color })
         } else {
             Some(self.context_color.multiply_alpha(alpha))
         }

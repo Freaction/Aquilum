@@ -2,6 +2,7 @@ use masonry::parley::{Affinity, Cursor};
 
 use super::{Outcome, Session};
 use crate::ui::editor::caret;
+use crate::ui::editor::table::model::Range2;
 use crate::ui::editor::table::view::TableView;
 
 impl Session {
@@ -35,9 +36,12 @@ impl Session {
     }
 
     pub fn select_all(&mut self, view: &TableView) {
-        if let Some((r, c)) = self.active {
-            self.anchor = 0;
-            self.caret = view.model.value(r, c).len();
+        match self.active {
+            Some((r, c)) => {
+                self.anchor = 0;
+                self.caret = view.model.value(r, c).len();
+            }
+            None => self.select(view, Range2 { top: 0, left: 0, bottom: view.model.rows() - 1, right: view.model.cols() - 1 }),
         }
     }
 

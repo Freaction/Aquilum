@@ -33,6 +33,35 @@ fn primary_color_typed_into_field() {
 }
 
 #[test]
+fn the_red_theme_paints_the_window_only_in_shades_of_red() {
+    let mut h = Harness::new();
+    image::RgbaImage::from_pixel(40, 30, image::Rgba([10, 120, 200, 255])).save(h.vault.path().join("pic.png")).unwrap();
+    let body = "# Заголовок\n\nТекст с [[ссылкой]], **жирным**, `кодом`, #тегом и эмодзи 😀🔥🌈.\n\n![](pic.png)\n\n- [ ] задача\n- [x] готово\n\n> [!note] Выноска\n> текст\n\n```rust\nfn main() {}\n```\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n";
+    let note = h.write_note("заметка.md", body);
+    h.open(note);
+    assert!(h.wait_for(|h| h.app.embeds.as_ref().unwrap().cached_media() > 0), "картинка не загрузилась");
+    let mut config = h.config();
+    config.ui.theme = "red".into();
+    h.app.workspace.core.settings.update_config(config).unwrap();
+    h.app.restyle(&mut h.root, false, None);
+    h.settle();
+    let frame = h.frame(W as u16, H as u16, 1.0);
+    dump("red-theme.png", &frame);
+    let pixels = frame.frame_pixels();
+    let colored = pixels.iter().filter(|&&pixel| channel(pixel, 8) != 0 || channel(pixel, 0) != 0).count();
+    assert_eq!(colored, 0, "в красной теме {colored} пикселей не красные");
+    let picture = pixels.iter().filter(|&&pixel| channel(pixel, 16) == 102).count();
+    assert!(picture > 900, "голубая картинка не стала красной той же яркости: {picture} пикселей");
+    let mut config = h.config();
+    config.ui.theme = "dark".into();
+    h.app.workspace.core.settings.update_config(config).unwrap();
+    h.app.restyle(&mut h.root, false, None);
+    h.settle();
+    let blue = h.frame(W as u16, H as u16, 1.0).frame_pixels().iter().filter(|&&pixel| [channel(pixel, 16), channel(pixel, 8), channel(pixel, 0)] == [10, 120, 200]).count();
+    assert!(blue > 900, "после красной темы картинка не вернула цвет: {blue} пикселей");
+}
+
+#[test]
 fn restyle_matches_fresh_build() {
     let mut h = Harness::new();
     let note = h.write_note("заметка.md", "# Заголовок\n\nТекст заметки с [[ссылкой]] и **жирным**.\n\n- пункт\n- [ ] задача");
@@ -81,7 +110,7 @@ fn color_picker_previews_live_and_saves_on_close() {
     s.buttons.insert(PointerButton::Primary);
     h.root.handle_pointer_event(PointerEvent::Down(primary(s.clone())));
     s.position = PhysicalPosition::new(area.x0 + 150.0, area.y0 + 100.0);
-    h.root.handle_pointer_event(moved(s.clone()));
+    h.root.handle_pointer_event(moved(MOUSE, s.clone()));
     s.buttons.remove(PointerButton::Primary);
     h.root.handle_pointer_event(PointerEvent::Up(primary(s)));
     h.deliver();

@@ -68,6 +68,10 @@ pub fn pages_track(pointer: PointerType) -> bool {
     pointer != PointerType::Touch
 }
 
+pub fn selection_menu(pointer: PointerType, count: u8, selected: bool) -> bool {
+    pointer == PointerType::Touch && (count >= 2 || selected)
+}
+
 pub fn reach(pointer: PointerType) -> f64 {
     if pointer == PointerType::Touch { TOUCH_REACH } else { 0.0 }
 }

@@ -191,10 +191,12 @@
 
   --q-book-gutter: var(--q-space-12);
   --q-book-cover-height: clamp(11.625rem, 20.7vh, 15rem);
+  --q-book-cover-compact-shrink: 2.5rem;
   --q-book-cover-radius: var(--q-rounded-2xl);
   --q-book-thumb-height: calc(
     11.5rem + (var(--q-book-cover-height) - 11.625rem) * 36 / 54
   );
+  --q-book-thumb-height-compact: 8.25rem;
   --q-book-thumb-radius: 12px;
   --q-book-thumb-border: var(--q-border-subtle);
   --q-book-thumb-shadow:

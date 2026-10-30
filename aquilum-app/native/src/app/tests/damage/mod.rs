@@ -53,7 +53,7 @@ fn pointer(h: &mut Harness, x: f64, y: f64, scale: f64, pressed: bool) -> Pointe
     if pressed {
         state.buttons.insert(PointerButton::Primary);
     }
-    h.root.handle_pointer_event(moved(state.clone()));
+    h.root.handle_pointer_event(moved(MOUSE, state.clone()));
     state
 }
 

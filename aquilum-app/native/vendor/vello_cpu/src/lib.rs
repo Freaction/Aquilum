@@ -165,7 +165,7 @@ pub use render::{
 // Note: The first one is not something that should be
 // exposed, but is currently needed by vello_tests.
 #[cfg(feature = "text")]
-pub use glifo::Glyph;
+pub use glifo::{Glyph, red, redden};
 #[cfg(feature = "text")]
 pub use text::{CpuGlyphRunBackend, GlyphRunBuilder};
 pub use vello_common::reexports::cpu::*;

@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::editor::Change;
 
 impl TextEditor {
     pub fn text(&self) -> String {
@@ -109,11 +110,18 @@ impl TextEditor {
         Self::edited(this);
     }
 
-    pub fn apply_external(this: &mut WidgetMut<'_, Self>, range: Range<usize>, insert: &str) {
+    pub fn apply_external(this: &mut WidgetMut<'_, Self>, range: Range<usize>, insert: &str, undoable: bool) {
         let widget = &mut *this.widget;
+        let before = (widget.anchor, widget.focus);
         let change = widget.apply_change(range, insert.to_owned());
         (widget.anchor, widget.focus) = (change.map(widget.anchor), change.map(widget.focus));
+        widget.remember(vec![change], before, Kind::Other, undoable);
         Self::repaint(this);
+    }
+
+    pub fn change_outside(this: &mut WidgetMut<'_, Self>, change: Change, undoable: bool) {
+        let widget = &mut *this.widget;
+        widget.remember(vec![change], (widget.anchor, widget.focus), Kind::Outside, undoable);
     }
 
     pub fn insert_text(this: &mut WidgetMut<'_, Self>, text: &str) {

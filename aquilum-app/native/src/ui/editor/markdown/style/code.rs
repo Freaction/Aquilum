@@ -22,7 +22,7 @@ pub(super) fn style_code(builder: &mut RangedBuilder<'_, BrushIndex>, frame: &Fr
     };
     decor.pad.1 += f64::from(frame.closes) * PAD;
     if !fence {
-        decor.nowrap = !math;
+        decor.nowrap = !math && !context.print;
         push(builder, StyleProperty::FontFamily(fonts.mono.clone()), lead..text.len());
         if let Some(lang) = lang.filter(|_| !math) {
             for (range, token) in highlight::tokens(body, lang) {

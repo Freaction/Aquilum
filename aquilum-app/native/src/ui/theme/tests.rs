@@ -96,6 +96,26 @@ fn graph_backdrop_is_the_note_background_in_both_themes() {
 }
 
 #[test]
+fn every_color_of_the_red_theme_is_a_shade_of_red() {
+    let _lock = super::test_lock();
+    let before = super::is_dark();
+    for primary in ["#1471eb", "#e05a2b"] {
+        super::apply_setting("red", false, primary);
+        assert!(super::is_dark() && super::is_red());
+        let mut theme = *super::current();
+        tokens::map_colors(&mut theme, |color| {
+            assert_eq!(color.components[1..3], [0.0, 0.0], "в красной теме цвет {color:?}");
+            color
+        });
+    }
+    let teal = Color::from_rgb8(0x20, 0xb2, 0xaa);
+    assert_eq!(vello_cpu::red(vello_cpu::red(teal)), vello_cpu::red(teal), "повторный перевод не темнит уже красный цвет");
+    assert_eq!(vello_cpu::red(Color::WHITE).components, [1.0, 0.0, 0.0, 1.0]);
+    super::apply_setting(if before { "dark" } else { "light" }, before, "#1471eb");
+    assert!(!super::is_red());
+}
+
+#[test]
 fn a_system_family_is_asked_for_by_its_own_name_with_a_fallback() {
     let masonry::parley::FontFamily::Source(stack) = super::editor_font("Georgia") else { panic!("ожидался список имён") };
     assert!(stack.starts_with("\"Georgia\", \"iA Writer Quattro\""), "{stack}");

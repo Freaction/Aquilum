@@ -80,7 +80,7 @@ pub(super) fn paste(root: &mut RenderRoot, s: &str) {
 }
 
 fn pointer_move(root: &mut RenderRoot, state: &PointerState) {
-    root.handle_pointer_event(moved(state.clone()));
+    root.handle_pointer_event(moved(MOUSE, state.clone()));
     let _ = root.redraw();
 }
 

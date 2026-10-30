@@ -53,6 +53,13 @@ pub const COPY: Icon = Icon::lucide(&[
     Shape::Rect { x: 8.0, y: 8.0, w: 14.0, h: 14.0, rx: 2.0 },
     Shape::Path("M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"),
 ]);
+pub const SCISSORS: Icon = Icon::lucide(&[
+    Shape::Circle { cx: 6.0, cy: 6.0, r: 3.0 },
+    Shape::Path("M8.12 8.12 12 12"),
+    Shape::Path("M20 4 8.12 15.88"),
+    Shape::Circle { cx: 6.0, cy: 18.0, r: 3.0 },
+    Shape::Path("M14.8 14.8 20 20"),
+]);
 pub const CLIPBOARD: Icon = Icon::lucide(&[
     Shape::Rect { x: 8.0, y: 2.0, w: 8.0, h: 4.0, rx: 1.0 },
     Shape::Path("M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"),

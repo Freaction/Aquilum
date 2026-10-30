@@ -92,11 +92,7 @@ impl Host {
         }
         if let Some(root) = &mut self.root {
             self.app.tick(root, now);
-            for id in ui::timer::due(now) {
-                if root.get_widget(id).is_some() {
-                    root.edit_widget(id, |mut widget| widget.ctx.request_anim_frame());
-                }
-            }
+            ui::timer::fire(root, now);
         }
         self.touch_due(now);
         self.handle_signals(event_loop);

@@ -108,22 +108,51 @@ fn pasted_image_is_saved_and_embedded() {
     assert!(width < 2000.0, "ширина не ограничена колонкой: {embed}");
 }
 
+fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|window| window == needle)
+}
+
+fn pages_with_text(pdf: &[u8]) -> usize {
+    let mut rest = pdf;
+    let mut pages = 0;
+    while let Some(at) = find(rest, b"stream\n") {
+        let data = &rest[at + 7..];
+        let end = find(data, b"endstream").unwrap_or(data.len());
+        let mut content = Vec::new();
+        if std::io::Read::read_to_end(&mut flate2::read::ZlibDecoder::new(&data[..end]), &mut content).is_ok() && find(&content, b" Tf").is_some() {
+            pages += 1;
+        }
+        rest = &data[(end + b"endstream".len()).min(data.len())..];
+    }
+    pages
+}
+
 #[test]
 fn pdf_export_keeps_what_the_editor_shows() {
     let h = Harness::new();
     let vault = h.vault.path().to_path_buf();
     image::RgbaImage::from_pixel(120, 80, image::Rgba([200, 60, 60, 255])).save(vault.join("pic.png")).unwrap();
-    let mut body = "# Заголовок\n\nТекст с **жирным** и *курсивом*, Latin **bold** and *italic*.\n\n- пункт один\n- пункт два\n\n| Колонка | Число |\n|---|---|\n| яблоко | 2 |\n\n![](pic.png)\n\n> цитата\n".to_owned();
+    image::RgbaImage::from_fn(2400, 1800, |x, y| image::Rgba([(x / 10) as u8, (y / 8) as u8, 120, 255])).save(vault.join("photo.png")).unwrap();
+    let mut body = "# Заголовок\n\nТекст с **жирным** и *курсивом*, Latin **bold** and *italic*, эмодзи 😀🔥.\n\n- пункт один\n- пункт два\n\n| Колонка | Число |\n|---|---|\n| яблоко | 2 |\n\n![](pic.png)\n\n```rust\nfn main() {\n    println!(\"код\");\n}\n```\n\n> цитата\n".to_owned();
     for i in 0..80 {
         body.push_str(&format!("\nParagraph {i}: the quick brown fox jumps over the lazy dog, съешь же ещё этих мягких французских булок.\n"));
+        if i == 60 {
+            body.push_str("\n![](photo.png)\n");
+        }
     }
     let note = h.write_note("Экспорт.md", &body);
-    let embeds = crate::app::embeds::Embeds::new(std::sync::Arc::clone(&h.app.workspace.core), vault, note, std::env::temp_dir(), std::sync::Arc::new(|| {}));
+    let embeds = crate::app::embeds::Embeds::new(std::sync::Arc::clone(&h.app.workspace.core), vault, note, h._data.path().join("remote"), std::sync::Arc::new(|| {}));
     let pdf = crate::app::note_page::export::render("Экспорт", crop::Rope::from(body.as_str()), crate::ui::editor::Smart::default(), Some(embeds)).unwrap();
     if let Ok(out) = std::env::var("AQ_OUT") {
         std::fs::write(std::path::Path::new(&out).join("export.pdf"), &pdf).unwrap();
     }
     assert!(pdf.starts_with(b"%PDF"), "не PDF");
+    let pages = pdf.windows(11).filter(|w| w.starts_with(b"/Type/Page") && w[10] != b's').count();
+    assert!(pages >= 5, "заметка на {pages} страницах — потерялась часть текста");
+    assert!(pages_with_text(&pdf) >= pages, "есть страницы без текста");
+    assert!(find(&pdf, b"/DCTDecode").is_some(), "фото в конце заметки не попало в PDF или не сжато в JPEG");
+    assert!(find(&pdf, b"/Width 2400").is_none(), "фото не уменьшено до размера на странице");
+    assert!(pdf.len() < 400_000, "PDF раздут: {} байт", pdf.len());
 }
 
 #[test]

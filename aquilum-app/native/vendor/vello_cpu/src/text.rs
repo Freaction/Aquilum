@@ -538,6 +538,10 @@ impl glifo::GlyphRenderer for RenderContext {
         }
     }
 
+    fn red_glyphs(&self) -> bool {
+        self.red_glyphs
+    }
+
     #[inline]
     fn current_paint(&self) -> &PaintType {
         self.paint()

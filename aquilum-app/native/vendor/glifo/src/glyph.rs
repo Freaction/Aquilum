@@ -267,6 +267,7 @@ pub struct GlyphColr<'a> {
     pub pix_height: u16,
     /// Whether the glyph paint graph uses a non-default blend mode.
     pub has_non_default_blend: bool,
+    pub red: bool,
 }
 
 impl Debug for GlyphColr<'_> {
@@ -476,6 +477,7 @@ impl<'a, 'b, Glyphs: Iterator<Item = Glyph> + Clone> GlyphRunRenderer<'a, 'b, Gl
 
         let context_color = renderer.get_context_color();
         let context_color_packed = pack_color(context_color);
+        let red = renderer.red_glyphs();
         let scale_props =
             GlyphScaleProperties::new(draw_props.font_size, font_info.upem, hinted, style);
 
@@ -555,6 +557,7 @@ impl<'a, 'b, Glyphs: Iterator<Item = Glyph> + Clone> GlyphRunRenderer<'a, 'b, Gl
                     subpixel_x: SUBPIXEL_COLR,
                     context_color,
                     context_color_packed,
+                    red,
                     embolden_x_bits: 0,
                     embolden_y_bits: 0,
                     embolden_join_bits: join_bits(Join::Miter),
@@ -589,6 +592,7 @@ impl<'a, 'b, Glyphs: Iterator<Item = Glyph> + Clone> GlyphRunRenderer<'a, 'b, Gl
                     color_glyph,
                     normalized_coords,
                     font_info,
+                    red,
                 );
 
                 let prepared_glyph = PreparedGlyph {
@@ -640,7 +644,7 @@ impl<'a, 'b, Glyphs: Iterator<Item = Glyph> + Clone> GlyphRunRenderer<'a, 'b, Gl
                     }
                 });
 
-            if let Some((bitmap_glyph, pixmap)) = bitmap_data {
+            if let Some((bitmap_glyph, mut pixmap)) = bitmap_data {
                 // Bitmaps use the strike's own ppem, not the run's, because the
                 // image was pre-rendered at that specific size.
                 let bitmap_ppem = bitmap_glyph.ppem_x;
@@ -665,6 +669,7 @@ impl<'a, 'b, Glyphs: Iterator<Item = Glyph> + Clone> GlyphRunRenderer<'a, 'b, Gl
                     subpixel_x: SUBPIXEL_BITMAP,
                     context_color: BLACK,
                     context_color_packed: BLACK_PACKED,
+                    red,
                     embolden_x_bits: 0,
                     embolden_y_bits: 0,
                     embolden_join_bits: join_bits(Join::Miter),
@@ -686,6 +691,9 @@ impl<'a, 'b, Glyphs: Iterator<Item = Glyph> + Clone> GlyphRunRenderer<'a, 'b, Gl
                 }
 
                 // Cache miss — wrap the decoded pixmap for rendering.
+                if red {
+                    redden(&mut pixmap);
+                }
                 let glyph_type = create_bitmap_glyph(pixmap);
 
                 let prepared_glyph = PreparedGlyph {
@@ -1296,6 +1304,21 @@ fn calculate_outline_transform(
 ///
 /// This wraps the pixmap in a `GlyphType::Bitmap` with its display area,
 /// without any positioning information.
+pub fn red(color: crate::color::AlphaColor<crate::color::Srgb>) -> crate::color::AlphaColor<crate::color::Srgb> {
+    let [r, g, b, a] = color.components;
+    if g == 0.0 && b == 0.0 {
+        return color;
+    }
+    crate::color::AlphaColor::new([0.2126 * r + 0.7152 * g + 0.0722 * b, 0.0, 0.0, a])
+}
+
+pub fn redden(pixmap: &mut Pixmap) {
+    for pixel in pixmap.data_as_u8_slice_mut().chunks_exact_mut(4) {
+        let luma = (54 * u32::from(pixel[0]) + 183 * u32::from(pixel[1]) + 19 * u32::from(pixel[2])) >> 8;
+        pixel[..3].copy_from_slice(&[luma as u8, 0, 0]);
+    }
+}
+
 fn create_bitmap_glyph(pixmap: Pixmap) -> GlyphType<'static> {
     // Scale factor already accounts for ppem, so we can just draw in the size of the
     // actual image
@@ -1483,6 +1506,7 @@ fn create_colr_glyph<'a>(
     color_glyph: skrifa::color::ColorGlyph<'a>,
     normalized_coords: &'a [skrifa::instance::NormalizedCoord],
     font_info: FontInfo,
+    red: bool,
 ) -> GlyphType<'a> {
     let (pix_width, pix_height) = (
         metrics.scaled_bbox.width().ceil() as u16,
@@ -1517,6 +1541,7 @@ fn create_colr_glyph<'a>(
         draw_transform,
         has_non_default_blend: metrics.has_non_default_blend,
         font_info,
+        red,
     }))
 }
 

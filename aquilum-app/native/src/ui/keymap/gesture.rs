@@ -14,6 +14,7 @@ pub const DOUBLE_TAP: Duration = Duration::from_millis(300);
 pub const DOUBLE_TAP_SLOP: f64 = 100.0;
 pub const DOUBLE_CLICK: Duration = Duration::from_millis(500);
 pub const DOUBLE_CLICK_SLOP: f64 = 4.0;
+pub const MENU_SETTLE: Duration = Duration::from_millis(50);
 pub const DRAG_SLOP: f64 = 4.0;
 pub const GRIP: f64 = 6.0;
 pub const TOUCH_REACH: f64 = 8.0;

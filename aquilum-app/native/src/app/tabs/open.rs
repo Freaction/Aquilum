@@ -11,9 +11,8 @@ use crate::ui::widgets::Slot;
 impl App {
     pub(in crate::app) fn show_active(&mut self, root: &mut RenderRoot) {
         self.set_drawer(root, None);
-        if let Some((layer, _)) = self.suggest_layer.take() {
-            root.remove_layer(layer);
-        }
+        self.show_suggest(root, None);
+        self.close_editor_menu(root);
         let tab = self.tabs.active();
         let stays = if tab.graph { self.graph_shown() } else { tab.path.as_deref().is_some_and(|path| self.shows(path)) };
         if !self.show_tab(root) {

@@ -11,7 +11,7 @@ impl Harness {
         let data = crate::test_dir::tempdir();
         std::fs::write(vault.path().join("a.md"), "текст").unwrap();
         let mut config = AppConfig::default();
-        config.ui.theme = if std::env::var_os("AQUILUM_BENCH_LIGHT").is_some() { "light".into() } else { "dark".into() };
+        config.ui.theme = std::env::var("AQUILUM_BENCH_THEME").unwrap_or_else(|_| "dark".into());
         config.ui.language = "ru".into();
         std::fs::write(data.path().join("settings.json"), serde_json::to_string(&config).unwrap()).unwrap();
         Self::assemble(vault, data, theme, real_vault, scale)
@@ -42,7 +42,7 @@ impl Harness {
         app.attach_window_controls(&mut root, Size::new(f64::from(W), f64::from(H)));
         app.window_resized(&mut root, Size::new(f64::from(W), f64::from(H)));
         let _ = root.redraw();
-        let mut harness = Harness { app, root, signals, vault, _data: data, _theme: theme };
+        let mut harness = Harness { app, root, signals, vault, copied: None, _data: data, _theme: theme };
         harness.settle();
         harness
     }
@@ -71,7 +71,7 @@ impl Harness {
     }
 
     pub(super) fn send(&mut self, id: masonry::core::WidgetId, action: impl std::any::Any + std::fmt::Debug + Send) -> Outcome {
-        let outcome = self.app.on_action(&mut self.root, id, masonry::core::ErasedAction::from(Box::new(action)), Size::new(1000.0, 600.0));
+        let outcome = self.app.on_action(&mut self.root, id, masonry::core::ErasedAction::from(Box::new(action)));
         self.parked();
         outcome
     }
@@ -87,18 +87,21 @@ impl Harness {
         loop {
             self.parked();
             let _ = self.root.redraw();
-            let actions: Vec<_> = std::mem::take(&mut *self.signals.borrow_mut())
-                .into_iter()
-                .filter_map(|s| match s {
-                    RenderRootSignal::Action(action, id) => Some((action, id)),
-                    _ => None,
-                })
-                .collect();
+            let signals = std::mem::take(&mut *self.signals.borrow_mut());
+            let mut actions = Vec::new();
+            for signal in signals {
+                match signal {
+                    RenderRootSignal::Action(action, id) => actions.push((action, id)),
+                    RenderRootSignal::ClipboardStore(text) => self.copied = Some(text),
+                    RenderRootSignal::RemoveLayer(id) => self.root.remove_layer(id),
+                    _ => {}
+                }
+            }
             if actions.is_empty() {
                 return outcome;
             }
             for (action, id) in actions {
-                let next = self.app.on_action(&mut self.root, id, action, Size::new(f64::from(W), f64::from(H)));
+                let next = self.app.on_action(&mut self.root, id, action);
                 outcome.title |= next.title;
                 outcome.rescale |= next.rescale;
             }
@@ -111,12 +114,15 @@ impl Harness {
 
     pub(super) fn click_with(&mut self, x: f64, y: f64, modifiers: Modifiers) -> Outcome {
         self.settle();
-        let mut state = PointerState { modifiers, ..pointer_at(x, y, 1.0) };
-        self.root.handle_pointer_event(moved(state.clone()));
-        state.buttons.insert(PointerButton::Primary);
-        self.app.pointer_event(&mut self.root, PointerEvent::Down(primary(state.clone())));
-        state.buttons.remove(PointerButton::Primary);
-        self.root.handle_pointer_event(PointerEvent::Up(primary(state)));
+        self.press(PointerState { modifiers, ..pointer_at(x, y, 1.0) }, PointerButton::Primary, MOUSE)
+    }
+
+    pub(super) fn press(&mut self, mut state: PointerState, button: PointerButton, pointer: PointerInfo) -> Outcome {
+        self.root.handle_pointer_event(moved(pointer, state.clone()));
+        state.buttons.insert(button);
+        self.app.pointer_event(&mut self.root, PointerEvent::Down(PointerButtonEvent { pointer, button: Some(button), state: state.clone() }));
+        state.buttons.remove(button);
+        self.root.handle_pointer_event(PointerEvent::Up(PointerButtonEvent { pointer, button: Some(button), state }));
         self.deliver()
     }
 

@@ -25,7 +25,7 @@ pub fn update_row(status: &Status) -> Row {
 }
 
 pub(super) fn system(config: &AppConfig, ctx: &Context) -> Vec<Block> {
-    blocks(config, ctx, crate::autostart::SUPPORTED)
+    blocks(config, ctx, crate::system::DESKTOP)
 }
 
 fn blocks(config: &AppConfig, ctx: &Context, autostart: bool) -> Vec<Block> {

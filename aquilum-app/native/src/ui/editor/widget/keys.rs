@@ -30,23 +30,14 @@ impl TextEditor {
         let typing = typed && (matches!(&event.key, Key::Character(_)) && command.is_none() || matches!(command, Some(Command::DeleteBackward | Command::DeleteForward)));
         let mut edited = false;
         match (command, &event.key) {
-            (Some(Command::Cut), _) => {
-                if let Some(text) = self.selected_text() {
-                    self.insert("", Kind::Other);
+            (Some(clip @ (Command::Cut | Command::Copy)), _) => {
+                if let Some(text) = self.clip(clip == Command::Cut) {
                     ctx.set_clipboard(text);
-                    edited = true;
-                }
-            }
-            (Some(Command::Copy), _) => {
-                if let Some(text) = self.selected_text() {
-                    ctx.set_clipboard(text);
+                    edited = clip == Command::Cut;
                 }
             }
             (Some(Command::Undo | Command::Redo), _) => edited = self.rewind(command == Some(Command::Redo)),
-            (Some(Command::SelectAll), _) => {
-                self.anchor = 0;
-                self.focus = self.doc.len();
-            }
+            (Some(Command::SelectAll), _) => self.select_all(),
             (Some(Command::Bold | Command::Italic | Command::Strike | Command::Code), _) if rich => {
                 let mark = match command {
                     Some(Command::Bold) => Mark::Bold,

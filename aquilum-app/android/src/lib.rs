@@ -37,6 +37,15 @@ pub extern "system" fn Java_com_dmitriy_aquilum_ImeView_onImeState<'local>(
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_com_dmitriy_aquilum_DocumentActivity_onDocument<'local>(mut env: EnvUnowned<'local>, _: JClass<'local>, uri: JString<'local>) {
+    env.with_env(|env| -> jni::errors::Result<()> {
+        aquilum_native::android_document(if uri.is_null() { None } else { uri.try_to_string(env).ok() });
+        Ok(())
+    })
+    .resolve::<ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_dmitriy_aquilum_MainActivity_onLink<'local>(mut env: EnvUnowned<'local>, _: JClass<'local>, link: JString<'local>) {
     env.with_env(|env| -> jni::errors::Result<()> {
         aquilum_native::android_link(link.try_to_string(env)?);

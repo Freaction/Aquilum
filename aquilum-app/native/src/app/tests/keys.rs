@@ -32,14 +32,9 @@ fn copy_and_paste_go_through_the_system_clipboard() {
     h.open(h.write_note("Буфер.md", "первая строка"));
     h.focus_editor();
     h.key(Key::Character("a".into()), crate::test_dir::command());
-    h.signals.borrow_mut().clear();
-    crate::test_dir::key(&mut h.root, Key::Character("c".into()), crate::test_dir::command());
-    let copied = h.signals.borrow().iter().find_map(|signal| match signal {
-        RenderRootSignal::ClipboardStore(text) => Some(text.clone()),
-        _ => None,
-    });
-    assert_eq!(copied.as_deref(), Some("первая строка"), "Ctrl+C не отдал выделение");
-    assert!(crate::clipboard::copy(copied.unwrap()), "системный буфер не принял текст");
+    h.key(Key::Character("c".into()), crate::test_dir::command());
+    assert_eq!(h.copied.as_deref(), Some("первая строка"), "Ctrl+C не отдал выделение");
+    assert!(crate::clipboard::copy(h.copied.clone().unwrap()), "системный буфер не принял текст");
     assert_eq!(crate::clipboard::text().as_deref(), Some("первая строка"), "из системного буфера вернулось другое");
     assert!(crate::clipboard::copy("вставка\r\nиз буфера"));
     assert!(h.app.paste(&mut h.root, false), "вставка не сработала");

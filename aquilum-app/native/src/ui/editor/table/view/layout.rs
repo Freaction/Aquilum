@@ -12,14 +12,14 @@ use crate::ui::scroll::bar::Span;
 use crate::ui::tokens::size;
 
 impl Table {
-    pub fn layout(&self, available: f64, editing: Option<(usize, usize)>, mut make: impl FnMut(&str, Option<f64>, Alignment, bool) -> (Layout<BrushIndex>, Decor)) -> TableView {
+    pub fn layout(&self, available: f64, editing: Option<(usize, usize)>, print: bool, mut make: impl FnMut(&str, Option<f64>, Alignment, bool) -> (Layout<BrushIndex>, Decor)) -> TableView {
         let (n, m) = (self.rows(), self.cols());
         let numbers: Vec<Layout<BrushIndex>> = (0..n).map(|r| make(&(r + 1).to_string(), None, Alignment::Start, false).0).collect();
         let columns: Vec<Layout<BrushIndex>> = (0..m).map(|c| make(&letters(c), None, Alignment::Start, false).0).collect();
         let corner = numbers.iter().map(|l| f64::from(l.width()) + STRIP_PAD * 2.0).fold(STRIP, f64::max);
         let scroll_w = (available - ADD).max(STRIP * 2.0);
         let pad = size::EDITOR_TABLE_CELL_PADDING;
-        let widths = if self.explicit { self.widths.clone() } else { fit_columns(&self.natural(pad, &mut make), scroll_w - corner - GAP - size::BORDER_1, NARROWEST) };
+        let widths = if self.explicit { self.widths.clone() } else { fit_columns(&self.natural(pad, &mut make), scroll_w - corner - GAP - size::BORDER_1, if print { 0.0 } else { NARROWEST }) };
         let mut xs = vec![0.0];
         for w in &widths {
             xs.push(xs.last().copied().unwrap_or(0.0) + w);

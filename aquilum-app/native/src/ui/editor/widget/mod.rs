@@ -44,6 +44,7 @@ mod lifecycle;
 mod links;
 mod media;
 mod marks;
+mod menu;
 mod multicursor;
 mod outline;
 mod pages;

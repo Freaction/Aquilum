@@ -23,7 +23,15 @@ impl TextEditor {
             }
         }
         self.place(selection, &changes);
-        self.history.record(Step { changes, before, after: selection, kind, time: std::time::Instant::now() });
+        self.remember(changes, before, kind, true);
+    }
+
+    pub(super) fn remember(&mut self, changes: Vec<Change>, before: (usize, usize), kind: Kind, undoable: bool) {
+        if undoable {
+            self.history.record(Step { changes, before, after: (self.anchor, self.focus), kind, time: std::time::Instant::now() });
+        } else {
+            self.history = Default::default();
+        }
     }
 
     fn place(&mut self, selection: (usize, usize), changes: &[Change]) {
@@ -105,11 +113,16 @@ impl TextEditor {
     pub(super) fn rewind(&mut self, redo: bool) -> bool {
         self.leave_table();
         let Some(step) = self.history.take(redo) else { return false };
-        let applied: Vec<Change> = if redo {
-            step.changes.into_iter().map(|c| self.splice(c.at..c.at + c.removed.len(), c.inserted)).collect()
+        let edits: Vec<(Range<usize>, String)> = if redo {
+            step.changes.into_iter().map(|c| (c.at..c.at + c.removed.len(), c.inserted)).collect()
         } else {
-            step.changes.into_iter().rev().map(|c| self.splice(c.at..c.at + c.inserted.len(), c.removed)).collect()
+            step.changes.into_iter().rev().map(|c| (c.at..c.at + c.inserted.len(), c.removed)).collect()
         };
+        if step.kind == Kind::Outside {
+            self.doc.outside = edits;
+            return true;
+        }
+        let applied: Vec<Change> = edits.into_iter().map(|(range, text)| self.splice(range, text)).collect();
         self.place(if redo { step.after } else { step.before }, &applied);
         true
     }

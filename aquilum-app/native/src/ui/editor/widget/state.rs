@@ -38,6 +38,7 @@ pub struct TextEditor {
     pub(super) find: find::Find,
     pub(super) smart: Smart,
     pub(super) suggest_shown: Option<crate::ui::editor::resolve::Suggestions>,
+    pub(super) menu: menu::Menu,
     pub(super) hover_terms: Vec<String>,
     pub(super) external_reveal: Option<(Range<usize>, std::time::Instant)>,
     pub(super) extra_cursors: Vec<(usize, usize)>,

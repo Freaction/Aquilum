@@ -52,7 +52,7 @@ impl App {
             smart: crate::ui::editor::Smart::from_config(&self.workspace.core.settings.get_config()),
             wake: std::sync::Arc::clone(&self.workspace.wake),
         };
-        self.hero_shown = self.hero_key();
+        self.hero_shown = Some(self.hero_key());
         let (page, ids) = note::page(view);
         self.note_ids = Some(ids);
         self.restore = self.view.or_else(|| self.stored_view());

@@ -1,5 +1,5 @@
 use masonry::app::RenderRoot;
-use masonry::kurbo::{Insets, Point, Size};
+use masonry::kurbo::{Insets, Point, Rect, Size};
 use masonry::layout::Length;
 use masonry::properties::Padding;
 
@@ -18,9 +18,8 @@ impl App {
         self.interface.screen().compact
     }
 
-    pub(in crate::app) fn room(&self) -> Size {
-        let insets = self.interface.screen().insets;
-        Size::new((self.window.width - insets.x0 - insets.x1).max(0.0), (self.window.height - insets.y0 - insets.y1).max(0.0))
+    pub(in crate::app) fn room(&self) -> Rect {
+        self.window.to_rect() - self.interface.screen().insets
     }
 
     pub fn attach_window_controls(&mut self, root: &mut RenderRoot, window: Size) {
@@ -60,8 +59,8 @@ impl App {
         if let Some((layer, _)) = self.controls {
             root.reposition_layer(layer, controls_origin(self.window));
         }
-        let height = self.room().height;
-        if let Some((hero, _)) = self.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()) {
+        let height = self.room().height();
+        if let Some((hero, _)) = self.note_ids.as_ref().map(|ids| &ids.hero) {
             hero.edit(root, |mut hero| crate::ui::book::Hero::set_viewport(&mut hero, height));
         }
         if insets.y1 > before.insets.y1 {
@@ -70,6 +69,8 @@ impl App {
     }
 
     fn fit_note_page(&mut self, root: &mut RenderRoot) {
+        self.hero_shown = None;
+        self.refresh_hero(root);
         let Some(ids) = &self.note_ids else { return };
         let (pad_left, pad_right) = if self.compact() {
             (size::SPACE_12, size::SPACE_4)

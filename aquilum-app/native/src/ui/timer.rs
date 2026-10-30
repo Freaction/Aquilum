@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::time::Instant;
 
+use masonry::app::RenderRoot;
 use masonry::core::WidgetId;
 
 thread_local! {
@@ -18,10 +19,18 @@ pub fn next() -> Option<Instant> {
     TIMERS.with_borrow(|timers| timers.iter().map(|(_, at)| *at).min())
 }
 
-pub fn due(now: Instant) -> Vec<WidgetId> {
+fn due(now: Instant) -> Vec<WidgetId> {
     TIMERS.with_borrow_mut(|timers| {
         let due = timers.iter().filter(|(_, at)| *at <= now).map(|(id, _)| *id).collect();
         timers.retain(|(_, at)| *at > now);
         due
     })
+}
+
+pub fn fire(root: &mut RenderRoot, now: Instant) {
+    for id in due(now) {
+        if root.get_widget(id).is_some() {
+            root.edit_widget(id, |mut widget| widget.ctx.request_anim_frame());
+        }
+    }
 }

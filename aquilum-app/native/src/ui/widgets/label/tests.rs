@@ -33,7 +33,7 @@ fn gesture(root: &mut RenderRoot, from: (f64, f64), to: (f64, f64), count: u8) {
     state.buttons.insert(PointerButton::Primary);
     root.handle_pointer_event(PointerEvent::Down(crate::test_dir::primary(state.clone())));
     state.position = PhysicalPosition::new(to.0, to.1);
-    root.handle_pointer_event(crate::test_dir::moved(state.clone()));
+    root.handle_pointer_event(crate::test_dir::moved(crate::test_dir::MOUSE, state.clone()));
     state.buttons.remove(PointerButton::Primary);
     root.handle_pointer_event(PointerEvent::Up(crate::test_dir::primary(state)));
     let _ = root.redraw();

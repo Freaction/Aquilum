@@ -48,10 +48,7 @@ fn needs_elevation() -> bool {
 
 #[cfg(target_os = "macos")]
 pub fn apply(payload: &[u8], before_exit: impl FnOnce()) -> Result<(), String> {
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let text = exe.to_string_lossy().into_owned();
-    let (bundle, _) = text.split_once(".app/Contents/MacOS/").ok_or("приложение запущено не из пакета .app")?;
-    let bundle = std::path::PathBuf::from(format!("{bundle}.app"));
+    let bundle = crate::system::app_path().filter(|path| path.extension().is_some_and(|extension| extension == "app")).ok_or("приложение запущено не из пакета .app")?;
     let parent = bundle.parent().ok_or("нет каталога пакета")?;
     let staging = parent.join(format!(".{UPDATE_DIR}"));
     let _ = std::fs::remove_dir_all(&staging);
@@ -68,16 +65,12 @@ pub fn apply(payload: &[u8], before_exit: impl FnOnce()) -> Result<(), String> {
     }
     let _ = std::fs::remove_dir_all(&backup);
     let _ = std::fs::remove_dir_all(&staging);
-    let _ = std::process::Command::new("open").arg("-n").arg(&bundle).spawn();
+    crate::system::restart();
     std::process::exit(0);
 }
 
-fn appimage() -> Option<std::path::PathBuf> {
-    std::env::var_os("APPIMAGE").map(std::path::PathBuf::from)
-}
-
 pub fn supported() -> bool {
-    cfg!(any(target_os = "windows", target_os = "macos", target_os = "android")) || cfg!(target_os = "linux") && appimage().is_some()
+    cfg!(any(target_os = "windows", target_os = "macos", target_os = "android")) || crate::system::appimage().is_some()
 }
 
 #[cfg(target_os = "android")]
@@ -88,13 +81,13 @@ pub fn apply(payload: &[u8], _before_exit: impl FnOnce()) -> Result<(), String> 
 #[cfg(target_os = "linux")]
 pub fn apply(payload: &[u8], before_exit: impl FnOnce()) -> Result<(), String> {
     use std::os::unix::fs::PermissionsExt;
-    let image = appimage().ok_or("обновление поддерживается только для AppImage")?;
+    let image = crate::system::appimage().ok_or("обновление поддерживается только для AppImage")?;
     let fresh = image.with_extension("update");
     std::fs::write(&fresh, payload).map_err(|e| e.to_string())?;
     std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;
     before_exit();
     std::fs::rename(&fresh, &image).map_err(|e| e.to_string())?;
-    let _ = std::process::Command::new(&image).spawn();
+    crate::system::restart();
     std::process::exit(0);
 }
 

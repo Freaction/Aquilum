@@ -86,8 +86,8 @@ pub(in crate::app) enum Popup {
 pub(in crate::app) enum MenuCommand {
     Version(usize, history::VersionCommand),
     Table(crate::ui::editor::TableCommand),
-    Editor(editor_requests::EditorCommand),
     Note(note_page::menu::NoteCommand),
+    Cover(crate::ui::book::CoverAction),
 }
 
 #[derive(Default)]
@@ -110,7 +110,6 @@ const MENU_DUPLICATE: usize = 1;
 const MENU_DELETE: usize = 2;
 const MENU_CLOSE: usize = 3;
 const MENU_COLOR: usize = 3;
-const MENU_MARGIN: f64 = 8.0;
 const HOLD: std::time::Duration = std::time::Duration::from_millis(500);
 
 pub struct App {
@@ -122,6 +121,7 @@ pub struct App {
     typing: Option<(crate::ui::settings::schema::Setter, String, usize)>,
     graph: graph_page::GraphState,
     suggest_layer: Option<(WidgetId, WidgetId)>,
+    editor_menu: Option<(WidgetId, WidgetId, &'static [editor_requests::EditorCommand])>,
     find: Option<crate::ui::find::FindBar>,
     note: Option<Note>,
     opening: Option<tabs::reading::Opening>,

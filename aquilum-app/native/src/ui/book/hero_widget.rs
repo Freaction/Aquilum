@@ -1,16 +1,8 @@
 use super::*;
 
 pub fn hero(view: HeroView) -> (NewWidget<Hero>, HeroIds) {
-    let mut ids = HeroIds {
-        cover: None,
-        replace: None,
-        random: None,
-        reposition: None,
-        remove: None,
-        thumbnail: None,
-        replace_book: None,
-        book_button: None,
-    };
+    let mut ids = HeroIds::default();
+    let image = view.cover.as_ref().map(|visual| matches!(visual, Visual::Image(_)));
     let mut button = view.book.as_ref().map(|book| {
         let label = if book.has_file { t("book.read") } else { t("book.upload") };
         let widget = NewWidget::new(TextButton::new(label, Variant::Primary).size(ButtonSize::M));
@@ -18,22 +10,14 @@ pub fn hero(view: HeroView) -> (NewWidget<Hero>, HeroIds) {
         widget
     });
     let cover = view.cover.map(|visual| {
-        let replace = NewWidget::new(IconButton::new(icons::UPLOAD, t("book.replacePageCover")));
-        let random = NewWidget::new(IconButton::new(icons::SHUFFLE, t("book.randomCover")));
-        let remove = NewWidget::new(IconButton::new(icons::TRASH, t("book.removePageCover")));
-        ids.replace = Some(replace.id());
-        ids.random = Some(random.id());
-        ids.remove = Some(remove.id());
-        let divider = || crate::ui::widgets::Rule::new(Axis::Vertical, || theme::current().book_actions_divider);
-        let mut bar = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(replace).with_fixed(divider()).with_fixed(random);
-        if matches!(visual, Visual::Image(_)) {
-            let reposition = NewWidget::new(IconButton::mode(icons::UNFOLD_VERTICAL, t("book.coverPosition"), false));
-            ids.reposition = Some(Handle::of(&reposition));
-            bar = bar.with_fixed(divider()).with_fixed(reposition);
-        }
-        bar = bar.with_fixed(divider()).with_fixed(remove);
-        let bar = NewWidget::new(ActionBar { row: NewWidget::new(bar).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4)))).to_pod() });
-        let widget = PageCover::new(visual, view.position, bar, button.take());
+        let more = view.compact.then(|| {
+            ids.menu = CoverAction::list(image, view.book.is_some());
+            let more = NewWidget::new(IconButton::white(icons::MORE_HORIZONTAL, t("book.coverActions")));
+            ids.more = Some(more.id());
+            more
+        });
+        let bar = ActionBar::new(&CoverAction::list(image, false), &mut ids);
+        let widget = PageCover::new(visual, view.position, bar, more, button.take());
         ids.cover = Some(Handle::of(&widget));
         widget
     });
@@ -42,15 +26,19 @@ pub fn hero(view: HeroView) -> (NewWidget<Hero>, HeroIds) {
         if h > 0.0 { w / h } else { 2.0 / 3.0 }
     });
     let thumbnail = view.book.map(|book| {
-        let replace = NewWidget::new(IconButton::white(icons::UPLOAD, t("book.replaceBookCover")));
-        ids.replace_book = Some(replace.id());
-        let widget = NewWidget::new(Thumbnail { image: book.cover, height: 0.0, replace: Slot::appear(Slot::fit(replace.erased()), FAST).to_pod(), hovered: false, baked: None });
+        let replace = (!view.compact).then(|| {
+            let replace = NewWidget::new(IconButton::white(icons::UPLOAD, t("book.uploadBookCover")));
+            ids.replace_book = Some(replace.id());
+            Slot::appear(Slot::fit(replace.erased()), FAST).to_pod()
+        });
+        let widget = NewWidget::new(Thumbnail { image: book.cover, height: 0.0, replace, hovered: false, baked: None });
         ids.thumbnail = Some(Handle::of(&widget));
         widget
     });
     let star = thumbnail.as_ref().map(|_| NewWidget::new(Star));
     let hero = NewWidget::new(Hero {
         viewport: view.viewport,
+        compact: view.compact,
         column: None,
         aspect,
         cover: cover.map(NewWidget::to_pod),
@@ -63,6 +51,7 @@ pub fn hero(view: HeroView) -> (NewWidget<Hero>, HeroIds) {
 
 pub struct Hero {
     viewport: f64,
+    compact: bool,
     column: Option<f64>,
     aspect: f64,
     cover: Option<WidgetPod<PageCover>>,
@@ -79,12 +68,21 @@ impl Hero {
         }
     }
 
-    fn height(&self) -> f64 {
-        let cover = cover_height(self.viewport);
-        if self.thumbnail.is_some() {
-            CONTENT_GAP + thumb_height(cover)
+    fn heights(&self) -> (f64, f64) {
+        let cover = (self.viewport * 0.207).clamp(186.0, 240.0);
+        if self.compact {
+            (cover - size::BOOK_COVER_COMPACT_SHRINK, size::BOOK_THUMB_HEIGHT_COMPACT)
         } else {
-            size::BOOK_GUTTER + cover
+            (cover, 184.0 + (cover - 186.0) * 36.0 / 54.0)
+        }
+    }
+
+    fn height(&self) -> f64 {
+        let (cover, thumb) = self.heights();
+        match (&self.thumbnail, &self.cover) {
+            (Some(_), _) => CONTENT_GAP + thumb,
+            (None, Some(_)) => size::BOOK_GUTTER + cover,
+            (None, None) => 0.0,
         }
     }
 }
@@ -127,13 +125,12 @@ impl Widget for Hero {
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
         let gutter = size::BOOK_GUTTER;
-        let cover_h = cover_height(self.viewport);
+        let (cover_h, thumb_h) = self.heights();
         if let Some(cover) = &mut self.cover {
             let rect = Size::new((size_.width - gutter * 2.0).max(0.0), cover_h);
             ctx.run_layout(cover, rect);
             ctx.place_child(cover, Point::new(gutter, gutter));
         }
-        let thumb_h = thumb_height(cover_h);
         if let Some(thumbnail) = &mut self.thumbnail {
             let column = self.column.unwrap_or(size_.width).min(size_.width);
             let left = ((size_.width - column) / 2.0).round() + size::EDITOR_PADDING_X;

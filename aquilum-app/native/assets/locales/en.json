@@ -151,6 +151,7 @@
   "theme": {
     "light": "Light",
     "dark": "Dark",
+    "red": "Red",
     "system": "System"
   },
   "common": {
@@ -162,6 +163,7 @@
     "rename": "Rename",
     "duplicate": "Duplicate",
     "openFolder": "Open folder",
+    "cut": "Cut",
     "copy": "Copy",
     "paste": "Paste",
     "selectAll": "Select all"
@@ -651,15 +653,17 @@
     }
   },
   "book": {
+    "addPageCover": "Add a page cover",
     "replacePageCover": "Replace the page cover",
     "randomCover": "Random cover",
     "done": "Done",
     "coverPosition": "Cover position",
     "removePageCover": "Remove the page cover",
+    "coverActions": "Cover actions",
     "read": "Read",
     "upload": "Upload a book",
     "coverAria": "Book cover",
-    "replaceBookCover": "Replace the book cover",
+    "uploadBookCover": "Upload the book cover",
     "progress": "Progress: {{current}}/{{total}}",
     "progressUnknown": "Progress: —",
     "author": "Author"

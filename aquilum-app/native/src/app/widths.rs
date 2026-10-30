@@ -27,7 +27,7 @@ impl App {
         }
         let rail = if self.interface.focus_mode() { 0.0 } else { size::SIDEBAR_RAIL_WIDTH };
         let taken = |side: Side, open: bool| if open { self.wanted(side) } else { 0.0 };
-        self.room().width - rail - EDITOR_MIN - taken(Side::Sidebar, sidebar) - taken(Side::Panel, panel)
+        self.room().width() - rail - EDITOR_MIN - taken(Side::Sidebar, sidebar) - taken(Side::Panel, panel)
     }
 
     pub(in crate::app) fn fitting(&self, sidebar: bool, panel: bool) -> (bool, bool) {
@@ -41,7 +41,7 @@ impl App {
     }
 
     pub(in crate::app) fn panel_width(&self, side: Side) -> f64 {
-        if self.compact() { drawer_width(self.room().width, side) } else { self.fit(side, self.wanted(side)) }
+        if self.compact() { drawer_width(self.room().width(), side) } else { self.fit(side, self.wanted(side)) }
     }
 
     fn set_panel_width(&self, root: &mut RenderRoot, side: Side, width: f64) {

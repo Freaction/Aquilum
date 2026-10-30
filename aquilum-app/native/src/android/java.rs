@@ -51,16 +51,37 @@ pub fn send_ime(method: &JNIStr, [applied, base]: [i32; 2], text: &str, [anchor,
     .is_some()
 }
 
+fn string(env: &Env, value: JObject) -> jni::errors::Result<Option<String>> {
+    let text = env.cast_local::<JString>(value)?;
+    if text.is_null() {
+        return Ok(None);
+    }
+    text.try_to_string(env).map(Some)
+}
+
 pub fn read_text(method: &JNIStr) -> Option<String> {
     call(|env, activity| {
         let value = env.call_method(activity, method, jni_sig!("()Ljava/lang/String;"), &[])?.l()?;
-        let text = env.cast_local::<JString>(value)?;
-        if text.is_null() {
-            return Ok(None);
-        }
-        text.try_to_string(env).map(Some)
+        string(env, value)
     })
     .flatten()
+}
+
+pub fn ask_text(method: &JNIStr, text: &str) -> Option<String> {
+    call(|env, activity| {
+        let text = JString::from_str(env, text)?;
+        let value = env.call_method(activity, method, jni_sig!("(Ljava/lang/String;)Ljava/lang/String;"), &[JValue::Object(&text)])?.l()?;
+        string(env, value)
+    })
+    .flatten()
+}
+
+pub fn ask_int(method: &JNIStr, [first, second]: [&str; 2]) -> Option<i32> {
+    call(|env, activity| {
+        let first = JString::from_str(env, first)?;
+        let second = JString::from_str(env, second)?;
+        env.call_method(activity, method, jni_sig!("(Ljava/lang/String;Ljava/lang/String;)I"), &[JValue::Object(&first), JValue::Object(&second)])?.i()
+    })
 }
 
 pub fn read_long(method: &JNIStr) -> Option<i64> {

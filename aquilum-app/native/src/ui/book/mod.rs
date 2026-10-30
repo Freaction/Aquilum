@@ -30,6 +30,7 @@ mod page_cover;
 mod star;
 mod thumb;
 
+pub use action_bar::CoverAction;
 pub use draw::forget as forget_art;
 pub use hero_widget::{Hero, hero};
 pub use page_cover::PageCover;
@@ -58,14 +59,16 @@ pub struct HeroView {
     pub position: f64,
     pub book: Option<BookView>,
     pub viewport: f64,
+    pub compact: bool,
 }
 
+#[derive(Default)]
 pub struct HeroIds {
     pub cover: Option<Handle<PageCover>>,
-    pub replace: Option<WidgetId>,
-    pub random: Option<WidgetId>,
+    pub actions: Vec<(WidgetId, CoverAction)>,
     pub reposition: Option<Handle<IconButton>>,
-    pub remove: Option<WidgetId>,
+    pub more: Option<WidgetId>,
+    pub menu: Vec<CoverAction>,
     pub thumbnail: Option<Handle<Thumbnail>>,
     pub replace_book: Option<WidgetId>,
     pub book_button: Option<Handle<TextButton>>,
@@ -75,12 +78,4 @@ pub struct HeroIds {
 pub enum ThumbAction {
     Remove,
     Paste,
-}
-
-pub fn cover_height(viewport: f64) -> f64 {
-    (viewport * 0.207).clamp(186.0, 240.0)
-}
-
-fn thumb_height(cover: f64) -> f64 {
-    184.0 + (cover - 186.0) * 36.0 / 54.0
 }

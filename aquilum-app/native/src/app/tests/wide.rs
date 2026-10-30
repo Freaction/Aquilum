@@ -2,7 +2,7 @@ use super::*;
 use crate::ui::motion;
 use crate::ui::tokens::size;
 use masonry::core::WidgetId;
-use masonry::kurbo::{Point, Rect};
+use masonry::kurbo::Rect;
 
 fn rect(h: &Harness, id: WidgetId) -> Rect {
     h.root.get_widget(id).unwrap().ctx().bounding_box()
@@ -70,15 +70,12 @@ fn width_change_is_animated_and_instant_without_animations() {
 #[test]
 fn note_actions_menu_toggles_full_width() {
     let mut h = wide_window();
-    h.app.open_note_actions_menu(&mut h.root, Point::new(500.0, 40.0));
-    let Some(Popup::Menu { layer, .. }) = &h.app.popup else { panic!("меню действий не открыто") };
-    let layer = *layer;
-    h.act(layer, crate::ui::menu::MenuChoice::Item(2));
-    assert!(h.app.interface.wide(), "третий пункт меню — «Во всю ширину»");
+    choose(&mut h, crate::app::note_page::menu::NoteCommand::Wide);
+    assert!(h.app.interface.wide(), "пункт «Во всю ширину» не включил полную ширину");
 }
 
-fn choose(h: &mut Harness, command: crate::app::note_page::menu::NoteCommand) {
-    h.app.open_note_actions_menu(&mut h.root, Point::new(10.0, 40.0));
+pub(super) fn choose(h: &mut Harness, command: crate::app::note_page::menu::NoteCommand) {
+    h.app.open_note_actions_menu(&mut h.root, Rect::new(10.0, 10.0, 42.0, 42.0));
     let Some(Popup::Menu { layer, commands }) = &h.app.popup else { panic!("меню действий не открыто") };
     let (layer, item) = (*layer, commands.iter().position(|&c| c == crate::app::MenuCommand::Note(command)).expect("пункт в меню"));
     h.act(layer, crate::ui::menu::MenuChoice::Item(item));
@@ -104,7 +101,7 @@ fn a_phone_has_no_full_width_item() {
     let note = h.write_note("Заметка.md", "текст");
     h.open(note);
     h.settle();
-    h.app.open_note_actions_menu(&mut h.root, Point::new(10.0, 40.0));
+    h.app.open_note_actions_menu(&mut h.root, Rect::new(10.0, 10.0, 42.0, 42.0));
     let Some(Popup::Menu { commands, .. }) = &h.app.popup else { panic!("меню действий не открыто") };
     let has = |command| commands.contains(&crate::app::MenuCommand::Note(command));
     assert!(!has(NoteCommand::Wide) && has(NoteCommand::Undo));

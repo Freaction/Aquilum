@@ -5,6 +5,7 @@ use std::sync::{Arc, Weak};
 
 use masonry::imaging::{ClipRef, Composite, Filter, GeometryRef};
 use masonry::kurbo::{Affine, BezPath, Rect, Shape as _, StrokeOpts, stroke};
+use masonry::peniko::color::DynamicColor;
 use masonry::peniko::{Brush, BrushRef, Fill, ImageData};
 use vello_cpu::filter_effects::{EdgeMode, Filter as VelloFilter, FilterGraph, FilterPrimitive};
 use vello_cpu::{Image, ImageSource, PaintType};
@@ -15,11 +16,12 @@ const IMAGE_FRAMES: u64 = 2;
 pub struct Images {
     sources: HashMap<u64, (ImageSource, u64, Option<Weak<()>>)>,
     frame: u64,
+    pub(super) red: bool,
 }
 
 impl Images {
     fn source(&mut self, data: &ImageData) -> ImageSource {
-        let frame = self.frame;
+        let (frame, red) = (self.frame, self.red);
         let (source, used, _) = self.sources.entry(data.data.id()).or_insert_with(|| {
             if let Some((pixmap, owner)) = crate::render::surface::find(data.data.id()) {
                 return (ImageSource::Pixmap(pixmap), frame, Some(owner));
@@ -29,7 +31,7 @@ impl Images {
                 None if data.data.data().len() != data.width as usize * data.height as usize * 4 => ImageSource::Pixmap(Arc::new(vello_cpu::Pixmap::new(1, 1))),
                 None => ImageSource::from_peniko_image_data(data),
             };
-            (source, frame, None)
+            (if red { reddened(source) } else { source }, frame, None)
         });
         *used = frame;
         source.clone()
@@ -37,15 +39,33 @@ impl Images {
 
     pub fn next_frame(&mut self) {
         self.frame += 1;
+        if self.red != crate::ui::theme::is_red() {
+            self.red = !self.red;
+            self.sources.clear();
+        }
         let frame = self.frame;
         self.sources.retain(|_, (_, used, owner)| frame - *used < IMAGE_FRAMES && owner.as_ref().is_none_or(|o| o.strong_count() > 0));
     }
 }
 
+fn reddened(source: ImageSource) -> ImageSource {
+    let ImageSource::Pixmap(pixmap) = source else { return source };
+    let mut red = (*pixmap).clone();
+    vello_cpu::redden(&mut red);
+    ImageSource::Pixmap(Arc::new(red))
+}
+
 pub fn brush_to_paint(brush: BrushRef<'_>, composite: Composite, images: &mut Images) -> PaintType {
+    let red = images.red;
+    let ink = |color| if red { vello_cpu::red(color) } else { color };
     match brush.to_owned().multiply_alpha(composite.alpha) {
-        Brush::Solid(c) => Brush::Solid(c),
-        Brush::Gradient(g) => Brush::Gradient(g),
+        Brush::Solid(c) => Brush::Solid(ink(c)),
+        Brush::Gradient(mut g) => {
+            for stop in g.stops.iter_mut() {
+                stop.color = DynamicColor::from_alpha_color(ink(stop.color.to_alpha_color()));
+            }
+            Brush::Gradient(g)
+        }
         Brush::Image(image) => Brush::Image(Image { image: images.source(&image.image), sampler: image.sampler }),
     }
 }

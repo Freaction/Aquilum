@@ -1,27 +1,11 @@
 const NAME: &str = "Aquilum";
 
-pub const SUPPORTED: bool = cfg!(not(any(target_os = "android", target_os = "ios")));
-
 pub fn available() -> bool {
-    SUPPORTED && cfg!(feature = "installed")
+    crate::system::DESKTOP && cfg!(feature = "installed")
 }
 
 fn executable() -> Option<String> {
-    let exe = std::env::current_exe().ok()?;
-    if cfg!(target_os = "linux")
-        && let Some(image) = std::env::var_os("APPIMAGE")
-    {
-        return Some(image.to_string_lossy().into_owned());
-    }
-    if cfg!(target_os = "macos") {
-        let canonical = exe.canonicalize().unwrap_or(exe);
-        let text = canonical.to_string_lossy().into_owned();
-        if let Some((bundle, _)) = text.split_once(".app/Contents/MacOS/") {
-            return Some(format!("{bundle}.app"));
-        }
-        return Some(text);
-    }
-    Some(exe.to_string_lossy().into_owned())
+    crate::system::app_path().map(|path| path.to_string_lossy().into_owned())
 }
 
 pub fn repoint() {

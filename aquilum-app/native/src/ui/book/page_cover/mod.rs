@@ -8,6 +8,7 @@ pub struct PageCover {
     repositioning: bool,
     drag: Option<(f64, f64)>,
     actions: WidgetPod<Slot>,
+    more: Option<WidgetPod<Slot>>,
     book: Option<WidgetPod<TextButton>>,
     show_actions: bool,
     baked: Option<(BakeKey, ImageBrush)>,
@@ -23,8 +24,10 @@ impl Drop for PageCover {
 }
 
 impl PageCover {
-    pub(super) fn new(visual: Visual, position: f64, actions: NewWidget<ActionBar>, book: Option<NewWidget<TextButton>>) -> NewWidget<Self> {
-        NewWidget::new(PageCover { visual, position, repositioning: false, drag: None, actions: Slot::appear(Slot::fit(actions.erased()), FAST).to_pod(), book: book.map(NewWidget::to_pod), show_actions: false, baked: None, live: None })
+    pub(super) fn new(visual: Visual, position: f64, actions: NewWidget<ActionBar>, more: Option<NewWidget<IconButton>>, book: Option<NewWidget<TextButton>>) -> NewWidget<Self> {
+        let appear = |widget: NewWidget<dyn Widget>| Slot::appear(Slot::fit(widget), FAST).to_pod();
+        let (actions, more) = (appear(actions.erased()), more.map(|more| appear(more.erased())));
+        NewWidget::new(PageCover { visual, position, repositioning: false, drag: None, actions, more, book: book.map(NewWidget::to_pod), show_actions: false, baked: None, live: None })
     }
 
     pub fn refresh(this: &mut WidgetMut<'_, Self>) {
@@ -45,11 +48,18 @@ impl PageCover {
             this.widget.position = position;
         }
         this.widget.drag = None;
-        let show = on || this.ctx.is_hovered() || this.ctx.has_hovered();
+        let show = this.widget.wants_actions(this.ctx.is_hovered() || this.ctx.has_hovered());
         this.widget.show_actions = show;
         this.ctx.set_stashed(&mut this.widget.actions, !show);
+        if let Some(more) = &mut this.widget.more {
+            this.ctx.set_stashed(more, show);
+        }
         this.ctx.request_paint_only();
         this.ctx.request_layout();
+    }
+
+    fn wants_actions(&self, hovered: bool) -> bool {
+        self.repositioning || hovered && self.more.is_none()
     }
 
     fn overflow(&self, size_: Size) -> f64 {
@@ -69,7 +79,7 @@ impl PageCover {
     }
 
     fn sync_actions(&mut self, ctx: &mut UpdateCtx<'_>) {
-        let show = self.repositioning || ctx.is_hovered() || ctx.has_hovered();
+        let show = self.wants_actions(ctx.is_hovered() || ctx.has_hovered());
         if show != self.show_actions {
             self.show_actions = show;
             ctx.set_stashed(&mut self.actions, !show);

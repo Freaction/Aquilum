@@ -41,9 +41,10 @@ fn intervals(vault: SyncSettings) -> Control {
 fn large_row(large: &Large) -> Row {
     let path = &large.path;
     let send = large.kept.then(|| button("send", Action::SyncSend(vec![path.clone()])).icon(ButtonIcon::Upload));
-    let rest = [button("reveal", Action::Reveal(path.clone())).icon(ButtonIcon::Folder), button("toTrash", Action::Trash(path.clone())).icon(ButtonIcon::Trash)];
+    let reveal = crate::system::DESKTOP.then(|| button("reveal", Action::Reveal(path.clone())).icon(ButtonIcon::Folder));
+    let trash = button("toTrash", Action::Trash(path.clone())).icon(ButtonIcon::Trash);
     let place = t(if large.kept { "settings.sync.onDevice" } else { "settings.sync.inCloud" });
-    info(path.clone(), Some(format!("{} · {place}", format_size(large.size))), Control::Buttons(send.into_iter().chain(rest).collect()))
+    info(path.clone(), Some(format!("{} · {place}", format_size(large.size))), Control::Buttons(send.into_iter().chain(reveal).chain([trash]).collect()))
 }
 
 fn status(ctx: &Context) -> String {

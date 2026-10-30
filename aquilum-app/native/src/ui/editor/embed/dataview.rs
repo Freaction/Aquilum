@@ -35,7 +35,7 @@ fn task(parts: &[Part]) -> Option<(bool, Action)> {
     })
 }
 
-pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Drawing {
+pub fn dataview(grid: &Fetch<Grid>, available: f64, print: bool, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Drawing {
     let inner = (available - PAD * 2.0).max(1.0);
     let grid = match grid {
         Fetch::Ready(grid) if !grid.rows.is_empty() => grid,
@@ -48,7 +48,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
         }
     };
     let side = if grid.shape == Shape::Table { PAD - CELL_X } else { PAD };
-    let widths = (grid.shape == Shape::Table).then(|| column_widths(grid, available - side * 2.0, make));
+    let widths = (grid.shape == Shape::Table).then(|| column_widths(grid, available - side * 2.0, if print { 0.0 } else { COLUMN_MIN }, make));
     let mut span = widths.as_ref().map_or(inner, |widths| widths.iter().sum());
     let mut y = PAD - CELL_Y;
     let mut body = Vec::new();
@@ -148,7 +148,7 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, make: &mut dyn FnMut(&Spec) 
     Drawing { hits, width: span + side * 2.0, ..Drawing::card(available, y + PAD - CELL_Y, body) }
 }
 
-fn column_widths(grid: &Grid, inner: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Vec<f64> {
+fn column_widths(grid: &Grid, inner: f64, narrowest: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Vec<f64> {
     let m = grid.columns.len().max(grid.rows.iter().map(Vec::len).max().unwrap_or(0)).max(1);
     let mut natural = vec![0.0_f64; m];
     for (c, name) in grid.columns.iter().enumerate() {
@@ -161,7 +161,7 @@ fn column_widths(grid: &Grid, inner: f64, make: &mut dyn FnMut(&Spec) -> Layout<
         }
     }
     let natural: Vec<f64> = natural.into_iter().map(|w| w + CELL_X * 2.0).collect();
-    fit_columns(&natural, inner, COLUMN_MIN)
+    fit_columns(&natural, inner, narrowest)
 }
 
 #[cfg(test)]
@@ -172,9 +172,9 @@ mod tests {
     fn a_dataview_table_card_spans_the_whole_column() {
         let cell = |text: &str| vec![Part::Text(text.into())];
         let grid = Grid { shape: Shape::Table, title: None, columns: vec!["a".into(), "b".into()], rows: vec![vec![cell("1"), cell("2")]].into() };
-        let drawing = dataview(&Fetch::Ready(grid), 800.0, &mut |_| Layout::default());
+        let drawing = dataview(&Fetch::Ready(grid), 800.0, false, &mut |_| Layout::default());
         assert_eq!((drawing.view, drawing.width), (800.0, 800.0));
-        let empty = dataview(&Fetch::Ready(Grid { shape: Shape::List, title: None, columns: Vec::new(), rows: Vec::new().into() }), 800.0, &mut |_| Layout::default());
+        let empty = dataview(&Fetch::Ready(Grid { shape: Shape::List, title: None, columns: Vec::new(), rows: Vec::new().into() }), 800.0, false, &mut |_| Layout::default());
         assert!(empty.items.iter().any(|item| matches!(item, Item::Text(_, _, text) if *text == t("search.noResults"))), "пустой результат подписан");
         assert_eq!(drawing.max_scroll(), 0.0, "узкая таблица не прокручивается");
     }
@@ -184,7 +184,7 @@ mod tests {
         let columns: Vec<String> = (0..10).map(|i| format!("колонка {i}")).collect();
         let row = columns.iter().map(|c| vec![Part::Text(c.clone())]).collect();
         let grid = Grid { shape: Shape::Table, title: None, columns, rows: vec![row].into() };
-        let drawing = dataview(&Fetch::Ready(grid), 400.0, &mut |_| Layout::default());
+        let drawing = dataview(&Fetch::Ready(grid), 400.0, false, &mut |_| Layout::default());
         assert!(drawing.max_scroll() > 0.0, "десять колонок в 400 px должны прокручиваться вбок");
     }
 }

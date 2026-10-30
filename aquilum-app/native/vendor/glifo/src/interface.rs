@@ -83,6 +83,10 @@ pub trait GlyphRenderer: DrawSink {
     /// context-dependent colors of COLR glyphs.
     fn get_context_color(&self) -> AlphaColor<Srgb>;
 
+    fn red_glyphs(&self) -> bool {
+        false
+    }
+
     /// Get the currently active paint.
     fn current_paint(&self) -> &PaintType;
 

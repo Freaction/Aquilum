@@ -17,38 +17,20 @@ impl TextEditor {
             self.sync_editing();
             return false;
         }
+        if matches!(command, Some(Command::Copy | Command::Cut | Command::SelectAll)) {
+            return false;
+        }
         let Some((session, view)) = self.table_parts() else {
             self.table = None;
             return false;
         };
-        let mut clipboard = None;
         let outcome = match (editing, command, &event.key) {
-            (_, Some(Command::SelectAll), _) => {
-                session.select_all(view);
-                Outcome::Repaint
-            }
-            (false, Some(Command::Copy), _) => {
-                clipboard = session.range_text(view);
-                Outcome::None
-            }
-            (false, Some(Command::Cut), _) => {
-                clipboard = session.range_text(view);
-                session.clear_range(view)
-            }
             (false, Some(Command::DeleteBackward | Command::DeleteForward | Command::DeleteWord | Command::DeleteWordForward), _) => session.clear_range(view),
             (false, Some(Command::Close), _) => {
                 session.range = None;
                 Outcome::Repaint
             }
             (false, _, _) => Outcome::None,
-            (true, Some(Command::Copy), _) => {
-                clipboard = session.selected(view);
-                Outcome::None
-            }
-            (true, Some(Command::Cut), _) => {
-                clipboard = session.selected(view);
-                if clipboard.is_some() { session.insert(view, "") } else { Outcome::None }
-            }
             (true, Some(Command::NextCell | Command::PreviousCell), _) => session.next(view, command == Some(Command::PreviousCell)),
             (true, Some(Command::CellBelow), _) => session.down(view),
             (true, Some(Command::Close), _) => Outcome::Leave,
@@ -75,9 +57,6 @@ impl TextEditor {
             (true, None, Key::Character(text)) if keymap::typing(event.modifiers) => session.insert(view, text),
             (true, _, _) => Outcome::None,
         };
-        if let Some(text) = clipboard {
-            ctx.set_clipboard(text);
-        }
         self.apply(ctx, outcome);
         ctx.set_handled();
         true

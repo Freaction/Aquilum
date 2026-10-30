@@ -50,7 +50,7 @@ impl Widget for Viewer {
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
         if let TextEvent::Keyboard(k) = event
             && k.state == KeyState::Down
-            && crate::ui::keymap::command(&[crate::ui::keymap::Scope::Dialog], &k.key, k.modifiers) == Some(crate::ui::keymap::Command::Close)
+            && crate::ui::keymap::closes(&k.key, k.modifiers)
         {
             ctx.submit_action::<ViewerClosed>(ViewerClosed);
         }

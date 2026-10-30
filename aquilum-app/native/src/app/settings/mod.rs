@@ -24,7 +24,6 @@ use crate::ui::dialog::ConfirmDialog;
 use crate::ui::menu::Menu;
 use crate::ui::settings::controls::{Changed, ColorPicker, Committed, DropdownButton, Switch};
 use crate::ui::keymap::{self, Command, Scope};
-use crate::ui::tokens::size;
 use crate::ui::settings::schema::{self, Action, Context, Section, Setter, Value, Wipe};
 use crate::ui::settings::{self, Binding, SettingsDialog};
 use crate::ui::widgets::Pressed;

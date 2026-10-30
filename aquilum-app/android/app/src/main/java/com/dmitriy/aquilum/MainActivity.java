@@ -26,11 +26,9 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.lifecycle.Lifecycle;
 
-import com.google.androidgamesdk.GameActivity;
-
 import java.io.File;
 
-public class MainActivity extends GameActivity {
+public class MainActivity extends DocumentActivity {
     private static final int SAFE_AREA = WindowInsetsCompat.Type.systemBars()
             | WindowInsetsCompat.Type.displayCutout()
             | WindowInsetsCompat.Type.ime();

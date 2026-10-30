@@ -36,8 +36,8 @@ pub fn pointer_at(x: f64, y: f64, scale_factor: f64) -> masonry::core::PointerSt
     masonry::core::PointerState { position: masonry::dpi::PhysicalPosition::new(x, y), count: 1, scale_factor, ..Default::default() }
 }
 
-pub fn moved(current: masonry::core::PointerState) -> masonry::core::PointerEvent {
-    masonry::core::PointerEvent::Move(masonry::core::PointerUpdate { pointer: MOUSE, current, coalesced: vec![], predicted: vec![] })
+pub fn moved(pointer: masonry::core::PointerInfo, current: masonry::core::PointerState) -> masonry::core::PointerEvent {
+    masonry::core::PointerEvent::Move(masonry::core::PointerUpdate { pointer, current, coalesced: vec![], predicted: vec![] })
 }
 
 pub fn primary(state: masonry::core::PointerState) -> masonry::core::PointerButtonEvent {

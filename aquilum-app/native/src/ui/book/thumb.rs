@@ -5,7 +5,7 @@ use crate::ui::keymap::{self, Command, Scope};
 pub struct Thumbnail {
     pub(super) image: ImageBrush,
     pub(super) height: f64,
-    pub(super) replace: WidgetPod<Slot>,
+    pub(super) replace: Option<WidgetPod<Slot>>,
     pub(super) hovered: bool,
     pub(super) baked: Option<((u16, u16, usize), ImageBrush)>,
 }
@@ -92,12 +92,12 @@ impl Widget for Thumbnail {
 
     fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
         match event {
-            Update::WidgetAdded => ctx.set_stashed(&mut self.replace, true),
-            Update::HoveredChanged(_) | Update::ChildHoveredChanged(_) => {
+            Update::WidgetAdded if let Some(replace) = &mut self.replace => ctx.set_stashed(replace, true),
+            Update::HoveredChanged(_) | Update::ChildHoveredChanged(_) if let Some(replace) = &mut self.replace => {
                 let hovered = ctx.is_hovered() || ctx.has_hovered();
                 if hovered != self.hovered {
                     self.hovered = hovered;
-                    ctx.set_stashed(&mut self.replace, !hovered);
+                    ctx.set_stashed(replace, !hovered);
                     ctx.request_layout();
                 }
             }
@@ -107,7 +107,9 @@ impl Widget for Thumbnail {
     }
 
     fn register_children(&mut self, ctx: &mut RegisterCtx<'_>) {
-        ctx.register_child(&mut self.replace);
+        if let Some(replace) = &mut self.replace {
+            ctx.register_child(replace);
+        }
     }
 
     fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, _len_req: LenReq, _cross: Option<Length>) -> Length {
@@ -116,11 +118,13 @@ impl Widget for Thumbnail {
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
         self.height = size_.height;
-        if self.hovered {
+        if self.hovered
+            && let Some(replace) = &mut self.replace
+        {
             let button = Size::new(size::SIZE_32, size::SIZE_32);
-            ctx.run_layout(&mut self.replace, button);
+            ctx.run_layout(replace, button);
             let inset = size::BOOK_THUMB_ACTION_INSET;
-            ctx.place_child(&mut self.replace, Point::new(size_.width - inset - button.width, inset));
+            ctx.place_child(replace, Point::new(size_.width - inset - button.width, inset));
         }
     }
 
@@ -157,6 +161,6 @@ impl Widget for Thumbnail {
     }
 
     fn children_ids(&self) -> ChildrenIds {
-        ChildrenIds::from_slice(&[self.replace.id()])
+        ChildrenIds::from_slice(self.replace.as_ref().map(WidgetPod::id).as_slice())
     }
 }

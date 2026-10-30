@@ -80,6 +80,7 @@ impl Painter {
             self.ctx.reset();
         }
         self.images.next_frame();
+        self.ctx.set_red_glyphs(self.images.red);
         self.frame = Rect::new(f64::from(x), f64::from(y), f64::from(x) + f64::from(width), f64::from(y) + f64::from(height));
         self.shift = Affine::translate((-f64::from(x), -f64::from(y)));
         self.error = None;

@@ -144,6 +144,15 @@ fn main() {
     out.push_str("    }
 }
 
+pub fn map_colors(theme: &mut Theme, ink: impl Fn(Color) -> Color) {
+");
+    for (field, value, _) in &theme_fields {
+        if matches!(value, Value::Color(_)) {
+            writeln!(out, "    theme.{field} = ink(theme.{field});").unwrap();
+        }
+    }
+    out.push_str("}
+
 ");
     for (module, items) in &consts {
         writeln!(out, "pub mod {module} {{").unwrap();

@@ -32,6 +32,7 @@ impl TextEditor {
             }
             return false;
         };
+        self.media.selected = None;
         self.open_session(start);
         if let Some(link) = self.link_under(start, local)
             && let Some(resolver) = &self.doc.resolver
@@ -45,6 +46,9 @@ impl TextEditor {
             ctx.request_focus();
         }
         let outcome = session.press(view, local, shift, count, GRIP);
+        if matches!(session.drag, Drag::Cells { .. }) {
+            self.menu = super::super::menu::Menu::Pressed(count);
+        }
         ctx.capture_pointer();
         self.apply(ctx, outcome);
         true

@@ -26,12 +26,9 @@ fn format_position(y: f64) -> String {
 }
 
 impl App {
-    pub(in crate::app) fn hero_view(&self) -> Option<HeroView> {
-        let fields = self.fields()?;
+    pub(in crate::app) fn hero_view(&self) -> HeroView {
+        let fields = self.fields().unwrap_or_default();
         let (has_cover, is_book) = (fields.has_page_cover(), fields.is_book());
-        if !has_cover && !is_book {
-            return None;
-        }
         let root = self.tree.root();
         let image = |key| fields.text(key).and_then(|v| vault_files::resolve(root, v)).and_then(|path| images::load(&path));
         let cover = has_cover.then(|| match cover::pattern_id(fields.text(PAGE_COVER)) {
@@ -42,25 +39,20 @@ impl App {
             cover: image(BOOK_COVER).unwrap_or_else(images::default_book_cover),
             has_file: fields.text(BOOK_FILE).is_some(),
         });
-        Some(HeroView { cover, position: parse_position(fields.text(PAGE_COVER_POSITION)), book, viewport: self.window.height })
+        HeroView { cover, position: parse_position(fields.text(PAGE_COVER_POSITION)), book, viewport: self.window.height, compact: self.compact() }
     }
 
-    pub(in crate::app) fn hero_key(&self) -> Option<Vec<String>> {
-        let fields = self.fields()?;
-        if !fields.has_page_cover() && !fields.is_book() {
-            return None;
-        }
-        Some(
-            [PAGE_COVER, BOOK_COVER, PAGE_COVER_POSITION, BOOK_FILE]
-                .iter()
-                .map(|k| fields.text(k).unwrap_or_default().to_owned())
-                .chain([fields.has_page_cover().to_string(), fields.is_book().to_string()])
-                .collect(),
-        )
+    pub(in crate::app) fn hero_key(&self) -> Vec<String> {
+        let fields = self.fields().unwrap_or_default();
+        [PAGE_COVER, BOOK_COVER, PAGE_COVER_POSITION, BOOK_FILE]
+            .iter()
+            .map(|k| fields.text(k).unwrap_or_default().to_owned())
+            .chain([fields.has_page_cover(), fields.is_book(), self.compact()].map(|flag| flag.to_string()))
+            .collect()
     }
 
     pub(in crate::app) fn refresh_hero(&mut self, root: &mut RenderRoot) {
-        let key = self.hero_key();
+        let key = Some(self.hero_key());
         if key == self.hero_shown {
             return;
         }
@@ -78,14 +70,14 @@ impl App {
         if !cover::take_finished() {
             return false;
         }
-        if let Some(cover) = self.note_ids.as_ref().and_then(|ids| ids.hero.as_ref()).and_then(|(_, ids)| ids.cover) {
+        if let Some(cover) = self.note_ids.as_ref().and_then(|ids| ids.hero.1.cover) {
             cover.edit(root, |mut cover| PageCover::refresh(&mut cover));
         }
         true
     }
 
     pub(super) fn toggle_reposition(&mut self, root: &mut RenderRoot) {
-        let Some((_, ids)) = self.note_ids.as_ref().and_then(|n| n.hero.as_ref()) else { return };
+        let Some((_, ids)) = self.note_ids.as_ref().map(|n| &n.hero) else { return };
         let (Some(cover), Some(button)) = (ids.cover, ids.reposition) else { return };
         let Some((on, position)) = cover.get(root).map(|c| (c.inner().repositioning(), c.inner().position())) else { return };
         if !on {

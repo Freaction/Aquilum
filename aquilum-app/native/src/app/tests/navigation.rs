@@ -46,7 +46,7 @@ fn books_snapshot() {
     let size = h.root.size();
     for (x, y) in [(1034.0, 457.0), (1034.0, 625.0)] {
         let state = pointer_at(x, y, scale);
-        h.root.handle_pointer_event(moved(state));
+        h.root.handle_pointer_event(moved(MOUSE, state));
         let (layers, _) = h.root.redraw();
         let mut r = crate::render::Renderer::new(2);
         r.render(&layers, size.width as u16, size.height as u16, scale, theme::background()).unwrap();

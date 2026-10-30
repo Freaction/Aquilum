@@ -33,11 +33,15 @@ impl Popup {
 
 impl App {
     pub(in crate::app) fn back(&mut self, root: &mut RenderRoot) -> Outcome {
+        if self.editor_menu.is_some() {
+            self.close_editor_menu(root);
+            return Outcome::default();
+        }
         if let Some((layer, action)) = self.popup.as_ref().map(Popup::cancel) {
             if action.downcast_ref::<MenuChoice>().is_some() {
                 root.remove_layer(layer);
             }
-            return self.on_action(root, layer, action, self.window);
+            return self.on_action(root, layer, action);
         }
         if self.interface.screen().drawer.is_some() {
             self.set_drawer(root, None);

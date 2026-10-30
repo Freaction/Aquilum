@@ -70,7 +70,7 @@ impl FileTree {
                         self.filter(root, "");
                         None
                     }
-                    TextAction::Entered(_) | TextAction::Edited(_) | TextAction::Page { .. } | TextAction::Line { .. } => None,
+                    TextAction::Entered(_) | TextAction::Edited(_) | TextAction::Outside(_) | TextAction::Page { .. } | TextAction::Line { .. } | TextAction::Menu(_) => None,
                 };
             }
             return match text {
@@ -80,7 +80,7 @@ impl FileTree {
                     self.refresh(root);
                     None
                 }
-                TextAction::Changed(_) | TextAction::Edited(_) | TextAction::Page { .. } | TextAction::Line { .. } => None,
+                TextAction::Changed(_) | TextAction::Edited(_) | TextAction::Outside(_) | TextAction::Page { .. } | TextAction::Line { .. } | TextAction::Menu(_) => None,
             };
         }
         self.on_row_action(root, id, action.downcast_ref::<RowAction>()?)

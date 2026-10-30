@@ -11,7 +11,7 @@ impl TextEditor {
             return true;
         }
         let cropping = self.media.crop.is_some();
-        match keymap::command(&[Scope::Image], &event.key, event.modifiers) {
+        match keymap::command(&[Scope::Image, Scope::Text], &event.key, event.modifiers) {
             Some(Command::ImageSource) if cropping => {
                 self.end_crop(true);
                 self.changed(ctx);
@@ -23,13 +23,10 @@ impl TextEditor {
             Some(Command::ImageSource) => self.show_source(ctx, start),
             Some(Command::Close) => self.media.selected = None,
             Some(Command::ImageDelete) => {
-                let p = self.doc.paragraph(self.doc.at_offset(start));
-                let range = p.start..(p.end() + 1).min(self.doc.len());
-                self.media.selected = None;
-                self.media.hover = None;
-                self.replace(range, "", Kind::Other);
+                self.remove_media(start);
                 self.changed(ctx);
             }
+            Some(Command::Copy | Command::Cut) => return false,
             _ => {
                 self.media.selected = None;
                 ctx.request_render();

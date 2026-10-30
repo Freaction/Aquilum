@@ -101,7 +101,7 @@ fn buttons() -> (NewWidget<Flex>, Buttons) {
     let create = NewWidget::new(TextButton::new(t("workspaces.create"), Variant::Primary).icon_before(icons::FOLDER_PLUS));
     let mut ids = Buttons { create: create.id(), open: None };
     let mut row = Flex::row().main_axis_alignment(MainAxisAlignment::Center);
-    if crate::native_dialog::PICKS_FOLDERS {
+    if crate::system::DESKTOP {
         let open = NewWidget::new(TextButton::new(t("common.openFolder"), Variant::Secondary).icon_before(icons::FOLDER_OPEN));
         ids.open = Some(open.id());
         row = row.with_fixed(open);

@@ -17,12 +17,13 @@ pub(super) fn snapshots(scene: &Scene) {
             focus_mode: false,
             compact: false,
             wide: false,
-            hero: Some(HeroView {
+            hero: HeroView {
                 cover: Some(visual),
                 position: 30.0,
                 book: book.then(|| BookView { cover: crate::images::default_book_cover(), has_file: false }),
                 viewport: f64::from(H),
-            }),
+                compact: false,
+            },
             resolver: None,
             smart: Default::default(),
             wake: std::sync::Arc::new(|| {}),
@@ -36,7 +37,7 @@ pub(super) fn snapshots(scene: &Scene) {
             }
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        if let Some(cover) = ids.hero.as_ref().and_then(|(_, hero)| hero.cover) {
+        if let Some(cover) = ids.hero.1.cover {
             cover.edit(&mut root, |mut cover| PageCover::refresh(&mut cover));
         }
         scene.save(&mut root, &format!("hero-{name}"));
