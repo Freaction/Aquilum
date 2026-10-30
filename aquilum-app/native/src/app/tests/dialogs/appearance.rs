@@ -36,7 +36,7 @@ fn primary_color_typed_into_field() {
 fn the_red_theme_paints_the_window_only_in_shades_of_red() {
     let mut h = Harness::new();
     image::RgbaImage::from_pixel(40, 30, image::Rgba([10, 120, 200, 255])).save(h.vault.path().join("pic.png")).unwrap();
-    let body = "# Заголовок\n\nТекст с [[ссылкой]], **жирным**, `кодом`, #тегом и эмодзи 😀🔥🌈.\n\n![](pic.png)\n\n- [ ] задача\n- [x] готово\n\n> [!note] Выноска\n> текст\n\n```rust\nfn main() {}\n```\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n";
+    let body = "![](pic.png)\n\n# Заголовок\n\nТекст с [[ссылкой]], **жирным**, `кодом`, #тегом и эмодзи 😀🔥🌈.\n\n- [ ] задача\n- [x] готово\n\n> [!note] Выноска\n> текст\n\n```rust\nfn main() {}\n```\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n";
     let note = h.write_note("заметка.md", body);
     h.open(note);
     assert!(h.wait_for(|h| h.app.embeds.as_ref().unwrap().cached_media() > 0), "картинка не загрузилась");
