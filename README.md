@@ -200,15 +200,63 @@ Download from the [latest release](https://github.com/Freaction/Aquilum/releases
 - `.rpm` for Fedora and other RPM-based distributions: `sudo dnf install ./Aquilum-<version>-1.x86_64.rpm`;
 - AppImage for any distribution: make it executable and run it.
 
+### NixOS and other Nix systems
+
+The repository contains a flake with the application, an overlay and a NixOS module:
+
+```sh
+# Run without installing
+nix run github:Freaction/Aquilum
+
+# Install into the current user profile
+nix profile install github:Freaction/Aquilum#aquilum
+```
+
+To install Aquilum system-wide from a flake-based NixOS configuration, add the module and enable the program:
+
+```nix
+{
+  inputs.aquilum.url = "github:Freaction/Aquilum";
+
+  outputs = { self, nixpkgs, aquilum, ... }: {
+    nixosConfigurations.host = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        aquilum.nixosModules.default
+        { programs.aquilum.enable = true; }
+      ];
+    };
+  };
+}
+```
+
+Alternatively, use the overlay without the module:
+
+```nix
+{
+  nixpkgs.overlays = [ inputs.aquilum.overlays.default ];
+  environment.systemPackages = [ pkgs.aquilum ];
+}
+```
+
+With Home Manager, install the flake package directly:
+
+```nix
+home.packages = [ inputs.aquilum.packages.${pkgs.stdenv.hostPlatform.system}.default ];
+```
+
+The package builds from source for `x86_64-linux` and `aarch64-linux` and includes the desktop entry, icons and GStreamer plugins, so the application menu and video playback work without extra setup. To build a checkout locally, run `nix build .#aquilum` and start the result with `./result/bin/aquilum-app`.
+
 ## Updates
 
-Aquilum checks this public repository for updates at launch. When a newer version is available, it can download it, show progress, verify the signed update package, install it, and restart. On Linux the app updates itself only when it runs as an AppImage; `.deb` and `.rpm` installations are updated by installing the new package. On Android a bar at the bottom of the window offers **Update** or **Close**: the update is downloaded, checked against its signature, and handed to the system installer; after **Close** that version can still be installed from **Settings → System**. Without a network connection, the app starts normally and your local vault remains available.
+Aquilum checks this public repository for updates at launch. When a newer version is available, it can download it, show progress, verify the signed update package, install it, and restart. On Linux the app updates itself only when it runs as an AppImage; `.deb`, `.rpm` and Nix installations are updated by installing the new package. On Android a bar at the bottom of the window offers **Update** or **Close**: the update is downloaded, checked against its signature, and handed to the system installer; after **Close** that version can still be installed from **Settings → System**. Without a network connection, the app starts normally and your local vault remains available.
 
 ## Requirements
 
 - Windows 10 or Windows 11, 64-bit.
 - macOS 12 or later on Apple Silicon (arm64) or Intel (x86_64).
 - Ubuntu 22.04 or later, x86_64, with the GStreamer 1.0 libraries (used for video; present on most desktop installs).
+- NixOS or another Linux system with flakes, `x86_64-linux` or `aarch64-linux`.
 - Android 8.0 or later on a 64-bit ARM device (arm64-v8a).
 
 Aquilum does not use a WebView or a browser engine, so Microsoft Edge WebView2 (Windows) and WebKitGTK (Linux) are not required.
