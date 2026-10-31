@@ -111,17 +111,19 @@ impl Embeds {
     pub fn forget_paths(&self, paths: &[PathBuf]) {
         media::forget(paths);
         crate::video::forget(paths);
-        let mut entries = self.0.media.entries.lock().unwrap_or_else(|e| e.into_inner());
-        let before = entries.len();
-        let gone = |fetch: &Fetch<Media>| matches!(fetch, Fetch::Ready(m) if m.path.as_ref().is_some_and(|p| paths.contains(p)));
-        entries.retain(|_, entry| !gone(&entry.value) && !entry.next.as_ref().is_some_and(gone));
-        let mut removed = entries.len() != before;
-        drop(entries);
+        let changed = |fetch: &Fetch<Media>| matches!(fetch, Fetch::Ready(m) if m.path.as_ref().is_some_and(|p| paths.contains(p)));
+        let mut stale = false;
+        for entry in self.0.media.entries.lock().unwrap_or_else(|e| e.into_inner()).values_mut() {
+            if changed(&entry.value) || entry.next.as_ref().is_some_and(changed) {
+                entry.epoch = u64::MAX;
+                stale = true;
+            }
+        }
         if paths.iter().any(|p| is_markdown(p)) {
             self.0.books.epoch.fetch_add(1, Ordering::AcqRel);
-            removed = true;
+            stale = true;
         }
-        if removed {
+        if stale {
             self.0.touch();
         }
     }

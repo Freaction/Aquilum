@@ -62,7 +62,11 @@ fn overlay(base: &mut Value, over: Value) {
 fn parse(content: &str) -> Result<AppConfig, serde_json::Error> {
     let mut merged = serde_json::to_value(AppConfig::default())?;
     overlay(&mut merged, serde_json::from_str(content)?);
-    serde_json::from_value(merged)
+    let mut config: AppConfig = serde_json::from_value(merged)?;
+    if config.ui.theme == "red" {
+        config.ui.theme = "night".into();
+    }
+    Ok(config)
 }
 
 fn write_config(path: &Path, config: &AppConfig) -> Result<(), String> {
@@ -104,6 +108,16 @@ mod tests {
         assert_eq!(config.editor.font.font_family, "iA Writer Quattro");
         assert!(config.analysis.enable_bm25f);
         assert!(config.ui.animations);
+    }
+
+    #[test]
+    fn the_red_theme_of_0_3_23_opens_as_the_red_night_theme() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("settings.json"), r#"{"ui":{"theme":"red"}}"#).unwrap();
+
+        let config = SettingsManager::new(dir.path()).get_config();
+
+        assert_eq!((config.ui.theme.as_str(), config.ui.night.as_str()), ("night", "red"));
     }
 
     #[test]

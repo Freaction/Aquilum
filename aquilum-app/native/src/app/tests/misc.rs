@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::editor::resolve::{Fetch, Resolver};
 
 fn cached(h: &Harness) -> usize {
     h.app.embeds.as_ref().unwrap().cached_media()
@@ -28,8 +29,34 @@ fn removed_images_leave_caches() {
     assert_eq!(cached(&h), 0, "удалённая с холста картинка осталась в кэше");
     h.app.set_text(&mut h.root, crop::Rope::from("текст\n\n![](pic.png)\n\nконец"));
     wait_cached(&mut h);
-    h.app.embeds.as_ref().unwrap().forget_paths(&[h.vault.path().join("pic.png")]);
-    assert_eq!(cached(&h), 0, "удалённый файл остался в кэше");
+    let embeds = h.app.embeds.clone().unwrap();
+    std::fs::remove_file(h.vault.path().join("pic.png")).unwrap();
+    embeds.forget_paths(&[h.vault.path().join("pic.png")]);
+    assert_eq!(cached(&h), 1, "общий кэш не забыл удалённый файл");
+    let gone = wait_until(100, 10, || {
+        h.step();
+        !matches!(embeds.media("pic.png", false).0, Fetch::Ready(_))
+    });
+    assert!(gone, "удалённый файл остался в кэше заметки");
+}
+
+#[test]
+fn a_changed_picture_stays_until_its_new_version_loads() {
+    let mut h = Harness::new();
+    let note = image_note(&h);
+    h.open(note);
+    wait_cached(&mut h);
+    let embeds = h.app.embeds.clone().unwrap();
+    let (_, before) = embeds.media("pic.png", false);
+    image::RgbaImage::new(40, 60).save(h.vault.path().join("pic.png")).unwrap();
+    embeds.forget_paths(&[h.vault.path().join("pic.png")]);
+    let (shown, stamp) = embeds.media("pic.png", false);
+    assert!(matches!(shown, Fetch::Ready(_)) && stamp == before, "картинка пропала до загрузки новой версии, высота заметки прыгнет без пересчёта");
+    let loaded = wait_until(100, 10, || {
+        h.step();
+        embeds.media("pic.png", false).1 != before
+    });
+    assert!(loaded, "новая версия картинки не загрузилась");
 }
 
 #[test]

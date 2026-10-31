@@ -81,6 +81,7 @@ impl Renderer {
             self.painter.finish()?;
             let mut pixmap = Pixmap::new(w, h);
             self.painter.ctx.render_with(&mut pixmap, &mut self.painter.resources, RasterizerSettings::default());
+            super::night::image(&mut pixmap);
             self.faded = Some(Cached { id, area, image: super::brush(pixmap) });
         }
         let Some(cached) = &self.faded else { return Ok(None) };
@@ -89,7 +90,7 @@ impl Renderer {
         let painter = &mut self.painter;
         painter.begin(0, 0, width, height);
         let mut sink = Sink::new(painter);
-        sink.fill_rect(Rect::new(0.0, 0.0, f64::from(width), f64::from(height)), fade.backdrop);
+        sink.fill_rect(Rect::new(0.0, 0.0, f64::from(width), f64::from(height)), super::night::color(fade.backdrop));
         sink.draw_image(&image, placed);
         painter.finish()?;
         let stamps = &mut self.stamps;

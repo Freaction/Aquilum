@@ -1,4 +1,5 @@
 use super::*;
+use crate::render::night;
 use crate::ui::keymap;
 
 pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
@@ -39,7 +40,16 @@ pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
         |c, v| c.ui.font.font_weight = WEIGHTS[index(v).min(4)],
         |c, v| c.ui.font.font_size_base = font_size(v, 14),
     );
-    let mut display = vec![scale_row, theme, language];
+    let mut display = vec![scale_row, theme];
+    if config.ui.theme == "night" {
+        display.push(row(
+            t("settings.ui.night"),
+            None,
+            Control::Dropdown { options: night::VARIANTS.iter().map(|v| t(&format!("night.{v}"))).collect(), selected: position(&night::VARIANTS, &config.ui.night.as_str()) },
+            |c, v| c.ui.night = night::VARIANTS[index(v).min(night::VARIANTS.len() - 1)].to_owned(),
+        ));
+    }
+    display.push(language);
     if ctx.workspace.is_some() {
         let page = Control::Text { value: ctx.home_page.clone(), commit: false };
         display.push(bound(t("settings.ui.homePage"), Some(t("settings.ui.homePageHint")), page, Setter::HomePage));

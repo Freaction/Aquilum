@@ -33,32 +33,37 @@ fn primary_color_typed_into_field() {
 }
 
 #[test]
-fn the_red_theme_paints_the_window_only_in_shades_of_red() {
+fn the_night_theme_offers_its_own_list_and_remembers_the_choice() {
+    use crate::ui::settings::controls::{Changed, Segmented};
     let mut h = Harness::new();
-    image::RgbaImage::from_pixel(40, 30, image::Rgba([10, 120, 200, 255])).save(h.vault.path().join("pic.png")).unwrap();
-    let body = "![](pic.png)\n\n# Заголовок\n\nТекст с [[ссылкой]], **жирным**, `кодом`, #тегом и эмодзи 😀🔥🌈.\n\n- [ ] задача\n- [x] готово\n\n> [!note] Выноска\n> текст\n\n```rust\nfn main() {}\n```\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n";
-    let note = h.write_note("заметка.md", body);
-    h.open(note);
-    assert!(h.wait_for(|h| h.app.embeds.as_ref().unwrap().cached_media() > 0), "картинка не загрузилась");
-    let mut config = h.config();
-    config.ui.theme = "red".into();
-    h.app.workspace.core.settings.update_config(config).unwrap();
-    h.app.restyle(&mut h.root, false, None);
-    h.settle();
-    let frame = h.frame(W as u16, H as u16, 1.0);
-    dump("red-theme.png", &frame);
-    let pixels = frame.frame_pixels();
-    let colored = pixels.iter().filter(|&&pixel| channel(pixel, 8) != 0 || channel(pixel, 0) != 0).count();
-    assert_eq!(colored, 0, "в красной теме {colored} пикселей не красные");
-    let picture = pixels.iter().filter(|&&pixel| channel(pixel, 16) == 102).count();
-    assert!(picture > 900, "голубая картинка не стала красной той же яркости: {picture} пикселей");
-    let mut config = h.config();
-    config.ui.theme = "dark".into();
-    h.app.workspace.core.settings.update_config(config).unwrap();
-    h.app.restyle(&mut h.root, false, None);
-    h.settle();
-    let blue = h.frame(W as u16, H as u16, 1.0).frame_pixels().iter().filter(|&&pixel| [channel(pixel, 16), channel(pixel, 8), channel(pixel, 0)] == [10, 120, 200]).count();
-    assert!(blue > 900, "после красной темы картинка не вернула цвет: {blue} пикселей");
+    h.click(242.0, 578.0);
+    let segment = |h: &mut Harness, index: usize| {
+        let themes = h.binding("переключатель темы", |b| matches!(b, Binding::Choice(_)));
+        let widget = h.root.get_widget(themes).unwrap();
+        let at = widget.downcast::<Segmented>().unwrap().inner().segment(index).unwrap().center() + widget.ctx().bounding_box().origin().to_vec2();
+        h.click(at.x, at.y);
+    };
+    let nights = |h: &Harness| match &h.app.popup {
+        Some(Popup::Settings { dialog, .. }) => dialog.bindings.iter().find_map(|(id, b)| matches!(b, Binding::Dropdown { options, .. } if options.contains(&"Тёплая".to_owned())).then_some(*id)),
+        _ => None,
+    };
+    assert!(nights(&h).is_none(), "список ночных тем виден до выбора ночной темы");
+
+    segment(&mut h, 3);
+    assert_eq!(h.config().ui.theme, "night");
+    let themes = h.binding("переключатель темы", |b| matches!(b, Binding::Choice(_)));
+    let travel = h.root.get_widget(themes).unwrap().downcast::<Segmented>().unwrap().inner().travel();
+    assert!(travel < 3.0, "выбор темы перескочил, а не доехал: {travel}");
+    let list = nights(&h).expect("список ночных тем под темой");
+    h.act(list, Changed::OpenMenu(masonry::kurbo::Rect::new(700.0, 300.0, 900.0, 330.0)));
+    h.choose(1);
+    assert_eq!(h.config().ui.night, "warm");
+
+    segment(&mut h, 2);
+    assert!(nights(&h).is_none(), "список ночных тем остался у тёмной темы");
+    segment(&mut h, 3);
+    let Some(Popup::Settings { dialog, .. }) = &h.app.popup else { panic!("настройки закрылись") };
+    assert!(matches!(dialog.bindings.get(&nights(&h).unwrap()), Some(Binding::Dropdown { selected: 1, .. })), "ночная тема забыла тёплый вариант");
 }
 
 #[test]

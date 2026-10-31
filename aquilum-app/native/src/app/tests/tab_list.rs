@@ -57,6 +57,27 @@ fn the_tab_list_button_sits_next_to_the_plus_and_the_list_picks_a_tab() {
 }
 
 #[test]
+fn on_a_phone_the_tab_field_lists_the_tabs_and_names_the_active_one() {
+    let mut h = super::adaptive::at_width(360.0);
+    open_tabs(&mut h, 3);
+    let field = h.app.chrome.as_ref().unwrap().tab_select.id();
+    let label = |h: &Harness| h.root.get_widget(field).unwrap().downcast::<crate::ui::settings::controls::DropdownButton>().unwrap().inner().label().to_owned();
+    assert_eq!(label(&h), h.app.tabs.active().label(), "в поле не название открытой вкладки");
+    let chrome = h.app.chrome.as_ref().unwrap();
+    let (select, plus, panel) = (rect(&h, field), rect(&h, chrome.new_tab), rect(&h, chrome.panel_toggle));
+    assert!(select.width() > 0.0 && select.x1 <= plus.x0 && plus.x1 <= panel.x0, "кнопки шапки наезжают на поле: {select:?} {plus:?} {panel:?}");
+    let name = h.app.note_ids.as_ref().unwrap().name.id();
+    assert!(h.root.get_widget(name).unwrap().ctx().is_stashed(), "название заметки повторяется в полоске под шапкой");
+    let center = select.center();
+    h.click(center.x, center.y);
+    let Some(Popup::TabsMenu { layer, .. }) = h.app.popup else { panic!("поле не открыло список вкладок") };
+    h.app.on_action(&mut h.root, layer, masonry::core::ErasedAction::from(Box::new(MenuChoice::Item(0))));
+    h.settle();
+    assert!(h.app.popup.is_none(), "список не закрылся после выбора");
+    assert_eq!(label(&h), h.app.tabs.tabs()[0].label(), "поле не показало выбранную вкладку");
+}
+
+#[test]
 fn the_tab_list_scrolls_only_when_the_window_has_no_room_left() {
     let mut h = Harness::new();
     open_tabs(&mut h, 40);

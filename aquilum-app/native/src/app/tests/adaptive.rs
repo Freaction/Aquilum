@@ -56,8 +56,11 @@ fn every_width_shows_its_own_layout() {
         assert_eq!(hidden(&h, sidebar), compact, "{width}: дерево файлов");
         assert_eq!(hidden(&h, panel), compact, "{width}: правая панель");
         assert!(hidden(&h, scrim), "{width}: затемнение без шторки");
-        let strip = bounds(&h, h.app.chrome.as_ref().unwrap().tab_strip.id());
-        assert!(strip.x1 <= width && strip.width() > 0.0, "{width}: полоса вкладок {strip:?}");
+        let chrome = h.app.chrome.as_ref().unwrap();
+        let (strip, select) = (chrome.tab_strip.id(), chrome.tab_select.id());
+        assert_eq!((hidden(&h, strip), hidden(&h, select), hidden(&h, chrome.tab_list)), (compact, !compact, compact), "{width}: на телефоне поле выбора вместо полосы вкладок");
+        let tabs = bounds(&h, if compact { select } else { strip });
+        assert!(tabs.x1 <= width && tabs.width() > 0.0, "{width}: вкладки {tabs:?}");
         if !compact {
             assert_eq!(bounds(&h, sidebar).x0, size::SIDEBAR_RAIL_WIDTH, "{width}: дерево сразу за полосой значков");
         }

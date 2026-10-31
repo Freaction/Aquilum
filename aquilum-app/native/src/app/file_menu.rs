@@ -1,5 +1,6 @@
 use super::*;
 use crate::ui::menu::{Submenu, Swatch};
+use crate::ui::settings::controls::{Changed, DropdownButton};
 use crate::ui::palette;
 use masonry::kurbo::Rect;
 
@@ -43,34 +44,33 @@ impl App {
         let items: Vec<&str> = labels.iter().map(String::as_str).collect();
         let checked = crate::ui::file_tree::Sort::ALL.iter().position(|s| *s == self.tree.sort()).unwrap_or(0);
         let menu = Menu::list(&t("fileTree.sort"), &items, checked, trigger);
-        root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), true));
+        mark_trigger(root, button, true);
         self.show_menu(root, menu, trigger, |layer| Popup::SortMenu { layer, button });
     }
 
     pub(super) fn open_tabs_menu(&mut self, root: &mut RenderRoot, button: WidgetId) {
         let Some(trigger) = root.get_widget(button).map(|w| w.ctx().bounding_box()) else { return };
-        let titles: Vec<String> = self.tabs.tabs().iter().map(|tab| if tab.graph { t("tabs.graph") } else { tab.title().unwrap_or_else(|| t("tabs.newTab")) }).collect();
+        let titles: Vec<String> = self.tabs.tabs().iter().map(crate::tabs::Tab::label).collect();
         let items: Vec<&str> = titles.iter().map(String::as_str).collect();
         let checked = self.tabs.tabs().iter().position(|tab| tab.id == self.tabs.active_id()).unwrap_or(0);
         let width = crate::ui::tokens::size::TAB_LIST_WIDTH;
         let origin = Menu::dropdown_origin(trigger, self.window, width);
         let menu = Menu::dropdown(&t("tabs.list"), &items, checked, trigger, self.window, width);
-        root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), true));
+        mark_trigger(root, button, true);
         self.show_layer(root, menu, origin, |layer| Popup::TabsMenu { layer, button });
     }
 
     fn dropdown_answer(&mut self, root: &mut RenderRoot, layer: WidgetId, button: WidgetId, id: WidgetId, action: &ErasedAction) -> Option<Option<usize>> {
-        let release = |root: &mut RenderRoot| root.edit_widget(button, |mut w| crate::ui::widgets::IconButton::set_pressed(&mut w.downcast(), false));
-        if id == button && action.downcast_ref::<crate::ui::widgets::Pressed>().is_some() {
+        if id == button && (action.downcast_ref::<crate::ui::widgets::Pressed>().is_some() || action.downcast_ref::<Changed>().is_some()) {
             root.remove_layer(layer);
-            release(root);
+            mark_trigger(root, button, false);
             return Some(None);
         }
         let choice = action.downcast_ref::<MenuChoice>()?;
         if let MenuChoice::Item(_) = choice {
             root.remove_layer(layer);
         }
-        release(root);
+        mark_trigger(root, button, false);
         Some(match choice {
             MenuChoice::Item(index) => Some(*index),
             MenuChoice::Dismissed | MenuChoice::Hover(_) | MenuChoice::Sub(_) => None,
@@ -157,4 +157,14 @@ impl App {
         }
         Outcome::default()
     }
+}
+
+fn mark_trigger(root: &mut RenderRoot, button: WidgetId, open: bool) {
+    root.edit_widget(button, |mut w| {
+        if let Some(mut icon) = w.try_downcast::<crate::ui::widgets::IconButton>() {
+            crate::ui::widgets::IconButton::set_pressed(&mut icon, open);
+        } else if let Some(mut field) = w.try_downcast::<DropdownButton>() {
+            DropdownButton::set_open(&mut field, open);
+        }
+    });
 }

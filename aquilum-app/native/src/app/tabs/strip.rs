@@ -5,7 +5,7 @@ use masonry::core::{NewWidget, Widget, WidgetId};
 
 use super::super::App;
 use crate::file_ops;
-use crate::i18n::t;
+use crate::ui::settings::controls::DropdownButton;
 use crate::ui::titlebar::{TabButton, TabRename, TabStrip};
 
 impl App {
@@ -14,7 +14,7 @@ impl App {
         self.rename_field = None;
         let mut widgets = Vec::new();
         for tab in self.tabs.tabs() {
-            let title = if tab.graph { t("tabs.graph") } else { tab.title().unwrap_or_else(|| t("tabs.newTab")) };
+            let title = tab.label();
             if self.renaming_tab == Some(tab.id) {
                 let (widget, field) = TabRename::new(&title);
                 self.rename_field = Some(field);
@@ -35,6 +35,7 @@ impl App {
         if let Some(chrome) = &self.chrome {
             let active = self.tabs.active_index();
             chrome.tab_strip.edit(root, |mut strip| TabStrip::set_tabs(&mut strip, widgets, active));
+            chrome.tab_select.edit(root, |mut select| DropdownButton::set_label(&mut select, &self.tabs.active().label()));
         }
         if let Some(field) = self.rename_field {
             field.focus_all(root);

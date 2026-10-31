@@ -2,11 +2,12 @@ use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
 use masonry::layout::Length;
 use masonry::properties::types::CrossAxisAlignment;
 use masonry::properties::{Gap, Padding};
-use masonry::widgets::{Flex, SizedBox};
+use masonry::widgets::{Flex, IndexedStack, SizedBox};
 
 use super::frame::on_header;
 use super::handle::Handle;
 use super::icons::Icon;
+use super::settings::controls::DropdownButton;
 use super::titlebar::{OWN_CONTROLS, TabStrip};
 use super::tokens::size;
 use super::widgets::{Collapse, IconButton, Slot, Underlined};
@@ -17,7 +18,10 @@ pub(super) struct Titlebar {
     pub(super) widget: NewWidget<Flex>,
     pub(super) new_tab: WidgetId,
     pub(super) tab_list: WidgetId,
+    pub(super) tab_list_shown: Handle<Slot>,
     pub(super) strip: Handle<TabStrip>,
+    pub(super) select: Handle<DropdownButton>,
+    pub(super) tabs_view: Handle<IndexedStack>,
     pub(super) toggle: WidgetId,
     pub(super) toggle_shown: Handle<Slot>,
     pub(super) settings: WidgetId,
@@ -47,13 +51,21 @@ fn edge_button(icon: Icon, label: &str, shown: bool) -> (NewWidget<Slot>, Widget
     (Slot::shown(row, shown), id)
 }
 
-pub(super) fn titlebar(tabs: Vec<NewWidget<dyn Widget>>, active: usize, panel_open: bool, panel_from: bool, focus_mode: bool, compact: bool) -> Titlebar {
-    let strip = TabStrip::new(tabs, active, compact);
+pub(super) fn titlebar(tabs: Vec<NewWidget<dyn Widget>>, active: usize, title: &str, panel_open: bool, panel_from: bool, focus_mode: bool, compact: bool) -> Titlebar {
+    let strip = TabStrip::new(tabs, active);
     let strip_handle = Handle::of(&strip);
+    let select = DropdownButton::new(title);
+    let select_handle = Handle::of(&select);
+    let select = NewWidget::new(Flex::row().with(select, 1.0))
+        .with_props(PropertySet::new().with(Padding { top: Length::ZERO, bottom: Length::ZERO, left: Length::px(size::SPACE_2), right: Length::ZERO }));
+    let tabs_view = NewWidget::new(IndexedStack::new().with(strip).with(select).with_active_child(usize::from(compact)));
+    let tabs_view_handle = Handle::of(&tabs_view);
     let plus = NewWidget::new(IconButton::new(icons::PLUS, i18n::t("tabs.newTab")));
     let plus_id = plus.id();
     let list = NewWidget::new(IconButton::new(icons::CHEVRON_DOWN, i18n::t("tabs.list")));
     let list_id = list.id();
+    let list = Slot::shown(list, !compact);
+    let list_shown = Handle::of(&list);
     let tab_buttons = NewWidget::new(Flex::row().with_fixed(plus).with_fixed(list)).with_props(
         PropertySet::new()
             .with(Gap::new(Length::px(size::SPACE_2)))
@@ -75,7 +87,7 @@ pub(super) fn titlebar(tabs: Vec<NewWidget<dyn Widget>>, active: usize, panel_op
         .cross_axis_alignment(CrossAxisAlignment::Center)
         .with_fixed(drawer)
         .with_fixed(settings)
-        .with(strip, 1.0)
+        .with(tabs_view, 1.0)
         .with_fixed(tab_buttons)
         .with_fixed(menu)
         .with_fixed(inset);
@@ -86,7 +98,10 @@ pub(super) fn titlebar(tabs: Vec<NewWidget<dyn Widget>>, active: usize, panel_op
         widget,
         new_tab: plus_id,
         tab_list: list_id,
+        tab_list_shown: list_shown,
         strip: strip_handle,
+        select: select_handle,
+        tabs_view: tabs_view_handle,
         toggle: toggle_id,
         toggle_shown,
         settings: settings_id,

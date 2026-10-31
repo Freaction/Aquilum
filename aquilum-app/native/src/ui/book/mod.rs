@@ -39,9 +39,6 @@ pub use thumb::Thumbnail;
 use action_bar::ActionBar;
 use draw::*;
 
-const CONTENT_GAP: f64 = 56.0;
-const CONTROLS_TOP: f64 = 16.0;
-const CONTROLS_RIGHT: f64 = 12.0;
 const RAYS_WIDTH: f64 = 311.0;
 
 pub enum Visual {

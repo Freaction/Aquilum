@@ -1,6 +1,6 @@
 use masonry::app::RenderRoot;
 
-use super::bindings::{resume_switches, same_setter, switch_travel};
+use super::bindings::{resume_travels, same_setter, travels};
 use super::{App, Popup};
 use crate::ui::dialog::Modal;
 use crate::ui::editor::TextEditor;
@@ -16,7 +16,7 @@ impl App {
             root.remove_layer(menu.layer);
         }
         let offset = dialog.content.get(root).map(|area| area.inner().offset());
-        let switches = switch_travel(root, &dialog.bindings);
+        let travel = travels(root, &dialog.bindings);
         let config = self.workspace.core.settings.get_config();
         let ctx = self.settings_context(dialog.copied, dialog.trash_page);
         let (card, finish) = settings::card(&config, &ctx, dialog.section);
@@ -26,7 +26,7 @@ impl App {
         if let Some(offset) = offset {
             fresh.content.edit(root, |mut area| ScrollArea::set_offset(&mut area, offset));
         }
-        resume_switches(root, &fresh.bindings, &switches);
+        resume_travels(root, &fresh.bindings, &travel);
         self.popup = Some(Popup::Settings { dialog: fresh, menu: None });
         self.fit_settings(root);
         self.refocus(root);
@@ -85,10 +85,10 @@ impl App {
         let ctx = self.settings_context(copied, page);
         let (content, bindings) = settings::content(&config, &ctx, section);
         let Some(Popup::Settings { dialog, .. }) = &mut self.popup else { return };
-        let switches = switch_travel(root, &dialog.bindings);
+        let travel = travels(root, &dialog.bindings);
         dialog.bindings = bindings;
         dialog.content.edit(root, |mut area| ScrollArea::set_child(&mut area, content));
-        resume_switches(root, &dialog.bindings, &switches);
+        resume_travels(root, &dialog.bindings, &travel);
         self.refocus(root);
     }
 }

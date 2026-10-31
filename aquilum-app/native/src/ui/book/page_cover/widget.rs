@@ -52,13 +52,14 @@ impl Widget for PageCover {
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
-        let mut right = size_.width - CONTROLS_RIGHT;
+        let mut right = size_.width - size::BOOK_CONTROLS_INSET;
+        let mut middle = None;
         if let Some(book) = &mut self.book {
-            right -= place_left_of(ctx, book, right, size_) + size::SPACE_8;
+            right -= place_left_of(ctx, book, right, size_, &mut middle) + size::SPACE_8;
         }
         let tools = if self.show_actions { Some(&mut self.actions) } else { self.more.as_mut() };
         if let Some(tools) = tools {
-            place_left_of(ctx, tools, right, size_);
+            place_left_of(ctx, tools, right, size_, &mut middle);
         }
     }
 
@@ -130,10 +131,10 @@ impl Widget for PageCover {
     }
 }
 
-fn place_left_of(ctx: &mut LayoutCtx<'_>, pod: &mut WidgetPod<impl Widget>, right: f64, room: Size) -> f64 {
-    let row = size::SIZE_32 + size::SPACE_3 * 2.0;
+fn place_left_of(ctx: &mut LayoutCtx<'_>, pod: &mut WidgetPod<impl Widget>, right: f64, room: Size, middle: &mut Option<f64>) -> f64 {
     let size_ = ctx.compute_size(pod, SizeDef::new(LenDef::MaxContent, LenDef::MaxContent), room.into());
     ctx.run_layout(pod, size_);
-    ctx.place_child(pod, Point::new(right - size_.width, CONTROLS_TOP + (row - size_.height) / 2.0));
+    let middle = *middle.get_or_insert(size::BOOK_CONTROLS_INSET + size_.height / 2.0);
+    ctx.place_child(pod, Point::new(right - size_.width, middle - size_.height / 2.0));
     size_.width
 }

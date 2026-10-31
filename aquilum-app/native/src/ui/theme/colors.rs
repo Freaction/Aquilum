@@ -12,10 +12,9 @@ use crate::ui::tokens::{self, Theme};
 
 static CURRENT: RwLock<Option<Arc<Theme>>> = RwLock::new(None);
 static DARK: AtomicBool = AtomicBool::new(false);
-static RED: AtomicBool = AtomicBool::new(false);
 static PRIMARY: Mutex<[u8; 3]> = Mutex::new(DEFAULT_PRIMARY);
 static GENERATION: AtomicUsize = AtomicUsize::new(0);
-static RECOLORED: Mutex<Recent<(bool, bool, [u8; 3]), Arc<Theme>>> = Mutex::new(Recent::new(4, usize::MAX));
+static RECOLORED: Mutex<Recent<(bool, [u8; 3]), Arc<Theme>>> = Mutex::new(Recent::new(4, usize::MAX));
 pub(super) const DEFAULT_PRIMARY: [u8; 3] = [0x14, 0x71, 0xeb];
 
 thread_local! {
@@ -30,12 +29,8 @@ pub fn is_dark() -> bool {
     !printing_now() && DARK.load(Ordering::Relaxed)
 }
 
-pub fn is_red() -> bool {
-    !printing_now() && RED.load(Ordering::Relaxed)
-}
-
 pub fn printing<T>(print: impl FnOnce() -> T) -> T {
-    let paper = themed(false, false, *PRIMARY.lock().unwrap_or_else(|e| e.into_inner()));
+    let paper = themed(false, *PRIMARY.lock().unwrap_or_else(|e| e.into_inner()));
     PAPER.with_borrow_mut(|current| *current = Some(paper));
     let printed = print();
     PAPER.with_borrow_mut(|current| *current = None);
@@ -68,47 +63,40 @@ pub fn parse_hex(raw: &str) -> Option<[u8; 3]> {
     Some([byte(0)?, byte(2)?, byte(4)?])
 }
 
-fn recolored(dark: bool, red: bool, rgb: [u8; 3]) -> Arc<Theme> {
+fn recolored(dark: bool, rgb: [u8; 3]) -> Arc<Theme> {
     let mut cache = RECOLORED.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some(theme) = cache.get(&(dark, red, rgb)) {
+    if let Some(theme) = cache.get(&(dark, rgb)) {
         return Arc::clone(theme);
     }
+    let [r, g, b] = rgb.map(|c| f32::from(c) / 255.0);
+    let main = [r, g, b, 1.0];
+    let darker = [r * 0.78, g * 0.78, b * 0.78, 1.0];
     let mut theme = if dark { tokens::DARK } else { tokens::LIGHT };
-    if rgb != DEFAULT_PRIMARY {
-        let [r, g, b] = rgb.map(|c| f32::from(c) / 255.0);
-        let main = [r, g, b, 1.0];
-        let darker = [r * 0.78, g * 0.78, b * 0.78, 1.0];
-        tokens::recolor(&mut theme, dark, [main, main, darker]);
-    }
-    if red {
-        tokens::map_colors(&mut theme, vello_cpu::red);
-    }
+    tokens::recolor(&mut theme, dark, [main, main, darker]);
     let theme = Arc::new(theme);
-    cache.put((dark, red, rgb), Arc::clone(&theme), 0);
+    cache.put((dark, rgb), Arc::clone(&theme), 0);
     theme
 }
 
-fn themed(dark: bool, red: bool, rgb: [u8; 3]) -> Arc<Theme> {
-    if red || rgb != DEFAULT_PRIMARY { recolored(dark, red, rgb) } else { base(dark) }
+fn themed(dark: bool, rgb: [u8; 3]) -> Arc<Theme> {
+    if rgb != DEFAULT_PRIMARY { recolored(dark, rgb) } else { base(dark) }
 }
 
 pub fn apply_setting(setting: &str, system_dark: bool, primary: &str) {
-    let (dark, red) = match setting {
-        "dark" => (true, false),
-        "light" => (false, false),
-        "red" => (true, true),
-        _ => (system_dark, false),
+    let dark = match setting {
+        "dark" | "night" => true,
+        "light" => false,
+        _ => system_dark,
     };
     let rgb = parse_hex(primary).unwrap_or(DEFAULT_PRIMARY);
     *PRIMARY.lock().unwrap_or_else(|e| e.into_inner()) = rgb;
-    let theme = themed(dark, red, rgb);
+    let theme = themed(dark, rgb);
     let mut current = CURRENT.write().unwrap_or_else(|e| e.into_inner());
     if current.as_ref().is_none_or(|old| !Arc::ptr_eq(old, &theme)) {
         GENERATION.fetch_add(1, Ordering::Relaxed);
     }
     *current = Some(theme);
     DARK.store(dark, Ordering::Relaxed);
-    RED.store(red, Ordering::Relaxed);
     crate::system::set_dark_theme(dark);
 }
 

@@ -35,7 +35,7 @@ pub fn hero(view: HeroView) -> (NewWidget<Hero>, HeroIds) {
         ids.thumbnail = Some(Handle::of(&widget));
         widget
     });
-    let star = thumbnail.as_ref().map(|_| NewWidget::new(Star));
+    let star = (thumbnail.is_some() && cover.is_some()).then(|| NewWidget::new(Star));
     let hero = NewWidget::new(Hero {
         viewport: view.viewport,
         compact: view.compact,
@@ -77,10 +77,14 @@ impl Hero {
         }
     }
 
+    fn thumb_top(&self) -> f64 {
+        if self.cover.is_some() { size::BOOK_CONTENT_GAP } else { size::BOOK_GUTTER }
+    }
+
     fn height(&self) -> f64 {
         let (cover, thumb) = self.heights();
         match (&self.thumbnail, &self.cover) {
-            (Some(_), _) => CONTENT_GAP + thumb,
+            (Some(_), _) => self.thumb_top() + thumb,
             (None, Some(_)) => size::BOOK_GUTTER + cover,
             (None, None) => 0.0,
         }
@@ -131,17 +135,18 @@ impl Widget for Hero {
             ctx.run_layout(cover, rect);
             ctx.place_child(cover, Point::new(gutter, gutter));
         }
+        let top = self.thumb_top();
         if let Some(thumbnail) = &mut self.thumbnail {
             let column = self.column.unwrap_or(size_.width).min(size_.width);
             let left = ((size_.width - column) / 2.0).round() + size::EDITOR_PADDING_X;
             let width = (thumb_h * self.aspect).round();
             ctx.run_layout(thumbnail, Size::new(width, thumb_h));
-            ctx.place_child(thumbnail, Point::new(left, CONTENT_GAP));
+            ctx.place_child(thumbnail, Point::new(left, top));
             if let Some(star) = &mut self.star {
                 let star_size = Size::new(thumb_h * 96.0 / 186.0, thumb_h * 63.0 / 186.0);
                 ctx.run_layout(star, star_size);
                 let right = left + width + thumb_h * 58.0 / 186.0;
-                ctx.place_child(star, Point::new(right - star_size.width, CONTENT_GAP - thumb_h * 24.0 / 186.0));
+                ctx.place_child(star, Point::new(right - star_size.width, top - thumb_h * 24.0 / 186.0));
             }
         }
         if let Some(solo) = &mut self.solo {

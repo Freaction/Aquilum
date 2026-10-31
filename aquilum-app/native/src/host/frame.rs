@@ -36,13 +36,15 @@ impl Host {
         let scale = window.scale_factor() * self.app.scale();
         window.pre_present_notify();
         let background = ui::theme::background();
-        if self.background != Some(background) {
-            self.background = Some(background);
-            set_background(&*window, background);
-            let rgba = background.to_rgba8();
+        let shown = crate::render::night::color(background);
+        let recolored = self.background != Some(shown);
+        if recolored {
+            self.background = Some(shown);
+            set_background(&*window, shown);
+            let rgba = shown.to_rgba8();
             output.set_background(crate::render::in_canvas_order(u32::from_ne_bytes([rgba.r, rgba.g, rgba.b, rgba.a])));
         }
-        let full = std::mem::take(&mut self.full_next) || output.fresh();
+        let full = std::mem::take(&mut self.full_next) || output.fresh() || recolored;
         let raster_start = Instant::now();
         let drawn = match self.renderer.draw(&layers, width, height, scale, background, full, output) {
             Ok(drawn) => drawn,

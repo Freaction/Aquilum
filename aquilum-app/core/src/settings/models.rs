@@ -148,6 +148,7 @@ impl Default for ReaderSettings {
 #[serde(rename_all = "camelCase", default)]
 pub struct UiSettings {
     pub theme: String,
+    pub night: String,
     pub language: String,
     pub primary_color: String,
     pub animations: bool,
@@ -159,6 +160,7 @@ impl Default for UiSettings {
     fn default() -> Self {
         Self {
             theme: "system".to_string(),
+            night: "red".to_string(),
             language: String::new(),
             primary_color: "#1471eb".to_string(),
             animations: true,

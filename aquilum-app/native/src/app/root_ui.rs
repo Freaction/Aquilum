@@ -33,6 +33,7 @@ impl App {
     fn apply_appearance(&self, primary: Option<&str>) {
         let config = self.workspace.core.settings.get_config();
         theme::apply_setting(&config.ui.theme, self.system_dark, primary.unwrap_or(&config.ui.primary_color));
+        crate::render::night::apply(&config.ui.theme, &config.ui.night);
         crate::ui::motion::set(config.ui.animations);
         i18n::set_language(&config.ui.language);
         theme::set_ui_font(UiFont {
@@ -61,6 +62,7 @@ impl App {
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or_default();
         let tabs = self.tab_widgets();
+        let tab_title = self.tabs.active().label();
         let note = self.note_widget();
         let graph = self.graph_widget();
         let graph_active = self.tabs.active().graph && self.tree.root().is_some();
@@ -77,6 +79,7 @@ impl App {
             home: self.home.is_some(),
             tabs,
             active_tab: self.tabs.active_index(),
+            tab_title: &tab_title,
             empty_tab: self.tabs.active().path.is_none() && self.note.is_none() && self.tree.root().is_some(),
             vault_open: self.tree.root().is_some(),
             vault_error: self.vault_error.as_deref(),

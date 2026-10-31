@@ -151,8 +151,12 @@
   "theme": {
     "light": "Light",
     "dark": "Dark",
-    "red": "Red",
+    "night": "Night",
     "system": "System"
+  },
+  "night": {
+    "red": "Red",
+    "warm": "Warm"
   },
   "common": {
     "decrease": "Decrease",
@@ -202,6 +206,7 @@
       "scale": "Interface scale, %",
       "scaleHint": "{{mod}} + mouse wheel, {{reset}} resets to 100%",
       "theme": "Theme",
+      "night": "Night theme",
       "language": "Language",
       "homePage": "Home page",
       "homePageHint": "Note for the home button in this knowledge base; empty — no button",

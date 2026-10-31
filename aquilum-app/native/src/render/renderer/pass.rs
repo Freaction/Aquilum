@@ -134,6 +134,7 @@ fn raster(painter: &mut Painter, frame: &Frame<'_>, pixels: &mut [u32], width: u
     let pixmap = PixmapMut::new(width, height, bytemuck::cast_slice_mut(pixels)).expect("холст вывода");
     let settings = RasterizerSettings { target_init: TargetInit::SrcOver, pixel_format: crate::render::PIXEL_FORMAT, offset: (x, y) };
     painter.ctx.render_with(pixmap, &mut painter.resources, settings);
+    crate::render::night::canvas(pixels, usize::from(width), (x, y, w, h));
     Ok(())
 }
 

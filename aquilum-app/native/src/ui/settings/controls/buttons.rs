@@ -17,6 +17,11 @@ impl DropdownButton {
         this.ctx.request_paint_only();
     }
 
+    #[cfg(test)]
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
     pub fn set_label(this: &mut WidgetMut<'_, Self>, label: &str) {
         this.widget.label = label.to_owned();
         this.ctx.request_paint_only();
@@ -57,11 +62,12 @@ impl Widget for DropdownButton {
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
 
-    fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, _len_req: LenReq, _cross: Option<Length>) -> Length {
-        Length::px(match axis {
-            Axis::Horizontal => size::INPUT_WIDTH,
-            Axis::Vertical => size::INPUT_PADDING_Y * 2.0 + size::INPUT_CONTENT_HEIGHT,
-        })
+    fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, _cross: Option<Length>) -> Length {
+        match (axis, len_req) {
+            (Axis::Horizontal, LenReq::MinContent) => Length::ZERO,
+            (Axis::Horizontal, _) => Length::px(size::INPUT_WIDTH),
+            (Axis::Vertical, _) => Length::px(size::INPUT_PADDING_Y * 2.0 + size::INPUT_CONTENT_HEIGHT),
+        }
     }
 
     fn layout(&mut self, _ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, _size: Size) {}

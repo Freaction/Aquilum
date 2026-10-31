@@ -22,7 +22,7 @@ use crate::system;
 use crate::i18n::t;
 use crate::ui::dialog::ConfirmDialog;
 use crate::ui::menu::Menu;
-use crate::ui::settings::controls::{Changed, ColorPicker, Committed, DropdownButton, Switch};
+use crate::ui::settings::controls::{Changed, ColorPicker, Committed, DropdownButton, Segmented, Switch};
 use crate::ui::keymap::{self, Command, Scope};
 use crate::ui::settings::schema::{self, Action, Context, Section, Setter, Value, Wipe};
 use crate::ui::settings::{self, Binding, SettingsDialog};
@@ -39,7 +39,7 @@ pub(super) enum Effect {
     Rescale,
     Panel,
     Content,
-    Restyle(bool),
+    Restyle(bool, bool),
     Everything,
 }
 
@@ -117,8 +117,11 @@ impl App {
                 self.refresh_analysis(root);
                 Outcome::default()
             }
-            Effect::Restyle(fonts) => {
+            Effect::Restyle(fonts, rows) => {
                 self.restyle(root, fonts, None);
+                if rows {
+                    self.refresh_settings(root);
+                }
                 Outcome::default()
             }
             Effect::Everything => {

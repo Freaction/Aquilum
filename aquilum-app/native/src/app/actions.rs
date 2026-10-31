@@ -185,7 +185,7 @@ impl App {
             self.open_settings(root);
         } else if id == chrome.search_button && action.downcast_ref::<Pressed>().is_some() {
             self.open_search(root);
-        } else if id == chrome.tab_list && action.downcast_ref::<Pressed>().is_some() {
+        } else if (id == chrome.tab_list && action.downcast_ref::<Pressed>().is_some()) || (id == chrome.tab_select.id() && action.downcast_ref::<crate::ui::settings::controls::Changed>().is_some()) {
             self.open_tabs_menu(root, id);
         } else if Some(id) == chrome.graph_button && action.downcast_ref::<Pressed>().is_some() {
             self.open_graph(root);

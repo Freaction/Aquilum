@@ -125,7 +125,7 @@ impl App {
                 let mut after = before.clone();
                 set(&mut after, &value);
                 let language_changed = before.ui.language != after.ui.language;
-                let colors_changed = before.ui.theme != after.ui.theme || before.ui.primary_color != after.ui.primary_color;
+                let colors_changed = before.ui.theme != after.ui.theme || before.ui.night != after.ui.night || before.ui.primary_color != after.ui.primary_color;
                 let fonts_changed = before.ui.font != after.ui.font
                     || before.editor.font != after.editor.font
                     || before.editor.line_height != after.editor.line_height
@@ -138,6 +138,7 @@ impl App {
                 let smart_changed = smart != crate::ui::editor::Smart::from_config(&before);
                 crate::ui::motion::set(after.ui.animations);
                 let rows_changed = before.ui.animations != after.ui.animations
+                    || (before.ui.theme == "night") != (after.ui.theme == "night")
                     || before.analysis.enable_bm25f != after.analysis.enable_bm25f
                     || before.updates.auto != after.updates.auto
                     || before.templates.folder != after.templates.folder
@@ -156,7 +157,7 @@ impl App {
                 if language_changed || methods_toggled {
                     Effect::Everything
                 } else if fonts_changed || colors_changed {
-                    Effect::Restyle(fonts_changed)
+                    Effect::Restyle(fonts_changed, rows_changed)
                 } else if rows_changed {
                     Effect::Content
                 } else if analysis_changed {

@@ -126,23 +126,25 @@ impl App {
     }
 }
 
-pub(super) fn switch_travel(root: &RenderRoot, bindings: &HashMap<WidgetId, Binding>) -> Vec<(Setter, f64)> {
+pub(super) fn travels(root: &RenderRoot, bindings: &HashMap<WidgetId, Binding>) -> Vec<(Setter, f64)> {
     bindings
         .iter()
         .filter_map(|(id, binding)| match binding {
             Binding::Switch(setter) => root.get_widget(*id)?.downcast::<Switch>().map(|w| (*setter, w.inner().travel())),
+            Binding::Choice(setter) => root.get_widget(*id)?.downcast::<Segmented>().map(|w| (*setter, w.inner().travel())),
             _ => None,
         })
         .collect()
 }
 
-pub(super) fn resume_switches(root: &mut RenderRoot, bindings: &HashMap<WidgetId, Binding>, travel: &[(Setter, f64)]) {
+pub(super) fn resume_travels(root: &mut RenderRoot, bindings: &HashMap<WidgetId, Binding>, travels: &[(Setter, f64)]) {
     for (id, binding) in bindings {
-        if let Binding::Switch(setter) = binding
-            && let Some(&(_, travel)) = travel.iter().find(|(s, _)| same_setter(*s, *setter))
-        {
-            root.edit_widget(*id, |mut w| Switch::resume(&mut w.downcast(), travel));
-        }
+        let (Binding::Switch(setter) | Binding::Choice(setter)) = binding else { continue };
+        let Some(&(_, travel)) = travels.iter().find(|(s, _)| same_setter(*s, *setter)) else { continue };
+        root.edit_widget(*id, |mut w| match binding {
+            Binding::Switch(_) => Switch::resume(&mut w.downcast(), travel),
+            _ => Segmented::resume(&mut w.downcast(), travel),
+        });
     }
 }
 

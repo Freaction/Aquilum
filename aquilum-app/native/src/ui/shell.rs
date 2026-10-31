@@ -11,6 +11,7 @@ use super::header::titlebar;
 use super::new_tab::new_tab_view;
 use super::rail::rail;
 use super::sidebar::sidebar;
+use super::settings::controls::DropdownButton;
 use super::titlebar::TabStrip;
 use super::widgets::{Collapse, Slot};
 use super::{backlinks, style, workspaces};
@@ -23,6 +24,7 @@ pub struct Chrome {
     pub new_tab: WidgetId,
     pub tab_list: WidgetId,
     pub tab_strip: Handle<TabStrip>,
+    pub tab_select: Handle<DropdownButton>,
     pub panel_toggle: WidgetId,
     pub controls_inset: Handle<Collapse>,
     pub panel: Handle<Collapse>,
@@ -50,6 +52,8 @@ pub struct Chrome {
     pub drawer: WidgetId,
     pub scrim: WidgetId,
     drawer_shown: Handle<Slot>,
+    tab_list_shown: Handle<Slot>,
+    tabs_view: Handle<IndexedStack>,
     stage: Handle<Stage>,
 }
 
@@ -57,7 +61,8 @@ impl Chrome {
     pub fn set_screen(&self, root: &mut RenderRoot, screen: Screen) {
         self.stage.edit(root, |mut stage| Stage::set_screen(&mut stage, screen));
         self.drawer_shown.edit(root, |mut shown| Slot::set_shown(&mut shown, screen.compact));
-        self.tab_strip.edit(root, |mut strip| TabStrip::set_compact(&mut strip, screen.compact));
+        self.tab_list_shown.edit(root, |mut shown| Slot::set_shown(&mut shown, !screen.compact));
+        self.tabs_view.edit(root, |mut view| IndexedStack::set_active_child(&mut view, usize::from(screen.compact)));
     }
 }
 
@@ -70,6 +75,7 @@ pub struct RootParts<'a> {
     pub panel_width: f64,
     pub tabs: Vec<NewWidget<dyn Widget>>,
     pub active_tab: usize,
+    pub tab_title: &'a str,
     pub empty_tab: bool,
     pub vault_open: bool,
     pub vault_error: Option<&'a str>,
@@ -85,14 +91,14 @@ pub struct RootParts<'a> {
 }
 
 pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<impl Widget>, Chrome) {
-    let RootParts { workspace_name, note, sidebar_open, sidebar_from, sidebar_width, panel_width, tabs, active_tab, empty_tab, vault_open, vault_error, panel_open, panel_from, panel_mode, has_analysis, focus_mode, home, graph, graph_active, screen } = parts;
+    let RootParts { workspace_name, note, sidebar_open, sidebar_from, sidebar_width, panel_width, tabs, active_tab, tab_title, empty_tab, vault_open, vault_error, panel_open, panel_from, panel_mode, has_analysis, focus_mode, home, graph, graph_active, screen } = parts;
 
     let rail = rail(sidebar_open, home, focus_mode);
     let sidebar = sidebar(tree, workspace_name, sidebar_width, sidebar_open && !focus_mode, sidebar_from);
 
     let note_page = Slot::new(note);
     let note_handle = Handle::of(&note_page);
-    let titlebar = titlebar(tabs, active_tab, panel_open, panel_from, focus_mode, screen.compact);
+    let titlebar = titlebar(tabs, active_tab, tab_title, panel_open, panel_from, focus_mode, screen.compact);
     let focus_hidden = vec![titlebar.toggle_shown];
     let (panel, panel_handle, panel_parts) = backlinks::panel(panel_mode, has_analysis, panel_width, panel_open, panel_from);
     let (empty, create_note, open_file, close_tab) = new_tab_view();
@@ -129,6 +135,7 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
         new_tab: titlebar.new_tab,
         tab_list: titlebar.tab_list,
         tab_strip: titlebar.strip,
+        tab_select: titlebar.select,
         panel_toggle: titlebar.toggle,
         controls_inset: titlebar.inset,
         panel: panel_handle,
@@ -156,6 +163,8 @@ pub fn root(tree: NewWidget<impl Widget>, parts: RootParts<'_>) -> (NewWidget<im
         drawer: titlebar.drawer,
         scrim,
         drawer_shown: titlebar.drawer_shown,
+        tab_list_shown: titlebar.tab_list_shown,
+        tabs_view: titlebar.tabs_view,
         stage: stage_handle,
     };
     (NewWidget::new(SizedBox::new(stage)).with_class(style::TABS), chrome)

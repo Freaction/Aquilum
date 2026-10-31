@@ -65,6 +65,23 @@ fn narrow_screen_lowers_covers_and_keeps_the_book_proportions() {
 }
 
 #[test]
+fn cover_controls_sit_as_far_from_the_top_as_from_the_right() {
+    let h = open(1000.0, BOOK);
+    let cover = bounds(&h, ids(&h).cover.unwrap().id());
+    let control = bounds(&h, ids(&h).book_button.expect("кнопка книги на обложке").id());
+    let (top, right) = (control.y0 - cover.y0, cover.x1 - control.x1);
+    assert!((top - size::BOOK_CONTROLS_INSET).abs() < 0.5 && (right - size::BOOK_CONTROLS_INSET).abs() < 0.5, "отступы кнопки сверху {top} и справа {right}");
+}
+
+#[test]
+fn without_a_page_cover_the_book_starts_at_the_gutter() {
+    let h = open(1000.0, "---\ntype: book\nBook_cover: wide.png\n---\nтекст");
+    let hero = bounds(&h, h.app.note_ids.as_ref().unwrap().hero.0.id());
+    let book = bounds(&h, ids(&h).thumbnail.expect("обложка книги").id());
+    assert!((book.y0 - hero.y0 - size::BOOK_GUTTER).abs() < 0.5, "над обложкой книги {} вместо {}", book.y0 - hero.y0, size::BOOK_GUTTER);
+}
+
+#[test]
 fn narrow_cover_keeps_its_actions_in_one_menu() {
     let mut h = open(360.0, PHOTO);
     let more = ids(&h).more.expect("кнопка «⋯» на узком экране");

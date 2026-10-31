@@ -39,6 +39,7 @@ pub struct NoteIds {
     pub focus_button: Handle<TextButton>,
     pub focus_shown: Handle<Slot>,
     pub focus_hidden: Vec<Handle<Slot>>,
+    pub name_shown: Handle<Slot>,
     pub search: WidgetId,
     pub more: WidgetId,
     pub error_slot: Handle<Slot>,
@@ -86,10 +87,11 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let more_id = more.id();
     let name = NewWidget::new(Caption::new(view.file_name));
     let name_handle = Handle::of(&name);
-    let name = Slot::shown(name, !view.focus_mode);
+    let name = Slot::shown(name, !view.focus_mode && !view.compact);
+    let name_shown = Handle::of(&name);
     let left = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(back).with_fixed(forward);
     let left = Slot::shown(NewWidget::new(left).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4)))), !view.focus_mode);
-    let focus_hidden = vec![Handle::of(&left), Handle::of(&name), Handle::of(&search)];
+    let focus_hidden = vec![Handle::of(&left), Handle::of(&search)];
     let right = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(focus).with_fixed(search).with_fixed(more);
     let right = NewWidget::new(right).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))));
     let toolbar = Flex::row().main_axis_alignment(MainAxisAlignment::SpaceBetween).cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(left);
@@ -166,6 +168,7 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
         focus_button,
         focus_shown,
         focus_hidden,
+        name_shown,
         search: search_id,
         more: more_id,
         error_slot: error_slot_handle,

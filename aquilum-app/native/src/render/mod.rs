@@ -4,6 +4,7 @@ pub mod fade;
 mod layer;
 pub mod live;
 mod mark;
+pub mod night;
 mod offscreen;
 #[cfg_attr(feature = "installed", path = "overlay_off.rs")]
 mod overlay;

@@ -30,6 +30,18 @@ impl Segmented {
         }
     }
 
+    pub fn travel(&self) -> f64 {
+        self.shown
+    }
+
+    pub fn resume(this: &mut WidgetMut<'_, Self>, travel: f64) {
+        this.widget.shown = travel;
+        if travel != this.widget.selected as f64 {
+            this.ctx.request_anim_frame();
+            this.ctx.request_paint_only();
+        }
+    }
+
     fn style() -> text::Style {
         text::Style::ui(size::SIZE_20)
     }

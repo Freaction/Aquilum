@@ -21,6 +21,10 @@ impl Tab {
     pub fn title(&self) -> Option<String> {
         self.path.as_deref().and_then(Path::file_stem).map(|s| s.to_string_lossy().into_owned())
     }
+
+    pub fn label(&self) -> String {
+        if self.graph { crate::i18n::t("tabs.graph") } else { self.title().unwrap_or_else(|| crate::i18n::t("tabs.newTab")) }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -204,6 +204,7 @@
     0 6.3px 24.7px var(--q-shadow-md),
     0 1.8px 7.3px var(--q-shadow-sm);
   --q-book-thumb-action-inset: 5px;
+  --q-book-controls-inset: var(--q-space-12);
   --q-book-z-cover: 1;
   --q-book-z-controls: 10;
   --q-book-z-star: 10;

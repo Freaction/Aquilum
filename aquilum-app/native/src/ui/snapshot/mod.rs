@@ -47,6 +47,7 @@ fn parts(text: &str) -> RootParts<'_> {
         panel_width: crate::ui::tokens::size::BACKLINKS_WIDTH,
         tabs,
         active_tab: 0,
+        tab_title: "Заметка",
         graph: None,
         graph_active: false,
         empty_tab: false,

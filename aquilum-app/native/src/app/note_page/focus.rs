@@ -30,6 +30,7 @@ impl App {
             }
             ids.focus_button.edit(root, |mut b| TextButton::set_pressed(&mut b, focus));
             ids.focus_shown.edit(root, |mut v| Slot::set_shown(&mut v, !self.compact()));
+            ids.name_shown.edit(root, |mut v| Slot::set_shown(&mut v, !focus && !self.compact()));
         }
         self.apply_panels(root, true);
     }

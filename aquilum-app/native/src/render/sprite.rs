@@ -98,7 +98,7 @@ struct Key {
 fn baked(sprite: &Sprite, area: Area) -> Rc<Vec<u32>> {
     let origin = Vec2::new(f64::from(area.x), f64::from(area.y));
     let (w, h) = (f64::from(area.w), f64::from(area.h));
-    let key = Key { shape: sprite.shape - origin, clip: (sprite.clip - origin).intersect(Rect::new(-1.0, -1.0, w + 1.0, h + 1.0)), color: sprite.color, size: (area.w, area.h) };
+    let key = Key { shape: sprite.shape - origin, clip: (sprite.clip - origin).intersect(Rect::new(-1.0, -1.0, w + 1.0, h + 1.0)), color: super::night::color(sprite.color), size: (area.w, area.h) };
     SPRITES.with_borrow_mut(|s| {
         let entry = s.get_mut(&sprite.id)?;
         if let Some((kept, pixels)) = &entry.baked
