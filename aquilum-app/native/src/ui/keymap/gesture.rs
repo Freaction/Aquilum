@@ -18,6 +18,7 @@ pub const MENU_SETTLE: Duration = Duration::from_millis(50);
 pub const DRAG_SLOP: f64 = 4.0;
 pub const GRIP: f64 = 6.0;
 pub const TOUCH_REACH: f64 = 8.0;
+pub const GRIP_LINE_SLOP: f64 = 0.5;
 pub const EDGE_SCROLL_RATE: f64 = 10.0;
 pub const EDGE_SCROLL_REACH: f64 = 300.0;
 pub const TOUCH_EDGE: f64 = 40.0;

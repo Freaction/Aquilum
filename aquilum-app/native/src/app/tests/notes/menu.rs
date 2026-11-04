@@ -7,9 +7,9 @@ use crate::ui::editor::TextEditor;
 use crate::ui::keymap::Command;
 use crate::ui::tokens::size;
 
-const NOTE: &str = "первое слово\n\nвторая строка\n\n";
+pub(super) const NOTE: &str = "первое слово\n\nвторая строка\n\n";
 
-fn caret_at(h: &mut Harness, offset: usize) -> Rect {
+pub(super) fn caret_at(h: &mut Harness, offset: usize) -> Rect {
     let body = h.app.note_ids.as_ref().unwrap().body;
     body.edit(&mut h.root, |mut editor| TextEditor::select_byte_range(&mut editor, offset, offset));
     let _ = h.root.redraw();
@@ -37,7 +37,7 @@ pub(super) fn choose(h: &mut Harness, item: usize) {
     press(h, at, PointerButton::Primary, 1);
 }
 
-fn scrolled(h: &mut Harness, at: Point, dy: f64) {
+pub(super) fn scrolled(h: &mut Harness, at: Point, dy: f64) {
     h.scroll((at.x, at.y), 1.0, (0.0, dy));
     h.settle();
     h.deliver();
@@ -47,7 +47,7 @@ fn scrolled(h: &mut Harness, at: Point, dy: f64) {
     h.deliver();
 }
 
-fn opened(text: &str) -> (Harness, WidgetId) {
+pub(super) fn opened(text: &str) -> (Harness, WidgetId) {
     let mut h = Harness::new();
     h.open(h.write_note("Меню.md", text));
     let editor = h.focus_editor();
@@ -63,7 +63,8 @@ fn a_touch_selection_brings_up_the_edit_menu_under_it_and_its_items_keep_the_edi
     press(&mut h, word.center(), PointerButton::Primary, 2);
     let (frame, commands) = menu(&h).expect("двойной тап по слову не открыл меню");
     assert_eq!(commands, [Cut, Copy, Paste, SelectAll]);
-    assert!(frame.y0 >= word.y1 && frame.y0 <= word.y1 + size::SPACE_8, "меню {frame:?} не под строкой {word:?}");
+    let below = word.y1 + size::SELECTION_HANDLE_SIZE;
+    assert!(frame.y0 >= below && frame.y0 <= below + size::SPACE_8, "меню {frame:?} не под ручками строки {word:?}");
     assert!((frame.x0 - start.x0).abs() <= size::CARET_WIDTH, "меню {frame:?} не от начала выделения {start:?}");
     choose(&mut h, 1);
     assert_eq!(h.copied.as_deref(), Some("первое"));
@@ -174,3 +175,23 @@ fn near_the_bottom_right_the_edit_menu_opens_above_and_stays_on_screen() {
     assert!(frame.x0 >= size::SPACE_8 && frame.x1 <= 360.0 - size::SPACE_8 + 0.5, "меню {frame:?} вышло за экран");
     assert!(frame.y0 >= bars.y0 + size::SPACE_8, "меню {frame:?} зашло под строку состояния");
 }
+
+#[test]
+fn keyboard_menu_actions_cut_copy_and_select_all_in_the_focused_field() {
+    let (mut h, editor) = opened(NOTE);
+    let body = h.app.note_ids.as_ref().unwrap().body;
+    body.edit(&mut h.root, |mut e| TextEditor::select_byte_range(&mut e, "первое ".len(), "первое слово".len()));
+    h.app.text_command(&mut h.root, editor, Command::Copy);
+    h.deliver();
+    assert_eq!(h.copied.as_deref(), Some("слово"));
+    h.app.text_command(&mut h.root, editor, Command::Cut);
+    h.deliver();
+    assert_eq!(h.body_text(), "первое 
+
+вторая строка
+
+");
+    h.app.text_command(&mut h.root, editor, Command::SelectAll);
+    assert_eq!(body.get(&h.root).unwrap().inner().selection(), 0..h.body_text().len());
+}
+

@@ -5,14 +5,13 @@ use super::shared::{Shared, ACCOUNT};
 use super::{run, Account, Outcome, Progress, Remote, RemoteError, SyncError, Vault};
 use crate::app_core::{Core, CoreEvent};
 use crate::settings::models::SyncSettings;
-use crate::web_agent::{agent, web_agent};
+use crate::web_agent::{agent, web_agent, TRANSFER_TIMEOUT};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 
 pub type Open = Box<dyn Fn(&Path, &str) -> Result<Arc<dyn Remote>, SyncError> + Send + Sync>;
 
-const TRANSFER_TIMEOUT: Duration = Duration::from_secs(60);
 const SHOW_EVERY: Duration = Duration::from_millis(100);
 const RECHECK: Duration = Duration::from_secs(5);
 

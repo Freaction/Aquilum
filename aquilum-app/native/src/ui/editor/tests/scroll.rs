@@ -6,7 +6,7 @@ use crate::ui::editor::TextEditor;
 use crate::ui::scroll::ScrollArea;
 
 #[test]
-fn typing_below_the_view_scrolls_after_the_caret() {
+fn typing_below_the_view_scrolls_after_the_caret_and_pasting_keeps_the_page() {
     let mut root = scrolled(TextEditor::new("Начало").markdown(), 400, 300);
     root.focus_on(Some(editor_id(&root)));
     named(&mut root, NamedKey::End);
@@ -23,9 +23,23 @@ fn typing_below_the_view_scrolls_after_the_caret() {
     typing(&mut root, &"слово ".repeat(80));
     let at = caret(&root);
     assert!(at.y0 >= 0.0 && at.y1 <= 300.5, "каретка за краем окна после переноса строки: {at:?}");
+    let top = |root: &RenderRoot| root.get_widget_with_tag(TAG).unwrap().ctx().window_transform().translation().y;
+    let before = top(&root);
     paste(&mut root, &"\nвставка".repeat(40));
-    let at = caret(&root);
-    assert!(at.y0 >= 0.0 && at.y1 <= 300.5, "каретка за краем окна после вставки: {at:?}");
+    assert_eq!(top(&root), before, "вставка прокрутила страницу");
+}
+
+#[test]
+fn pasting_at_the_end_of_a_note_scrolled_to_the_bottom_keeps_the_page() {
+    let body: String = (0..200).map(|i| format!("Абзац {i}\n\n")).collect();
+    let mut root = scrolled(TextEditor::windowed(crop::Rope::from(body)).markdown().past_end(600.0), 400, 300);
+    root.focus_on(Some(editor_id(&root)));
+    super::support::press(&mut root, masonry::core::keyboard::Key::Named(NamedKey::End), crate::test_dir::command());
+    wheel(&mut root, (200.0, 150.0), (0.0, -100_000.0));
+    let top = |root: &RenderRoot| root.get_widget_with_tag(TAG).unwrap().ctx().window_transform().translation().y;
+    let before = top(&root);
+    paste(&mut root, &"вставка\n".repeat(100));
+    assert_eq!(top(&root), before, "вставка в конец прокрутила страницу");
 }
 
 #[test]

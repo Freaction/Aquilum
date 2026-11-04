@@ -8,7 +8,7 @@ use kurbo::{Axis, Point, Size};
 use tracing::{Span, trace_span};
 
 use crate::core::{
-    AccessCtx, ChildrenIds, LayoutCtx, MeasureCtx, NewWidget, NoAction, PaintCtx, PropertiesRef,
+    AccessCtx, ChildrenIds, ComposeCtx, LayoutCtx, MeasureCtx, NewWidget, NoAction, PaintCtx, PropertiesRef,
     RegisterCtx, UpdateCtx, Widget, WidgetId, WidgetMut, WidgetPod,
 };
 use crate::imaging::Painter;
@@ -89,6 +89,7 @@ impl LayerStack {
         };
         this.widget.layers.push(layer);
         this.ctx.children_changed();
+        this.ctx.request_compose();
     }
 
     /// Returns a mutable reference to the root widget of the layer at `idx`.
@@ -157,6 +158,7 @@ impl LayerStack {
             Some(idx) => {
                 this.widget.layers[idx].position = new_origin;
                 this.ctx.request_layout();
+                this.ctx.request_compose();
             }
         }
     }
@@ -214,7 +216,14 @@ impl Widget for LayerStack {
             // These other layers still have access to the window size via context size.
             let layer_size = ctx.compute_size(&mut layer.root, SizeDef::MAX, size.into());
             ctx.run_layout(&mut layer.root, layer_size);
-            ctx.place_child(&mut layer.root, layer.position);
+            ctx.place_child(&mut layer.root, layer.position.round());
+        }
+    }
+
+    fn compose(&mut self, ctx: &mut ComposeCtx<'_>) {
+        for layer in &mut self.layers[1..] {
+            let rest = layer.position - layer.position.round();
+            ctx.set_animated_child_scroll_translation(&mut layer.root, rest);
         }
     }
 

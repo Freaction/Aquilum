@@ -15,6 +15,7 @@ pub struct TabStrip {
     settle: Option<(usize, f64)>,
     active: usize,
     follow: bool,
+    frame: Option<Rect>,
 }
 
 impl TabStrip {
@@ -28,6 +29,7 @@ impl TabStrip {
             settle: None,
             active,
             follow: true,
+            frame: None,
         })
     }
 
@@ -105,20 +107,37 @@ impl Widget for TabStrip {
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
         let height = Some(Length::px(size_.height));
         let widths: Vec<f64> = self.tabs.iter_mut().map(|tab| ctx.compute_length(tab, LenReq::MaxContent.into(), LayoutSize::maybe(Axis::Vertical, height), Axis::Horizontal, height).get()).collect();
-        self.follow |= self.pan.resize(widths.iter().sum(), size_.width);
-        self.boxes = widths.iter().scan(0.0, |x, &width| Some((std::mem::replace(x, *x + width), width))).collect();
+        let (ear, gap) = (size::TAB_RADIUS, size::GAP_SM);
+        let content = widths.iter().sum::<f64>() + gap * widths.len().saturating_sub(1) as f64 + ear * 2.0;
+        self.follow |= self.pan.resize(content, size_.width);
+        self.boxes = widths.iter().scan(ear, |x, &width| Some((std::mem::replace(x, *x + width + gap), width))).collect();
         if let Some(&(left, width)) = self.boxes.get(self.active).filter(|_| std::mem::take(&mut self.follow)) {
-            self.pan.reveal(left, width);
+            self.pan.reveal(left - ear, width + ear * 2.0);
         }
+        self.frame = None;
         for (index, (tab, &(x, width))) in self.tabs.iter_mut().zip(&self.boxes).enumerate() {
             ctx.run_layout(tab, Size::new(width, size_.height));
             let moved = self.shift.get(index).map_or(0.0, Tween::value);
-            ctx.place_child(tab, Point::new(x - self.pan.offset + moved, 0.0));
+            let at = Point::new(x - self.pan.offset + moved, 0.0);
+            ctx.place_child(tab, at);
+            if index == self.active {
+                self.frame = Some(Rect::from_origin_size(at, Size::new(width, size_.height)));
+            }
         }
         ctx.set_clip_path(Rect::new(0.0, 0.0, size_.width, size_.height + size::BORDER_1));
+        ctx.set_paint_insets(Insets::new(0.0, 0.0, 0.0, size::BORDER_1 * 2.0));
     }
 
     fn paint(&mut self, _ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, _painter: &mut Painter<'_>) {}
+
+    fn post_paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
+        let Some(tab) = self.frame else { return };
+        let (bounds, scale) = (ctx.content_box(), ctx.scale_factor());
+        let floor = ((tab.y1 + size::BORDER_1) * scale).ceil() / scale;
+        painter.push_fill_clip(Rect::new(bounds.x0, bounds.y0, bounds.x1, floor));
+        paint_frame(painter, tab, floor);
+        painter.pop_clip();
+    }
 
     fn accessibility_role(&self) -> Role {
         Role::TabList

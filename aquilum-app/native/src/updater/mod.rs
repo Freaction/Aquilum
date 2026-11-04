@@ -107,7 +107,7 @@ impl Updater {
 
     fn download(&self, release: &Release) -> Result<(), String> {
         self.set(Status::Downloading { version: release.version.clone(), done: 0, total: None });
-        let agent = aquilum_core::web_agent::web_agent("updates");
+        let agent = aquilum_core::web_agent::agent("updates", aquilum_core::web_agent::TRANSFER_TIMEOUT);
         let response = agent.get(&release.url).call().map_err(|e| e.to_string())?;
         let total = response.header("Content-Length").and_then(|v| v.parse().ok());
         let mut reader = response.into_reader();

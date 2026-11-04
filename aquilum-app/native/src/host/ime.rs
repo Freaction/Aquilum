@@ -130,5 +130,10 @@ impl Host {
                 }
             }
         }
+        for command in crate::android::ime::commands() {
+            if let Some(editor) = root.focused_widget().filter(|_| focused_editor(root).is_some()) {
+                self.app.text_command(root, editor, command);
+            }
+        }
     }
 }

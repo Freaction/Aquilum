@@ -70,13 +70,21 @@ impl App {
     }
 
     fn show_editor_menu(&mut self, root: &mut RenderRoot, editor: WidgetId, menu: Option<ContextMenu>) {
-        self.remove_editor_menu(root);
-        let Some(menu) = menu else { return };
+        let Some(menu) = menu else {
+            self.remove_editor_menu(root);
+            return;
+        };
         let commands = match (menu.selected, menu.inserts) {
             (true, _) => SELECTED,
             (false, true) => CARET,
             (false, false) => PLAIN,
         };
+        if let Some((layer, shown, current)) = self.editor_menu
+            && (shown, current) == (editor, commands)
+        {
+            return self.place_layer(root, layer, menu.around);
+        }
+        self.remove_editor_menu(root);
         let has_frontmatter = self.has_frontmatter();
         let labels: Vec<(String, icons::Icon)> = commands.iter().map(|command| command.entry()).collect();
         let entries: Vec<Entry<'_>> = commands.iter().zip(&labels).map(|(&command, (label, icon))| Entry { label, icon: Some(*icon), disabled: command == EditorCommand::InsertFrontmatter && has_frontmatter, divided: false }).collect();
@@ -97,12 +105,31 @@ impl App {
             return false;
         }
         if let Some(MenuChoice::Item(index)) = action.downcast_ref::<MenuChoice>() {
-            self.close_editor_menu(root);
-            if let Some(&command) = commands.get(*index) {
+            let command = commands.get(*index).copied();
+            if command != Some(EditorCommand::SelectAll) {
+                self.close_editor_menu(root);
+            }
+            if let Some(command) = command {
                 self.editor_command(root, editor, command);
             }
         }
         true
+    }
+
+    #[cfg(any(target_os = "android", test))]
+    pub fn text_command(&mut self, root: &mut RenderRoot, editor: WidgetId, command: crate::ui::keymap::Command) {
+        use crate::ui::keymap::Command;
+        let command = match command {
+            Command::Cut => EditorCommand::Cut,
+            Command::Copy => EditorCommand::Copy,
+            Command::SelectAll => EditorCommand::SelectAll,
+            Command::Paste | Command::PastePlain => {
+                self.paste(root, command == Command::PastePlain);
+                return;
+            }
+            _ => return,
+        };
+        self.editor_command(root, editor, command);
     }
 
     fn editor_command(&mut self, root: &mut RenderRoot, editor: WidgetId, command: EditorCommand) {

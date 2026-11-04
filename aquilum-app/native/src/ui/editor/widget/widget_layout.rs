@@ -28,6 +28,9 @@ impl TextEditor {
                 } else {
                     self.hide_suggest();
                     self.close_menu(|closed| ctx.submit_action::<TextAction>(closed));
+                    if self.grips.off() {
+                        ctx.request_compose();
+                    }
                 }
                 ctx.request_layout();
                 ctx.request_render();
@@ -85,6 +88,7 @@ impl TextEditor {
             ctx.request_layout();
             ctx.request_paint_only();
         }
+        self.place_grips(ctx);
         let (top, bottom) = super::visible(ctx.window_transform(), ctx.window_size());
         if top < self.painted.0 || bottom > self.painted.1 {
             ctx.request_paint_only();

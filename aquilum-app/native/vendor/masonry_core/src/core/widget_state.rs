@@ -134,6 +134,7 @@ pub(crate) struct WidgetState {
     /// This clips the painting of `Widget::paint` and all the painting of children.
     /// It does not clip this widget's `Widget::pre_paint` nor `Widget::post_paint`.
     pub(crate) clip_path: Option<Rect>,
+    pub(crate) window_clip: Rect,
 
     pub(crate) opacity: f32,
 
@@ -304,6 +305,7 @@ impl WidgetState {
             first_baseline: f64::NAN,
             last_baseline: f64::NAN,
             clip_path: Option::default(),
+            window_clip: Rect::ZERO,
             opacity: 1.0,
             transform: options.transform,
             window_transform: Affine::IDENTITY,

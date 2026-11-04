@@ -52,7 +52,10 @@ impl Document {
 
     pub fn replace(&mut self, range: Range<usize>, insert: &str) {
         let shift = |at: usize| super::super::change::shift(at, &range, insert.len());
-        for at in [self.anchor.as_mut().map(|(at, _)| at), self.editing.as_mut().map(|(at, _)| at), self.resized.as_mut().map(|(at, _)| at), self.uncropped.as_mut(), self.source.as_mut()].into_iter().flatten() {
+        if let Some((at, _)) = self.anchor.as_mut().filter(|(at, _)| *at > range.start) {
+            *at = shift(*at);
+        }
+        for at in [self.editing.as_mut().map(|(at, _)| at), self.resized.as_mut().map(|(at, _)| at), self.uncropped.as_mut(), self.source.as_mut()].into_iter().flatten() {
             *at = shift(*at);
         }
         for (first, last) in self.entered.iter_mut() {

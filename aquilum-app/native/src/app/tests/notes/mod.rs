@@ -4,6 +4,7 @@ mod cover;
 mod cover_narrow;
 mod cover_render;
 mod find;
+mod grips;
 mod menu;
 mod menu_embeds;
 mod page;

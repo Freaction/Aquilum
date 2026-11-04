@@ -51,6 +51,9 @@ impl TextEditor {
 
     pub(super) fn drag_select(&mut self, point: Point) -> bool {
         let before = (self.anchor, self.focus);
+        if self.drag_grip(point) {
+            return (self.anchor, self.focus) != before;
+        }
         match self.unit.clone() {
             Some((count, first)) => {
                 let under = self.unit_at(point, count);

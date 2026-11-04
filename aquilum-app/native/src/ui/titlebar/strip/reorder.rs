@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn reorder_layout(boxes: &[(f64, f64)], from: usize, offset: f64) -> (usize, Vec<f64>) {
+pub fn reorder_layout(boxes: &[(f64, f64)], from: usize, offset: f64, gap: f64) -> (usize, Vec<f64>) {
     let mut shift = vec![0.0; boxes.len()];
     let Some(&(left, width)) = boxes.get(from) else { return (from, shift) };
     let left = left + offset;
@@ -9,10 +9,10 @@ pub fn reorder_layout(boxes: &[(f64, f64)], from: usize, offset: f64) -> (usize,
     for (index, &(box_left, box_width)) in boxes.iter().enumerate() {
         let middle = box_left + box_width / 2.0;
         if index < from && left < middle {
-            shift[index] = width;
+            shift[index] = width + gap;
             target = target.min(index);
         } else if index > from && right > middle {
-            shift[index] = -width;
+            shift[index] = -width - gap;
             target = target.max(index);
         }
     }
@@ -71,7 +71,7 @@ impl TabStrip {
         let Some(reorder) = &mut self.reorder else { return };
         reorder.dragging = true;
         let from = reorder.from;
-        let (target, shift) = reorder_layout(&self.boxes, from, x + self.pan.offset - reorder.start);
+        let (target, shift) = reorder_layout(&self.boxes, from, x + self.pan.offset - reorder.start, size::GAP_SM);
         reorder.target = target;
         self.slide_to(ctx, &shift, Some(from));
     }
@@ -104,11 +104,11 @@ mod tests {
     #[test]
     fn dragging_past_middle_moves_target() {
         let boxes = [(0.0, 100.0), (100.0, 100.0), (200.0, 100.0)];
-        assert_eq!(reorder_layout(&boxes, 0, 30.0).0, 0);
-        let (target, shift) = reorder_layout(&boxes, 0, 60.0);
+        assert_eq!(reorder_layout(&boxes, 0, 30.0, 0.0).0, 0);
+        let (target, shift) = reorder_layout(&boxes, 0, 60.0, 4.0);
         assert_eq!(target, 1);
-        assert_eq!(shift, [60.0, -100.0, 0.0]);
-        assert_eq!(reorder_layout(&boxes, 0, 160.0).0, 2);
-        assert_eq!(reorder_layout(&boxes, 2, -160.0).0, 0);
+        assert_eq!(shift, [60.0, -104.0, 0.0]);
+        assert_eq!(reorder_layout(&boxes, 0, 160.0, 0.0).0, 2);
+        assert_eq!(reorder_layout(&boxes, 2, -160.0, 0.0).0, 0);
     }
 }

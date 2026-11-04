@@ -181,6 +181,6 @@ pub fn window_controls(maximized: bool) -> (NewWidget<impl Widget>, Handle<Windo
         .with_fixed(WindowButton::new(WindowButtonKind::Minimize, false))
         .with_fixed(max)
         .with_fixed(WindowButton::new(WindowButtonKind::Close, false));
-    let underlined = crate::ui::widgets::Underlined::new(NewWidget::new(row), || theme::current().tabs_bg, || theme::current().tabs_border);
+    let underlined = crate::ui::widgets::Underlined::new(NewWidget::new(row), crate::ui::frame::on_header);
     (underlined, handle)
 }

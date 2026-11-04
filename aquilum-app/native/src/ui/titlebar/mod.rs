@@ -6,7 +6,7 @@ use masonry::core::{
 };
 use masonry::imaging::Painter;
 use crate::ui::editor::TextEditor;
-use masonry::kurbo::{Affine, Axis, BezPath, Point, Rect, Size, Stroke, Vec2};
+use masonry::kurbo::{Affine, Arc, Axis, BezPath, Insets, Point, Rect, RoundedRect, Size, Stroke, Vec2};
 use masonry::layout::{LayoutSize, LenDef, LenReq, Length, SizeDef};
 
 use uuid::Uuid;
@@ -14,16 +14,20 @@ use uuid::Uuid;
 use super::handle::Handle;
 use super::icons;
 use super::keymap::pointer;
-use super::widgets::Press;
-use super::tokens::size;
+use super::widgets::{Press, frame_line, paint_glyph};
+use super::tokens::{number, size};
 use super::{text, theme};
 
 mod rename;
+mod shape;
 mod strip;
 mod tab;
+#[cfg(test)]
+mod tests;
 mod window;
 
 pub use rename::*;
+use shape::*;
 pub use strip::*;
 pub use tab::*;
 pub use window::*;
@@ -40,7 +44,7 @@ pub enum TitlebarAction {
     CloseWindow,
 }
 
-const CLOSE_SIZE: f64 = 24.0;
+const CLOSE_SIZE: f64 = size::BUTTON_ICON_SIZE + size::PADDING_4XS * 2.0;
 const EDGE: f64 = 48.0;
 const EDGE_STEP: f64 = 14.0;
 

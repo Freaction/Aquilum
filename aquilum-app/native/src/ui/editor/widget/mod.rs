@@ -38,6 +38,7 @@ pub use matching::Search;
 mod format;
 mod geometry;
 use geometry::{rect, visible};
+mod grips;
 mod ime;
 mod keys;
 mod lifecycle;
@@ -51,6 +52,8 @@ mod pages;
 mod pairs;
 mod paste;
 mod pointer;
+#[cfg(target_os = "linux")]
+mod primary;
 pub use paste::Smart;
 mod select;
 mod selection_highlight;

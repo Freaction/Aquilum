@@ -33,6 +33,18 @@ pub fn text() -> Option<String> {
     with(arboard::Clipboard::get_text)
 }
 
+#[cfg(target_os = "linux")]
+pub fn select(text: String) {
+    use arboard::{LinuxClipboardKind::Primary, SetExtLinux};
+    with(|clipboard| clipboard.set().clipboard(Primary).text(text));
+}
+
+#[cfg(target_os = "linux")]
+pub fn selection() -> Option<String> {
+    use arboard::{GetExtLinux, LinuxClipboardKind::Primary};
+    with(|clipboard| clipboard.get().clipboard(Primary).text())
+}
+
 pub fn html() -> Option<String> {
     access(|clipboard| clipboard.get().html().ok())
 }

@@ -11,7 +11,7 @@ use super::settings::controls::DropdownButton;
 use super::titlebar::{OWN_CONTROLS, TabStrip};
 use super::tokens::size;
 use super::widgets::{Collapse, IconButton, Slot, Underlined};
-use super::{icons, theme};
+use super::icons;
 use crate::i18n;
 
 pub(super) struct Titlebar {
@@ -92,7 +92,7 @@ pub(super) fn titlebar(tabs: Vec<NewWidget<dyn Widget>>, active: usize, title: &
         .with_fixed(menu)
         .with_fixed(inset);
     let row = NewWidget::new(SizedBox::new(NewWidget::new(row)).height(Length::px(size::TABS_HEIGHT)));
-    let row = Underlined::new(row, on_header, || theme::current().tabs_border);
+    let row = Underlined::new(row, on_header);
     let widget = NewWidget::new(Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with_fixed(row));
     Titlebar {
         widget,

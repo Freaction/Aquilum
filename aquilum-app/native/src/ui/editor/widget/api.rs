@@ -40,6 +40,9 @@ impl TextEditor {
     }
 
     pub(super) fn repaint(this: &mut WidgetMut<'_, Self>) {
+        if this.widget.grips.on() {
+            this.ctx.request_compose();
+        }
         this.ctx.request_layout();
         this.ctx.request_render();
     }
@@ -136,7 +139,6 @@ impl TextEditor {
         if widget.single_line || widget.doc.markdown.is_none() || widget.table_active() || in_code {
             return false;
         }
-        widget.follow_caret = true;
         Self::insert_text(this, text);
         true
     }

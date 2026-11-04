@@ -11,20 +11,24 @@ pub(super) enum Menu {
     #[default]
     Closed,
     Pressed(u8),
-    Shown(Rect, ContextMenu, Option<Instant>),
+    Shown(Option<Rect>, ContextMenu, Option<Instant>),
 }
 
 impl TextEditor {
-    fn open_menu(&mut self, ctx: &mut EventCtx<'_>, bounds: Option<Rect>, at: Point) {
-        let local = bounds.unwrap_or(Rect::from_points(at, at));
+    fn open_menu(&mut self, transform: Affine, at: Point, submit: impl FnOnce(TextAction)) {
+        let bounds = self.selection_bounds();
+        let mut local = bounds.unwrap_or(Rect::from_points(at, at));
+        if bounds.is_some() && self.grips_wanted() {
+            local.y1 += size::SELECTION_HANDLE_SIZE;
+        }
         let inserts = !self.single_line && self.doc.markdown.is_some() && !self.table_active();
-        let menu = ContextMenu { around: ctx.window_transform().transform_rect_bbox(local), selected: bounds.is_some(), inserts };
-        self.menu = Menu::Shown(local, menu, None);
-        ctx.submit_action::<TextAction>(TextAction::Menu(Some(menu)));
+        let menu = ContextMenu { around: transform.transform_rect_bbox(local), selected: bounds.is_some(), inserts };
+        self.menu = Menu::Shown(Some(local), menu, None);
+        submit(TextAction::Menu(Some(menu)));
     }
 
     pub(super) fn follow_menu(&mut self, transform: Affine, submit: impl FnOnce(TextAction)) -> Option<Instant> {
-        let Menu::Shown(local, menu, moving) = self.menu else { return None };
+        let Menu::Shown(Some(local), menu, moving) = self.menu else { return None };
         let around = transform.transform_rect_bbox(local);
         if around == menu.around {
             return None;
@@ -33,7 +37,7 @@ impl TextEditor {
             submit(TextAction::Menu(None));
         }
         let settle = Instant::now() + MENU_SETTLE;
-        self.menu = Menu::Shown(local, ContextMenu { around, ..menu }, Some(settle));
+        self.menu = Menu::Shown(Some(local), ContextMenu { around, ..menu }, Some(settle));
         Some(settle)
     }
 
@@ -60,11 +64,10 @@ impl TextEditor {
     pub(super) fn release_menu(&mut self, ctx: &mut EventCtx<'_>, up: Option<(Point, PointerType)>) {
         let Menu::Pressed(count) = self.menu else { return };
         self.menu = Menu::Closed;
-        let bounds = self.selection_bounds();
         if let Some((at, pointer)) = up
-            && keymap::pointer::selection_menu(pointer, count, bounds.is_some())
+            && keymap::pointer::selection_menu(pointer, count, self.selection_bounds().is_some())
         {
-            self.open_menu(ctx, bounds, at);
+            self.open_menu(ctx.window_transform(), at, |shown| ctx.submit_action::<TextAction>(shown));
         }
     }
 
@@ -82,7 +85,7 @@ impl TextEditor {
             self.move_to((offset, affinity), false);
         }
         ctx.request_focus();
-        self.open_menu(ctx, self.selection_bounds(), point);
+        self.open_menu(ctx.window_transform(), point, |shown| ctx.submit_action::<TextAction>(shown));
         self.refresh(ctx);
     }
 
@@ -94,7 +97,13 @@ impl TextEditor {
             TextEvent::WindowFocusChange(focused) => *focused,
             TextEvent::ClipboardPaste(_) => false,
         };
-        if !matches!(self.menu, Menu::Shown(..)) || quiet {
+        if quiet {
+            return false;
+        }
+        if self.grips.off() {
+            ctx.request_compose();
+        }
+        if !matches!(self.menu, Menu::Shown(..)) {
             return false;
         }
         self.close_menu(|closed| ctx.submit_action::<TextAction>(closed));
@@ -118,8 +127,8 @@ impl TextEditor {
         {
             return Some(view.range_rect(cells, session.scroll_x) + self.embed_origin(self.doc.at_offset(range.start)));
         }
-        let range = self.selection();
-        (!range.is_empty()).then(|| self.caret_at(range.start, 0, Affinity::Downstream).union(self.caret_at(range.end, 0, Affinity::Upstream)))
+        let [start, end] = self.ends();
+        (!self.selection().is_empty()).then(|| start.union(end))
     }
 
     pub(super) fn clip(&mut self, cut: bool) -> Option<String> {
@@ -165,7 +174,13 @@ impl TextEditor {
     }
 
     pub fn select_everything(this: &mut WidgetMut<'_, Self>) {
-        this.widget.select_all();
+        let editor = &mut *this.widget;
+        editor.select_all();
+        if let Menu::Shown(_, menu, _) = editor.menu {
+            let menu = ContextMenu { selected: editor.selection_bounds().is_some(), ..menu };
+            editor.menu = Menu::Shown(None, menu, None);
+            this.ctx.submit_action::<TextAction>(TextAction::Menu(Some(menu)));
+        }
         Self::repaint(this);
     }
 }

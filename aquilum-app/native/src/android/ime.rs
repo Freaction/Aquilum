@@ -2,10 +2,18 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use super::java;
 use crate::ime_sync::{AppState, Edit, Message, Session};
+use crate::ui::keymap::Command;
+
+const SELECT_ALL: i32 = 16_908_319;
+const CUT: i32 = 16_908_320;
+const COPY: i32 = 16_908_321;
+const PASTE: i32 = 16_908_322;
+const PASTE_PLAIN: i32 = 16_908_337;
 
 #[derive(Default)]
 struct Bridge {
     session: Session,
+    commands: Vec<Command>,
     wake: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
@@ -20,14 +28,35 @@ pub fn set_wake(wake: Arc<dyn Fn() + Send + Sync>) {
     with(|bridge| bridge.wake = Some(wake));
 }
 
-pub fn received(message: Message) {
+fn notify(work: impl FnOnce(&mut Bridge)) {
     let wake = with(|bridge| {
-        bridge.session.received(message);
+        work(bridge);
         bridge.wake.clone()
     });
     if let Some(wake) = wake {
         wake();
     }
+}
+
+pub fn received(message: Message) {
+    notify(|bridge| bridge.session.received(message));
+}
+
+pub fn action(id: i32) -> bool {
+    let command = match id {
+        SELECT_ALL => Command::SelectAll,
+        CUT => Command::Cut,
+        COPY => Command::Copy,
+        PASTE => Command::Paste,
+        PASTE_PLAIN => Command::PastePlain,
+        _ => return false,
+    };
+    notify(|bridge| bridge.commands.push(command));
+    true
+}
+
+pub fn commands() -> Vec<Command> {
+    with(|bridge| std::mem::take(&mut bridge.commands))
 }
 
 pub fn start(multiline: bool) {

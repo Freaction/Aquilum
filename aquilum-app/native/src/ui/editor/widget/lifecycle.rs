@@ -13,6 +13,9 @@ impl TextEditor {
                 ctx.request_scroll_to(caret);
             }
         }
+        if self.grips.on() {
+            ctx.request_compose();
+        }
         ctx.request_render();
     }
 

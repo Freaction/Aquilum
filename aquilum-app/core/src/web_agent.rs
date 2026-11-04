@@ -2,6 +2,7 @@ use std::time::Duration;
 use ureq::{Agent, AgentBuilder};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
+pub const TRANSFER_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub fn web_agent(purpose: &str) -> Agent {
     agent(purpose, TIMEOUT)

@@ -64,15 +64,23 @@ impl TextEditor {
         if !self.laid_out() || self.compose.is_some() {
             return;
         }
+        #[cfg(target_os = "linux")]
+        if self.paste_primary(ctx, event) {
+            return;
+        }
         if let PointerEvent::Down(_) = event {
             self.close_suggest();
             self.close_menu(|closed| ctx.submit_action::<TextAction>(closed));
+            if self.grips.off() {
+                ctx.request_compose();
+            }
         }
         match event {
             PointerEvent::Down(PointerButtonEvent { button, state, pointer: device }) if pointer::press(*button) => {
                 let point = ctx.local_position(state.position);
                 let new_tab = pointer::new_tab(state.modifiers);
-                if self.table_press(ctx, point, crate::ui::keymap::extend(state.modifiers), new_tab, state.count)
+                if self.grab_grip(ctx, point)
+                    || self.table_press(ctx, point, crate::ui::keymap::extend(state.modifiers), new_tab, state.count)
                     || self.media_press(ctx, point, state.count, pointer::reach(device.pointer_type))
                     || self.copy_press(ctx, point)
                     || self.bar_press(ctx, point)
@@ -125,6 +133,9 @@ impl TextEditor {
                     PointerEvent::Up(up) => Some((ctx.local_position(up.state.position), up.pointer.pointer_type)),
                     _ => None,
                 };
+                self.release_grips(ctx, up.map(|(_, pointer)| pointer));
+                #[cfg(target_os = "linux")]
+                self.select_primary();
                 self.release_menu(ctx, up);
             }
             PointerEvent::Scroll(scroll) => {
@@ -164,7 +175,6 @@ impl TextEditor {
                     self.insert(&pasted, Kind::Other);
                 }
                 ctx.set_handled();
-                self.follow_caret = true;
                 self.changed(ctx);
             }
             TextEvent::WindowFocusChange(_) => ctx.request_render(),

@@ -8,19 +8,28 @@ use masonry::peniko::Color;
 use crate::ui::theme;
 use crate::ui::tokens::size;
 
+pub fn frame_line() -> [Color; 2] {
+    let t = theme::current();
+    [t.sidebar_bg, t.sidebar_border]
+}
+
+enum Ink {
+    Plain(fn() -> Color),
+    Frame,
+}
+
 pub struct Rule {
     axis: Axis,
-    color: fn() -> Color,
-    base: Option<fn() -> Color>,
+    ink: Ink,
 }
 
 impl Rule {
     pub fn new(axis: Axis, color: fn() -> Color) -> NewWidget<Self> {
-        NewWidget::new(Rule { axis, color, base: None })
+        NewWidget::new(Rule { axis, ink: Ink::Plain(color) })
     }
 
-    pub fn on(axis: Axis, color: fn() -> Color, base: fn() -> Color) -> NewWidget<Self> {
-        NewWidget::new(Rule { axis, color, base: Some(base) })
+    pub fn frame(axis: Axis) -> NewWidget<Self> {
+        NewWidget::new(Rule { axis, ink: Ink::Frame })
     }
 
     pub fn divider() -> NewWidget<Self> {
@@ -44,10 +53,14 @@ impl Widget for Rule {
     fn layout(&mut self, _ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, _size: Size) {}
 
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
-        if let Some(base) = self.base {
-            painter.fill(ctx.content_box(), base()).draw();
+        match self.ink {
+            Ink::Plain(color) => painter.fill(ctx.content_box(), color()).draw(),
+            Ink::Frame => {
+                for color in frame_line() {
+                    painter.fill(ctx.content_box(), color).draw();
+                }
+            }
         }
-        painter.fill(ctx.content_box(), (self.color)()).draw();
     }
 
     fn accessibility_role(&self) -> Role {
@@ -64,12 +77,11 @@ impl Widget for Rule {
 pub struct Underlined {
     child: WidgetPod<dyn Widget>,
     base: fn() -> Color,
-    line: fn() -> Color,
 }
 
 impl Underlined {
-    pub fn new(child: NewWidget<impl Widget + ?Sized>, base: fn() -> Color, line: fn() -> Color) -> NewWidget<Self> {
-        NewWidget::new(Underlined { child: child.erased().to_pod(), base, line })
+    pub fn new(child: NewWidget<impl Widget + ?Sized>, base: fn() -> Color) -> NewWidget<Self> {
+        NewWidget::new(Underlined { child: child.erased().to_pod(), base })
     }
 }
 
@@ -95,7 +107,9 @@ impl Widget for Underlined {
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
         let bounds = ctx.content_box();
         painter.fill(bounds, (self.base)()).draw();
-        painter.fill(Rect::new(bounds.x0, bounds.y1 - size::BORDER_1, bounds.x1, bounds.y1), (self.line)()).draw();
+        for color in frame_line() {
+            painter.fill(Rect::new(bounds.x0, bounds.y1 - size::BORDER_1, bounds.x1, bounds.y1), color).draw();
+        }
     }
 
     fn accessibility_role(&self) -> Role {

@@ -461,6 +461,10 @@ pub trait Widget: AsDynWidget + Any {
         true
     }
 
+    fn pointer_delegate(&self) -> Option<WidgetId> {
+        None
+    }
+
     /// Whether this widget lets pointer events and [hovered] status reach its children. True by default.
     ///
     /// If false, the widget's children will not get pointer events, affect the cursor icon,

@@ -5,12 +5,12 @@ use masonry::properties::types::CrossAxisAlignment;
 use masonry::properties::{Gap, Padding};
 use masonry::widgets::{Flex, SizedBox};
 
-use super::frame::{border, on_header, on_sidebar};
+use super::frame::on_sidebar;
 use super::handle::Handle;
 use super::titlebar::DragArea;
 use super::tokens::size;
 use super::widgets::{Collapse, Edge, Edged, IconButton, ItemButton, Rule, Sash};
-use super::{icons, style, theme};
+use super::{icons, style};
 use crate::i18n;
 
 pub(super) struct Sidebar {
@@ -38,14 +38,14 @@ pub(super) fn sidebar(tree: NewWidget<impl Widget>, workspace_name: &str, width:
     let column = Flex::column()
         .cross_axis_alignment(CrossAxisAlignment::Stretch)
         .with_fixed(panel_header(Some(DragArea::new()), 0.0))
-        .with_fixed(border(Axis::Horizontal, on_header))
+        .with_fixed(Rule::frame(Axis::Horizontal))
         .with(NewWidget::new(SizedBox::new(tree)).with_class(style::SIDEBAR), 1.0)
-        .with_fixed(border(Axis::Horizontal, on_sidebar))
+        .with_fixed(Rule::frame(Axis::Horizontal))
         .with_fixed(NewWidget::new(footer).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_6))).with(Padding::all(Length::px(size::SPACE_6)))).with_class(style::SIDEBAR));
     let row = Flex::row()
         .cross_axis_alignment(CrossAxisAlignment::Stretch)
         .with(NewWidget::new(column), 1.0)
-        .with_fixed(Rule::on(Axis::Vertical, || theme::current().sidebar_border, on_sidebar));
+        .with_fixed(Rule::frame(Axis::Vertical));
     let sash = Sash::new();
     let sash_id = sash.id();
     let content = Edged::new(NewWidget::new(row).erased(), sash, Edge::Right);

@@ -151,3 +151,17 @@ fn panel_modes_scroll_sideways_instead_of_hiding_under_the_window_controls() {
     let shown = rect(&h, last);
     assert!(shown.x1 <= edge + 0.5 && shown.x0 >= rect(&h, panel).x0, "последняя кнопка панели не докручивается до вида: {shown:?}, кнопки окна с {edge}");
 }
+
+#[test]
+fn tabs_keep_a_small_gap_and_room_for_the_active_tab_ears() {
+    let mut h = Harness::new();
+    open_tabs(&mut h, 2);
+    let strip = h.root.get_widget(h.app.chrome.as_ref().unwrap().tab_strip.id()).unwrap();
+    let tabs: Vec<Rect> = strip.children().iter().map(|tab| tab.ctx().border_box() + tab.ctx().window_transform().translation()).collect();
+    let (area, active) = (strip.ctx().border_box() + strip.ctx().window_transform().translation(), tabs[h.app.tabs.tabs().len() - 1]);
+    assert!(active.x0 - area.x0 >= size::TAB_RADIUS && area.x1 - active.x1 >= size::TAB_RADIUS, "ушкам активной вкладки нет места: {active:?} в {area:?}");
+    for pair in tabs.windows(2) {
+        assert_eq!(pair[1].x0 - pair[0].x1, size::GAP_SM, "вкладки слиплись: {pair:?}");
+    }
+}
+

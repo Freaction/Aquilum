@@ -28,7 +28,7 @@ pub(super) struct Sub {
 }
 
 pub(super) fn panel(column: Flex) -> NewWidget<Flex> {
-    NewWidget::new(column).with_props(PropertySet::new().with(Gap::new(Length::px(size::GAP_XS))).with(Padding::all(Length::px(size::GAP_XS))))
+    NewWidget::new(column).with_props(PropertySet::new().with(Gap::new(Length::px(size::GAP_XS))).with(Padding::all(Length::px(size::PADDING_2XS))))
 }
 
 impl Sub {

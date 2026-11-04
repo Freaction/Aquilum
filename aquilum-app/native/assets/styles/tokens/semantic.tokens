@@ -93,6 +93,7 @@
     --q-scrollbar-thumb-hover: var(--q-black-alpha-20);
     --q-scrollbar-width: var(--q-size-16);
     --q-selection-bg: color-mix(in srgb, var(--q-caret-color) 25%, transparent);
+    --q-selection-handle-size: var(--q-size-20);
     --q-selection-match-bg: var(--q-purple-alpha-30);
     --q-selection-text: inherit;
     --q-space--1: var(--q-unit--1);

@@ -35,16 +35,16 @@ impl Widget for TabRename {
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
-        let width = (size_.width - size::SPACE_12 * 2.0).max(0.0);
+        let width = (size_.width - size::PADDING_MD * 2.0).max(0.0);
         let auto = SizeDef::new(LenDef::FitContent(Length::px(width)), LenDef::MaxContent);
         let child = ctx.compute_size(&mut self.field, auto, Size::new(width, size_.height).into());
         let child = Size::new(width, child.height);
         ctx.run_layout(&mut self.field, child);
-        ctx.place_child(&mut self.field, Point::new(size::SPACE_12, ((size_.height - child.height) / 2.0).round()));
+        ctx.place_child(&mut self.field, Point::new(size::PADDING_MD, (content_y(size_.to_rect()) - child.height / 2.0).round()));
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
-        paint_tab(painter, ctx.content_box(), true, false);
+        paint_tab(painter, tab_body(ctx.content_box()), true, false);
     }
 
     fn accessibility_role(&self) -> Role {

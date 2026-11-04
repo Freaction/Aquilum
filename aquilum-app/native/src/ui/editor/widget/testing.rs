@@ -9,6 +9,10 @@ impl TextEditor {
         self.table.as_ref().map(|s| (s.range.is_some(), s.caret.abs_diff(s.anchor)))
     }
 
+    pub fn grips_at(&self) -> [Option<Point>; 2] {
+        self.grips.at
+    }
+
     pub fn image_source_shown(&self) -> bool {
         self.doc.source.is_some()
     }

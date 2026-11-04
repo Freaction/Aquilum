@@ -15,6 +15,11 @@ pub fn close(button: Option<PointerButton>) -> bool {
     button == Some(PointerButton::Auxiliary)
 }
 
+#[cfg(target_os = "linux")]
+pub fn paste_selection(button: Option<PointerButton>) -> bool {
+    button == Some(PointerButton::Auxiliary)
+}
+
 pub fn new_tab(modifiers: Modifiers) -> bool {
     super::action(modifiers)
 }
@@ -70,6 +75,10 @@ pub fn pages_track(pointer: PointerType) -> bool {
 
 pub fn selection_menu(pointer: PointerType, count: u8, selected: bool) -> bool {
     pointer == PointerType::Touch && (count >= 2 || selected)
+}
+
+pub fn grips(pointer: PointerType) -> bool {
+    pointer == PointerType::Touch
 }
 
 pub fn reach(pointer: PointerType) -> f64 {

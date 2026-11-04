@@ -25,18 +25,17 @@
 
   --q-tabs-height: var(--q-size-40);
   --q-tabs-bg: var(--q-bg-surface);
-  --q-tabs-border: var(--q-border-subtle);
   --q-tabs-font-size: var(--q-font-size-ui-base);
   --q-tabs-font-family: var(--q-font-family-ui);
   --q-tabs-font-weight: var(--q-font-weight-ui-base);
   --q-tab-content-height: var(--q-size-24);
   --q-tab-gap: var(--q-space-6);
-  --q-tab-bg: transparent;
-  --q-tab-bg-active: var(--q-bg-elevated);
-  --q-tab-bg-hover: var(--q-black-alpha-06);
+  --q-tab-radius: var(--q-size-10);
+  --q-tab-content-shift: var(--q-space-1);
+  --q-tab-bg-active: var(--q-editor-bg);
+  --q-tab-bg-hover: var(--q-bg-surface-overlay);
   --q-tab-text: var(--q-text-tertiary);
   --q-tab-text-active: var(--q-text-secondary);
-  --q-tab-border: var(--q-border-subtle);
   --q-tab-min-width: 8rem;
   --q-tab-max-width: 23rem;
   --q-tab-list-width: 17.5rem;

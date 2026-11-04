@@ -50,8 +50,6 @@
     --q-sidebar-item-hover-bg: var(--q-bg-surface-hover);
     --q-sidebar-item-active-bg: var(--q-bg-surface-hover);
     --q-search-result-bg: var(--q-white-alpha-03);
-    --q-tab-bg-hover: var(--q-white-alpha-06);
     --q-editor-bg: var(--q-gray-900);
-    --q-tab-bg-active: var(--q-editor-bg);
     --q-editor-list-guide-color: var(--q-white-alpha-08);
 }

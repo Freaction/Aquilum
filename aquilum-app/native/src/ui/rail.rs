@@ -5,10 +5,10 @@ use masonry::properties::types::CrossAxisAlignment;
 use masonry::properties::{Gap, Padding};
 use masonry::widgets::{Flex, SizedBox};
 
-use super::frame::{border, on_header, on_sidebar};
+use super::frame::on_sidebar;
 use super::handle::Handle;
 use super::tokens::size;
-use super::widgets::{Collapse, IconButton, Slot};
+use super::widgets::{Collapse, IconButton, Rule, Slot};
 use super::{icons, style};
 use crate::i18n;
 
@@ -53,11 +53,11 @@ pub(super) fn rail(sidebar_open: bool, home: bool, focus_mode: bool) -> Rail {
             .with(Gap::new(Length::px(size::SPACE_4)))
             .with(Padding::from_vh(Length::px(size::SPACE_8), Length::px(size::SPACE_4))),
     );
-    let tools = Flex::row().cross_axis_alignment(CrossAxisAlignment::Stretch).with(tools, 1.0).with_fixed(border(Axis::Vertical, on_sidebar));
+    let tools = Flex::row().cross_axis_alignment(CrossAxisAlignment::Stretch).with(tools, 1.0).with_fixed(Rule::frame(Axis::Vertical));
     let rail = Flex::column()
         .cross_axis_alignment(CrossAxisAlignment::Stretch)
         .with_fixed(header)
-        .with_fixed(border(Axis::Horizontal, on_header))
+        .with_fixed(Rule::frame(Axis::Horizontal))
         .with(NewWidget::new(tools), 1.0);
     let rail = NewWidget::new(rail).with_class(style::SIDEBAR).erased();
     let widget = Collapse::new(rail, size::SIDEBAR_RAIL_WIDTH, !focus_mode, !focus_mode, on_sidebar);

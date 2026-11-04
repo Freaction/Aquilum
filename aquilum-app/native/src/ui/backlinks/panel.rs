@@ -51,12 +51,12 @@ pub fn panel(mode: Mode, has_analysis: bool, width: f64, open: bool, from: bool)
     let column = Flex::column()
         .cross_axis_alignment(CrossAxisAlignment::Stretch)
         .with_fixed(header)
-        .with_fixed(Rule::on(Axis::Horizontal, || theme::current().sidebar_border, || theme::current().tabs_bg))
+        .with_fixed(Rule::frame(Axis::Horizontal))
         .with(body, 1.0);
     let column = NewWidget::new(column).with_class(style::SIDEBAR);
     let row = Flex::row()
         .cross_axis_alignment(CrossAxisAlignment::Stretch)
-        .with_fixed(Rule::on(Axis::Vertical, || theme::current().sidebar_border, || theme::current().sidebar_bg))
+        .with_fixed(Rule::frame(Axis::Vertical))
         .with(column, 1.0);
     let sash = Sash::new();
     let sash_id = sash.id();

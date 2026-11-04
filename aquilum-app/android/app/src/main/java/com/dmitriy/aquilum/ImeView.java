@@ -17,6 +17,7 @@ import java.util.Arrays;
 
 final class ImeView extends View {
     private static native void onImeState(int session, int seq, boolean echo, char[] text, int[] marks);
+    private static native boolean onImeAction(int id);
 
     private final InputMethodManager keyboard;
     private final Editable text = Editable.Factory.getInstance().newEditable("");
@@ -183,6 +184,12 @@ final class ImeView extends View {
         @Override
         public boolean setSelection(int start, int end) {
             return edited(super.setSelection(start, end));
+        }
+
+        @Override
+        public boolean performContextMenuAction(int id) {
+            send(false);
+            return onImeAction(id);
         }
 
         @Override

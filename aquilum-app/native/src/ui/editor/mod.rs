@@ -2,6 +2,7 @@ mod caret;
 mod change;
 mod document;
 mod embed;
+mod grip;
 mod highlight;
 mod history;
 mod markdown;

@@ -1,7 +1,7 @@
 // Copyright 2024 the Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
-use kurbo::Affine;
+use kurbo::{Affine, Point, Rect};
 use tracing::info_span;
 use tree_arena::ArenaMut;
 
@@ -16,6 +16,7 @@ fn compose_widget(
     node: ArenaMut<'_, WidgetArenaNode>,
     parent_transformed: bool,
     parent_window_transform: Affine,
+    parent_clip: Rect,
 ) {
     let mut children = node.children;
     let widget = &mut *node.item.widget;
@@ -31,6 +32,11 @@ fn compose_widget(
 
     let local_transform = state.compose_local_transform();
     state.window_transform = parent_window_transform * local_transform;
+    let clip = state.clip_path.map_or(parent_clip, |path| {
+        parent_clip.intersect(state.window_transform.transform_rect_bbox(path))
+    });
+    let transformed = transformed || clip != state.window_clip;
+    state.window_clip = clip;
 
     let paint_box = state.paint_box();
     state.bounding_box = state.window_transform.transform_rect_bbox(paint_box);
@@ -63,6 +69,7 @@ fn compose_widget(
             node.reborrow_mut(),
             transformed,
             parent_transform,
+            clip,
         );
         let parent_bounding_box = parent_state.bounding_box;
 
@@ -86,6 +93,7 @@ pub(crate) fn run_compose_pass(root: &mut RenderRoot) {
         root.global_state.needs_pointer_pass = true;
     }
 
+    let window = Rect::from_origin_size(Point::ZERO, root.get_kurbo_size());
     let root_node = root.widget_arena.get_node_mut(root.root_id());
     compose_widget(
         &mut root.global_state,
@@ -93,5 +101,6 @@ pub(crate) fn run_compose_pass(root: &mut RenderRoot) {
         root_node,
         false,
         Affine::IDENTITY,
+        window,
     );
 }

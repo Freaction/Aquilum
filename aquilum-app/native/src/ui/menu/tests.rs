@@ -36,3 +36,25 @@ fn a_divider_separates_groups_by_its_own_height() {
     let shift = divided[2].0 - plain[1].0;
     assert!((shift - (size::BORDER_1 + 2.0 * size::SPACE_4 + size::GAP_XS)).abs() < 0.5, "второй пункт сдвинут на {shift}");
 }
+
+fn frame(widget: WidgetRef<'_, dyn Widget>) -> Rect {
+    widget.ctx().border_box() + widget.ctx().window_transform().translation()
+}
+
+#[test]
+fn items_sit_four_pixels_inside_the_menu_and_layers_keep_fractional_positions() {
+    let entries = [Entry { label: "Копировать", icon: None, disabled: false, divided: false }, Entry { label: "Вставить", icon: None, disabled: false, divided: false }];
+    let mut root = RenderRoot::new(Menu::entries("меню", &entries).erased(), |_| {}, crate::test_dir::options(300, 300, 1.0));
+    let _ = root.redraw();
+    let menu = root.get_layer_root(0);
+    let mut list = menu;
+    while list.children().len() == 1 {
+        list = list.children()[0];
+    }
+    let (outer, item) = (frame(menu), frame(list.children()[0]));
+    assert_eq!((item.x0 - outer.x0, item.y0 - outer.y0, outer.x1 - item.x1), (size::PADDING_2XS, size::PADDING_2XS, size::PADDING_2XS));
+    let at = Point::new(10.25, 20.5);
+    root.add_layer(Menu::entries("слой", &entries), at);
+    let _ = root.redraw();
+    assert_eq!(root.get_layer_root(1).ctx().window_transform().translation().to_point(), at, "слой округлён до целого пикселя");
+}

@@ -94,6 +94,8 @@ impl Harness {
                     RenderRootSignal::Action(action, id) => actions.push((action, id)),
                     RenderRootSignal::ClipboardStore(text) => self.copied = Some(text),
                     RenderRootSignal::RemoveLayer(id) => self.root.remove_layer(id),
+                    RenderRootSignal::NewLayer(_, widget, at) => self.root.add_layer(widget, at),
+                    RenderRootSignal::RepositionLayer(id, at) => self.root.reposition_layer(id, at),
                     _ => {}
                 }
             }

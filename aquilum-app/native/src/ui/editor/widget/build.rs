@@ -55,6 +55,7 @@ impl TextEditor {
             smart: Smart::default(),
             suggest_shown: None,
             menu: Default::default(),
+            grips: Default::default(),
             hover_terms: Vec::new(),
             external_reveal: None,
             extra_cursors: Vec::new(),

@@ -32,7 +32,7 @@ fn get_pointer_target(
             .get_widget(root.root_id())
             .expect("root widget not in widget tree")
             .find_widget_under_pointer(pointer_pos)
-            .map(|widget| widget.id());
+            .map(|widget| widget.widget.pointer_delegate().unwrap_or(widget.id()));
     }
 
     None

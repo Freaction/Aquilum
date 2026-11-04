@@ -1229,6 +1229,10 @@ impl_context_method!(
             self.widget_state.content_box() - translation
         }
 
+        pub fn window_clip(&self) -> Rect {
+            self.widget_state.window_clip
+        }
+
         /// Returns the aligned border-box rect of this widget
         /// in this widget's content-box coordinate space.
         pub fn border_box(&self) -> Rect {

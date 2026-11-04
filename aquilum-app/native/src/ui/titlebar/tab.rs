@@ -8,7 +8,7 @@ pub(super) fn tab_width(ctx: &mut MeasureCtx<'_>, line: &mut text::Line, title: 
     let (fcx, lcx) = ctx.text_contexts();
     let title = line.width(fcx, lcx, title, tab_style()).ceil();
     let icon = if icon { size::SIZE_16 + size::TAB_GAP } else { 0.0 };
-    (size::SPACE_12 * 2.0 + icon + title + size::SIZE_32).clamp(size::TAB_MIN_WIDTH, size::TAB_MAX_WIDTH)
+    (size::PADDING_MD + icon + title + size::TAB_GAP + CLOSE_SIZE + size::PADDING_2XS).clamp(size::TAB_MIN_WIDTH, size::TAB_MAX_WIDTH)
 }
 
 pub struct TabButton {
@@ -36,9 +36,11 @@ impl TabButton {
         })
     }
 
-    fn close_rect(&self, bounds: Rect) -> Rect {
-        let x = bounds.x1 - size::SPACE_12 - CLOSE_SIZE;
-        let y = bounds.center().y - CLOSE_SIZE / 2.0;
+    pub(super) fn close_rect(&self, bounds: Rect) -> Rect {
+        let body = tab_body(bounds);
+        let frame = if self.active { size::BORDER_1 } else { 0.0 };
+        let x = body.x1 - frame - size::PADDING_2XS - CLOSE_SIZE;
+        let y = content_y(bounds) - CLOSE_SIZE / 2.0;
         Rect::new(x, y, x + CLOSE_SIZE, y + CLOSE_SIZE)
     }
 
@@ -122,24 +124,26 @@ impl Widget for TabButton {
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
         let t = theme::current();
         let bounds = ctx.content_box();
+        let body = tab_body(bounds);
         let hovered = ctx.is_hovered();
-        paint_tab(painter, bounds, self.active, hovered);
+        paint_tab(painter, body, self.active, hovered);
         let style = tab_style();
-        let mut left = bounds.x0 + size::SPACE_12;
+        let mut left = body.x0 + size::PADDING_MD;
         if let Some(icon) = self.icon {
             let glyph = size::SIZE_16;
             let color = if self.active { t.icon_primary } else { t.icon_secondary };
-            icon.draw(painter, Point::new(left, bounds.center().y - glyph / 2.0), glyph, 1.5, color);
+            icon.draw(painter, Point::new(left, content_y(bounds) - glyph / 2.0), glyph, 1.5, color);
             left += glyph + size::TAB_GAP;
         }
-        let width = (bounds.x1 - left - size::SPACE_12 - size::SIZE_32).max(0.0);
+        let width = (self.close_rect(bounds).x0 - size::TAB_GAP - left).max(0.0);
         let color = if self.active { t.tab_text_active } else { t.tab_text };
         let layout = self.line.layout(ctx, &self.title, width, style);
-        let origin = Point::new(left, bounds.center().y - style.line_height / 2.0);
+        let origin = Point::new(left, content_y(bounds) - style.line_height / 2.0);
         render_text(painter, Affine::translate(origin.to_vec2()), layout, &[color.into()], true);
 
         if self.close_visible(hovered) {
-            crate::ui::widgets::paint_icon(painter, self.close_rect(bounds), crate::ui::icons::X, self.close_hovered, 1.0, None);
+            let (background, color) = if self.close_hovered { (Some(t.icon_button_bg_hover), t.icon_button_icon_hover) } else { (None, t.icon_muted) };
+            paint_glyph(painter, self.close_rect(bounds), icons::X, background, color, size::BUTTON_ICON_SIZE, number::BUTTON_ICON_STROKE);
         }
     }
 
@@ -156,18 +160,4 @@ impl Widget for TabButton {
     fn children_ids(&self) -> ChildrenIds {
         ChildrenIds::new()
     }
-}
-
-pub(super) fn paint_tab(painter: &mut Painter<'_>, bounds: Rect, active: bool, hovered: bool) {
-    let t = theme::current();
-    let body = if active { Rect::new(bounds.x0, bounds.y0, bounds.x1, bounds.y1 + size::BORDER_1) } else { bounds };
-    let bg = if active {
-        t.tab_bg_active
-    } else if hovered {
-        t.tab_bg_hover
-    } else {
-        t.tab_bg
-    };
-    painter.fill(body, bg).draw();
-    painter.fill(Rect::new(bounds.x1 - size::BORDER_1, bounds.y0, bounds.x1, bounds.y1), t.tab_border).draw();
 }
