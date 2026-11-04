@@ -120,9 +120,7 @@ fn a_dragged_grip_holds_its_line_until_the_finger_leaves_it_by_half_a_line() {
     assert_eq!(editor(&h, body).selected(), "первое", "ручка сорвалась со строки от дрожания пальца");
     let [_, Some(right)] = grips(&h, body) else { panic!("ручка пропала") };
     h.drag_with((right.x, right.y), (right.x + next.x0 - end.x0, right.y + next.center().y + next.height() * 0.25 - end.center().y), TOUCH);
-    assert!(editor(&h, body).selected().starts_with("первое слово
-
-в"), "ручка не перешла на строку под пальцем: {:?}", editor(&h, body).selected());
+    assert!(editor(&h, body).selected().starts_with("первое слово\n\nв"), "ручка не перешла на строку под пальцем: {:?}", editor(&h, body).selected());
 }
 
 #[cfg(target_os = "linux")]
@@ -135,4 +133,3 @@ fn a_mouse_selection_fills_the_primary_selection_and_a_middle_click_pastes_it() 
     h.press(pointer_at(end.center().x, end.center().y, 1.0), PointerButton::Auxiliary, MOUSE);
     assert_eq!(h.body_text(), format!("{NOTE}первое"));
 }
-

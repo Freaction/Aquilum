@@ -186,12 +186,7 @@ fn keyboard_menu_actions_cut_copy_and_select_all_in_the_focused_field() {
     assert_eq!(h.copied.as_deref(), Some("слово"));
     h.app.text_command(&mut h.root, editor, Command::Cut);
     h.deliver();
-    assert_eq!(h.body_text(), "первое 
-
-вторая строка
-
-");
+    assert_eq!(h.body_text(), "первое \n\nвторая строка\n\n");
     h.app.text_command(&mut h.root, editor, Command::SelectAll);
     assert_eq!(body.get(&h.root).unwrap().inner().selection(), 0..h.body_text().len());
 }
-

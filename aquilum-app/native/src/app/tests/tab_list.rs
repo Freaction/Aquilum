@@ -164,4 +164,3 @@ fn tabs_keep_a_small_gap_and_room_for_the_active_tab_ears() {
         assert_eq!(pair[1].x0 - pair[0].x1, size::GAP_SM, "вкладки слиплись: {pair:?}");
     }
 }
-
