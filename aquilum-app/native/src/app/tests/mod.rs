@@ -30,6 +30,7 @@ mod tree_toolbar;
 mod updater;
 mod wide;
 mod wiki;
+mod window_drag;
 
 use std::cell::RefCell;
 use std::rc::Rc;

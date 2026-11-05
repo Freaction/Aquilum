@@ -4,7 +4,7 @@ use masonry::core::{ErasedAction, WidgetId};
 use super::App;
 use crate::interface::{Side, drawer_width};
 use crate::ui::tokens::size;
-use crate::ui::widgets::{Collapse, SashAction};
+use crate::ui::widgets::{Collapse, RAIL_WIDTH, SashAction};
 
 const MIN: f64 = 180.0;
 const EDITOR_MIN: f64 = 300.0;
@@ -25,7 +25,7 @@ impl App {
         if self.window.width <= 0.0 {
             return f64::INFINITY;
         }
-        let rail = if self.interface.focus_mode() { 0.0 } else { size::SIDEBAR_RAIL_WIDTH };
+        let rail = if self.interface.focus_mode() { 0.0 } else { RAIL_WIDTH };
         let taken = |side: Side, open: bool| if open { self.wanted(side) } else { 0.0 };
         self.room().width() - rail - EDITOR_MIN - taken(Side::Sidebar, sidebar) - taken(Side::Panel, panel)
     }

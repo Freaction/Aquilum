@@ -74,7 +74,7 @@ impl App {
     }
 
     pub fn close_templates(&mut self, root: &mut RenderRoot) {
-        if let Some(Popup::Templates(state)) = self.popup.take() {
+        if let Some(Popup::Templates(state)) = self.popup.take_if(|popup| matches!(popup, Popup::Templates(_))) {
             crate::ui::dialog::close(root, state.layer);
             if let Some(ids) = &self.note_ids {
                 root.focus_on(Some(ids.body.id()));

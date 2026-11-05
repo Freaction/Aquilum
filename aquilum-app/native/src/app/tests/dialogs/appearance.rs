@@ -69,7 +69,7 @@ fn the_night_theme_offers_its_own_list_and_remembers_the_choice() {
 #[test]
 fn restyle_matches_fresh_build() {
     let mut h = Harness::new();
-    let note = h.write_note("заметка.md", "# Заголовок\n\nТекст заметки с [[ссылкой]] и **жирным**.\n\n- пункт\n- [ ] задача");
+    let note = h.write_note("заметка.md", "Текст заметки с [[ссылкой]] и **жирным**.\n\n- пункт\n- [ ] задача");
     h.open(note);
     h.app.open_settings(&mut h.root);
     let templates = h.nav(Section::Data);

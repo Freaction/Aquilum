@@ -14,7 +14,7 @@ use crate::ui::icons;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::style;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{ButtonSize, Caption, IconButton, Slot, TextButton, Variant};
+use crate::ui::widgets::{BAR_HEIGHT, Caption, ControlSize, IconButton, Slot, TextButton, Variant};
 
 pub struct NoteView<'a> {
     pub file_name: &'a str,
@@ -75,7 +75,7 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let back = NewWidget::new(IconButton::new(icons::ARROW_LEFT, t("editor.back"))).disabled(!view.can_back);
     let forward = NewWidget::new(IconButton::new(icons::ARROW_RIGHT, t("editor.forward"))).disabled(!view.can_forward);
     let (back_id, forward_id) = (back.id(), forward.id());
-    let focus = NewWidget::new(TextButton::new(t("editor.focusMode"), Variant::Ghost).size(ButtonSize::Xs).pressed(view.focus_mode));
+    let focus = NewWidget::new(TextButton::new(t("editor.focusMode"), Variant::Ghost).size(ControlSize::Xs).pressed(view.focus_mode));
     let focus_id = focus.id();
     let focus_button = Handle::of(&focus);
     let focus = Slot::shown(focus, !view.compact);
@@ -96,7 +96,7 @@ pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
     let right = NewWidget::new(right).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))));
     let toolbar = Flex::row().main_axis_alignment(MainAxisAlignment::SpaceBetween).cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(left);
     let toolbar = toolbar.with(name, 1.0).with_fixed(right);
-    let toolbar = NewWidget::new(SizedBox::new(NewWidget::new(toolbar)).height(Length::px(size::SIZE_40)))
+    let toolbar = NewWidget::new(SizedBox::new(NewWidget::new(toolbar)).height(Length::px(BAR_HEIGHT)))
         .with_props(PropertySet::new().with(Padding::all(Length::px(size::SPACE_4))).with(Gap::new(Length::px(size::SPACE_8))))
         .with_class(style::EDITOR);
 

@@ -10,7 +10,7 @@ use crate::links::Mode;
 use crate::ui::handle::Handle;
 use crate::ui::controls_width;
 use crate::ui::scroll::HScroll;
-use crate::ui::titlebar::DragArea;
+use crate::ui::titlebar::panel_header;
 use crate::ui::tokens::size;
 use crate::ui::widgets::{Collapse, Edge, Edged, IconButton, Rule, Sash, Slot};
 use crate::ui::{icons, style, theme};
@@ -38,14 +38,11 @@ pub fn panel(mode: Mode, has_analysis: bool, width: f64, open: bool, from: bool)
         buttons = buttons.with_fixed(button);
     }
     let buttons = NewWidget::new(buttons).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_6))));
-    let strip = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(buttons).with(DragArea::new(), 1.0);
     let header = Flex::row()
         .cross_axis_alignment(CrossAxisAlignment::Stretch)
-        .with(HScroll::new(NewWidget::new(strip).erased()), 1.0)
+        .with(HScroll::new(buttons.erased()), 1.0)
         .with_fixed(NewWidget::new(SizedBox::empty().width(Length::px(controls_width()))));
-    let header = NewWidget::new(SizedBox::new(NewWidget::new(header)).height(Length::px(size::TABS_HEIGHT))).with_props(
-        PropertySet::new().with(Padding::from_vh(Length::px(size::SPACE_4), Length::px(size::SPACE_6))),
-    ).with_class(style::TABS);
+    let header = panel_header(SizedBox::new(NewWidget::new(header)), Padding::from_vh(Length::px(size::SPACE_4), Length::px(size::SPACE_6)));
     let body = Slot::new(NewWidget::new(Flex::column()).erased());
     let body_handle = Handle::of(&body);
     let column = Flex::column()

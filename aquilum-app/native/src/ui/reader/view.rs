@@ -4,7 +4,7 @@ impl ReaderView {
     pub fn new(session: Session, settings: Settings, title: String, total: u32, can_quote: bool, active: Option<String>) -> (NewWidget<Self>, ReaderIds) {
         let settings_button = NewWidget::new(IconButton::new(icons::SETTINGS_2, t("reader.settings")));
         let close = NewWidget::new(IconButton::new(icons::X, t("reader.close")));
-        let quote_button = can_quote.then(|| NewWidget::new(TextButton::new(t("reader.quote"), Variant::Primary).size(ButtonSize::S)));
+        let quote_button = can_quote.then(|| NewWidget::new(TextButton::new(t("reader.quote"), Variant::Primary).size(ControlSize::S)));
         let ids = ReaderIds { settings: settings_button.id(), close: close.id(), quote: quote_button.as_ref().map(NewWidget::id) };
         let view = ReaderView {
             intro: crate::ui::widgets::Intro::new(crate::ui::widgets::NORMAL),

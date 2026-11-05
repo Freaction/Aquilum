@@ -7,7 +7,7 @@ use masonry::widgets::{Flex, SizedBox};
 
 use super::frame::on_sidebar;
 use super::handle::Handle;
-use super::titlebar::DragArea;
+use super::titlebar::panel_header;
 use super::tokens::size;
 use super::widgets::{Collapse, Edge, Edged, IconButton, ItemButton, Rule, Sash};
 use super::{icons, style};
@@ -21,14 +21,6 @@ pub(super) struct Sidebar {
     pub(super) sash: WidgetId,
 }
 
-fn panel_header(child: Option<NewWidget<impl Widget>>, padding: f64) -> NewWidget<SizedBox> {
-    let header = match child {
-        Some(child) => SizedBox::new(child),
-        None => SizedBox::empty(),
-    };
-    NewWidget::new(header.height(Length::px(size::TABS_HEIGHT))).with_props(PropertySet::new().with(Padding::all(Length::px(padding)))).with_class(style::TABS)
-}
-
 pub(super) fn sidebar(tree: NewWidget<impl Widget>, workspace_name: &str, width: f64, open: bool, from: bool) -> Sidebar {
     let workspace = NewWidget::new(ItemButton::new(icons::CHEVRONS_UP_DOWN, workspace_name));
     let workspaces = workspace.id();
@@ -37,7 +29,7 @@ pub(super) fn sidebar(tree: NewWidget<impl Widget>, workspace_name: &str, width:
     let footer = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with(workspace, 1.0).with_fixed(settings);
     let column = Flex::column()
         .cross_axis_alignment(CrossAxisAlignment::Stretch)
-        .with_fixed(panel_header(Some(DragArea::new()), 0.0))
+        .with_fixed(panel_header(SizedBox::empty(), Padding::ZERO))
         .with_fixed(Rule::frame(Axis::Horizontal))
         .with(NewWidget::new(SizedBox::new(tree)).with_class(style::SIDEBAR), 1.0)
         .with_fixed(Rule::frame(Axis::Horizontal))

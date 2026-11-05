@@ -10,8 +10,7 @@ use masonry::layout::{LayoutSize, LenReq, Length};
 use super::scrim::Scrim;
 use crate::interface::{Screen, Side, drawer_width};
 use crate::ui::motion::{self, approach};
-use crate::ui::tokens::size;
-use crate::ui::widgets::{EASE_STANDARD, bezier, place};
+use crate::ui::widgets::{EASE_STANDARD, RAIL_WIDTH, bezier, place};
 
 pub struct Stage {
     main: WidgetPod<dyn Widget>,
@@ -115,8 +114,8 @@ impl Stage {
             place(ctx, &mut self.scrim, room);
         }
         if !left {
-            let (rail, width) = (room.x0 + size::SIDEBAR_RAIL_WIDTH, drawer_width(room.width(), Side::Sidebar));
-            self.reach.0 = size::SIDEBAR_RAIL_WIDTH + width;
+            let (rail, width) = (room.x0 + RAIL_WIDTH, drawer_width(room.width(), Side::Sidebar));
+            self.reach.0 = RAIL_WIDTH + width;
             place(ctx, &mut self.rail, Rect { x1: rail, ..room });
             place(ctx, &mut self.sidebar, Rect { x0: rail, x1: rail + width, ..room });
         }

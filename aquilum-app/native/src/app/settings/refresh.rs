@@ -11,7 +11,7 @@ use crate::ui::widgets::{ItemButton, Label};
 
 impl App {
     pub(super) fn reload_settings(&mut self, root: &mut RenderRoot) {
-        let Some(Popup::Settings { dialog, menu }) = self.popup.take() else { return };
+        let Some(Popup::Settings { dialog, menu }) = self.popup.take_if(|popup| matches!(popup, Popup::Settings { .. })) else { return };
         if let Some(menu) = menu {
             root.remove_layer(menu.layer);
         }

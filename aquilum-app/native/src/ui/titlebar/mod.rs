@@ -18,6 +18,7 @@ use super::widgets::{Press, frame_line, paint_glyph};
 use super::tokens::{number, size};
 use super::{text, theme};
 
+mod drag;
 mod rename;
 mod shape;
 mod strip;
@@ -26,6 +27,7 @@ mod tab;
 mod tests;
 mod window;
 
+pub use drag::*;
 pub use rename::*;
 use shape::*;
 pub use strip::*;
@@ -47,13 +49,3 @@ pub enum TitlebarAction {
 const CLOSE_SIZE: f64 = size::BUTTON_ICON_SIZE + size::PADDING_4XS * 2.0;
 const EDGE: f64 = 48.0;
 const EDGE_STEP: f64 = 14.0;
-
-pub(super) fn drag_or_maximize(ctx: &mut EventCtx<'_>, event: &PointerEvent) {
-    if WINDOW_CHROME
-        && let PointerEvent::Down(e) = event
-        && pointer::press(e.button)
-    {
-        let action = if e.state.count >= 2 { TitlebarAction::ToggleMaximize } else { TitlebarAction::Drag };
-        ctx.submit_action::<TitlebarAction>(action);
-    }
-}

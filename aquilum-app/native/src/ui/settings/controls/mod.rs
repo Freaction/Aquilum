@@ -24,8 +24,8 @@ use masonry::layout::{LayoutSize, LenDef, LenReq, Length, SizeDef};
 
 use crate::ui::icons;
 use crate::ui::menu::box_shadow;
-use crate::ui::tokens::{Shadow, size};
-use crate::ui::widgets::{EASE_STANDARD, Press, bezier};
+use crate::ui::tokens::{Shadow, number, size};
+use crate::ui::widgets::{ControlSize, EASE_STANDARD, Press, bezier};
 use crate::ui::{motion, text, theme};
 
 #[derive(Clone, Debug, PartialEq)]

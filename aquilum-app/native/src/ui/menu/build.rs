@@ -16,8 +16,6 @@ use crate::ui::widgets::Rule;
 const DIVIDER: f64 = size::BORDER_1 + 2.0 * size::SPACE_4;
 
 impl Menu {
-    pub const LIST_MAX_HEIGHT: f64 = 256.0;
-
     pub fn new(label: &str, items: &[&str]) -> NewWidget<Self> {
         Self::build(label, &plain_entries(items), None, None, None)
     }
@@ -32,7 +30,7 @@ impl Menu {
 
     pub fn list(label: &str, items: &[&str], checked: usize, trigger: Rect) -> NewWidget<Self> {
         let mut menu = Self::build(label, &plain_entries(items), Some(checked), Some(trigger.width()), None);
-        menu.widget.max_height = Self::LIST_MAX_HEIGHT;
+        menu.widget.max_height = size::MENU_LIST_MAX_HEIGHT;
         menu.widget.exclude = Some(trigger);
         menu
     }

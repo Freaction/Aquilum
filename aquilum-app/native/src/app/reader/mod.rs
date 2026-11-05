@@ -112,7 +112,7 @@ impl App {
     }
 
     pub(super) fn on_reader_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Outcome {
-        let Some(Popup::Reader(mut state)) = self.popup.take() else { return Outcome::default() };
+        let Some(Popup::Reader(mut state)) = self.popup.take_if(|popup| matches!(popup, Popup::Reader(_))) else { return Outcome::default() };
         if let Some(action) = action.downcast_ref::<ReaderAction>() {
             match action {
                 ReaderAction::Close => {

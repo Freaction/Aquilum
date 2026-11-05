@@ -121,7 +121,7 @@ impl App {
     }
 
     fn close_search(&mut self, root: &mut RenderRoot) {
-        if let Some(Popup::Search(state)) = self.popup.take() {
+        if let Some(Popup::Search(state)) = self.popup.take_if(|popup| matches!(popup, Popup::Search(_))) {
             crate::ui::dialog::close(root, state.layer);
             if let Some(ids) = &self.note_ids {
                 root.focus_on(Some(ids.body.id()));

@@ -28,8 +28,6 @@ pub struct Menu {
 }
 
 impl Menu {
-    pub(super) const MIN_WIDTH: f64 = 128.0;
-
     pub fn show_sub(this: &mut WidgetMut<'_, Self>, shown: bool) {
         let Some(sub) = &mut this.widget.sub else { return };
         if sub.shown != shown {
@@ -94,8 +92,8 @@ impl Widget for Menu {
         let context = LayoutSize::maybe(axis.cross(), cross);
         let length = ctx.compute_length(&mut self.child, len_req.into(), context, axis, cross);
         let main = match (axis, self.width) {
-            (Axis::Horizontal, Some(width)) => width.max(length.get()).max(Self::MIN_WIDTH).min(self.max_width),
-            (Axis::Horizontal, None) => length.get().max(Self::MIN_WIDTH).min(self.max_width),
+            (Axis::Horizontal, Some(width)) => width.max(length.get()).max(size::MENU_MIN_WIDTH).min(self.max_width),
+            (Axis::Horizontal, None) => length.get().max(size::MENU_MIN_WIDTH).min(self.max_width),
             (Axis::Vertical, _) => length.get().min(self.max_height),
         };
         match axis {

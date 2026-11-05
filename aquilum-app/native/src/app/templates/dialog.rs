@@ -14,7 +14,7 @@ use crate::ui::icons;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::search::{empty_state_with, results_list, CardAction, CardData, CardKind, Marks, Placeholder, ResultCard};
 use crate::ui::tokens::size;
-use crate::ui::widgets::{ButtonSize, Pressed, Slot, TextButton, Variant};
+use crate::ui::widgets::{ControlSize, Pressed, Slot, TextButton, Variant};
 
 fn marks(text: &str, query: &str) -> Marks {
     Matcher::new(query, IGNORE_CASE).find_all(text).into_iter().map(|found| (found.start, found.end)).collect()
@@ -35,7 +35,7 @@ impl App {
             let label = t("templateDialog.empty");
             let folder_name = dir.and_then(|d| d.file_name().map(|n| n.to_string_lossy().into_owned())).unwrap_or_else(|| "Templates".to_owned());
             let hint = t_with("templateDialog.emptyHint", &[("folder", &folder_name)]);
-            let create_btn = NewWidget::new(TextButton::new(t("templateDialog.createFolder"), Variant::Primary).size(ButtonSize::S));
+            let create_btn = NewWidget::new(TextButton::new(t("templateDialog.createFolder"), Variant::Primary).size(ControlSize::S));
             let btn_id = create_btn.id();
             state.create_button = Some(btn_id);
             state.cards.clear();

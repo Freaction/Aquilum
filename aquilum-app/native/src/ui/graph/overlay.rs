@@ -42,7 +42,7 @@ impl GraphView {
             next_y += line + size::SPACE_8;
         }
         if let Some(action_label) = action {
-            let button = ButtonSize::S;
+            let button = ControlSize::S;
             let layout = self.action_line.layout(ctx, action_label, width, button.text());
             let half = (f64::from(layout.width()) + button.chrome(0)) / 2.0;
             let top = next_y + size::SPACE_8;

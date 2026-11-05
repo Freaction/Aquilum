@@ -8,6 +8,7 @@ pub enum Section {
     Reader,
     Data,
     Analysis,
+    #[cfg_attr(target_os = "android", allow(dead_code))]
     Mcp,
     History,
     Trash,
@@ -17,12 +18,13 @@ pub enum Section {
 }
 
 impl Section {
-    pub const ALL: [Section; 11] = [
+    pub const ALL: &[Section] = &[
         Section::Ui,
         Section::Editor,
         Section::Reader,
         Section::Data,
         Section::Analysis,
+        #[cfg(not(target_os = "android"))]
         Section::Mcp,
         Section::History,
         Section::Trash,
@@ -53,7 +55,7 @@ impl Section {
             "search" => "analysis",
             key => key,
         };
-        Section::ALL.into_iter().find(|s| s.key() == key)
+        Section::ALL.iter().copied().find(|s| s.key() == key)
     }
 
     pub fn label(self) -> String {

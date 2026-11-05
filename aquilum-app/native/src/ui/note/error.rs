@@ -9,7 +9,7 @@ use masonry::widgets::{Flex, SizedBox};
 use crate::i18n::{t, t_with};
 use crate::ui::icons;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{ButtonSize, IconView, TextButton, Variant};
+use crate::ui::widgets::{ControlSize, IconView, TextButton, Variant};
 
 pub struct SaveErrorIds {
     pub retry: WidgetId,
@@ -23,7 +23,7 @@ pub struct OpenErrorIds {
 
 /// Баннер об ошибке сохранения, размещаемый над заголовком открытой заметки.
 pub fn save_error_banner(text: &str) -> (NewWidget<Flex>, SaveErrorIds) {
-    let retry = NewWidget::new(TextButton::new(t("editor.saveRetry"), Variant::Primary).size(ButtonSize::Xs));
+    let retry = NewWidget::new(TextButton::new(t("editor.saveRetry"), Variant::Primary).size(ControlSize::Xs));
     let retry_id = retry.id();
 
     let label = NewWidget::new(crate::ui::widgets::Caption::new(text));
@@ -44,9 +44,9 @@ pub fn open_error_page(path: &Path, error: &str) -> (NewWidget<Flex>, OpenErrorI
     let file_str = path.to_string_lossy();
     let desc = t_with("editor.openFailed", &[("path", &file_str), ("reason", error)]);
 
-    let retry = NewWidget::new(TextButton::new(t("error.retry"), Variant::Primary).size(ButtonSize::S));
-    let reveal = NewWidget::new(TextButton::new(t("editor.revealFile"), Variant::Ghost).size(ButtonSize::S));
-    let close = NewWidget::new(TextButton::new(t("editor.close"), Variant::Ghost).size(ButtonSize::S));
+    let retry = NewWidget::new(TextButton::new(t("error.retry"), Variant::Primary).size(ControlSize::S));
+    let reveal = NewWidget::new(TextButton::new(t("editor.revealFile"), Variant::Ghost).size(ControlSize::S));
+    let close = NewWidget::new(TextButton::new(t("editor.close"), Variant::Ghost).size(ControlSize::S));
 
     let (retry_id, reveal_id, close_id) = (retry.id(), reveal.id(), close.id());
 

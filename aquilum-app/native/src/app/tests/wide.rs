@@ -33,6 +33,9 @@ fn page(h: &Harness) -> Rect {
 #[test]
 fn full_width_keeps_margins_on_tokens_and_goes_back() {
     let mut h = wide_window();
+    let long = h.write_note("Длинная.md", &"текст\n\n".repeat(60));
+    h.open(long);
+    h.settle();
     let narrow = column(&h);
     assert!(narrow.width() < page(&h).width() - 2.0 * size::SPACE_32 - 100.0, "в окне нет места для широкого режима");
     h.app.toggle_wide_mode(&mut h.root);

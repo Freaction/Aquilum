@@ -5,11 +5,12 @@ pub struct DropdownButton {
     line: text::Line,
     press: Press,
     open: bool,
+    size: ControlSize,
 }
 
 impl DropdownButton {
     pub fn new(label: &str) -> NewWidget<Self> {
-        NewWidget::new(DropdownButton { label: label.to_owned(), line: text::Line::default(), press: Press::default(), open: false })
+        NewWidget::new(DropdownButton { label: label.to_owned(), line: text::Line::default(), press: Press::default(), open: false, size: ControlSize::M.fit() })
     }
 
     pub fn set_open(this: &mut WidgetMut<'_, Self>, open: bool) {
@@ -66,7 +67,7 @@ impl Widget for DropdownButton {
         match (axis, len_req) {
             (Axis::Horizontal, LenReq::MinContent) => Length::ZERO,
             (Axis::Horizontal, _) => Length::px(size::INPUT_WIDTH),
-            (Axis::Vertical, _) => Length::px(size::INPUT_PADDING_Y * 2.0 + size::INPUT_CONTENT_HEIGHT),
+            (Axis::Vertical, _) => Length::px(self.size.field_padding().1 * 2.0 + self.size.field_content()),
         }
     }
 
@@ -78,15 +79,15 @@ impl Widget for DropdownButton {
         let active = ctx.is_hovered() || self.press.down || self.open;
         let bg = if active { t.bg_surface_active } else { t.bg_surface_overlay };
         painter.fill(RoundedRect::from_rect(bounds, size::RADIUS_XL), bg).draw();
-        let icon = size::SIZE_20;
-        let text_width = bounds.width() - size::INPUT_PADDING_X * 2.0 - icon - size::INPUT_GAP;
-        let style = text::Style::ui(size::SIZE_20);
+        let ((padding_x, padding_y), icon) = (self.size.field_padding(), self.size.field_icon());
+        let text_width = bounds.width() - padding_x * 2.0 - icon - size::INPUT_GAP;
+        let style = text::Style::ui(self.size.field_content());
         let layout = self.line.layout(ctx, &self.label, text_width.max(0.0), style);
-        let origin = Affine::translate((bounds.x0 + size::INPUT_PADDING_X, bounds.y0 + size::INPUT_PADDING_Y));
+        let origin = Affine::translate((bounds.x0 + padding_x, bounds.y0 + padding_y));
         render_text(painter, origin, layout, &[t.text_primary.into()], true);
-        let chevron = Point::new(bounds.x1 - size::INPUT_PADDING_X - icon, bounds.center().y - icon / 2.0);
+        let chevron = Point::new(bounds.x1 - padding_x - icon, bounds.center().y - icon / 2.0);
         let glyph = if self.open { icons::CHEVRON_UP } else { icons::CHEVRON_DOWN };
-        glyph.draw(painter, chevron, icon, 1.2, t.icon_faint);
+        glyph.draw(painter, chevron, icon, number::BUTTON_ICON_STROKE, t.icon_faint);
     }
 
     fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {

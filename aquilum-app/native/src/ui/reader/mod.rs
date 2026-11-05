@@ -14,7 +14,7 @@ use super::text::{Line, Style};
 use super::theme;
 use super::tokens::{number, size};
 use super::keymap::{self, Command, Scope};
-use super::widgets::{ButtonSize, IconButton, TextButton, Variant};
+use super::widgets::{ControlSize, IconButton, TextButton, Variant};
 use crate::i18n::t;
 use crate::reader::page::{Item, Settings};
 use crate::reader::session::{Session, Spot};

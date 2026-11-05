@@ -3,45 +3,6 @@ use super::*;
 pub const WINDOW_CHROME: bool = !cfg!(target_os = "android");
 pub const OWN_CONTROLS: bool = WINDOW_CHROME && !cfg!(target_os = "macos");
 
-pub struct DragArea;
-
-impl DragArea {
-    pub fn new() -> NewWidget<Self> {
-        NewWidget::new(DragArea)
-    }
-}
-
-impl Widget for DragArea {
-    type Action = TitlebarAction;
-
-    fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
-        drag_or_maximize(ctx, event);
-    }
-
-    fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
-
-    fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, _axis: Axis, len_req: LenReq, _cross: Option<Length>) -> Length {
-        match len_req {
-            LenReq::FitContent(space) => space,
-            _ => Length::ZERO,
-        }
-    }
-
-    fn layout(&mut self, _ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, _size: Size) {}
-
-    fn paint(&mut self, _ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, _painter: &mut Painter<'_>) {}
-
-    fn accessibility_role(&self) -> Role {
-        Role::GenericContainer
-    }
-
-    fn accessibility(&mut self, _ctx: &mut AccessCtx<'_>, _props: &PropertiesRef<'_>, _node: &mut Node) {}
-
-    fn children_ids(&self) -> ChildrenIds {
-        ChildrenIds::new()
-    }
-}
-
 #[derive(Clone, Copy, PartialEq)]
 pub enum WindowButtonKind {
     Minimize,

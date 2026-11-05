@@ -93,7 +93,7 @@ impl App {
     }
 
     fn close_workspaces(&mut self, root: &mut RenderRoot) {
-        if let Some(Popup::Workspaces(state)) = self.popup.take() {
+        if let Some(Popup::Workspaces(state)) = self.popup.take_if(|popup| matches!(popup, Popup::Workspaces(_))) {
             match state.open {
                 Open::Menu(layer, _) => root.remove_layer(layer),
                 Open::Delete(confirm, _) => crate::ui::dialog::close(root, confirm.layer),
@@ -109,7 +109,7 @@ impl App {
     }
 
     pub(super) fn on_workspaces_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Outcome {
-        let Some(Popup::Workspaces(mut state)) = self.popup.take() else { return Outcome::default() };
+        let Some(Popup::Workspaces(mut state)) = self.popup.take_if(|popup| matches!(popup, Popup::Workspaces(_))) else { return Outcome::default() };
         match std::mem::replace(&mut state.open, Open::List) {
             Open::Menu(layer, vault) => {
                 match action.downcast_ref::<MenuChoice>() {

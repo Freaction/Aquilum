@@ -11,7 +11,7 @@ impl App {
             }
             Step::OpenSettings => self.open_settings(root),
             Step::CloseSettings => {
-                if let Some(super::Popup::Settings { dialog, menu }) = self.popup.take() {
+                if let Some(super::Popup::Settings { dialog, menu }) = self.popup.take_if(|popup| matches!(popup, super::Popup::Settings { .. })) {
                     if let Some(menu) = menu {
                         root.remove_layer(menu.layer);
                     }
@@ -36,7 +36,7 @@ impl App {
                 self.open_reader(root, super::reader::Opening { file: path.clone(), page: None, title, initial: None, peek: false });
             }
             Step::CloseReader => {
-                if let Some(super::Popup::Reader(state)) = self.popup.take() {
+                if let Some(super::Popup::Reader(state)) = self.popup.take_if(|popup| matches!(popup, super::Popup::Reader(_))) {
                     root.remove_layer(state.layer);
                 }
             }

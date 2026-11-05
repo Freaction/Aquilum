@@ -11,7 +11,7 @@ use masonry::peniko::{Color, ImageBrush};
 use super::text::{Line, Style};
 use super::theme;
 use super::tokens::{number, size};
-use super::widgets::{ButtonSize, Look, Variant, paint_button};
+use super::widgets::{ControlSize, Look, Variant, paint_button};
 use crate::graph::camera::{Camera, approach};
 use crate::graph::raster::{self, Sprite, Stamp};
 use crate::graph::{self, Graph};

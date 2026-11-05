@@ -15,7 +15,7 @@ use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::tokens::size;
 use crate::ui::settings::controls::InputBox;
-use crate::ui::widgets::{IconButton, IconView, Slot};
+use crate::ui::widgets::{ControlSize, IconButton, IconView, Slot};
 use crate::ui::{icons, style, theme};
 
 pub struct Placeholder {
@@ -120,8 +120,9 @@ pub struct FilterBox {
 
 pub fn filter_box(query: &str, hint: String) -> FilterBox {
     let (placeholder, field, placeholder_handle) = field(query, hint, size::INPUT_CONTENT_HEIGHT);
-    let icon = IconView::new(icons::SEARCH, size::INPUT_ICON_SIZE, size::SIDEBAR_ICON_SIZE, 1.4, || theme::current().icon_faint);
-    let clear = NewWidget::new(IconButton::new(icons::X, t("search.clear")).xs());
+    let glyph = ControlSize::Xs.fit().field_icon();
+    let icon = IconView::new(icons::SEARCH, glyph, glyph, 1.4, || theme::current().icon_faint);
+    let clear = NewWidget::new(IconButton::new(icons::X, t("search.clear")).inline());
     let clear_handle = Handle::of(&clear);
     let clear_slot = Slot::shown(after_gap(clear), !query.is_empty());
     let clear_slot_handle = Handle::of(&clear_slot);

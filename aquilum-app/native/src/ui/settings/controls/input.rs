@@ -7,27 +7,21 @@ pub struct InputBox<W: Widget> {
     child: WidgetPod<W>,
     width: Option<f64>,
     filled: bool,
+    size: ControlSize,
 }
 
 impl<W: Widget> InputBox<W> {
     pub fn new(child: NewWidget<W>, width: f64) -> NewWidget<Self> {
-        NewWidget::new(InputBox { child: child.to_pod(), width: Some(width), filled: true })
+        NewWidget::new(InputBox { child: child.to_pod(), width: Some(width), filled: true, size: ControlSize::M.fit() })
     }
 
     pub fn compact(child: NewWidget<W>) -> NewWidget<Self> {
-        NewWidget::new(InputBox { child: child.to_pod(), width: None, filled: true })
+        NewWidget::new(InputBox { child: child.to_pod(), width: None, filled: true, size: ControlSize::Xs.fit() })
     }
 
     pub fn unfilled(mut input: NewWidget<Self>) -> NewWidget<Self> {
         input.widget.filled = false;
         input
-    }
-
-    fn padding(&self) -> (f64, f64) {
-        match self.width {
-            Some(_) => (size::INPUT_PADDING_X, size::INPUT_PADDING_Y),
-            None => (size::INPUT_XS_PADDING_X, size::INPUT_XS_PADDING_Y),
-        }
     }
 }
 
@@ -48,7 +42,7 @@ impl<W: Widget> Widget for InputBox<W> {
     }
 
     fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, cross: Option<Length>) -> Length {
-        let (padding_x, padding_y) = self.padding();
+        let (padding_x, padding_y) = self.size.field_padding();
         match (axis, self.width, len_req) {
             (Axis::Horizontal, Some(width), _) => Length::px(width),
             (Axis::Horizontal, None, LenReq::FitContent(space)) => space,
@@ -57,13 +51,13 @@ impl<W: Widget> Widget for InputBox<W> {
                 let inner = self.width.or(cross.map(Length::get)).unwrap_or(0.0) - padding_x * 2.0;
                 let context = LayoutSize::maybe(Axis::Horizontal, Some(Length::px(inner)));
                 let height = ctx.compute_length(&mut self.child, LenReq::MaxContent.into(), context, Axis::Vertical, Some(Length::px(inner)));
-                Length::px(height.get().max(size::INPUT_CONTENT_HEIGHT) + padding_y * 2.0)
+                Length::px(height.get().max(self.size.field_content()) + padding_y * 2.0)
             }
         }
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
-        let (padding_x, padding_y) = self.padding();
+        let (padding_x, padding_y) = self.size.field_padding();
         let inner = Size::new(size_.width - padding_x * 2.0, size_.height - padding_y * 2.0);
         let child = ctx.compute_size(&mut self.child, SizeDef::new(LenDef::FitContent(Length::px(inner.width)), LenDef::MaxContent), inner.into());
         let child = Size::new(inner.width, child.height);
@@ -79,8 +73,10 @@ impl<W: Widget> Widget for InputBox<W> {
             painter.fill(shape, t.bg_surface).draw();
         }
         if ctx.has_focus_target() {
-            let outer = RoundedRect::from_rect(ctx.content_box().inflate(2.5, 2.5), size::RADIUS_XL + 2.5);
-            painter.stroke(&outer, &Stroke::new(3.0), t.border_focus_ring).draw();
+            let width = size::BORDER_4 - size::BORDER_1;
+            let reach = size::BORDER_1 + width / 2.0;
+            let outer = RoundedRect::from_rect(ctx.content_box().inflate(reach, reach), size::RADIUS_XL + reach);
+            painter.stroke(&outer, &Stroke::new(width), t.border_focus_ring).draw();
             ring(painter, shape, t.border_focus);
         } else {
             ring(painter, shape, t.border_default);

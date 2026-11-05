@@ -13,7 +13,7 @@ use masonry::widgets::Flex;
 use super::menu::box_shadow;
 use super::text::{Line, Style, label};
 use super::tokens::{number, size};
-use super::widgets::{ButtonSize, IconButton, Leading, TextButton, Variant};
+use super::widgets::{ControlSize, IconButton, Leading, TextButton, Variant};
 use super::{icons, style, theme};
 use crate::i18n::{t, t_with};
 
@@ -138,7 +138,7 @@ pub struct UpdateBar {
 
 pub fn update_bar(version: &str) -> (NewWidget<Flex>, UpdateBar) {
     let text = label(&t_with("settings.system.updatesAvailable", &[("version", version)]), |t| t.text_primary, None, Leading::Times(number::FONT_LINE_HEIGHT_NORMAL as f32));
-    let install = NewWidget::new(TextButton::new(t("update.install"), Variant::Primary).size(ButtonSize::S));
+    let install = NewWidget::new(TextButton::new(t("update.install"), Variant::Primary).size(ControlSize::S));
     let close = NewWidget::new(IconButton::new(icons::X, t("common.close")));
     let ids = UpdateBar { install: install.id(), close: close.id() };
     let row = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with(text, 1.0).with_fixed(install).with_fixed(close);

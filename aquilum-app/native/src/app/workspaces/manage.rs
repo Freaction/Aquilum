@@ -157,9 +157,7 @@ impl App {
             return self.switch_workspace(root, path).title;
         }
         let remembered = self.workspace.core.ui_state.resolve_workspace(&path.to_string_lossy(), crate::dates::now_ms());
-        if matches!(&self.popup, Some(Popup::Workspaces(state)) if matches!(state.open, Open::List))
-            && let Some(Popup::Workspaces(mut state)) = self.popup.take()
-        {
+        if let Some(Popup::Workspaces(mut state)) = self.popup.take_if(|popup| matches!(popup, Popup::Workspaces(state) if matches!(state.open, Open::List))) {
             match remembered {
                 Ok(id) => state.open = Open::Rename(id),
                 Err(error) => state.error = Some(t_with("workspaces.listFailed", &[("reason", &format!("{error:?}"))])),

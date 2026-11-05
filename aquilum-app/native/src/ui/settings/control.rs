@@ -14,7 +14,7 @@ use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::text::selectable;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{IconButton, IconView, Label, Leading, Paint, TextButton, Variant, kbd};
+use crate::ui::widgets::{ControlSize, IconButton, IconView, Label, Leading, Paint, TextButton, Variant, kbd};
 use crate::ui::{icons, style, theme};
 
 pub(super) const LEADING: Leading = Leading::Times(1.21);
@@ -57,7 +57,7 @@ fn plain_input(
 fn stepper_input(bindings: &mut HashMap<WidgetId, Binding>, setter: Option<schema::Setter>, number: &schema::Number) -> NewWidget<dyn Widget> {
     let field = text_field(&schema::format_number(number.value), true);
     let field_id = field.id();
-    let step = |icon, label: &str, enabled: bool| NewWidget::new(IconButton::new(icon, t(label)).xs()).disabled(!enabled);
+    let step = |icon, label: &str, enabled: bool| NewWidget::new(IconButton::new(icon, t(label)).inline()).disabled(!enabled);
     let minus = step(icons::MINUS, "common.decrease", number.value > number.min);
     let plus = step(icons::PLUS, "common.increase", number.value < number.max);
     let (minus_id, plus_id) = (minus.id(), plus.id());
@@ -68,7 +68,8 @@ fn stepper_input(bindings: &mut HashMap<WidgetId, Binding>, setter: Option<schem
     }
     let inner = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(minus).with(field, 1.0).with_fixed(plus);
     let inner = NewWidget::new(inner).with_props(PropertySet::new().with(Gap::new(Length::px(size::INPUT_GAP))));
-    let width = 4.0 * size::FONT_SIZE_UI_BASE * 0.6 + 2.0 * size::INPUT_CONTENT_HEIGHT + 2.0 * size::INPUT_GAP + 2.0 * size::INPUT_PADDING_X;
+    let control = ControlSize::M.fit();
+    let width = 4.0 * size::FONT_SIZE_UI_BASE * 0.6 + 2.0 * control.field_content() + 2.0 * size::INPUT_GAP + 2.0 * control.field_padding().0;
     InputBox::new(inner, width.ceil()).erased()
 }
 

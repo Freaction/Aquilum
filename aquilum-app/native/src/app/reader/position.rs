@@ -38,7 +38,7 @@ impl App {
     }
 
     pub fn save_reader(&mut self, root: &mut RenderRoot) {
-        if let Some(Popup::Reader(mut state)) = self.popup.take() {
+        if let Some(Popup::Reader(mut state)) = self.popup.take_if(|popup| matches!(popup, Popup::Reader(_))) {
             self.save_position(root, &mut state);
             self.popup = Some(Popup::Reader(state));
         }

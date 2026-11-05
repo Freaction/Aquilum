@@ -10,8 +10,8 @@ use masonry::layout::{LenReq, Length};
 
 use crate::ui::icons::Icon;
 use crate::ui::theme;
-use crate::ui::tokens::size;
-use crate::ui::widgets::{Press, Pressed};
+use crate::ui::tokens::{number, size};
+use crate::ui::widgets::{ControlSize, Press, Pressed};
 
 pub struct IconButton {
     icon: Icon,
@@ -19,12 +19,13 @@ pub struct IconButton {
     press: Press,
     pressed: Option<bool>,
     white: bool,
-    size: f64,
+    inline: bool,
+    size: ControlSize,
 }
 
 impl IconButton {
     pub fn new(icon: Icon, label: impl Into<String>) -> Self {
-        IconButton { icon, label: label.into(), press: Press::default(), pressed: None, white: false, size: size::SIZE_32 }
+        IconButton { icon, label: label.into(), press: Press::default(), pressed: None, white: false, inline: false, size: ControlSize::S.fit() }
     }
 
     pub fn mode(icon: Icon, label: impl Into<String>, pressed: bool) -> Self {
@@ -36,11 +37,15 @@ impl IconButton {
     }
 
     pub fn small(self) -> Self {
-        IconButton { size: size::SIZE_24, ..self }
+        IconButton { size: ControlSize::Xs.touch(ControlSize::M), ..self }
     }
 
-    pub fn xs(self) -> Self {
-        IconButton { size: size::SIZE_20, ..self }
+    pub fn inline(self) -> Self {
+        IconButton { inline: true, ..self }
+    }
+
+    fn side(&self) -> f64 {
+        if self.inline { self.size.field_content() } else { self.size.height() }
     }
 
     pub fn set_label(this: &mut WidgetMut<'_, Self>, label: &str) {
@@ -88,7 +93,7 @@ impl Widget for IconButton {
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
 
     fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, _axis: Axis, _len_req: LenReq, _cross: Option<Length>) -> Length {
-        Length::px(self.size)
+        Length::px(self.side())
     }
 
     fn layout(&mut self, _ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, _size: Size) {}
@@ -104,8 +109,8 @@ impl Widget for IconButton {
                 painter.fill(shape, t.bg_surface_overlay).draw();
                 painter.stroke(&shape.rect().inset(-0.5).to_rounded_rect(size::ROUNDED_LG), &Stroke::new(size::BORDER_1), t.border_contrast_inverse).draw();
             }
-            let glyph = size::SIZE_16;
-            self.icon.draw(painter, bounds.center() - Vec2::new(glyph / 2.0, glyph / 2.0), glyph, 1.6, t.icon_muted);
+            let (glyph, stroke) = self.size.glyph(false);
+            self.icon.draw(painter, bounds.center() - Vec2::new(glyph / 2.0, glyph / 2.0), glyph, stroke, t.icon_muted);
             return;
         }
         let idle = match self.pressed {
@@ -124,7 +129,7 @@ impl Widget for IconButton {
         } else {
             (None, idle)
         };
-        let (glyph, stroke) = if self.pressed.is_some() { (size::SIZE_20, 1.2) } else { (size::SIZE_16, 1.6) };
+        let (glyph, stroke) = self.size.glyph(self.pressed.is_some());
         paint_glyph(painter, bounds, self.icon, background, color, glyph, stroke);
     }
 
@@ -156,5 +161,5 @@ pub fn paint_glyph(painter: &mut Painter<'_>, bounds: Rect, icon: Icon, backgrou
 pub fn paint_icon(painter: &mut Painter<'_>, bounds: Rect, icon: Icon, hovered: bool, alpha: f32, tint: Option<Color>) {
     let t = theme::current();
     let color = tint.unwrap_or(if hovered { t.icon_button_icon_hover } else { t.icon_button_icon });
-    paint_glyph(painter, bounds, icon, hovered.then(|| t.icon_button_bg_hover.multiply_alpha(alpha)), color.multiply_alpha(alpha), size::SIZE_16, 1.6);
+    paint_glyph(painter, bounds, icon, hovered.then(|| t.icon_button_bg_hover.multiply_alpha(alpha)), color.multiply_alpha(alpha), size::ICON_BUTTON_ICON_SIZE, number::ICON_BUTTON_ICON_STROKE);
 }

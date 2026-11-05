@@ -13,7 +13,7 @@ use crate::ui::widgets::Pressed;
 impl App {
     pub(in crate::app) fn on_settings_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Outcome {
         self.typing = None;
-        let Some(Popup::Settings { mut dialog, menu }) = self.popup.take() else { return Outcome::default() };
+        let Some(Popup::Settings { mut dialog, menu }) = self.popup.take_if(|popup| matches!(popup, Popup::Settings { .. })) else { return Outcome::default() };
         let mut effect = Effect::None;
 
         if let Some((confirm, wipe)) = dialog.confirm.take() {

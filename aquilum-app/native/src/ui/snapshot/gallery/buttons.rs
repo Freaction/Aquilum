@@ -7,12 +7,12 @@ use super::Scene;
 use crate::ui::icons;
 use crate::ui::snapshot::open;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{ButtonSize, TextButton, Variant};
+use crate::ui::widgets::{ControlSize, TextButton, Variant};
 
 pub(super) fn snapshot(scene: &Scene) {
     let gap = || PropertySet::new().with(Gap::new(Length::px(size::SPACE_8)));
     let mut sheet = Flex::column().cross_axis_alignment(masonry::properties::types::CrossAxisAlignment::Start);
-    for button in [ButtonSize::M, ButtonSize::S, ButtonSize::Xs] {
+    for button in [ControlSize::L, ControlSize::M, ControlSize::S, ControlSize::Xs] {
         for icons in [false, true] {
             let mut row = Flex::row();
             for variant in [Variant::Primary, Variant::Secondary, Variant::Ghost, Variant::Link] {

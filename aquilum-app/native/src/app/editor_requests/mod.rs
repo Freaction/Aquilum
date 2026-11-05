@@ -73,8 +73,15 @@ impl App {
     }
 
     pub(in crate::app) fn place_layer(&self, root: &mut RenderRoot, layer: masonry::core::WidgetId, trigger: masonry::kurbo::Rect) {
+        use crate::ui::menu::Menu;
         if let Some(size) = root.get_widget(layer).map(|w| w.ctx().bounding_box().size()) {
-            root.reposition_layer(layer, crate::ui::menu::Menu::around(trigger, size, self.room()));
+            let (at, height) = Menu::around(trigger, size, self.room());
+            root.edit_widget(layer, |mut w| {
+                if let Some(mut menu) = w.try_downcast::<Menu>() {
+                    Menu::set_max_height(&mut menu, height);
+                }
+            });
+            root.reposition_layer(layer, at);
         }
     }
 }

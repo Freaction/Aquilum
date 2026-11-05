@@ -1,25 +1,21 @@
 use aquilum_core::text::matcher::{IGNORE_CASE, Matcher};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update,
-    UpdateCtx, Widget, WidgetMut, render_text,
+    AccessCtx, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget,
+    WidgetMut, render_text,
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Point, Rect, RoundedRect, Size};
 use masonry::layout::{LenReq, Length};
 
-use super::menu::box_shadow;
-use super::text::{Line, Style};
-use super::theme;
-use super::tokens::{number, size};
-
-const MIN_WIDTH: f64 = 200.0;
-const MAX_WIDTH: f64 = 420.0;
+use crate::ui::text::{Line, Style};
+use crate::ui::theme;
+use crate::ui::tokens::{number, size};
 
 #[derive(Debug)]
 pub struct SuggestPicked(pub usize);
 
-pub struct SuggestList {
+pub(super) struct Rows {
     items: Vec<String>,
     query: String,
     selected: usize,
@@ -27,13 +23,13 @@ pub struct SuggestList {
     lines: Vec<Line>,
 }
 
-impl SuggestList {
-    pub fn new(items: Vec<String>, query: String, selected: usize) -> NewWidget<Self> {
-        NewWidget::new(SuggestList { items, query, selected, hovered: None, lines: Vec::new() })
+impl Rows {
+    pub(super) fn new(items: Vec<String>, query: String, selected: usize) -> Self {
+        Rows { items, query, selected, hovered: None, lines: Vec::new() }
     }
 
-    pub fn set(this: &mut WidgetMut<'_, Self>, items: Vec<String>, query: String, selected: usize) {
-        let resized = this.widget.items.len() != items.len() || this.widget.items != items;
+    pub(super) fn set(this: &mut WidgetMut<'_, Self>, items: Vec<String>, query: String, selected: usize) {
+        let resized = this.widget.items != items;
         this.widget.items = items;
         this.widget.query = query;
         this.widget.selected = selected;
@@ -44,27 +40,25 @@ impl SuggestList {
         this.ctx.request_paint_only();
     }
 
-    pub fn size_for(items: &[String]) -> Size {
+    pub(super) fn size_for(items: &[String]) -> Size {
         let font = theme::ui_font_settings();
-        let width = items.iter().map(|t| t.chars().count() as f64 * f64::from(font.size) * 0.6).fold(0.0, f64::max) + Self::row_pad() * 2.0 + size::GAP_XS * 2.0;
-        Size::new(width.clamp(MIN_WIDTH, MAX_WIDTH).round(), items.len() as f64 * Self::row() + size::GAP_XS * 2.0)
+        let text = items.iter().map(|t| t.chars().count() as f64 * f64::from(font.size) * 0.6).fold(0.0, f64::max);
+        let width = text + size::PADDING_XS * 2.0 + size::GAP_XS * 2.0;
+        Size::new(width.clamp(size::SUGGEST_MIN_WIDTH, size::SUGGEST_MAX_WIDTH).round(), items.len() as f64 * size::SUGGEST_ROW_HEIGHT + size::GAP_XS * 2.0)
     }
 
-    fn row() -> f64 {
-        size::SIZE_20 + size::PADDING_XS * 2.0
-    }
-
-    fn row_pad() -> f64 {
-        size::PADDING_XS
+    pub(super) fn span(index: usize) -> (f64, f64) {
+        let top = size::GAP_XS + index as f64 * size::SUGGEST_ROW_HEIGHT;
+        (top, top + size::SUGGEST_ROW_HEIGHT)
     }
 
     fn index_at(&self, p: Point) -> Option<usize> {
-        let i = ((p.y - size::GAP_XS) / Self::row()).floor();
+        let i = ((p.y - size::GAP_XS) / size::SUGGEST_ROW_HEIGHT).floor();
         (i >= 0.0 && (i as usize) < self.items.len()).then_some(i as usize)
     }
 }
 
-impl Widget for SuggestList {
+impl Widget for Rows {
     type Action = SuggestPicked;
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
@@ -109,23 +103,20 @@ impl Widget for SuggestList {
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
         let tm = theme::current();
         let bounds = ctx.content_box();
-        let shape = RoundedRect::from_rect(bounds, size::RADIUS_XL);
-        box_shadow(painter, shape, tm.elevation_float);
-        box_shadow(painter, shape, tm.shadow_ring);
-        painter.fill(shape, tm.dialog_bg).draw();
         let line = (f64::from(theme::ui_font_settings().size) * number::FONT_LINE_HEIGHT_NORMAL).round();
         let style = Style::ui(line);
         let matcher = Matcher::new(&self.query, IGNORE_CASE);
         self.lines.resize_with(self.items.len(), Line::default);
         for (i, (title, cache)) in self.items.iter().zip(&mut self.lines).enumerate() {
-            let row = Rect::new(bounds.x0 + size::GAP_XS, bounds.y0 + size::GAP_XS + i as f64 * Self::row(), bounds.x1 - size::GAP_XS, bounds.y0 + size::GAP_XS + (i + 1) as f64 * Self::row());
+            let (top, bottom) = Self::span(i);
+            let row = Rect::new(bounds.x0 + size::GAP_XS, bounds.y0 + top, bounds.x1 - size::GAP_XS, bounds.y0 + bottom);
             let background = if i == self.selected { Some(tm.bg_surface_active) } else if Some(i) == self.hovered { Some(tm.bg_surface_overlay) } else { None };
             if let Some(color) = background {
                 painter.fill(RoundedRect::from_rect(row, size::RADIUS_LG), color).draw();
             }
-            let width = (row.width() - Self::row_pad() * 2.0).max(1.0);
+            let width = (row.width() - size::PADDING_XS * 2.0).max(1.0);
             let layout = cache.layout(ctx, title, width, style);
-            let origin = Point::new(row.x0 + Self::row_pad(), row.y0 + ((row.height() - line) / 2.0).round());
+            let origin = Point::new(row.x0 + size::PADDING_XS, row.y0 + ((row.height() - line) / 2.0).round());
             if let Some(found) = matcher.first(title) {
                 let start_x = masonry::parley::Cursor::from_byte_index(layout, found.start, masonry::parley::Affinity::Downstream).geometry(layout, 0.0).x0;
                 let end_x = masonry::parley::Cursor::from_byte_index(layout, found.end, masonry::parley::Affinity::Upstream).geometry(layout, 0.0).x0;
@@ -149,12 +140,4 @@ impl Widget for SuggestList {
     fn children_ids(&self) -> ChildrenIds {
         ChildrenIds::new()
     }
-
-    fn as_layer(&mut self) -> Option<&mut dyn Layer> {
-        Some(self)
-    }
-}
-
-impl Layer for SuggestList {
-    fn capture_pointer_event(&mut self, _ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, _event: &PointerEvent) {}
 }

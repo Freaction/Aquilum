@@ -23,9 +23,21 @@ fn rows(divided: bool) -> Vec<(f64, bool)> {
 #[test]
 fn a_menu_stays_inside_the_safe_area() {
     let (area, menu) = (Rect::new(0.0, 40.0, 360.0, 700.0), Size::new(180.0, 140.0));
-    assert_eq!(Menu::around(Rect::new(300.0, 0.0, 340.0, 20.0), menu, area), Point::new(172.0, 48.0), "под строкой состояния и у правого края");
-    assert_eq!(Menu::around(Rect::new(10.0, 650.0, 60.0, 670.0), menu, area), Point::new(10.0, 506.0), "у нижнего края — над выделением");
-    assert_eq!(Menu::around(Rect::new(10.0, 100.0, 60.0, 120.0), menu, area), Point::new(10.0, 124.0), "под выделением");
+    assert_eq!(Menu::around(Rect::new(300.0, 0.0, 340.0, 20.0), menu, area), (Point::new(172.0, 48.0), 140.0), "под строкой состояния и у правого края");
+    assert_eq!(Menu::around(Rect::new(10.0, 650.0, 60.0, 670.0), menu, area), (Point::new(10.0, 506.0), 140.0), "у нижнего края — над выделением");
+    assert_eq!(Menu::around(Rect::new(10.0, 100.0, 60.0, 120.0), menu, area), (Point::new(10.0, 124.0), 140.0), "под выделением");
+}
+
+#[test]
+fn a_tall_menu_scrolls_on_the_roomier_side_and_never_covers_the_trigger() {
+    let (area, menu) = (Rect::new(0.0, 40.0, 360.0, 400.0), Size::new(180.0, 500.0));
+    for trigger in [Rect::new(10.0, 150.0, 60.0, 170.0), Rect::new(10.0, 250.0, 60.0, 270.0)] {
+        let (at, height) = Menu::around(trigger, menu, area);
+        let placed = Rect::from_origin_size(at, Size::new(menu.width, height));
+        assert!(placed.y1 <= trigger.y0 || placed.y0 >= trigger.y1, "меню накрыло строку {trigger:?}: {placed:?}");
+        assert!(placed.y0 >= area.y0 && placed.y1 <= area.y1, "меню вышло за область: {placed:?}");
+        assert!(height < menu.height && height >= (trigger.y0 - area.y0).max(area.y1 - trigger.y1) - size::SPACE_4 - size::SPACE_8 - 1.0, "высота не по большей стороне: {height}");
+    }
 }
 
 #[test]

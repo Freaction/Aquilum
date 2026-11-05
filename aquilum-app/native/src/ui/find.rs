@@ -14,7 +14,7 @@ use super::search::{self, Placeholder};
 use super::settings::controls::InputBox;
 use super::theme;
 use super::tokens::size;
-use super::widgets::{IconButton, IconView, Label};
+use super::widgets::{ControlSize, IconButton, IconView, Label};
 use crate::i18n::t;
 
 pub struct FindBar {
@@ -41,7 +41,7 @@ pub fn find_bar() -> (NewWidget<dyn Widget>, FindBar) {
     let actions = NewWidget::new(actions).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))));
     let group = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with(input, 1.0).with_fixed(actions);
     let group = NewWidget::new(group).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_8))));
-    let widest = size::PAGE_SEARCH_MAX_WIDTH + size::SPACE_8 + size::SIZE_32 * 4.0 + size::SPACE_4 * 3.0;
+    let widest = size::PAGE_SEARCH_MAX_WIDTH + size::SPACE_8 + ControlSize::S.fit().height() * 4.0 + size::SPACE_4 * 3.0;
     let bar = NewWidget::new(Flex::row().with(super::widgets::MaxWidth::new(group, widest), 1.0))
         .with_props(PropertySet::new().with(Padding::from_vh(Length::px(size::SPACE_4), Length::px(size::SPACE_8))))
         .with_class(super::style::EDITOR);

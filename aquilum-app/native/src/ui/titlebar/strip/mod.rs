@@ -65,9 +65,8 @@ impl Widget for TabStrip {
             }
             PointerEvent::Down(e) if pointer::press(e.button) => {
                 let x = ctx.local_position(e.state.position).x + self.pan.offset;
-                match self.boxes.iter().position(|&(left, width)| x >= left && x < left + width) {
-                    Some(from) => self.reorder = Some(Reorder::new(from, x, pointer::drag_slop(e.pointer.pointer_type))),
-                    None => drag_or_maximize(ctx, event),
+                if let Some(from) = self.boxes.iter().position(|&(left, width)| x >= left && x < left + width) {
+                    self.reorder = Some(Reorder::new(from, x, pointer::drag_slop(e.pointer.pointer_type)));
                 }
             }
             PointerEvent::Move(update) if self.reorder.is_some() => {
@@ -75,7 +74,7 @@ impl Widget for TabStrip {
                 self.drag_move(ctx, x);
             }
             PointerEvent::Up(_) | PointerEvent::Cancel(_) => self.drop_reorder(ctx, matches!(event, PointerEvent::Up(_))),
-            _ => drag_or_maximize(ctx, event),
+            _ => {}
         }
     }
 

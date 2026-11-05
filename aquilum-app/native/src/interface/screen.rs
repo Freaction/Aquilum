@@ -1,7 +1,7 @@
 use masonry::kurbo::Insets;
 
 use super::{Interface, Side};
-use crate::ui::tokens::size;
+use crate::ui::widgets::RAIL_WIDTH;
 
 const MEDIUM: f64 = 600.0;
 const EXPANDED: f64 = 840.0;
@@ -29,7 +29,7 @@ impl WidthClass {
 
 pub fn drawer_width(room: f64, side: Side) -> f64 {
     let whole = (room - DRAWER_GAP).min(DRAWER_MAX);
-    let rail = if side == Side::Sidebar { size::SIDEBAR_RAIL_WIDTH } else { 0.0 };
+    let rail = if side == Side::Sidebar { RAIL_WIDTH } else { 0.0 };
     (whole - rail).max(0.0)
 }
 

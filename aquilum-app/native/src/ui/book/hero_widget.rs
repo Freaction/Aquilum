@@ -5,7 +5,7 @@ pub fn hero(view: HeroView) -> (NewWidget<Hero>, HeroIds) {
     let image = view.cover.as_ref().map(|visual| matches!(visual, Visual::Image(_)));
     let mut button = view.book.as_ref().map(|book| {
         let label = if book.has_file { t("book.read") } else { t("book.upload") };
-        let widget = NewWidget::new(TextButton::new(label, Variant::Primary).size(ButtonSize::M));
+        let widget = NewWidget::new(TextButton::new(label, Variant::Primary).size(ControlSize::M));
         ids.book_button = Some(Handle::of(&widget));
         widget
     });

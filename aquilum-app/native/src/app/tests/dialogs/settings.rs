@@ -198,3 +198,12 @@ fn trash_section_empties_deleted_notes_with_their_history_only_after_confirmatio
     let h = wiped_after_confirmation(Section::Trash, Wipe::Trash, "a.md", ".trash/.aquilum/history/Старая.md/1_dev_me.md");
     assert_eq!(std::fs::read_dir(h.vault.path().join(".trash")).unwrap().count(), 0);
 }
+
+#[test]
+fn going_to_the_background_keeps_the_open_settings() {
+    let mut h = Harness::new();
+    h.click(242.0, 578.0);
+    h.open_section(Section::Editor);
+    h.app.save_reader(&mut h.root);
+    assert_eq!(h.section(), Some(Section::Editor), "после ухода в фон приложение забыло открытые настройки");
+}

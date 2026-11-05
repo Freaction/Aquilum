@@ -111,7 +111,7 @@ fn nav(section: Section, compact: bool) -> (NewWidget<Flex>, Vec<(WidgetId, Sect
     let height = Length::px(if compact { size::SIZE_48 } else { size::SIZE_32 });
     let mut column = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch);
     let mut ids = Vec::new();
-    for item in Section::ALL {
+    for &item in Section::ALL {
         let button = NewWidget::new(ItemButton::new(item.icon(), item.label()).active(item == section));
         ids.push((button.id(), item));
         column = column.with_fixed(NewWidget::new(SizedBox::new(button).height(height)));

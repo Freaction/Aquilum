@@ -7,7 +7,8 @@ use masonry::peniko::{BlendMode, Color, Compose, Gradient, Mix};
 use crate::ui::icons::Icon;
 use crate::ui::menu::box_shadow;
 use crate::ui::tokens::{Shadow, number, size};
-use crate::ui::{text, theme};
+use crate::ui::theme;
+use crate::ui::widgets::ControlSize;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Variant {
@@ -17,58 +18,12 @@ pub enum Variant {
     Link,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum ButtonSize {
-    M,
-    S,
-    Xs,
-}
-
 #[derive(Clone, Copy)]
 pub struct Look {
     pub variant: Variant,
-    pub size: ButtonSize,
+    pub size: ControlSize,
     pub hovered: bool,
     pub active: bool,
-}
-
-impl ButtonSize {
-    pub fn height(self) -> f64 {
-        match self {
-            ButtonSize::M => size::BUTTON_HEIGHT,
-            ButtonSize::S => size::BUTTON_S_HEIGHT,
-            ButtonSize::Xs => size::BUTTON_XS_HEIGHT,
-        }
-    }
-
-    fn padding(self) -> f64 {
-        match self {
-            ButtonSize::M => size::BUTTON_PADDING_X,
-            ButtonSize::S => size::BUTTON_S_PADDING_X,
-            ButtonSize::Xs => size::BUTTON_XS_PADDING_X,
-        }
-    }
-
-    fn radius(self) -> f64 {
-        match self {
-            ButtonSize::M => size::BUTTON_RADIUS,
-            ButtonSize::S => size::BUTTON_S_RADIUS,
-            ButtonSize::Xs => size::BUTTON_XS_RADIUS,
-        }
-    }
-
-    pub fn text(self) -> text::Style {
-        let line_height = match self {
-            ButtonSize::M => size::BUTTON_LINE_HEIGHT,
-            ButtonSize::S => size::BUTTON_S_LINE_HEIGHT,
-            ButtonSize::Xs => size::BUTTON_XS_LINE_HEIGHT,
-        };
-        text::Style { size: size::BUTTON_FONT_SIZE as f32, weight: number::FONT_WEIGHT_UI_BASE as f32, line_height }
-    }
-
-    pub fn chrome(self, icons: usize) -> f64 {
-        (self.padding() + size::BUTTON_LABEL_PADDING_X) * 2.0 + icons as f64 * size::BUTTON_ICON_SIZE
-    }
 }
 
 pub fn paint_button<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, bounds: Rect, look: Look, layout: &Layout<BrushIndex>, icons: &[Option<Icon>; 2]) {
@@ -76,7 +31,7 @@ pub fn paint_button<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, bounds:
     let shape = RoundedRect::from_rect(bounds, look.size.radius());
     let (text_color, icon_color) = match look.variant {
         Variant::Primary => {
-            let shadow = if look.size == ButtonSize::Xs { t.shadow_action_xs } else { t.shadow_action };
+            let shadow = if look.size == ControlSize::Xs { t.shadow_action_xs } else { t.shadow_action };
             paint_primary(painter, shape, look.hovered, shadow);
             (t.text_on_accent, t.icon_on_accent)
         }
@@ -93,7 +48,7 @@ pub fn paint_button<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, bounds:
         Variant::Link => (t.text_link, t.icon_accent),
     };
     let width = f64::from(layout.width());
-    let (icon, label, line_height) = (size::BUTTON_ICON_SIZE, size::BUTTON_LABEL_PADDING_X, look.size.text().line_height);
+    let (icon, label, line_height) = (look.size.icon(), size::BUTTON_LABEL_PADDING_X, look.size.text().line_height);
     let chrome = look.size.chrome(icons.iter().flatten().count());
     let x = bounds.x0 + (bounds.width() - width - chrome) / 2.0 + look.size.padding();
     let [before, after] = icons;

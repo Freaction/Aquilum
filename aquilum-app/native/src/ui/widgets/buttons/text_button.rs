@@ -8,10 +8,10 @@ use masonry::kurbo::{Axis, Point, Size};
 use masonry::layout::{LenReq, Length};
 use masonry::peniko::BlendMode;
 
-use super::{ButtonSize, Look, Variant, paint_button};
+use super::{Look, Variant, paint_button};
 use crate::ui::icons::Icon;
 use crate::ui::tokens::number;
-use crate::ui::widgets::{Press, Pressed};
+use crate::ui::widgets::{ControlSize, Press, Pressed};
 use crate::ui::text;
 
 pub struct TextButton {
@@ -21,16 +21,16 @@ pub struct TextButton {
     icons: [Option<Icon>; 2],
     line: text::Line,
     press: Press,
-    size: ButtonSize,
+    size: ControlSize,
 }
 
 impl TextButton {
     pub fn new(label: impl Into<String>, variant: Variant) -> Self {
-        TextButton { label: label.into(), variant, pressed: false, icons: [None, None], line: text::Line::default(), press: Press::default(), size: ButtonSize::S }
+        TextButton { label: label.into(), variant, pressed: false, icons: [None, None], line: text::Line::default(), press: Press::default(), size: ControlSize::S.fit() }
     }
 
-    pub fn size(mut self, size: ButtonSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: ControlSize) -> Self {
+        self.size = size.fit();
         self
     }
 
