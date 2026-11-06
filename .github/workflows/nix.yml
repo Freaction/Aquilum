@@ -1,0 +1,55 @@
+name: Nix
+
+on:
+  pull_request:
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+      - "nix/**"
+      - "aquilum-app/Cargo.toml"
+      - "aquilum-app/Cargo.lock"
+      - "aquilum-app/native/**"
+      - "aquilum-app/core/**"
+      - ".github/workflows/nix.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+      - "nix/**"
+      - "aquilum-app/Cargo.toml"
+      - "aquilum-app/Cargo.lock"
+      - "aquilum-app/native/**"
+      - "aquilum-app/core/**"
+      - ".github/workflows/nix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - name: Build the Nix package
+        run: nix build .#aquilum --print-build-logs
+
+      - name: Check the desktop entry and the wrapped binary
+        run: |
+          test -x result/bin/aquilum-app
+          test -f result/share/applications/Aquilum.desktop
+          test -f result/share/icons/hicolor/256x256/apps/aquilum-app.png
+          test -f result/share/icons/hicolor/32x32/apps/aquilum-app.png

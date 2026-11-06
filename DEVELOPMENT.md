@@ -110,6 +110,18 @@ npm run dev
 
 `aquilum-app\native\run.bat` собирает release и открывает окно с обычными данными.
 
+### Сборка на NixOS
+
+В репозитории есть flake. Окружение с Rust, `pkg-config` и системными библиотеками:
+
+```sh
+nix develop
+cd aquilum-app
+cargo build -p aquilum-native
+```
+
+`nix build .#aquilum` собирает пакет с ярлыком, иконками и плагинами GStreamer; запуск — `./result/bin/aquilum-app`. Пакет, overlay и модуль NixOS описаны в разделе NixOS файла `README.md`.
+
 ---
 
 ## Проверки

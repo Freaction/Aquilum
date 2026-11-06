@@ -15,6 +15,11 @@ node_modules/
 # All build outputs (dev + release Cargo caches, Vite dist, packaged releases)
 /.artifacts/
 
+# Nix build results and development shells
+/result
+/result-*
+/.direnv/
+
 # Safety net: old locations before .artifacts layout (must never return to git)
 /aquilum-app/dist/
 /aquilum-app/dist-ssr/
