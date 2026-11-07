@@ -39,15 +39,15 @@ The desktop interface is native: it is written in Rust on Masonry, winit and vel
 
 Aquilum restores the working context around your notes, not just the last open file. Reorderable tabs, back and forward navigation, and the document tree let you move between several lines of thought without losing your place. You can choose any note as the vault home page and turn it into a dashboard that mixes ordinary Markdown with live `TABLE`, `LIST`, and `TASK` queries.
 
-The history panel shown on the right records how a note changed and where each edit came from. You can inspect a visual diff, create named versions at meaningful milestones, restore a complete earlier version, or reverse one selected change. This history complements the files on disk: the current document is still an ordinary `.md` file that remains usable outside Aquilum.
+The history panel, opened from the toolbar at the top right, records how a note changed and where each edit came from. You can inspect a visual diff, create named versions at meaningful milestones, restore a complete earlier version, or reverse one selected change. This history complements the files on disk: the current document is still an ordinary `.md` file that remains usable outside Aquilum.
 
-![Aquilum home workspace with note history](screenshots/overview-history.jpg)
+![Aquilum home page with live queries](screenshots/home-dashboard.jpg)
 
 ### 2. Search the entire vault while you type
 
-Global search is backed by a local full-text index and returns matching notes as you type. Every result includes surrounding text, so you can judge a match before opening it; keyboard navigation makes it practical to move through a long result list quickly. Search indexes are maintained separately for each vault and updated when files change, including changes made by another editor.
+Global search is backed by a local full-text index and returns matching notes as you type. Every result includes surrounding text, so you can judge a match before opening it; keyboard navigation makes it practical to move through a long result list quickly. Search indexes are maintained separately for each vault and updated when files change, including changes made by another editor. The vault manager shown beside the search lets you switch between vaults, open an existing folder, or create a new vault.
 
-![Full-text search across an Aquilum vault](screenshots/global-search.jpg)
+![Full-text search and the vault manager in Aquilum](screenshots/global-search.jpg)
 
 For a narrower task, search inside the current note highlights matches without leaving the editor. Aquilum also indexes typed frontmatter fields, which lets live queries filter and organize notes by structured metadata rather than text alone.
 
@@ -87,9 +87,9 @@ The editor keeps the visual grid and Markdown source synchronized. That means th
 
 Paste an image from the clipboard or import an image or video file and Aquilum stores it as a local attachment in the vault. Images can be cropped inside the editor, so preparing a diagram, scan, or illustration does not require a separate round trip through another application. PDFs and other source files can live beside the notes that interpret them.
 
-The link panels below the document show both directions of context: outgoing links reveal what the note cites, while backlinks reveal which other notes depend on it. Related-note suggestions help surface nearby material even before you add an explicit link. Together, media and links make a note a working research surface rather than an isolated page.
+The link panels on the right show both directions of context: outgoing links reveal what the note cites, while backlinks reveal which other notes depend on it. Related-note suggestions help surface nearby material even before you add an explicit link. Together, media and links make a note a working research surface rather than an isolated page.
 
-![Image editing and backlinks in an Aquilum note](screenshots/media-backlinks.jpg)
+![A book note with a cover and the backlinks panel in Aquilum](screenshots/media-backlinks.jpg)
 
 ### 8. Build a local book library
 
@@ -115,7 +115,7 @@ The book example shows YAML frontmatter as editable fields rather than an opaque
 
 ### 11. Adapt the interface to your way of working
 
-Appearance settings cover the whole working environment rather than a single editor theme. Choose light or dark mode, the interface language, accent color, UI scale, editor and reader fonts, line height, and content width. You can also choose the home note and tune reading separately from writing, so a dense research workspace and a calm book layout do not have to share the same typography.
+Appearance settings cover the whole working environment rather than a single editor theme. Choose a light, dark, or night theme (or follow the system), the interface language, accent color, UI scale, editor and reader fonts, line height, and content width. You can also choose the home note and tune reading separately from writing, so a dense research workspace and a calm book layout do not have to share the same typography.
 
 ![Aquilum interface and appearance settings](screenshots/appearance-settings.jpg)
 
@@ -126,6 +126,14 @@ Deleting content does not immediately erase it. Notes and whole folders move to 
 Trash is one layer of a broader recovery model. Note history handles edits inside a document, while external-change detection protects work made by another editor or an AI agent; if competing changes cannot be merged safely, Aquilum preserves the disputed material in a conflict copy instead of silently discarding it.
 
 ![Trash with restorable notes and folders](screenshots/trash-restore.jpg)
+
+### 13. Take the same vault to your phone
+
+The Android app is the same Aquilum, not a separate companion. Notes, live queries, and covers look the way they do on the desktop. On a narrow screen the tab strip becomes a tab picker, and the file tree and the side panels open from the buttons on either side of it. The screenshot shows the home page: today's date, the current time, and progress bars for the day, week, month, season, and year.
+
+Vaults live in the app's own folder, so file managers and sync tools can see them. Installation steps are in [Installation](#installation).
+
+![Aquilum home page on an Android phone](screenshots/android-home.jpg)
 
 ## Feature overview
 
