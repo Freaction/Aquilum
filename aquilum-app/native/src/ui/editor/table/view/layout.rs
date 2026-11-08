@@ -35,19 +35,19 @@ impl Table {
                 }
                 let width = xs[region.right + 1] - xs[c];
                 let styled = editing != Some((r, c));
-                let text = self.cells[r][c].clone();
+                let text = &self.cells[r][c];
                 let align = match self.aligns[c] {
                     Some(Align::Center) => Alignment::Center,
                     Some(Align::Right) => Alignment::End,
                     _ => Alignment::Start,
                 };
-                let (layout, decor) = make(&text, Some((width - pad * 2.0).max(1.0)), align, styled);
+                let (layout, decor) = make(text, Some((width - pad * 2.0).max(1.0)), align, styled);
                 let need = f64::from(layout.height()) + pad * 2.0;
                 let have: f64 = heights[r..=region.bottom].iter().sum();
                 if need > have {
                     heights[region.bottom] += need - have;
                 }
-                placed.push((r, c, region, layout, decor, text));
+                placed.push((r, c, region, layout, decor));
             }
         }
         let mut ys = vec![0.0];
@@ -56,7 +56,7 @@ impl Table {
         }
         let cells = placed
             .into_iter()
-            .map(|(row, col, region, layout, decor, text)| Cell { row, col, rect: Rect::new(xs[col], ys[row], xs[region.right + 1], ys[region.bottom + 1]), layout, decor, text })
+            .map(|(row, col, region, layout, decor)| Cell { row, col, rect: Rect::new(xs[col], ys[row], xs[region.right + 1], ys[region.bottom + 1]), layout, decor })
             .collect();
         let bar = if layout_w > scroll_w { size::SCROLLBAR_WIDTH } else { 0.0 };
         TableView { model: self.clone(), height: TOP + ys[n] + ADD + bar + PAD_Y, corner, scroll_w, layout_w, xs, ys, cells, columns, numbers }

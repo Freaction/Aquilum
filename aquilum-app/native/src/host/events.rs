@@ -51,6 +51,10 @@ impl Host {
         self.ime_inbox();
         let mut retitle = false;
         if let Some(root) = &mut self.root {
+            #[cfg(target_os = "linux")]
+            if let Some(dark) = self.system_theme.take() {
+                self.app.system_theme_changed(root, dark);
+            }
             retitle = self.app.on_core_events(root);
             if self.args.focus && let Some(editor) = self.app.editor_id() {
                 root.focus_on(Some(editor));

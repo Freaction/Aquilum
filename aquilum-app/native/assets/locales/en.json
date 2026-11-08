@@ -585,6 +585,7 @@
     "install": "Update"
   },
   "reader": {
+    "pdf": {"previousPage": "Previous page", "nextPage": "Next page", "zoomOut": "Zoom out", "zoomIn": "Zoom in", "fitWidth": "Fit width", "fitPage": "Fit page", "error": "Could not open PDF"},
     "openFailed": "Could not open the book",
     "title": "Reader",
     "book": "Book",
@@ -658,6 +659,9 @@
     }
   },
   "book": {
+    "fileActions": "Book actions",
+    "replaceFile": "Upload a new file",
+    "removeFile": "Remove book",
     "addPageCover": "Add a page cover",
     "replacePageCover": "Replace the page cover",
     "randomCover": "Random cover",

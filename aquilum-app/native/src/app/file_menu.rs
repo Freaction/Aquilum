@@ -153,6 +153,7 @@ impl App {
             Some(&MenuCommand::Table(command)) => self.table_command(root, command),
             Some(&MenuCommand::Note(command)) => return self.note_command(root, command),
             Some(&MenuCommand::Cover(action)) => self.cover_action(root, action),
+            Some(&MenuCommand::Book(command)) => self.book_command(root, command),
             None => {}
         }
         Outcome::default()

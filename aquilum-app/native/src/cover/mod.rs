@@ -3,7 +3,7 @@ mod jobs;
 mod motion;
 mod raster;
 
-pub use jobs::{Key, image, set_waker, take_finished, trim};
+pub use jobs::{Key, Pattern, image, set_waker, take_finished, trim};
 pub use raster::Cell;
 #[cfg(test)]
 pub use raster::expand;

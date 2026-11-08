@@ -112,6 +112,9 @@ impl Host {
     }
 
     pub(super) fn wheel_zoom(&mut self, up: bool) {
+        if let Some(root) = &mut self.root
+            && self.app.reader_zoom(root, if up { Command::ZoomIn } else { Command::ZoomOut })
+        { return; }
         let rescale = self.app.zoom(up);
         self.apply(crate::app::Outcome { rescale, ..Default::default() });
     }

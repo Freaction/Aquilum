@@ -58,7 +58,7 @@ impl ReaderView {
     }
 
     pub(super) fn side(&self, p: Point, pointer: PointerType) -> Option<Side> {
-        if !self.body.contains(p) {
+        if self.is_pdf() || !self.body.contains(p) {
             return None;
         }
         let nav = keymap::pointer::page_zone(pointer, self.body.width());

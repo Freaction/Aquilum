@@ -25,6 +25,9 @@ pub use offscreen::offscreen;
 pub use pixels::{brush, from_rgba};
 pub use renderer::Renderer;
 pub use surface::Surfaces;
+pub(crate) use paint::settings as render_settings;
+
+pub(super) const TRANSFORM_PRECISION: f64 = 4096.0;
 
 #[cfg(target_os = "android")]
 pub const PIXEL_FORMAT: vello_cpu::PixelFormat = vello_cpu::PixelFormat::Rgba8;

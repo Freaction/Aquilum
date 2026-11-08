@@ -12,11 +12,17 @@ impl ReaderView {
         let close_x = room.x1 - size::SPACE_12 - size::SIZE_32;
         ctx.run_layout(&mut self.close, button);
         ctx.place_child(&mut self.close, Point::new(close_x, y));
-        ctx.run_layout(&mut self.settings_button, button);
-        ctx.place_child(&mut self.settings_button, Point::new(close_x - size::SPACE_4 - size::SIZE_32, y));
+        let pdf = self.is_pdf();
+        ctx.set_stashed(&mut self.settings_button, pdf);
+        if !pdf {
+            ctx.run_layout(&mut self.settings_button, button);
+            ctx.place_child(&mut self.settings_button, Point::new(close_x - size::SPACE_4 - size::SIZE_32, y));
+        }
         self.body = Rect::new(room.x0, room.y0 + self.header + size::BORDER_1, room.x1, room.y1 - PROGRESS - size::BORDER_1);
+        let dpi = ctx.scale_factor();
         let (fcx, lcx) = ctx.text_contexts();
-        self.session.ensure(self.body.size(), &self.settings, fcx, lcx);
+        self.session.ensure(self.body.size(), &self.settings, dpi, fcx, lcx);
+        self.arrange_pdf(ctx);
         if let Some(popover) = &mut self.popover {
             let width = POPOVER_WIDTH.min(room.width() - size::SPACE_24);
             let auto = SizeDef::new(LenDef::FitContent(Length::px(width)), LenDef::MaxContent);

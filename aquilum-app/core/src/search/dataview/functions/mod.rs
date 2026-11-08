@@ -41,8 +41,8 @@ pub fn call(name: &str, arguments: Vec<Value>) -> Result<Value, String> {
         "ceil" => Ok(numbers::numeric(&arguments, f64::ceil)),
         "trunc" => Ok(numbers::numeric(&arguments, f64::trunc)),
         "abs" => Ok(numbers::numeric(&arguments, f64::abs)),
-        "sum" => Ok(Value::Number(numbers::numbers(first(&arguments)).iter().sum())),
-        "product" => Ok(Value::Number(numbers::numbers(first(&arguments)).iter().product())),
+        "sum" => Ok(Value::Number(numbers::numbers(first(&arguments)).sum())),
+        "product" => Ok(Value::Number(numbers::numbers(first(&arguments)).product())),
         "average" => Ok(numbers::average(first(&arguments))),
         "min" => Ok(numbers::extreme(first(&arguments), true)),
         "max" => Ok(numbers::extreme(first(&arguments), false)),
@@ -92,6 +92,13 @@ pub(in crate::search::dataview) fn available() -> String {
 
 pub fn first(arguments: &[Value]) -> &Value {
     arguments.first().unwrap_or(&Value::Null)
+}
+
+pub(super) fn items(value: &Value) -> &[Value] {
+    match value {
+        Value::List(items) => items,
+        other => std::slice::from_ref(other),
+    }
 }
 
 #[cfg(test)]
@@ -184,8 +191,24 @@ mod tests {
     fn aggregates_ignore_empty_values() {
         let list = Value::List(vec![Value::Number(3.0), Value::Null, Value::Number(10.0)]);
         assert_eq!(run("sum", vec![list.clone()]), Value::Number(13.0));
+        assert_eq!(run("product", vec![list.clone()]), Value::Number(30.0));
+        assert_eq!(run("average", vec![list.clone()]), Value::Number(6.5));
         assert_eq!(run("min", vec![list.clone()]), Value::Number(3.0));
         assert_eq!(run("max", vec![list]), Value::Number(10.0));
+        for name in ["min", "max", "average"] {
+            assert_eq!(run(name, vec![Value::Null]), Value::Null, "{name}");
+            assert_eq!(run(name, vec![Value::Number(7.0)]), Value::Number(7.0), "{name}");
+        }
+    }
+
+    #[test]
+    fn flat_and_slice_preserve_nested_values_and_range_edges() {
+        let list = Value::List(vec![Value::List(vec![text("а"), Value::Null]), text("б"), Value::List(Vec::new())]);
+        let flat = run("flat", vec![list]);
+        assert_eq!(flat, Value::List(vec![text("а"), Value::Null, text("б")]));
+        assert_eq!(run("slice", vec![flat.clone(), Value::Number(1.0), Value::Number(3.0)]), Value::List(vec![Value::Null, text("б")]));
+        assert_eq!(run("slice", vec![flat, Value::Number(3.0), Value::Number(1.0)]), Value::List(Vec::new()));
+        assert_eq!(run("slice", vec![text("а")]), Value::List(vec![text("а")]));
     }
 
     #[test]

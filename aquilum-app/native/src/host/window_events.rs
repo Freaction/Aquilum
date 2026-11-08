@@ -48,6 +48,12 @@ impl Host {
                 return;
             }
             WindowEvent::RedrawRequested => self.redraw(),
+            #[cfg(not(target_os = "linux"))]
+            WindowEvent::ThemeChanged(theme) => {
+                if let Some(root) = &mut self.root {
+                    self.app.system_theme_changed(root, theme == winit::window::Theme::Dark);
+                }
+            }
             WindowEvent::DragEntered { id, .. } => {
                 use winit::data_transfer::TypeHint;
                 use winit::event_loop::DndAction;

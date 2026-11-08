@@ -62,7 +62,7 @@ impl Line {
     }
 }
 
-fn cut(layout: &Layout<BrushIndex>, room: f64) -> Option<usize> {
+pub(crate) fn cut(layout: &Layout<BrushIndex>, room: f64) -> Option<usize> {
     let mut x = 0.0;
     for cluster in layout.lines().flat_map(|line| line.runs()).flat_map(|run| run.clusters()) {
         x += f64::from(cluster.advance());

@@ -72,9 +72,11 @@ impl App {
             .unwrap_or_else(|| file.strip_prefix(&workspace).unwrap_or(file).to_string_lossy().replace('\\', "/"));
         let bytes = std::fs::metadata(file).map_or(0, |m| m.len());
         let existing = fields.as_ref().and_then(|f| f.text(PAGES).map(str::to_owned));
-        let formatted = synthetic_pages(existing.as_deref(), bytes);
+        let pdf = crate::reader::pdf::is_pdf(file);
+        let formatted = if pdf { existing.clone().unwrap_or_else(|| "0/1".into()) } else { synthetic_pages(existing.as_deref(), bytes) };
         let (current, total) = frontmatter::parse_pages(&formatted).unwrap_or((0, 1));
         if let Some(page) = &page
+            && !pdf
             && existing.as_deref() != Some(formatted.as_str())
         {
             self.write_fields(root, page, Source::Reading, &[(PAGES, formatted.clone())]);
@@ -82,19 +84,25 @@ impl App {
         let workspace_id = self.workspace.core.ui_state.resolve_workspace(&workspace.to_string_lossy(), crate::dates::now_ms()).ok();
         let cached = workspace_id.and_then(|id| self.workspace.core.ui_state.load_reader_state(id, &key).ok().flatten());
         let active = initial.filter(|c| !c.trim().is_empty());
-        let target = match (active.clone(), cached) {
+        let target_position = match (active.clone(), cached) {
             (Some(cfi), _) => Target::Cfi(cfi),
+            (None, Some(state)) if pdf && page.is_none() && state.cfi.is_some() => Target::Cfi(state.cfi.unwrap_or_default()),
             _ if current == 0 => Target::Start,
             (None, Some(state)) if state.current == i64::from(current) && state.cfi.is_some() => Target::Cfi(state.cfi.unwrap_or_default()),
             _ => Target::Fraction(f64::from(current) / f64::from(total)),
         };
-        let Some(session) = Session::open(file, target) else {
-            report!("книга не открылась: {}", file.display());
-            return;
-        };
         let settings = reader_settings(&self.workspace.core.settings.get_config());
         let target = self.note.as_ref().map(|n| n.path.clone());
-        let (view, ids) = ReaderView::new(session, settings, title, total, target.is_some(), active);
+        let (view, ids) = if pdf {
+            let session = crate::reader::pdf::Session::open(file, target_position, std::sync::Arc::clone(&self.workspace.wake));
+            ReaderView::new_pdf(session, settings, title, total)
+        } else {
+            let Some(session) = Session::open(file, target_position) else {
+                report!("книга не открылась: {}", file.display());
+                return;
+            };
+            ReaderView::new(session, settings, title, total, target.is_some(), active)
+        };
         let layer = view.id();
         root.add_layer(view, Point::ORIGIN);
         root.focus_on(Some(layer));
@@ -127,6 +135,9 @@ impl App {
                     return Outcome::default();
                 }
             }
+        } else if action.downcast_ref::<Pressed>().is_some() && state.ids.pdf.contains(&id) {
+            let index = state.ids.pdf.iter().position(|&control| control == id).unwrap();
+            root.edit_widget(state.layer, |mut w| ReaderView::pdf_control(&mut w.downcast(), index));
         } else if action.downcast_ref::<Pressed>().is_some() && Some(id) == state.ids.quote {
             let quote = root.get_widget(state.layer).and_then(|w| w.downcast::<ReaderView>().and_then(|v| v.inner().quote()));
             if let Some((text, cfi)) = quote {
@@ -145,6 +156,26 @@ impl App {
         }
         self.popup = Some(Popup::Reader(state));
         Outcome::default()
+    }
+
+    pub(super) fn poll_reader(&mut self, root: &mut RenderRoot) {
+        let Some(Popup::Reader(state)) = &mut self.popup else { return };
+        let mut total = None;
+        root.edit_widget(state.layer, |mut w| total = ReaderView::poll_pdf(&mut w.downcast()));
+        if let Some(loaded) = total.filter(|&n| n > 0) { state.total = loaded; }
+    }
+
+    pub(super) fn drop_reader_frames(&self, root: &mut RenderRoot) {
+        if let Some(Popup::Reader(state)) = &self.popup {
+            root.edit_widget(state.layer, |mut w| ReaderView::trim_pdf(&mut w.downcast()));
+        }
+    }
+
+    pub fn reader_zoom(&mut self, root: &mut RenderRoot, command: crate::ui::keymap::Command) -> bool {
+        let Some(Popup::Reader(state)) = &self.popup else { return false };
+        let mut handled = false;
+        root.edit_widget(state.layer, |mut w| handled = ReaderView::pdf_zoom(&mut w.downcast(), command));
+        handled
     }
 
     fn toggle_reader_settings(&mut self, root: &mut RenderRoot, state: &mut ReaderState) {

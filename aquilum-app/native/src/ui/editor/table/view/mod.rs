@@ -36,7 +36,6 @@ pub struct Cell {
     pub rect: Rect,
     pub layout: Layout<BrushIndex>,
     pub decor: Decor,
-    pub text: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

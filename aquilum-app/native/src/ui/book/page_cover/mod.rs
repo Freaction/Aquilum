@@ -1,4 +1,7 @@
 mod widget;
+mod art;
+#[cfg(test)]
+mod tests;
 
 use super::*;
 
@@ -9,9 +12,9 @@ pub struct PageCover {
     drag: Option<(f64, f64)>,
     actions: WidgetPod<Slot>,
     more: Option<WidgetPod<Slot>>,
-    book: Option<WidgetPod<TextButton>>,
+    book: Option<WidgetPod<dyn Widget>>,
     show_actions: bool,
-    baked: Option<(BakeKey, ImageBrush)>,
+    art: art::Art,
     live: Option<ImageBrush>,
 }
 
@@ -24,10 +27,10 @@ impl Drop for PageCover {
 }
 
 impl PageCover {
-    pub(super) fn new(visual: Visual, position: f64, actions: NewWidget<ActionBar>, more: Option<NewWidget<IconButton>>, book: Option<NewWidget<TextButton>>) -> NewWidget<Self> {
+    pub(super) fn new(visual: Visual, position: f64, actions: NewWidget<ActionBar>, more: Option<NewWidget<IconButton>>, book: Option<NewWidget<dyn Widget>>) -> NewWidget<Self> {
         let appear = |widget: NewWidget<dyn Widget>| Slot::appear(Slot::fit(widget), FAST).to_pod();
         let (actions, more) = (appear(actions.erased()), more.map(|more| appear(more.erased())));
-        NewWidget::new(PageCover { visual, position, repositioning: false, drag: None, actions, more, book: book.map(NewWidget::to_pod), show_actions: false, baked: None, live: None })
+        NewWidget::new(PageCover { visual, position, repositioning: false, drag: None, actions, more, book: book.map(NewWidget::to_pod), show_actions: false, art: art::Art::default(), live: None })
     }
 
     pub fn refresh(this: &mut WidgetMut<'_, Self>) {

@@ -2,6 +2,8 @@ use super::*;
 use crate::reader::tests::sample_fb2;
 
 mod pages;
+mod formats;
+mod pdf;
 mod quotes;
 mod shots;
 

@@ -38,6 +38,7 @@ impl Region {
 
 pub(super) struct Past {
     pub(super) id: u64,
+    pub(super) viewport: Rect,
     pub(super) offset: f64,
     pub(super) above: Vec<Rect>,
 }
@@ -53,7 +54,13 @@ impl Tracker {
         let mut moves = Vec::new();
         for (region, shift) in self.regions.iter().zip(shifts) {
             let Some(dy) = *shift else { continue };
+            let content = self.draws.iter().chain(&self.previous).filter(|d| d.region == Some(region.id) && !d.steady).map(|d| d.rect).reduce(|a, b| a.union(b));
+            let Some(content) = content else { continue };
             let past = self.past.iter().find(|p| p.id == region.id);
+            if let Some(past) = past.filter(|p| p.viewport != region.viewport) {
+                rects.extend([past.viewport, region.viewport]);
+                continue;
+            }
             if region.blocked || dy.abs() >= region.viewport.height() {
                 rects.push(region.viewport);
                 continue;
@@ -64,8 +71,6 @@ impl Tracker {
                 let hit = |d: &Draw| d.region == Some(region.id) && !d.steady && overlap(d.rect, area);
                 self.draws.iter().any(hit) || self.previous.iter().any(hit)
             };
-            let content = self.draws.iter().chain(&self.previous).filter(|d| d.region == Some(region.id) && !d.steady).map(|d| d.rect).reduce(|a, b| a.union(b));
-            let Some(content) = content else { continue };
             let mut moved = Rect::new(vp.x0.floor().max(content.x0.floor()), inner.y0, vp.x1.ceil().min(content.x1.ceil()), inner.y1).intersect(self.frame);
             for above in &region.above {
                 if above.y0 > inner.y0 + 1.0 || above.y1 < inner.y1 - 1.0 {

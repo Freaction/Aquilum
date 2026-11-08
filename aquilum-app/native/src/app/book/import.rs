@@ -4,7 +4,8 @@ use std::sync::Arc;
 use masonry::app::RenderRoot;
 
 use super::super::App;
-use crate::frontmatter::{self, BOOK_COVER, BOOK_FILE, COVER, PAGE_COVER, PAGE_COVER_POSITION, PAGES, READER_POSITION};
+use super::BOOK_EXTENSIONS;
+use crate::frontmatter::{self, BOOK_COVER, BOOK_FILE, COVER, PAGE_COVER, PAGE_COVER_POSITION, PAGES, READER_POSITION, READ_PERCENT};
 use crate::ui::widgets::TextButton;
 use crate::vault_files::{self, Source};
 
@@ -18,7 +19,6 @@ pub(in crate::app) enum Picked {
     Book(PathBuf, Option<PathBuf>),
 }
 
-const BOOK_EXTENSIONS: [&str; 6] = ["epub", "fb2", "mobi", "azw3", "azw", "prc"];
 const BYTES_PER_PAGE: u64 = 1024;
 
 pub(in crate::app) fn synthetic_pages(existing: Option<&str>, bytes: u64) -> String {
@@ -43,6 +43,10 @@ impl App {
             }
             return;
         }
+        self.pick_book(root);
+    }
+
+    pub(super) fn pick_book(&mut self, root: &mut RenderRoot) {
         let Some(note) = self.note.as_ref().map(|n| n.path.clone()) else { return };
         self.set_book_busy(root, true);
         self.pick(move || Some(Picked::Book(note, crate::native_dialog::pick_file("Books", &BOOK_EXTENSIONS))));
@@ -60,8 +64,10 @@ impl App {
     }
 
     fn set_book_busy(&self, root: &mut RenderRoot, busy: bool) {
-        if let Some(button) = self.note_ids.as_ref().and_then(|n| n.hero.1.book_button) {
-            button.edit(root, |mut b| TextButton::set_disabled(&mut b, busy));
+        if let Some(ids) = self.note_ids.as_ref().map(|n| &n.hero.1) {
+            for button in [ids.book_button.map(|b| b.id()), ids.book_menu].into_iter().flatten() {
+                root.edit_widget(button, |mut b| TextButton::set_disabled(&mut b.downcast(), busy));
+            }
         }
     }
 
@@ -70,8 +76,9 @@ impl App {
         match vault_files::import(&self.workspace.core, &workspace, Source::Path(file), "book", "epub") {
             Ok(relative) => {
                 let bytes = std::fs::metadata(file).map_or(0, |m| m.len());
-                let existing = self.fields().and_then(|f| f.text(PAGES).map(str::to_owned));
-                self.set_fields(root, &[(BOOK_FILE, relative), (PAGES, synthetic_pages(existing.as_deref(), bytes))]);
+                self.reset_book_position();
+                let pages = if crate::reader::pdf::is_pdf(file) { String::new() } else { synthetic_pages(None, bytes) };
+                self.set_fields(root, &[(BOOK_FILE, relative), (PAGES, pages), (READER_POSITION, String::new()), (READ_PERCENT, "0".into())]);
             }
             Err(error) => report!("книга не загружена: {error:?}"),
         }

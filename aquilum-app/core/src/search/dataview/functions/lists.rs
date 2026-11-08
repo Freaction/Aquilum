@@ -1,4 +1,4 @@
-use super::first;
+use super::{first, items};
 use super::super::value::Value;
 
 pub fn reverse(value: &Value) -> Value {
@@ -39,10 +39,8 @@ pub fn flat(value: &Value) -> Value {
         Value::List(items) => Value::List(
             items
                 .iter()
-                .flat_map(|item| match item {
-                    Value::List(inner) => inner.clone(),
-                    other => vec![other.clone()],
-                })
+                .flat_map(super::items)
+                .cloned()
                 .collect(),
         ),
         other => other.clone(),
@@ -50,17 +48,14 @@ pub fn flat(value: &Value) -> Value {
 }
 
 pub fn slice(arguments: &[Value]) -> Value {
-    let items = match first(arguments) {
-        Value::List(items) => items.clone(),
-        other => vec![other.clone()],
-    };
+    let items = items(first(arguments));
     let from = arguments.get(1).and_then(Value::as_number).unwrap_or(0.0).max(0.0) as usize;
     let to = arguments
         .get(2)
         .and_then(Value::as_number)
         .map(|value| value.max(0.0) as usize)
         .unwrap_or(items.len());
-    Value::List(items.into_iter().take(to).skip(from).collect())
+    Value::List(items.iter().take(to).skip(from).cloned().collect())
 }
 
 pub fn edge(value: &Value, leading: bool) -> Value {

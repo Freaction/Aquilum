@@ -68,7 +68,7 @@ fn narrow_screen_lowers_covers_and_keeps_the_book_proportions() {
 fn cover_controls_sit_as_far_from_the_top_as_from_the_right() {
     let h = open(1000.0, BOOK);
     let cover = bounds(&h, ids(&h).cover.unwrap().id());
-    let control = bounds(&h, ids(&h).book_button.expect("кнопка книги на обложке").id());
+    let control = bounds(&h, ids(&h).book_button.expect("кнопка книги на обложке").id()).union(bounds(&h, ids(&h).book_menu.expect("меню файла книги")));
     let (top, right) = (control.y0 - cover.y0, cover.x1 - control.x1);
     assert!((top - size::BOOK_CONTROLS_INSET).abs() < 0.5 && (right - size::BOOK_CONTROLS_INSET).abs() < 0.5, "отступы кнопки сверху {top} и справа {right}");
 }

@@ -8,6 +8,15 @@ pub(crate) fn sample_fb2() -> String {
     fb2("Съешь же ещё этих мягких французских булок да выпей чаю, повторяя это снова и снова.")
 }
 
+pub(crate) fn sample_book(extension: &str) -> Vec<u8> {
+    match extension {
+        "fb2" => sample_fb2().into_bytes(),
+        "epub" => include_bytes!("../../tests/fixtures/reader/sample.epub").to_vec(),
+        "pdf" => super::pdf::tests::sample_pdf(),
+        _ => include_bytes!("../../tests/fixtures/reader/sample.mobi").to_vec(),
+    }
+}
+
 pub(crate) fn settings(size: f32, scrolled: bool) -> super::page::Settings {
     super::page::Settings { family: "iA Writer Quattro".into(), size, weight: 400.0, line_height: 1.6, justify: true, hyphenate: true, max_width_ch: 65, margin: 48.0, scrolled }
 }

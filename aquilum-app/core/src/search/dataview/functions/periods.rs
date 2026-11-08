@@ -1,5 +1,5 @@
 use super::dates::{as_date, date};
-use super::first;
+use super::{first, items};
 use super::super::constants::{DEFAULT_DASH, DEFAULT_ZERO_DELTA};
 use super::super::duration;
 use super::super::span;
@@ -52,10 +52,7 @@ pub fn count(arguments: &[Value]) -> Value {
         return Value::Null;
     }
     let period = arguments.get(1);
-    let moments = match first(arguments) {
-        Value::List(items) => items.clone(),
-        other => vec![other.clone()],
-    };
+    let moments = items(first(arguments));
     if let Some(period) = period {
         let found = moments
             .iter()

@@ -19,10 +19,16 @@ impl ReaderView {
         let title = if self.title.is_empty() { t("reader.book") } else { self.title.clone() };
         let layout = self.title_line.layout(ctx, &title, inner, Style::ui(line));
         render_text(painter, Affine::translate((centered(layout.width()), top)), layout, &[tm.text_primary.into()], true);
-        let pages = format!("{}/{}", self.current(), self.total);
+        let pages = match self.session.pdf() {
+            Some(pdf) => format!("{}/{} · {:.0}%", self.current(), self.total, pdf.scale() * 100.0),
+            None => format!("{}/{}", self.current(), self.total),
+        };
         let layout = self.pages_line.layout(ctx, &pages, inner, Style::ui(line));
         render_text(painter, Affine::translate((centered(layout.width()), top + line + size::SPACE_2)), layout, &[tm.text_secondary.into()], true);
 
+        if self.is_pdf() {
+            self.draw_pdf(ctx, painter);
+        } else {
         let body = self.body;
         let offset = body.origin().to_vec2();
         let marks = self.quote_shapes();
@@ -99,6 +105,8 @@ impl ReaderView {
                 let glyph = size::SIZE_24;
                 icon.draw(painter, Point::new(x, body.center().y) - Vec2::new(glyph / 2.0, glyph / 2.0), glyph, 2.0, color);
             }
+        }
+
         }
 
         let footer = room.y1 - PROGRESS - size::BORDER_1;

@@ -167,6 +167,10 @@ impl UiStateService {
         self.with_database(|database| database.load_reader_state(workspace_id, book_file))
     }
 
+    pub fn delete_reader_state(&self, workspace_id: Uuid, book_file: &str) -> Result<(), UiStateError> {
+        self.with_database(|database| database.delete_reader_state(workspace_id, book_file))
+    }
+
     pub fn save_reader_state(
         &self,
         input: &super::models::SaveReaderStateInput,

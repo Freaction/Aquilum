@@ -24,7 +24,8 @@ pub(super) struct Gpu {
 }
 
 pub(super) fn capacity(need: u32, have: u32) -> u32 {
-    if need <= have { have } else { need.next_multiple_of(GROWTH) }
+    let rounded = need.next_multiple_of(GROWTH);
+    if need > have || rounded <= have / 2 { rounded } else { have }
 }
 
 fn device(driver: D3D_DRIVER_TYPE) -> windows::core::Result<(ID3D11Device, ID3D11DeviceContext)> {

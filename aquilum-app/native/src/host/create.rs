@@ -11,6 +11,8 @@ impl Host {
         let attributes = attributes.with_platform_attributes(Box::new(
             winit::platform::windows::WindowAttributesWindows::default().with_undecorated_shadow(true).with_class_name(crate::instance::WINDOW_CLASS),
         ));
+        #[cfg(target_os = "linux")]
+        let attributes = linux::attributes(attributes, event_loop);
         let attributes = match self.args.size {
             Some(size) => attributes.with_surface_size(size),
             None => attributes.with_surface_size(self.window_state.size()),
@@ -24,7 +26,11 @@ impl Host {
         cloak(&*window, true);
         self.restore_maximized(&*window);
         self.metrics.window_created(self.started, window.scale_factor());
-        let widget = self.app.root_widget(window.theme() == Some(winit::window::Theme::Dark));
+        #[cfg(not(target_os = "linux"))]
+        let system_dark = window.theme() == Some(winit::window::Theme::Dark);
+        #[cfg(target_os = "linux")]
+        let system_dark = self.system_theme.current().unwrap_or(false);
+        let widget = self.app.root_widget(system_dark);
         let options = RenderRootOptions {
             default_properties: Arc::new(ui::theme::default_properties()),
             use_system_fonts: true,

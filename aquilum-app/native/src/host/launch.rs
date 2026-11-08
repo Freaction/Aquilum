@@ -16,6 +16,11 @@ pub fn run(args: Args, mut event_loop: EventLoop) -> Result<(), String> {
     let proxy = event_loop.create_proxy();
     let vsync_proxy = event_loop.create_proxy();
     let vsync = crate::vsync::Vsync::new(move || vsync_proxy.wake_up());
+    #[cfg(target_os = "linux")]
+    let system_theme = {
+        let proxy = event_loop.create_proxy();
+        linux::Theme::new(move || proxy.wake_up())
+    };
     #[cfg(target_os = "android")]
     {
         let ime_proxy = event_loop.create_proxy();
@@ -72,6 +77,8 @@ pub fn run(args: Args, mut event_loop: EventLoop) -> Result<(), String> {
         click: None,
         touch: touch::Touch::default(),
         ime_text: None,
+        #[cfg(target_os = "linux")]
+        system_theme,
     };
     #[cfg(feature = "memory-probe")]
     {

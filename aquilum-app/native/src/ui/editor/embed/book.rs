@@ -24,26 +24,22 @@ fn clipped(text: &str, width: f64, spec: impl Fn(&str) -> Spec<'_>, make: &mut d
     if f64::from(layout.width()) <= width {
         return layout;
     }
-    let chars: Vec<(usize, char)> = text.char_indices().collect();
-    let (mut lo, mut hi) = (0, chars.len());
-    while lo < hi {
-        let mid = (lo + hi).div_ceil(2);
-        let candidate = format!("{}{ELLIPSIS}", &text[..chars[mid].0]);
-        if f64::from(make(&spec(&candidate)).width()) <= width { lo = mid } else { hi = mid - 1 }
-    }
-    let shown = format!("{}{ELLIPSIS}", &text[..chars.get(lo).map_or(text.len(), |c| c.0)]);
+    let ellipsis = make(&spec(ELLIPSIS));
+    let end = crate::ui::text::cut(&layout, width - f64::from(ellipsis.width())).unwrap_or(text.len());
+    if end == 0 { return ellipsis; }
+    let shown = format!("{}{ELLIPSIS}", &text[..end]);
     make(&spec(&shown))
 }
 
 fn row(items: &mut Vec<Item>, hits: &mut Vec<(Rect, super::Action, Option<f64>)>, entry: &Row, top: f64, available: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) {
     let pad = PAD;
     let book = match &entry.book {
-        Fetch::Ready(book) => book.clone(),
+        Fetch::Ready(book) => book,
         _ => return,
     };
     let cover = Rect::new(pad, top + pad, pad + COVER_W, top + pad + COVER_H).to_rounded_rect(COVER_RADIUS);
     items.push(Item::Fill(cover, Tone::CoverBg));
-    items.push(Item::Image(cover, book.cover.unwrap_or_else(crate::images::default_book_cover), FULL));
+    items.push(Item::Image(cover, book.cover.clone().unwrap_or_else(crate::images::default_book_cover), FULL));
     let ui = size::FONT_SIZE_UI_BASE as u8;
     let progress_text = book.pages.map_or_else(|| t("book.progressUnknown"), |(a, b)| t_with("book.progress", &[("current", &a.to_string()), ("total", &b.to_string())]));
     let done = book.pages.is_some_and(|(a, b)| b > 0 && a >= b);
@@ -96,4 +92,27 @@ pub fn books(rows: &[Row], available: f64, make: &mut dyn FnMut(&Spec) -> Layout
         row(&mut items, &mut hits, entry, top, available, make);
     }
     Drawing { hits, ..Drawing::card(available, height, items) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use masonry::parley::{FontContext, LayoutContext};
+
+    #[test]
+    fn a_short_book_title_can_be_clipped_to_a_tiny_width_cover_audit() {
+        let _lock = crate::ui::theme::test_lock();
+        let (mut fcx, mut lcx) = (FontContext::new(), LayoutContext::new());
+        let mut make = |spec: &Spec<'_>| {
+            let style = crate::ui::text::Style::ui(20.0);
+            let font = crate::ui::theme::ui_font_settings();
+            let mut layout = crate::ui::text::builder(&mut fcx, &mut lcx, spec.text, crate::ui::theme::ui_font(&font.family), style).build(spec.text);
+            layout.break_all_lines(None);
+            layout
+        };
+        for text in ["Ж", "😀", "a界", "Название книги"] {
+            let layout = clipped(text, 0.1, |s| Spec::plain(s, Font::Editor, TEXT), &mut make);
+            assert!(layout.lines().next().is_some(), "missing ellipsis for {text}");
+        }
+    }
 }

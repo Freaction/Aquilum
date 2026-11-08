@@ -150,11 +150,14 @@ impl Renderer {
 
     #[allow(clippy::too_many_arguments)]
     pub fn draw(&mut self, layers: &VisualLayerPlan, width: u16, height: u16, scale: f64, background: Color, full: bool, canvas: &mut dyn Canvas) -> Result<Vec<Area>, PaintError> {
-        self.params = Some((width, height, scale, background));
+        let params = Some((width, height, scale, background));
+        let full = full || self.params != params;
+        self.params = params;
         if full {
             self.stamps.forget();
             self.sprite_stamps.forget();
             self.stamped = None;
+            self.sprites.clear();
         }
         let seconds = live::seconds();
         let restored = self.stamps.restore(canvas);

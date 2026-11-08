@@ -2,8 +2,6 @@ use aquilum_core::recent::Recent;
 
 use super::*;
 
-pub(super) type BakeKey = (u16, u16, usize, u64, i64);
-
 pub(super) fn theme_id() -> usize {
     theme::generation()
 }
@@ -16,33 +14,6 @@ pub(super) fn bake(size: Size, scale: f64, draw: impl FnOnce(&mut Painter<'_>)) 
     }
     let (dw, dh) = device(Rect::from_origin_size(Point::ORIGIN, size), scale);
     crate::render::offscreen(dw, dh, |painter| replay_transformed(&scene, painter.sink_mut(), Affine::scale(scale)))
-}
-
-pub(super) fn cover_body(painter: &mut Painter<'_>, bounds: Rect, visual: &Visual, position: f64, pattern: Option<&ImageBrush>, scale: f64) {
-    let tm = theme::current();
-    let shape = RoundedRect::from_rect(bounds, size::BOOK_COVER_RADIUS);
-    painter.with_fill_clip(shape, |painter| {
-        painter.fill(bounds, tm.bg_sunken).draw();
-        match visual {
-            Visual::Pattern(id) => {
-                painter.fill(bounds, cover::base_color(id)).draw();
-                if let Some(image) = pattern {
-                    painter.fill(bounds, image).brush_transform(Some(Affine::translate(bounds.origin().to_vec2()) * Affine::scale(1.0 / scale))).draw();
-                }
-            }
-            Visual::Image(image) => {
-                let (w, h) = (f64::from(image.image.width), f64::from(image.image.height));
-                let k = (bounds.width() / w).max(bounds.height() / h);
-                let (dw, dh) = (w * k, h * k);
-                let x = bounds.x0 + (bounds.width() - dw) / 2.0;
-                let y = bounds.y0 + (bounds.height() - dh) * position / 100.0;
-                painter.draw_image(image, Affine::translate((x, y)) * Affine::scale(k));
-            }
-        }
-        if !theme::is_dark() {
-            paint_rays(painter, Rect::new(bounds.x1 - RAYS_WIDTH, bounds.y0, bounds.x1, bounds.y1), scale);
-        }
-    });
 }
 
 pub(super) fn linear(from: Point, to: Point, stops: &[(f32, Color)]) -> Gradient {

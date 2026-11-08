@@ -18,8 +18,11 @@ fn registry() -> &'static Mutex<HashMap<u64, Weak<Pixmap>>> {
 }
 
 pub fn brush(pixmap: Pixmap) -> ImageBrush {
+    shared_brush(Arc::new(pixmap))
+}
+
+pub(super) fn shared_brush(pixmap: Arc<Pixmap>) -> ImageBrush {
     let (width, height) = (u32::from(pixmap.width()), u32::from(pixmap.height()));
-    let pixmap = Arc::new(pixmap);
     let data = Blob::new(Arc::new(Shared(Arc::clone(&pixmap))));
     let mut registry = registry().lock().unwrap_or_else(|e| e.into_inner());
     registry.retain(|_, weak| weak.strong_count() > 0);

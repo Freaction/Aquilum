@@ -88,6 +88,7 @@ pub(in crate::app) enum MenuCommand {
     Table(crate::ui::editor::TableCommand),
     Note(note_page::menu::NoteCommand),
     Cover(crate::ui::book::CoverAction),
+    Book(book::BookCommand),
 }
 
 #[derive(Default)]

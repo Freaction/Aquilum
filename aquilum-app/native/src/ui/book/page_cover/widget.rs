@@ -67,41 +67,18 @@ impl Widget for PageCover {
         let tm = theme::current();
         let bounds = ctx.content_box();
         let scale = ctx.scale_factor();
-        let pattern = match &self.visual {
+        let request = match &self.visual {
             Visual::Pattern(id) => {
                 let span = if cover::centered(id) { bounds.width() } else { ctx.window_size().width.max(bounds.width()) };
                 let width = ((span * scale / 128.0).ceil() * 128.0) as u32;
                 let height = (bounds.height() * scale).ceil() as u32;
                 let key = cover::Key { id, width: width.max(1), height: height.max(1), scale: (scale * 1000.0).round() as u32 };
-                cover::image(key)
+                Some(key)
             }
             Visual::Image(_) => None,
         };
-        let exact = matches!(self.visual, Visual::Image(_)) || pattern.as_ref().is_some_and(|p| p.exact);
-        let ready = matches!(self.visual, Visual::Image(_)) || pattern.is_some();
-        let pattern = pattern.map(|p| p.image);
-        if self.repositioning || !exact {
-            cover_body(painter, bounds, &self.visual, self.position, pattern.as_ref(), scale);
-        } else {
-            let (dw, dh) = device(bounds, scale);
-            let source = match &self.visual {
-                Visual::Pattern(id) => id.as_ptr() as u64,
-                Visual::Image(image) => image.image.data.id(),
-            };
-            let key = (dw, dh, theme_id(), source, (self.position * 10.0).round() as i64);
-            if self.baked.as_ref().map(|(k, _)| *k) != Some(key) {
-                let local = Rect::from_origin_size(Point::ORIGIN, bounds.size());
-                let (visual, position) = (&self.visual, self.position);
-                self.baked = bake(bounds.size(), scale, |painter| cover_body(painter, local, visual, position, pattern.as_ref(), scale)).map(|image| (key, image.with_quality(ImageQuality::Low)));
-            }
-            match &self.baked {
-                Some((_, image)) => painter.draw_image(image, Affine::translate(bounds.origin().to_vec2()) * Affine::scale(1.0 / scale)),
-                None => cover_body(painter, bounds, &self.visual, self.position, pattern.as_ref(), scale),
-            }
-        }
-        if let Some(id) = self.motion()
-            && ready
-        {
+        self.art.paint(painter, bounds, scale, request, &self.visual, self.position, self.repositioning, || request.and_then(cover::image));
+        if let Some(id) = self.motion() {
             let motion = crate::render::live::Motion { pattern: id, viewport: ctx.window_size().height };
             let marker = self.live.get_or_insert_with(|| crate::render::live::marker(motion));
             crate::render::live::update(marker, motion);
@@ -131,7 +108,7 @@ impl Widget for PageCover {
     }
 }
 
-fn place_left_of(ctx: &mut LayoutCtx<'_>, pod: &mut WidgetPod<impl Widget>, right: f64, room: Size, middle: &mut Option<f64>) -> f64 {
+fn place_left_of(ctx: &mut LayoutCtx<'_>, pod: &mut WidgetPod<impl Widget + ?Sized>, right: f64, room: Size, middle: &mut Option<f64>) -> f64 {
     let size_ = ctx.compute_size(pod, SizeDef::new(LenDef::MaxContent, LenDef::MaxContent), room.into());
     ctx.run_layout(pod, size_);
     let middle = *middle.get_or_insert(size::BOOK_CONTROLS_INSET + size_.height / 2.0);

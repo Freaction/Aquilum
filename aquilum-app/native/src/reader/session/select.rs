@@ -114,10 +114,11 @@ impl Session {
     }
 
     pub fn resolve(&self, cfi: &str) -> Option<(Spot, Spot)> {
-        let (index, start, end) = self.book.resolve(cfi)?;
-        if index != self.section {
+        let parsed = crate::reader::cfi::parse(cfi);
+        if parsed.section()? != self.section {
             return None;
         }
+        let (_, start, end) = self.book.resolve_parsed(&parsed)?;
         let (sb, sy) = self.locate(start)?;
         let (eb, ey) = self.locate(end)?;
         Some((Spot { block: sb, byte: sy }, Spot { block: eb, byte: ey }))

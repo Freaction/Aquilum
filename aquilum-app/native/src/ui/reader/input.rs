@@ -6,7 +6,7 @@ impl ReaderView {
         if k.state != KeyState::Down {
             return;
         }
-        let command = keymap::command(&[Scope::Text, Scope::Reader], &k.key, k.modifiers);
+        let command = keymap::command(&[Scope::Text, Scope::Reader, Scope::Global], &k.key, k.modifiers);
         if command == Some(Command::Copy) && self.popover.is_none() {
             if let Some((from, to)) = self.ordered() {
                 ctx.set_clipboard(self.session.text(from, to));
@@ -19,6 +19,10 @@ impl ReaderView {
                 ctx.submit_action::<ReaderAction>(if self.popover.is_some() { ReaderAction::Settings } else { ReaderAction::Close });
             }
             _ if self.popover.is_some() => return,
+            Some(command @ (Command::ZoomIn | Command::ZoomOut | Command::ZoomReset)) if self.is_pdf() => {
+                self.zoom_pdf(command);
+                ctx.request_layout();
+            }
             Some(Command::NextPage) => self.turn(ctx, Side::Next),
             Some(Command::PreviousPage) => self.turn(ctx, Side::Prev),
             _ => return,
@@ -27,6 +31,7 @@ impl ReaderView {
     }
 
     pub(super) fn pointer_event(&mut self, ctx: &mut EventCtx<'_>, event: &PointerEvent) {
+        if self.is_pdf() { self.pdf_pointer(ctx, event); return; }
         match event {
             PointerEvent::Move(update) => {
                 let p = ctx.local_position(update.current.position);

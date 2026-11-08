@@ -20,6 +20,9 @@ use crate::reader::page::{Item, Settings};
 use crate::reader::session::{Session, Spot};
 
 mod arrange;
+mod content;
+mod pdf;
+use content::Content;
 mod input;
 mod motion;
 mod paint;
@@ -46,9 +49,13 @@ enum Side {
 }
 
 pub struct ReaderView {
+    layer_id: Option<u64>,
     intro: crate::ui::widgets::Intro,
-    session: Session,
+    session: Content,
     settings: Settings,
+    pdf_controls: Vec<WidgetPod<IconButton>>,
+    pdf_drag: Option<Point>,
+    pdf_bar: Rect,
     title: String,
     total: u32,
     fraction: f64,
@@ -87,4 +94,5 @@ pub struct ReaderIds {
     pub settings: WidgetId,
     pub close: WidgetId,
     pub quote: Option<WidgetId>,
+    pub pdf: Vec<WidgetId>,
 }

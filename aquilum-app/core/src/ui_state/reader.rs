@@ -6,6 +6,14 @@ use rusqlite::{params, OptionalExtension};
 const MAX_CFI_LEN: usize = 16_384;
 
 impl UiStateDatabase {
+    pub fn delete_reader_state(&self, workspace_id: uuid::Uuid, book_file: &str) -> Result<(), UiStateError> {
+        self.connection.execute(
+            "DELETE FROM reader_states WHERE workspace_id = ?1 AND book_file = ?2",
+            params![workspace_id.to_string(), book_file],
+        )?;
+        Ok(())
+    }
+
     pub fn load_reader_state(
         &self,
         workspace_id: uuid::Uuid,
@@ -86,5 +94,7 @@ mod tests {
             .expect("row");
         assert_eq!(loaded.current, 42);
         assert_eq!(loaded.cfi.as_deref(), Some("epubcfi(/6/2)"));
+        database.delete_reader_state(workspace_id, "Files/book.epub").expect("delete");
+        assert!(database.load_reader_state(workspace_id, "Files/book.epub").expect("load after delete").is_none());
     }
 }

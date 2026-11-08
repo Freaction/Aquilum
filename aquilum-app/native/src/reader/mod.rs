@@ -6,6 +6,7 @@ pub mod flow;
 pub mod hyphen;
 mod mobi;
 pub mod page;
+pub mod pdf;
 pub mod quotes;
 pub mod session;
 mod text;
@@ -65,6 +66,15 @@ impl Book {
         section.dom.get_or_init(|| self.epub.as_ref().and_then(|e| e.section(index))).as_ref()
     }
 
+    fn keep_section(&mut self, index: usize) {
+        // EPUB chapters can be decoded again from the archive. FB2/MOBI DOMs are the source.
+        if self.epub.is_some() {
+            for (at, section) in self.sections.iter_mut().enumerate() {
+                if at != index { section.dom.take(); }
+            }
+        }
+    }
+
     pub fn size(&self, index: usize) -> usize {
         match &self.epub {
             Some(epub) => epub.size(index),
@@ -83,7 +93,10 @@ impl Book {
     }
 
     pub fn resolve(&self, source: &str) -> Option<(usize, Point, Point)> {
-        let parsed = cfi::parse(source);
+        self.resolve_parsed(&cfi::parse(source))
+    }
+
+    fn resolve_parsed(&self, parsed: &cfi::Cfi) -> Option<(usize, Point, Point)> {
         let index = parsed.section()?;
         let (start, end) = cfi::resolve(self.document(index)?, &parsed.local())?;
         Some((index, start, end))

@@ -69,6 +69,7 @@ pub struct HeroIds {
     pub thumbnail: Option<Handle<Thumbnail>>,
     pub replace_book: Option<WidgetId>,
     pub book_button: Option<Handle<TextButton>>,
+    pub book_menu: Option<WidgetId>,
 }
 
 #[derive(Debug)]

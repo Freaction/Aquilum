@@ -6,6 +6,8 @@ use crate::reader::tests::{book_file, sample_fb2, settings};
 
 const VIEW: Size = Size::new(1200.0, 800.0);
 
+mod cache;
+
 fn open() -> (Session, tempfile::TempDir) {
     let (dir, file) = book_file(sample_fb2());
     (Session::open(&file, Target::Start).unwrap(), dir)

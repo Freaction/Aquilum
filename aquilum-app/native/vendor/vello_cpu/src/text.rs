@@ -250,12 +250,7 @@ impl Resources {
                         *t = shift * *t;
                     }
                 }
-                if glyph_renderer.width() != w || glyph_renderer.height() != h {
-                    let settings = *glyph_renderer.render_settings();
-                    *glyph_renderer = RenderContext::new_with(w, h, settings);
-                } else {
-                    glyph_renderer.reset();
-                }
+                glyph_renderer.reset_and_resize(w, h);
                 renderer::replay_atlas_commands(&mut recorder.commands, glyph_renderer);
                 glyph_renderer.flush();
                 glyph_renderer.render_with(

@@ -2,8 +2,12 @@ const WIDEST: f64 = 480.0;
 pub const NARROWEST: f64 = 96.0;
 
 pub fn fit(natural: &[f64], room: f64, narrowest: f64) -> Vec<f64> {
+    fit_with_minimum(natural, room, |_| narrowest)
+}
+
+pub fn fit_with_minimum(natural: &[f64], room: f64, minimum: impl Fn(usize) -> f64) -> Vec<f64> {
     let capped: Vec<f64> = natural.iter().map(|w| w.min(WIDEST)).collect();
-    let floor: Vec<f64> = capped.iter().map(|w| w.min(narrowest)).collect();
+    let floor: Vec<f64> = capped.iter().enumerate().map(|(c, w)| w.min(minimum(c))).collect();
     let widths = if capped.iter().sum::<f64>() <= room { between(&capped, natural, room) } else { between(&floor, &capped, room) };
     let total: f64 = widths.iter().sum();
     if total > 0.0 && total < room { widths.iter().map(|w| w * room / total).collect() } else { widths }

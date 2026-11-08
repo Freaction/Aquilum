@@ -29,6 +29,26 @@ pub(super) fn open_wide_table(mut h: Harness) -> Harness {
 }
 
 #[test]
+fn home_progress_table_fits_a_phone_column() {
+    let scale = 2.625;
+    let mut h = Harness::with(None, scale);
+    let query = "TABLE WITHOUT ID item.name AS \"Период\", bar(item.span) AS \"Прогресс\", remaining(item.span) AS \"Осталось\"\nFROM once\nFLATTEN list(object(\"name\", \"До конца работы\", \"span\", day), object(\"name\", \"Неделя\", \"span\", week), object(\"name\", \"Год\", \"span\", year)) AS item";
+    let note = h.write_note("Домашняя.md", &format!("```dataview\n{query}\n```\n"));
+    h.open(note);
+    assert!(h.wait_for(|h| h.app.embeds.as_ref().unwrap().cached_rows(query) == Some(3)), "таблица не загрузилась");
+    for width in [360, 800, 360] {
+        let pixels = (f64::from(width) * scale) as u16;
+        h.root.handle_window_event(masonry::core::WindowEvent::Resize(PhysicalSize::new(u32::from(pixels), 1600)));
+        h.app.window_resized(&mut h.root, Size::new(f64::from(width), 1600.0 / scale));
+        h.settle();
+        assert!(bar(&h).is_none(), "прогресс вызвал горизонтальную прокрутку при ширине {width}: {:?}", bar(&h).map(|b| b.max()));
+        if std::env::var_os("AQ_OUT").is_some() {
+            dump(&format!("dataview-progress-{width}.png"), &h.frame(pixels, 1600, scale));
+        }
+    }
+}
+
+#[test]
 fn the_scrollbar_and_the_wheel_move_a_dataview_table_in_the_real_window() {
     let mut h = open_wide_table(Harness::new());
     let (before, text) = (bar(&h).unwrap(), h.body_text());

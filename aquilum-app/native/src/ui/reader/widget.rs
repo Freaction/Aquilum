@@ -1,5 +1,11 @@
 use super::*;
 
+impl Drop for ReaderView {
+    fn drop(&mut self) {
+        if let Some(id) = self.layer_id { crate::render::fade::forget(id); }
+    }
+}
+
 impl Widget for ReaderView {
     type Action = ReaderAction;
 
@@ -46,6 +52,7 @@ impl Widget for ReaderView {
     fn register_children(&mut self, ctx: &mut RegisterCtx<'_>) {
         ctx.register_child(&mut self.settings_button);
         ctx.register_child(&mut self.close);
+        for control in &mut self.pdf_controls { ctx.register_child(control); }
         if let Some(popover) = &mut self.popover {
             ctx.register_child(popover);
         }
@@ -63,10 +70,14 @@ impl Widget for ReaderView {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, painter: &mut Painter<'_>) {
+        let id = ctx.widget_id().to_raw();
+        self.layer_id = Some(id);
+        crate::render::fade::publish_covers(id, self.intro.value() >= 1.0);
         self.draw(ctx, painter);
     }
 
     fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {
+        if self.session.pdf().is_some() && self.body.contains(_pos) { return CursorIcon::Grab; }
         match self.hover {
             Some(Some(_)) => CursorIcon::Pointer,
             Some(None) => CursorIcon::Text,
@@ -85,6 +96,7 @@ impl Widget for ReaderView {
 
     fn children_ids(&self) -> ChildrenIds {
         let mut ids = vec![self.settings_button.id(), self.close.id()];
+        ids.extend(self.pdf_controls.iter().map(WidgetPod::id));
         ids.extend(self.popover.as_ref().map(WidgetPod::id));
         ids.extend(self.quote_button.as_ref().map(WidgetPod::id));
         ChildrenIds::from_slice(&ids)

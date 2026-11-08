@@ -120,6 +120,7 @@ impl Session {
         self.section = index;
         if self.loaded != Some(index) {
             self.loaded = Some(index);
+            self.book.keep_section(index);
             self.blocks = self.book.document(index).map(flow::blocks).unwrap_or_default();
             self.layouts.clear();
             self.images.clear();

@@ -21,6 +21,50 @@ fn primary_color_field_updates_settings() {
 }
 
 #[test]
+fn system_appearance_updates_live_without_rebuilding_the_editor() {
+    let mut h = Harness::new();
+    let note = h.write_note("Тема.md", "Текст заметки");
+    h.open(note);
+    let editor = h.app.note_ids.as_ref().unwrap().body.id();
+    let mut config = h.config();
+    config.ui.theme = "system".into();
+    h.app.workspace.core.settings.update_config(config).unwrap();
+    h.app.restyle(&mut h.root, false, None);
+    assert!(!theme::is_dark());
+    h.app.system_theme_changed(&mut h.root, true);
+    assert!(theme::is_dark());
+    let generation = theme::generation();
+    h.app.system_theme_changed(&mut h.root, true);
+    assert_eq!(theme::generation(), generation, "an unchanged desktop theme restyled the app");
+    h.app.system_theme_changed(&mut h.root, false);
+    assert!(!theme::is_dark());
+    assert_eq!(h.config().ui.theme, "system", "desktop appearance overwrote the user's setting");
+    assert_eq!(h.app.note_ids.as_ref().unwrap().body.id(), editor);
+}
+
+#[test]
+fn explicit_themes_ignore_desktop_changes_but_remember_the_latest_preference() {
+    let mut h = Harness::new();
+    for setting in ["light", "dark", "night"] {
+        let mut config = h.config();
+        config.ui.theme = setting.into();
+        h.app.workspace.core.settings.update_config(config).unwrap();
+        h.app.restyle(&mut h.root, false, None);
+        let generation = theme::generation();
+        h.app.system_theme_changed(&mut h.root, true);
+        h.app.system_theme_changed(&mut h.root, false);
+        assert_eq!(theme::is_dark(), setting != "light");
+        assert_eq!(theme::generation(), generation);
+        assert!(!h.app.system_dark);
+    }
+    let mut config = h.config();
+    config.ui.theme = "system".into();
+    h.app.workspace.core.settings.update_config(config).unwrap();
+    h.app.restyle(&mut h.root, false, None);
+    assert!(!theme::is_dark());
+}
+
+#[test]
 fn primary_color_typed_into_field() {
     let mut h = Harness::new();
     h.click(242.0, 578.0);

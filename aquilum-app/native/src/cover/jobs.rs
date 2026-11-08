@@ -54,8 +54,8 @@ pub fn image(key: Key) -> Option<Pattern> {
     let nearest = jobs
         .done
         .iter()
-        .filter(|(k, _)| k.id == key.id && k.scale == key.scale)
-        .min_by_key(|(k, _)| (k.height.abs_diff(key.height), k.width.abs_diff(key.width)))
+        .filter(|(k, _)| k.id == key.id)
+        .min_by_key(|(k, _)| (k.scale.abs_diff(key.scale), k.height.abs_diff(key.height), k.width.abs_diff(key.width)))
         .map(|(_, image)| image.clone());
     nearest.map(|image| Pattern { image, exact: false })
 }

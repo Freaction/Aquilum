@@ -41,7 +41,7 @@ fn table_cells_use_editor_markdown() {
     let (_, view) = doc.table_at(0).expect("таблица свёрстана");
     let cell = |r, c| view.cell(r, c).expect("ячейка");
     let link = &cell(0, 1).decor.links[0];
-    assert_eq!((link.target.as_str(), link.wiki, &cell(0, 1).text[link.label.clone()]), ("Заметка", true, "алиас"));
+    assert_eq!((link.target.as_str(), link.wiki, &view.model.value(0, 1)[link.label.clone()]), ("Заметка", true, "алиас"));
     assert_eq!(cell(1, 0).decor.codes.len(), 1, "код в ячейке не оформлен");
     assert_eq!(cell(1, 1).decor.tags.len(), 1, "тег в ячейке не оформлен");
     assert_eq!(cell(1, 1).decor.links[0].target, "https://e.com");

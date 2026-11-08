@@ -120,8 +120,10 @@ impl Value {
                 left.len() == right.len()
                     && left.iter().zip(right.iter()).all(|(l, r)| l.equals(r))
             }
-            _ => self.text().eq_ignore_ascii_case(&other.text())
-                || self.text().to_lowercase() == other.text().to_lowercase(),
+            _ => {
+                let (left, right) = (self.text(), other.text());
+                left.eq_ignore_ascii_case(&right) || left.to_lowercase() == right.to_lowercase()
+            }
         }
     }
 }

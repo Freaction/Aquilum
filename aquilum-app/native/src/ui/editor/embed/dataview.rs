@@ -6,13 +6,13 @@ use masonry::parley::Layout;
 
 use super::super::markdown::{DANGER, MUTED, SECONDARY, TEXT, line_middle};
 use super::super::resolve::{Fetch, Grid, Part, Shape};
-use super::super::table::fit_columns;
-use super::metrics::{BAR_HEIGHT, BAR_MIN, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, COLUMN_MIN, PENDING};
+use super::super::table::fit_with_minimum;
+use super::metrics::{BAR_HEIGHT, BAR_MIN, BAR_WIDTH, BULLET_INDENT, CELL_X, CELL_Y, CHECK, CHECK_GAP, COLUMN_MIN, PENDING};
 use super::panel::PAD;
 use super::{Action, Drawing, Font, Item, Spec, Tone, link_hits};
 use crate::i18n::t;
 
-fn cell_text(parts: &[Part]) -> (String, Vec<(Range<usize>, String)>) {
+fn cell_text<'a>(parts: impl IntoIterator<Item = &'a Part>) -> (String, Vec<(Range<usize>, String)>) {
     let mut text = String::new();
     let mut links = Vec::new();
     for part in parts {
@@ -28,8 +28,8 @@ fn cell_text(parts: &[Part]) -> (String, Vec<(Range<usize>, String)>) {
     (text, links)
 }
 
-fn task(parts: &[Part]) -> Option<(bool, Action)> {
-    parts.iter().find_map(|p| match p {
+fn task<'a>(parts: impl IntoIterator<Item = &'a Part>) -> Option<(bool, Action)> {
+    parts.into_iter().find_map(|p| match p {
         Part::Check { done, target, line } => Some((*done, Action::Task { target: target.clone(), line: *line })),
         _ => None,
     })
@@ -68,13 +68,9 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, print: bool, make: &mut dyn 
             for w in &widths {
                 xs.push(xs.last().copied().unwrap_or(side) + w);
             }
-            let mut rows: Vec<Vec<Vec<Part>>> = Vec::new();
-            if !grid.columns.is_empty() {
-                rows.push(grid.columns.iter().map(|c| vec![Part::Text(c.clone())]).collect());
-            }
-            rows.extend(grid.rows.iter().cloned());
-            let count = rows.len();
-            for (r, row) in rows.iter().enumerate() {
+            let header = (!grid.columns.is_empty()).then(|| grid.columns.iter().map(|c| vec![Part::Text(c.clone())]).collect::<Vec<_>>());
+            let count = grid.rows.len() + usize::from(header.is_some());
+            for (r, row) in header.iter().chain(grid.rows.iter()).enumerate() {
                 let header = r == 0 && !grid.columns.is_empty();
                 let mut height: f64 = 0.0;
                 let mut cells = Vec::new();
@@ -123,9 +119,8 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, print: bool, make: &mut dyn 
         }
         None => {
             for row in grid.rows.iter() {
-                let parts: Vec<Part> = row.iter().flatten().cloned().collect();
-                let check = task(&parts);
-                let (text, links) = cell_text(&parts);
+                let check = task(row.iter().flatten());
+                let (text, links) = cell_text(row.iter().flatten());
                 let ranges: Vec<Range<usize>> = links.iter().map(|(r, _)| r.clone()).collect();
                 let indent = if grid.shape == Shape::Tasks { CHECK + CHECK_GAP } else { BULLET_INDENT * 2.0 };
                 let layout = make(&Spec { links: &ranges, wrap: Some((inner - indent).max(1.0)), ..Spec::plain(&text, Font::Editor, TEXT) });
@@ -151,17 +146,23 @@ pub fn dataview(grid: &Fetch<Grid>, available: f64, print: bool, make: &mut dyn 
 fn column_widths(grid: &Grid, inner: f64, narrowest: f64, make: &mut dyn FnMut(&Spec) -> Layout<BrushIndex>) -> Vec<f64> {
     let m = grid.columns.len().max(grid.rows.iter().map(Vec::len).max().unwrap_or(0)).max(1);
     let mut natural = vec![0.0_f64; m];
+    let mut minimum = vec![narrowest; m];
     for (c, name) in grid.columns.iter().enumerate() {
         natural[c] = natural[c].max(f64::from(make(&Spec { bold: true, ..Spec::plain(name, Font::Editor, SECONDARY) }).width()));
     }
     for row in grid.rows.iter() {
         for (c, parts) in row.iter().enumerate() {
-            let w = if parts.iter().any(|p| matches!(p, Part::Progress(_))) { BAR_MIN } else { f64::from(make(&Spec::plain(&cell_text(parts).0, Font::Editor, TEXT)).width()) };
+            let w = if parts.iter().any(|p| matches!(p, Part::Progress(_))) {
+                minimum[c] = minimum[c].min(BAR_MIN + CELL_X * 2.0);
+                BAR_WIDTH
+            } else {
+                f64::from(make(&Spec::plain(&cell_text(parts).0, Font::Editor, TEXT)).width())
+            };
             natural[c] = natural[c].max(w);
         }
     }
     let natural: Vec<f64> = natural.into_iter().map(|w| w + CELL_X * 2.0).collect();
-    fit_columns(&natural, inner, narrowest)
+    fit_with_minimum(&natural, inner, |c| minimum[c])
 }
 
 #[cfg(test)]
@@ -186,5 +187,20 @@ mod tests {
         let grid = Grid { shape: Shape::Table, title: None, columns, rows: vec![row].into() };
         let drawing = dataview(&Fetch::Ready(grid), 400.0, false, &mut |_| Layout::default());
         assert!(drawing.max_scroll() > 0.0, "десять колонок в 400 px должны прокручиваться вбок");
+    }
+
+    #[test]
+    fn a_progress_bar_shrinks_and_grows_with_its_column() {
+        let grid = Fetch::Ready(Grid { shape: Shape::Table, title: None, columns: Vec::new(), rows: vec![vec![vec![Part::Progress(25.0)]]].into() });
+        let mut widths = Vec::new();
+        for available in [100.0, 800.0] {
+            let drawing = dataview(&grid, available, false, &mut |_| Layout::default());
+            let bar = drawing.items.iter().find_map(|item| if let Item::Fill(rect, Tone::AccentSubtle) = item { Some(rect.rect()) } else { None }).unwrap();
+            let fill = drawing.items.iter().find_map(|item| if let Item::Fill(rect, Tone::Accent) = item { Some(rect.rect()) } else { None }).unwrap();
+            assert_eq!(drawing.max_scroll(), 0.0);
+            assert_eq!(fill.width(), bar.width() * 0.25);
+            widths.push(bar.width());
+        }
+        assert!(widths[0] >= BAR_MIN && widths[0] < BAR_WIDTH && widths[1] > BAR_WIDTH, "{widths:?}");
     }
 }

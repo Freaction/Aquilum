@@ -47,21 +47,22 @@ impl Output {
 
     pub fn present(&mut self, dirty: &[Area]) {
         let Ok(mut buffer) = self.surface.buffer_mut() else { return };
-        if buffer.len() == self.pixels.data.len() {
-            let age = if self.pixels.fresh { 0 } else { usize::from(buffer.age()) };
-            let (areas, missing) = self.history.frame(dirty, age);
-            match missing {
-                Some(missing) => {
-                    for area in missing {
-                        self.pixels.copy_to(&mut buffer, self.pixels.width as usize, area);
-                    }
-                }
-                None => buffer.copy_from_slice(&self.pixels.data),
-            }
-            let rects: Vec<softbuffer::Rect> = areas.iter().filter_map(|a| Some(softbuffer::Rect { x: a.x, y: a.y, width: NonZeroU32::new(a.w)?, height: NonZeroU32::new(a.h)? })).collect();
-            let _ = buffer.present_with_damage(&rects);
+        if buffer.len() != self.pixels.data.len() {
+            self.pixels.fresh = true;
+            return;
         }
-        self.pixels.fresh = false;
+        let age = if self.pixels.fresh { 0 } else { usize::from(buffer.age()) };
+        let (areas, missing) = self.history.frame(dirty, age);
+        match missing {
+            Some(missing) => {
+                for area in missing {
+                    self.pixels.copy_to(&mut buffer, self.pixels.width as usize, area);
+                }
+            }
+            None => buffer.copy_from_slice(&self.pixels.data),
+        }
+        let rects: Vec<softbuffer::Rect> = areas.iter().filter_map(|a| Some(softbuffer::Rect { x: a.x, y: a.y, width: NonZeroU32::new(a.w)?, height: NonZeroU32::new(a.h)? })).collect();
+        self.pixels.fresh = buffer.present_with_damage(&rects).is_err();
     }
 }
 

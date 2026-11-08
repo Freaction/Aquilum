@@ -4,13 +4,13 @@ use super::Inner;
 use aquilum_core::search::error::SearchError;
 use crate::ui::editor::resolve::{Fetch, Grid, Part, Shape};
 
-fn parts(cell: &[CellPart]) -> Vec<Part> {
-    cell.iter()
+fn parts(cell: Vec<CellPart>) -> Vec<Part> {
+    cell.into_iter()
         .map(|p| match p {
-            CellPart::Text { text } => Part::Text(text.clone()),
-            CellPart::Link { text, target } => Part::Link { text: text.clone(), target: target.clone() },
-            CellPart::Progress { percent } => Part::Progress(*percent),
-            CellPart::Check { done, target, line } => Part::Check { done: *done, target: target.clone(), line: *line },
+            CellPart::Text { text } => Part::Text(text),
+            CellPart::Link { text, target } => Part::Link { text, target },
+            CellPart::Progress { percent } => Part::Progress(percent),
+            CellPart::Check { done, target, line } => Part::Check { done, target, line },
         })
         .collect()
 }
@@ -22,9 +22,12 @@ fn grid(output: QueryOutput) -> Grid {
         _ => Shape::Table,
     };
     let width = output.width.max(1);
-    let cells: Vec<Vec<Part>> = output.rows.iter().map(|c| parts(&c.parts)).collect();
-    let rows = cells.chunks(width).map(<[Vec<Part>]>::to_vec).collect();
-    Grid { shape, title: output.title, columns: output.columns, rows }
+    let mut cells = output.rows.into_iter();
+    let mut rows = Vec::with_capacity(cells.len().div_ceil(width));
+    while cells.len() > 0 {
+        rows.push(cells.by_ref().take(width).map(|cell| parts(cell.parts)).collect());
+    }
+    Grid { shape, title: output.title, columns: output.columns, rows: rows.into() }
 }
 
 pub(super) fn run(inner: &Inner, query: &str) -> (Fetch<Grid>, Option<u32>) {

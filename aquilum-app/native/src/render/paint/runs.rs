@@ -33,23 +33,25 @@ impl Painter {
         if self.offscreen(convert::line_bounds(first.y, run.font_size, run.glyph_transform, run.transform)) {
             return;
         }
+        let [a, b, c, d, _, _] = run.transform.as_coeffs();
+        let reach = f64::from(run.font_size) * 1.5 * a.abs().max(b.abs()).max(c.abs()).max(d.abs());
+        let area = self.frame.inflate(reach, reach);
+        let filtered = self.filtered();
+        self.glyphs.clear();
+        self.glyphs.extend(
+            std::iter::once(first)
+                .chain(glyphs)
+                .filter(|g| filtered || area.contains(run.transform * masonry::kurbo::Point::new(f64::from(g.x), f64::from(g.y))))
+                .map(|g| Glyph { id: g.id, x: g.x, y: g.y }),
+        );
+        if self.glyphs.is_empty() {
+            return;
+        }
         let paint = convert::brush_to_paint(run.brush, run.composite, &mut self.images);
         self.set_transform(run.transform);
         self.ctx.set_paint_transform(run.brush_transform.unwrap_or(Affine::IDENTITY));
         self.ctx.set_paint(paint);
         self.ctx.set_blend_mode(run.composite.blend);
-        let [a, b, c, d, _, _] = run.transform.as_coeffs();
-        let reach = f64::from(run.font_size) * 1.5 * a.abs().max(b.abs()).max(c.abs()).max(d.abs());
-        let area = self.frame.inflate(reach, reach);
-        let filtered = self.filtered();
-        let glyphs: Vec<Glyph> = std::iter::once(first)
-            .chain(glyphs)
-            .filter(|g| filtered || area.contains(run.transform * masonry::kurbo::Point::new(f64::from(g.x), f64::from(g.y))))
-            .map(|g| Glyph { id: g.id, x: g.x, y: g.y })
-            .collect();
-        if glyphs.is_empty() {
-            return;
-        }
         match run.style {
             Style::Fill(fill_rule) => self.ctx.set_fill_rule(*fill_rule),
             Style::Stroke(stroke) => self.ctx.set_stroke(stroke.clone()),
@@ -65,9 +67,10 @@ impl Painter {
             Some(transform) => builder.glyph_transform(transform),
             None => builder,
         };
+        // glifo clones the iterator; a slice iterator keeps that clone allocation-free.
         let _ = match run.style {
-            Style::Fill(_) => builder.fill_glyphs(glyphs.into_iter()),
-            Style::Stroke(_) => builder.stroke_glyphs(glyphs.into_iter()),
+            Style::Fill(_) => builder.fill_glyphs(self.glyphs.iter().copied()),
+            Style::Stroke(_) => builder.stroke_glyphs(self.glyphs.iter().copied()),
         };
     }
 }

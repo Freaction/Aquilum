@@ -2,13 +2,29 @@ use super::*;
 
 impl ReaderView {
     pub fn new(session: Session, settings: Settings, title: String, total: u32, can_quote: bool, active: Option<String>) -> (NewWidget<Self>, ReaderIds) {
+        Self::build(Content::Flow(Box::new(session)), settings, title, total, can_quote, active)
+    }
+
+    pub fn new_pdf(session: crate::reader::pdf::Session, settings: Settings, title: String, total: u32) -> (NewWidget<Self>, ReaderIds) {
+        Self::build(Content::Pdf(Box::new(session)), settings, title, total, false, None)
+    }
+
+    fn build(session: Content, settings: Settings, title: String, total: u32, can_quote: bool, active: Option<String>) -> (NewWidget<Self>, ReaderIds) {
+        let pdf_controls: Vec<_> = if session.pdf().is_some() {
+            [(icons::CHEVRON_LEFT, "previousPage"), (icons::CHEVRON_RIGHT, "nextPage"), (icons::MINUS, "zoomOut"), (icons::PLUS, "zoomIn"), (icons::MOVE_HORIZONTAL, "fitWidth"), (icons::FILE, "fitPage")]
+                .into_iter().map(|(icon, key)| NewWidget::new(IconButton::new(icon, t(&format!("reader.pdf.{key}"))))).collect()
+        } else { Vec::new() };
         let settings_button = NewWidget::new(IconButton::new(icons::SETTINGS_2, t("reader.settings")));
         let close = NewWidget::new(IconButton::new(icons::X, t("reader.close")));
         let quote_button = can_quote.then(|| NewWidget::new(TextButton::new(t("reader.quote"), Variant::Primary).size(ControlSize::S)));
-        let ids = ReaderIds { settings: settings_button.id(), close: close.id(), quote: quote_button.as_ref().map(NewWidget::id) };
+        let ids = ReaderIds { settings: settings_button.id(), close: close.id(), quote: quote_button.as_ref().map(NewWidget::id), pdf: pdf_controls.iter().map(NewWidget::id).collect() };
         let view = ReaderView {
+            layer_id: None,
             intro: crate::ui::widgets::Intro::new(crate::ui::widgets::NORMAL),
             session,
+            pdf_controls: pdf_controls.into_iter().map(NewWidget::to_pod).collect(),
+            pdf_drag: None,
+            pdf_bar: Rect::ZERO,
             settings,
             title,
             total: total.max(1),
@@ -90,6 +106,11 @@ impl ReaderView {
         (!text.is_empty()).then_some((text, cfi))
     }
 
+    pub fn position(&self) -> Option<(u32, String, f64)> {
+        let (position, fraction) = self.session.location()?;
+        Some((self.total, position, fraction))
+    }
+
     pub(super) fn ordered(&self) -> Option<(Spot, Spot)> {
         let (a, b) = self.selection?;
         (a != b).then(|| if a < b { (a, b) } else { (b, a) })
@@ -143,6 +164,7 @@ impl ReaderView {
     }
 
     pub(super) fn current(&self) -> u32 {
+        if let Some(pdf) = self.session.pdf() { return pdf.current().min(pdf.total()); }
         ((self.fraction.clamp(0.0, 1.0) * f64::from(self.total)).round() as u32).min(self.total)
     }
 

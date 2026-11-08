@@ -173,7 +173,7 @@ impl Tracker {
         }
         let moves = self.moves(&shifts, &mut rects);
         std::mem::swap(&mut self.draws, &mut self.previous);
-        self.past = self.regions.drain(..).filter(|r| r.started).map(|r| Past { id: r.id, offset: r.offset, above: r.above }).collect();
+        self.past = self.regions.drain(..).filter(|r| r.started).map(|r| Past { id: r.id, viewport: r.viewport, offset: r.offset, above: r.above }).collect();
         Damage { areas: self.areas(rects), moves }
     }
 

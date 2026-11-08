@@ -19,19 +19,30 @@ pub enum Variant {
 }
 
 #[derive(Clone, Copy)]
+pub enum Joined {
+    Left,
+    Right,
+}
+
+#[derive(Clone, Copy)]
 pub struct Look {
     pub variant: Variant,
     pub size: ControlSize,
     pub hovered: bool,
     pub active: bool,
+    pub joined: Option<Joined>,
+    pub icon_only: bool,
 }
 
 pub fn paint_button<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, bounds: Rect, look: Look, layout: &Layout<BrushIndex>, icons: &[Option<Icon>; 2]) {
     let t = theme::current();
-    let shape = RoundedRect::from_rect(bounds, look.size.radius());
+    let radius = look.size.radius();
+    let left = if matches!(look.joined, Some(Joined::Right)) { 0.0 } else { radius };
+    let right = if matches!(look.joined, Some(Joined::Left)) { 0.0 } else { radius };
+    let shape = RoundedRect::from_rect(bounds, (left, right, right, left));
     let (text_color, icon_color) = match look.variant {
         Variant::Primary => {
-            let shadow = if look.size == ControlSize::Xs { t.shadow_action_xs } else { t.shadow_action };
+            let shadow = if look.joined.is_some() { &[][..] } else if look.size == ControlSize::Xs { t.shadow_action_xs } else { t.shadow_action };
             paint_primary(painter, shape, look.hovered, shadow);
             (t.text_on_accent, t.icon_on_accent)
         }
@@ -47,6 +58,13 @@ pub fn paint_button<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, bounds:
         }
         Variant::Link => (t.text_link, t.icon_accent),
     };
+    if look.icon_only {
+        if let Some(icon) = icons.iter().flatten().next() {
+            let side = look.size.icon();
+            icon.draw(painter, bounds.center() - (side / 2.0, side / 2.0), side, number::BUTTON_ICON_STROKE, icon_color);
+        }
+        return;
+    }
     let width = f64::from(layout.width());
     let (icon, label, line_height) = (look.size.icon(), size::BUTTON_LABEL_PADDING_X, look.size.text().line_height);
     let chrome = look.size.chrome(icons.iter().flatten().count());
@@ -67,8 +85,11 @@ pub fn paint_button<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, bounds:
 
 pub fn paint_primary<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, shape: RoundedRect, hovered: bool, shadow: &[Shadow]) {
     let t = theme::current();
-    let (bounds, radius, edge) = (shape.rect(), shape.radii().top_left, size::BUTTON_HIGHLIGHT_WIDTH);
-    let inset = |by: f64| RoundedRect::from_rect(bounds.inset(-by), radius - by);
+    let (bounds, radii, edge) = (shape.rect(), shape.radii(), size::BUTTON_HIGHLIGHT_WIDTH);
+    let inset = |by: f64| RoundedRect::from_rect(bounds.inset(-by), (
+        (radii.top_left - by).max(0.0), (radii.top_right - by).max(0.0),
+        (radii.bottom_right - by).max(0.0), (radii.bottom_left - by).max(0.0),
+    ));
     box_shadow(painter, shape, shadow);
     painter.fill(shape, t.bg_accent).draw();
     painter.stroke(&inset(edge / 2.0), &Stroke::new(edge), t.icon_accent).draw();

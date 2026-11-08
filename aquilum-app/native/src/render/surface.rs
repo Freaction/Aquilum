@@ -5,7 +5,6 @@ use masonry::peniko::{Blob, ImageAlphaType, ImageBrush, ImageData, ImageFormat, 
 use vello_cpu::{PixelMetadata, Pixmap};
 
 const KEPT: usize = 2;
-const POOL: usize = 6;
 
 type Published = (u64, Weak<()>, Arc<Pixmap>);
 
@@ -35,28 +34,35 @@ impl Surfaces {
         self.pool.len()
     }
 
-    pub fn frame(&mut self, width: u16, height: u16, draw: impl FnOnce(&mut [u8])) -> ImageBrush {
-        if self.pool.len() > POOL {
-            let mut excess = self.pool.len() - POOL;
-            self.pool.retain_mut(|p| {
-                let drop = excess > 0 && (p.width() != width || p.height() != height) && Arc::get_mut(p).is_some();
-                excess -= usize::from(drop);
-                !drop
-            });
-        }
-        let free = self.pool.iter_mut().position(|p| p.width() == width && p.height() == height && Arc::get_mut(p).is_some());
+    fn draw(&mut self, width: u16, height: u16, draw: impl FnOnce(&mut Pixmap)) -> Arc<Pixmap> {
+        let mut spare = false;
+        self.pool.retain(|p| {
+            if Arc::strong_count(p) > 1 { return true; }
+            p.width() == width && p.height() == height && !std::mem::replace(&mut spare, true)
+        });
+        let free = self.pool.iter().position(|p| p.width() == width && p.height() == height && Arc::strong_count(p) == 1);
         let index = free.unwrap_or_else(|| {
             let data = vec![255u8; usize::from(width) * usize::from(height) * 4];
             self.pool.push(Arc::new(Pixmap::from_parts(data, width, height, PixelMetadata::new(ImageAlphaType::AlphaPremultiplied, false))));
             self.pool.len() - 1
         });
-        let pixmap = Arc::get_mut(&mut self.pool[index]).expect("свободный буфер");
-        draw(pixmap.data_as_u8_slice_mut());
+        let pixmap = Arc::make_mut(&mut self.pool[index]);
+        draw(pixmap);
+        Arc::clone(&self.pool[index])
+    }
+
+    /// A frame that owns its pixels, including while a newer viewport is rendering.
+    pub fn owned_frame(&mut self, width: u16, height: u16, draw: impl FnOnce(&mut Pixmap)) -> ImageBrush {
+        super::pixels::shared_brush(self.draw(width, height, draw))
+    }
+
+    pub fn frame(&mut self, width: u16, height: u16, draw: impl FnOnce(&mut [u8])) -> ImageBrush {
+        let pixmap = self.draw(width, height, |pixmap| draw(pixmap.data_as_u8_slice_mut()));
         let blob: Blob<u8> = Blob::new(Arc::new(Vec::new()));
         let id = blob.id();
         let mine = Arc::as_ptr(&self.alive);
         let mut published = PUBLISHED.lock().unwrap_or_else(|e| e.into_inner());
-        published.push_back((id, Arc::downgrade(&self.alive), Arc::clone(&self.pool[index])));
+        published.push_back((id, Arc::downgrade(&self.alive), pixmap));
         let mut count = published.iter().filter(|(_, owner, _)| owner.as_ptr() == mine).count();
         published.retain(|(_, owner, _)| {
             let stale = owner.as_ptr() == mine && count > KEPT;

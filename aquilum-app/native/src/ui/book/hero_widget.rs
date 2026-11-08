@@ -7,7 +7,9 @@ pub fn hero(view: HeroView) -> (NewWidget<Hero>, HeroIds) {
         let label = if book.has_file { t("book.read") } else { t("book.upload") };
         let widget = NewWidget::new(TextButton::new(label, Variant::Primary).size(ControlSize::M));
         ids.book_button = Some(Handle::of(&widget));
-        widget
+        let menu = NewWidget::new(TextButton::new(t("book.fileActions"), Variant::Primary).icon_only(icons::CHEVRON_DOWN));
+        ids.book_menu = Some(menu.id());
+        TextButton::split(widget, menu).erased()
     });
     let cover = view.cover.map(|visual| {
         let more = view.compact.then(|| {
@@ -57,7 +59,7 @@ pub struct Hero {
     cover: Option<WidgetPod<PageCover>>,
     star: Option<WidgetPod<Star>>,
     thumbnail: Option<WidgetPod<Thumbnail>>,
-    solo: Option<WidgetPod<TextButton>>,
+    solo: Option<WidgetPod<dyn Widget>>,
 }
 
 impl Hero {

@@ -7,6 +7,15 @@ impl App {
         Slot::appear(Slot::new(self.build_ui()), ui::widgets::NORMAL).with_tag(ROOT_TAG).erased()
     }
 
+    pub fn system_theme_changed(&mut self, root: &mut RenderRoot, dark: bool) {
+        if self.system_dark == dark { return; }
+        self.system_dark = dark;
+        let config = self.workspace.core.settings.get_config();
+        if !matches!(config.ui.theme.as_str(), "light" | "dark" | "night") {
+            self.restyle(root, false, None);
+        }
+    }
+
     pub(in crate::app) fn visible_panels(&self) -> (bool, bool) {
         let screen = self.interface.screen();
         if screen.compact {

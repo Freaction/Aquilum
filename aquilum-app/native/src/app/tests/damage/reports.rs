@@ -26,6 +26,7 @@ fn scroll_damage_report() {
         h.anim(std::time::Duration::from_millis(8));
         h.app.on_core_events(&mut h.root);
         let report = frames.draw(&mut h);
+        assert_eq!(report.differ, 0, "шаг {step}: прокрутка расходится с полной отрисовкой");
         let ids = h.app.note_ids.as_ref().unwrap();
         let column = rect_of(&h, ids.body.id(), spec.scale);
         let edges = (column.x0.round(), column.x1.round(), column.height().round());

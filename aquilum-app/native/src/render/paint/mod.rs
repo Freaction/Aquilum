@@ -35,6 +35,7 @@ pub struct Painter {
     pub(super) seconds: f64,
     pub(super) regions: Vec<Rect>,
     pub(super) after: Option<u64>,
+    pub(super) glyphs: Vec<vello_cpu::Glyph>,
 }
 
 impl Painter {
@@ -54,6 +55,7 @@ impl Painter {
             seconds: 0.0,
             regions: Vec::new(),
             after: None,
+            glyphs: Vec::new(),
         }
     }
 
@@ -62,6 +64,7 @@ impl Painter {
         self.resources = Resources::new();
         self.images = convert::Images::default();
         self.mask_cache.clear();
+        self.glyphs = Vec::new();
     }
 
     pub fn width(&self) -> u16 {
@@ -90,7 +93,13 @@ impl Painter {
     }
 
     pub(super) fn set_transform(&mut self, transform: Affine) {
-        self.ctx.set_transform(self.shift * transform);
+        let mut coefficients = (self.shift * transform).as_coeffs();
+        // Match damage hashing: floating-point noise must not flip glyph hinting across
+        // a half-pixel boundary when the canvas is shifted by an integer number of pixels.
+        for translation in &mut coefficients[4..] {
+            *translation = (*translation * crate::render::TRANSFORM_PRECISION).round() / crate::render::TRANSFORM_PRECISION;
+        }
+        self.ctx.set_transform(Affine::new(coefficients));
     }
 
     pub fn finish(&mut self) -> Result<(), PaintError> {

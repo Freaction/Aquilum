@@ -50,6 +50,13 @@ impl App {
     }
 
     fn save_position(&mut self, root: &mut RenderRoot, state: &mut ReaderState) {
+        if !state.peek
+            && let Some((total, position, fraction)) = root.get_widget(state.layer)
+                .and_then(|w| w.downcast::<crate::ui::reader::ReaderView>().and_then(|v| v.inner().position()))
+        {
+            state.total = total;
+            state.moved(&position, fraction);
+        }
         let Some(Moved { cfi, fraction, .. }) = state.moved.take() else { return };
         let current = ((fraction.clamp(0.0, 1.0) * f64::from(state.total)).round() as u32).min(state.total);
         if let Some(workspace_id) = state.workspace {

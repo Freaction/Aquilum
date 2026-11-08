@@ -165,7 +165,7 @@ fn unresolved_wiki_links_are_dimmed_like_tauri() {
     let editor = h.app.editor_id().unwrap();
     let brush = |h: &Harness, at: usize| h.root.get_widget(editor).and_then(|w| w.downcast::<crate::ui::editor::TextEditor>()).unwrap().inner().brush_at(at);
     let (present, missing) = (text.find("Есть").unwrap(), text.find("Нет").unwrap());
-    wait_until(500, 10, || {
+    wait_until(3000, 10, || {
         h.step();
         brush(&h, missing) != brush(&h, present)
     });

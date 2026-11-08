@@ -6,6 +6,7 @@ use crate::ui::keymap::Command;
 impl App {
     pub fn command(&mut self, root: &mut RenderRoot, command: Command) -> Option<Outcome> {
         let zoom = matches!(command, Command::ZoomIn | Command::ZoomOut | Command::ZoomReset);
+        if zoom && self.reader_zoom(root, command) { return Some(Outcome::default()); }
         if self.popup.is_some() && !zoom && command != Command::Back {
             return None;
         }

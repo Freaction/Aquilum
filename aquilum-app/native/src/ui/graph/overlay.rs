@@ -47,7 +47,7 @@ impl GraphView {
             let half = (f64::from(layout.width()) + button.chrome(0)) / 2.0;
             let top = next_y + size::SPACE_8;
             let rect = Rect::new(center.x - half, top, center.x + half, top + button.height());
-            let look = Look { variant: Variant::Primary, size: button, hovered: self.over_action, active: self.over_action };
+            let look = Look { variant: Variant::Primary, size: button, hovered: self.over_action, active: self.over_action, joined: None, icon_only: false };
             paint_button(painter, rect, look, layout, &[None, None]);
             self.action_rect = Some(rect);
         } else {

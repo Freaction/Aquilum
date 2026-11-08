@@ -27,6 +27,7 @@ impl App {
         self.on_retention_done(root);
         self.undo_failed_renames(root);
         self.poll_find(root);
+        self.poll_reader(root);
         self.poll_cloud(root);
         let mut links_changed = false;
         let mut history_changed = false;

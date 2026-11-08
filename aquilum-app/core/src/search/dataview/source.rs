@@ -65,21 +65,15 @@ fn select_isolated(
             None => Ok(HashSet::new()),
         },
         Source::And(left, right) => {
-            if is_isolated(left) {
-                let left_set = select_isolated(connection, root, origin, left)?;
-                if left_set.is_empty() {
-                    return Ok(HashSet::new());
-                }
-                let left_vec: Vec<String> = left_set.into_iter().collect();
-                select(connection, root, origin, right, &left_vec)
-            } else {
-                let right_set = select_isolated(connection, root, origin, right)?;
-                if right_set.is_empty() {
-                    return Ok(HashSet::new());
-                }
-                let right_vec: Vec<String> = right_set.into_iter().collect();
-                select(connection, root, origin, left, &right_vec)
+            let (first, other) = if is_isolated(left) { (left, right) } else { (right, left) };
+            let mut selected = select_isolated(connection, root, origin, first)?;
+            if selected.is_empty() {
+                return Ok(selected);
             }
+            let candidates: Vec<String> = selected.iter().cloned().collect();
+            let other = select(connection, root, origin, other, &candidates)?;
+            selected.retain(|path| other.contains(path));
+            Ok(selected)
         }
         Source::Or(left, right) => {
             let mut left = select_isolated(connection, root, origin, left)?;
@@ -98,26 +92,13 @@ fn select(
     universe: &[String],
 ) -> Result<HashSet<String>, SearchError> {
     match source {
-        Source::Once => Ok(HashSet::new()),
         Source::Folder(folder) => Ok(in_folder(root, folder, universe)),
-        Source::Tag(tag) => paths_with_tag(connection, tag),
-        Source::LinksTo(target) => match note_path(connection, root, origin, target)? {
-            Some(path) => Ok(candidate_sources(connection, root, &path)?
-                .into_iter()
-                .collect()),
-            None => Ok(HashSet::new()),
-        },
-        Source::LinksFrom(target) => match note_path(connection, root, origin, target)? {
-            Some(path) => Ok(outgoing_links(connection, root, &path)?
-                .into_iter()
-                .filter_map(|link| link.path)
-                .collect()),
-            None => Ok(HashSet::new()),
-        },
+        Source::Once | Source::Tag(_) | Source::LinksTo(_) | Source::LinksFrom(_) => select_isolated(connection, root, origin, source),
         Source::And(left, right) => {
-            let left = select(connection, root, origin, left, universe)?;
+            let mut left = select(connection, root, origin, left, universe)?;
             let right = select(connection, root, origin, right, universe)?;
-            Ok(left.intersection(&right).cloned().collect())
+            left.retain(|path| right.contains(path));
+            Ok(left)
         }
         Source::Or(left, right) => {
             let mut left = select(connection, root, origin, left, universe)?;

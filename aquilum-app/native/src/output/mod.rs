@@ -6,6 +6,8 @@ mod dxgi;
 mod android;
 #[cfg(not(any(target_os = "windows", target_os = "android")))]
 mod soft;
+#[cfg(all(test, not(target_os = "android")))]
+mod tests;
 
 #[cfg(target_os = "windows")]
 pub use dxgi::Output;
@@ -40,14 +42,18 @@ impl History {
     fn frame(&mut self, dirty: &[Area], age: usize) -> (Vec<Area>, Option<Vec<Area>>) {
         let mut areas = dirty.to_vec();
         merge(&mut areas);
-        let missing = (1..=self.0.len() + 1).contains(&age).then(|| areas.iter().chain(self.0[..age - 1].iter().flatten()).copied().collect());
+        let missing = (1..=self.0.len() + 1).contains(&age).then(|| {
+            let mut missing = areas.iter().chain(self.0[..age - 1].iter().flatten()).copied().collect();
+            merge_to(&mut missing, usize::MAX);
+            missing
+        });
         self.0.insert(0, areas.clone());
         self.0.truncate(KEPT_FRAMES);
         (areas, missing)
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(any(test, not(target_os = "windows")))]
 struct Pixels {
     data: Vec<u32>,
     width: u32,
@@ -56,7 +62,7 @@ struct Pixels {
     fresh: bool,
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(any(test, not(target_os = "windows")))]
 impl Pixels {
     fn new() -> Self {
         Pixels { data: Vec::new(), width: 0, height: 0, background: 0, fresh: true }
@@ -68,6 +74,7 @@ impl Pixels {
 
     fn resize(&mut self, width: u32, height: u32) {
         self.data.resize((width * height) as usize, self.background);
+        if self.data.len() <= self.data.capacity() / 2 { self.data.shrink_to_fit(); }
         self.data.fill(self.background);
         (self.width, self.height, self.fresh) = (width, height, true);
     }
@@ -96,7 +103,7 @@ impl Pixels {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(any(test, not(target_os = "windows")))]
 impl Canvas for Pixels {
     fn with_target(&mut self, paint: &mut dyn FnMut(Target<'_>)) {
         paint(Target { pixels: &mut self.data, width: self.width as u16, height: self.height as u16 });
@@ -118,9 +125,14 @@ pub fn closest<T: Copy>(items: &[T], cost: impl Fn(T, T) -> f64) -> Option<(usiz
 
 #[cfg(not(target_os = "android"))]
 pub fn merge(areas: &mut Vec<Area>) {
+    merge_to(areas, MAX_RECTS);
+}
+
+#[cfg(not(target_os = "android"))]
+fn merge_to(areas: &mut Vec<Area>, limit: usize) {
     areas.retain(|a| a.w > 0 && a.h > 0);
     while let Some((a, b, cost)) = closest(areas, |x, y| (x.union(y).size() - x.size() - y.size()) as f64) {
-        if areas.len() <= MAX_RECTS && cost > 0.0 {
+        if areas.len() <= limit && cost > 0.0 {
             return;
         }
         areas[a] = areas[a].union(areas[b]);

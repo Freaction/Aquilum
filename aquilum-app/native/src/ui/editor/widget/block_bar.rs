@@ -36,8 +36,11 @@ impl TextEditor {
 
     pub(super) fn block_scroll(&mut self, ctx: &mut EventCtx<'_>, point: Point, dx: f64) -> bool {
         let Some((start, span)) = self.block_under(point) else { return false };
-        self.scroll_block(start, (span.offset + dx).clamp(0.0, span.max()));
-        ctx.request_render();
+        let next = (span.offset + dx).clamp(0.0, span.max());
+        if next != span.offset {
+            self.scroll_block(start, next);
+            ctx.request_render();
+        }
         true
     }
 

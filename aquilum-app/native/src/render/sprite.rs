@@ -72,6 +72,7 @@ pub(super) fn changes(before: &[Sprite], after: &[Sprite]) -> Option<Area> {
 }
 
 pub(super) fn stamp(sprites: &[Sprite], canvas: &mut dyn Canvas, stamps: &mut Stamps) {
+    if sprites.iter().all(|s| s.covered) { return; }
     canvas.with_target(&mut |mut target| {
         for sprite in sprites.iter().filter(|s| !s.covered) {
             let area = covering(sprite.bounds());

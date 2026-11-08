@@ -1,5 +1,6 @@
 use super::*;
 
+mod book_file;
 mod cover;
 mod cover_narrow;
 mod cover_render;

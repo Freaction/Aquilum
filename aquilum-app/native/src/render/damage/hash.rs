@@ -26,7 +26,7 @@ impl H {
 
     pub(super) fn affine(&mut self, a: Affine) {
         for c in a.as_coeffs() {
-            self.0.write_i64((c * 4096.0).round() as i64);
+            self.0.write_i64((c * crate::render::TRANSFORM_PRECISION).round() as i64);
         }
     }
 

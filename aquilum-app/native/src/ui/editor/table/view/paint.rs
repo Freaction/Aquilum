@@ -38,7 +38,7 @@ impl TableView {
                 let o = Vec2::new(x, y) + self.cell_origin(cell, s).to_vec2();
                 markdown::paint_backgrounds(painter, &cell.layout, &cell.decor, o);
                 if let Some(search) = &overlay.search {
-                    for found in search.ranges(&cell.text, &mut seen) {
+                    for found in search.ranges(self.model.value(cell.row, cell.col), &mut seen) {
                         for (rect, _) in markdown::range_rects(&cell.layout, found.start, found.end) {
                             painter.fill(rect + o, tm.search_match_bg).draw();
                         }

@@ -23,7 +23,7 @@ use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::cell::RefCell;
 use std::ops::Range;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-use std::sync::{Barrier, Mutex};
+use std::sync::Mutex;
 use thread_local::ThreadLocal;
 use vello_common::clip::{ClipContext, ClipShape};
 use vello_common::encode::EncodedPaint;
@@ -101,8 +101,6 @@ pub(crate) struct MultiThreadedDispatcher {
     /// Since we are rendering the paths on different threads, we need to make sure that they
     /// come back in the right order. The `task_idx` is used to keep track of that order.
     task_idx: u32,
-    /// The number of threads active in the thread pool.
-    num_threads: u16,
     /// The strip generator for the main thread, used for clip path rasterization.
     strip_generator: StripGenerator,
     level: Level,
@@ -155,7 +153,6 @@ impl MultiThreadedDispatcher {
             strip_storage: StripStorage::new(GenerationMode::Append),
             level,
             alpha_storage,
-            num_threads,
             layer_depth: 0,
         }
     }
@@ -179,6 +176,7 @@ impl MultiThreadedDispatcher {
         let (recorded_command_sender, recorded_command_receiver) = ordered_channel::unbounded();
         let workers = self.workers.clone();
         let alpha_storage = self.alpha_storage.clone();
+        let (width, height) = (self.strip_generator.width(), self.strip_generator.height());
 
         self.task_sender = Some(render_task_sender);
         self.recorded_command_receiver = Some(recorded_command_receiver);
@@ -189,6 +187,8 @@ impl MultiThreadedDispatcher {
             let mut recorded_command_sender = recorded_command_sender.clone();
             let worker = workers.get().unwrap();
             let mut worker = worker.borrow_mut();
+            // Reset on the worker before its first task, without a separate broadcast/barrier.
+            worker.reset(width, height);
             let thread_id = worker.thread_id();
 
             // Take out the allocation for alphas and store it in the worker.
@@ -583,20 +583,6 @@ impl Dispatcher for MultiThreadedDispatcher {
                 alpha.clear();
             }
         });
-
-        let workers = self.workers.clone();
-        // + 1 since we also wait on the main thread.
-        let barrier = Arc::new(Barrier::new(usize::from(self.num_threads) + 1));
-        let t_barrier = barrier.clone();
-
-        self.thread_pool.spawn_broadcast(move |_| {
-            let worker = workers.get().unwrap();
-            let mut borrowed = worker.borrow_mut();
-            borrowed.reset(width, height);
-            t_barrier.wait();
-        });
-
-        barrier.wait();
     }
 
     fn flush(&mut self) {

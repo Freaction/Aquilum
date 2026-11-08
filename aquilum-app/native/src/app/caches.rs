@@ -26,6 +26,7 @@ const CATALOG: &[Cache] = &[
     Cache { name: "лучи и звезда книжной обложки", when: &[Hide, Vault], clear: |_, _| crate::ui::book::forget_art() },
     Cache { name: "буферы рендера и атлас глифов", when: &[Hide], clear: |_, _| crate::render::trim_soon() },
     Cache { name: "кадры и подписи графа", when: &[Hide], clear: |app, root| app.drop_graph_frames(root) },
+    Cache { name: "кадры и кэши PDF", when: &[Hide, Vault], clear: |app, root| app.drop_reader_frames(root) },
     Cache { name: "панель ссылок и анализа", when: &[Tab, Vault], clear: |app, _| (app.listing, app.panel_body, app.panel_key) = (None, None, None) },
     Cache { name: "история в панели", when: &[Tab, Vault], clear: |app, _| (app.history, app.history_body) = (None, None) },
     Cache { name: "просмотр версии", when: &[Tab, Vault], clear: |app, root| app.drop_version(root) },

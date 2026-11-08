@@ -103,3 +103,20 @@ fn continuous_wheel_moves_every_frame_without_jolts() {
     assert!(steps.iter().all(|&s| s > 0.0), "кадр без движения при непрерывном вращении: {steps:?}");
     assert!(steps.windows(2).all(|w| w[1] / w[0] < 2.0 && w[0] / w[1] < 2.0), "скачок скорости между кадрами: {steps:?}");
 }
+
+#[test]
+fn moving_a_scrollbar_thumb_restores_its_old_pixels_without_raster_scroll_audit() {
+    use masonry::peniko::Color;
+    use crate::render::Renderer;
+    let mut root = root();
+    let mut partial = Renderer::new(0);
+    for (step, offset) in [0.0, 200.0, 900.0, 2200.0, 400.0, 0.0].into_iter().enumerate() {
+        root.edit_widget_with_tag(TAG, |mut area| ScrollArea::set_offset(&mut area, offset));
+        let (layers, _) = root.redraw();
+        partial.draw_frame(&layers, 400, 300, 1.0, Color::WHITE, step == 0).unwrap();
+        let mut full = Renderer::new(0);
+        full.render(&layers, 400, 300, 1.0, Color::WHITE).unwrap();
+        assert_eq!(partial.frame_pixels(), full.frame_pixels(), "thumb step {step}");
+        if step > 0 { assert!(partial.rastered.is_empty(), "moving only the thumb invoked the rasterizer: {:?}, causes {:?}", partial.rastered, partial.causes); }
+    }
+}

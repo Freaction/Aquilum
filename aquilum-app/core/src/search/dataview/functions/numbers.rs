@@ -1,4 +1,4 @@
-use super::first;
+use super::{first, items};
 use super::super::value::Value;
 
 pub fn numeric(arguments: &[Value], apply: fn(f64) -> f64) -> Value {
@@ -8,21 +8,13 @@ pub fn numeric(arguments: &[Value], apply: fn(f64) -> f64) -> Value {
     }
 }
 
-pub fn numbers(value: &Value) -> Vec<f64> {
-    match value {
-        Value::List(items) => items.iter().filter_map(Value::as_number).collect(),
-        other => other.as_number().into_iter().collect(),
-    }
+pub fn numbers(value: &Value) -> impl Iterator<Item = f64> + '_ {
+    items(value).iter().filter_map(Value::as_number)
 }
 
 pub fn extreme(value: &Value, smallest: bool) -> Value {
-    let items = match value {
-        Value::List(items) => items.clone(),
-        Value::Null => Vec::new(),
-        other => vec![other.clone()],
-    };
-    items
-        .into_iter()
+    items(value)
+        .iter()
         .filter(|item| !matches!(item, Value::Null))
         .reduce(|left, right| {
             let take_right = if smallest {
@@ -36,13 +28,14 @@ pub fn extreme(value: &Value, smallest: bool) -> Value {
                 left
             }
         })
+        .cloned()
         .unwrap_or(Value::Null)
 }
 
 pub fn average(value: &Value) -> Value {
-    let found = numbers(value);
-    if found.is_empty() {
+    let (sum, count) = numbers(value).fold((0.0, 0usize), |(sum, count), number| (sum + number, count + 1));
+    if count == 0 {
         return Value::Null;
     }
-    Value::Number(found.iter().sum::<f64>() / found.len() as f64)
+    Value::Number(sum / count as f64)
 }

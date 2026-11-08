@@ -8,13 +8,13 @@ use crate::render::damage::Damage;
 use crate::render::layer::{Layer, area, area_of};
 use crate::render::overlay::Mark;
 use crate::render::paint::{PaintError, Painter};
-use crate::render::sprite::{self, Sprite};
+use crate::render::sprite;
 use crate::render::stamp::covering;
 
 impl Renderer {
     pub(super) fn lift_sprites(&mut self, canvas: &mut dyn Canvas, touched: &[Area]) {
-        let visible: Vec<Sprite> = self.sprites.iter().filter(|s| !s.covered).copied().collect();
-        if !self.overlay.on && self.stamped.as_ref() == Some(&visible) && self.sprite_stamps.untouched(touched) {
+        let unchanged = self.stamped.as_ref().is_some_and(|stamped| stamped.iter().eq(self.sprites.iter().filter(|s| !s.covered)));
+        if !self.overlay.on && unchanged && self.sprite_stamps.untouched(touched) {
             return;
         }
         self.sprite_stamps.restore(canvas);
@@ -143,9 +143,11 @@ fn overlap((x, y, w, h): (u16, u16, u16, u16), inner: Rect) -> Option<(u16, u16,
     (r.width() > 0.0 && r.height() > 0.0).then(|| (r.x0 as u16, r.y0 as u16, r.width() as u16, r.height() as u16))
 }
 
-fn around(area: (u16, u16, u16, u16), inside: Option<(u16, u16, u16, u16)>) -> Vec<(u16, u16, u16, u16)> {
-    let Some((ix, iy, iw, ih)) = inside else { return vec![area] };
+fn around(area: (u16, u16, u16, u16), inside: Option<(u16, u16, u16, u16)>) -> impl Iterator<Item = (u16, u16, u16, u16)> {
     let (x, y, w, h) = area;
-    let parts = [(x, y, w, iy - y), (x, iy + ih, w, y + h - iy - ih), (x, iy, ix - x, ih), (ix + iw, iy, x + w - ix - iw, ih)];
-    parts.into_iter().filter(|&(_, _, w, h)| w > 0 && h > 0).collect()
+    let parts = match inside {
+        None => [area, (0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
+        Some((ix, iy, iw, ih)) => [(x, y, w, iy - y), (x, iy + ih, w, y + h - iy - ih), (x, iy, ix - x, ih), (ix + iw, iy, x + w - ix - iw, ih)],
+    };
+    parts.into_iter().filter(|&(_, _, w, h)| w > 0 && h > 0)
 }

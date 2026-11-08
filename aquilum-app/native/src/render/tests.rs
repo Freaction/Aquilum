@@ -7,6 +7,9 @@ use masonry::widgets::TextArea;
 
 use super::*;
 
+mod threads;
+mod audit;
+
 const W: u16 = 400;
 const H: u16 = 120;
 const BG: Color = Color::from_rgb8(0x1f, 0x1f, 0x22);
@@ -156,4 +159,23 @@ fn graph_frame_is_copied_exactly_like_the_rasterizer_draws_it() {
     painter.ctx.render_with(pixmap, &mut painter.resources, vello_cpu::RasterizerSettings { pixel_format: PIXEL_FORMAT, ..Default::default() });
     let differ = renderer.frame_pixels().iter().zip(&expected).filter(|(a, b)| a != b).count();
     assert_eq!(differ, 0, "кадр с прямым копированием совпадает с растеризатором");
+}
+
+#[test]
+fn owned_surface_frames_preserve_transparency_metadata_when_reused() {
+    let mut surfaces = Surfaces::default();
+    for _ in 0..3 {
+        let image = surfaces.owned_frame(8, 8, |target| {
+            let mut ctx = vello_cpu::RenderContext::new(8, 8);
+            ctx.set_paint(Color::BLACK);
+            ctx.fill_rect(&masonry::kurbo::Rect::new(0.0, 0.0, 4.0, 8.0));
+            ctx.flush();
+            ctx.render_with(target, &mut vello_cpu::Resources::new(), vello_cpu::RasterizerSettings::default());
+        });
+        let pixmap = super::pixels::lookup(image.image.data.id()).unwrap();
+        assert!(pixmap.may_have_transparency(), "transparent PDF paper was advertised as opaque");
+        assert_eq!(pixmap.data()[7].a, 0);
+        assert_eq!(pixmap.data()[0].a, 255);
+    }
+    assert!(surfaces.pool_len() <= 2, "buffers were not reused");
 }

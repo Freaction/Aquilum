@@ -4,6 +4,8 @@ use super::rows::Row;
 use crate::search::fields::Field;
 use crate::search::tasks::Task;
 
+mod sources;
+
 fn note(relative: &str, created: i64, fields: Vec<Field>) -> Row {
     let name = relative
         .rsplit('/')

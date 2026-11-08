@@ -36,6 +36,8 @@ mod frame;
 mod ime;
 mod keyboard;
 mod launch;
+#[cfg(target_os = "linux")]
+mod linux;
 mod pointer;
 mod replay;
 mod signals;
@@ -104,4 +106,6 @@ struct Host {
     click: Option<(PointerButton, Instant, winit::dpi::PhysicalPosition<f64>, u8)>,
     touch: touch::Touch,
     ime_text: Option<winit::window::ImeSurroundingText>,
+    #[cfg(target_os = "linux")]
+    system_theme: linux::Theme,
 }
