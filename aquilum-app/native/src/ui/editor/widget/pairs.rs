@@ -1,6 +1,7 @@
 //! Автозакрытие скобок и кавычек, обрамление выделения.
 
 use super::TextEditor;
+use aquilum_core::markdown::indent::Indent;
 use crate::ui::editor::history::Kind;
 
 pub fn pair_close(c: char) -> Option<char> {
@@ -57,11 +58,13 @@ impl TextEditor {
                 return false;
             }
             let fence = c == '`' && before.strip_suffix("``").is_some_and(|rest| !rest.ends_with(|p: char| p == '`' || p.is_alphanumeric()));
-            let p = self.doc.paragraph(self.doc.at_offset(self.focus));
-            let prefix = &self.doc.line(self.doc.at_offset(self.focus))[..p.frame.lead];
+            let i = self.doc.at_offset(self.focus);
+            let p = self.doc.paragraph(i);
+            let line = self.doc.line(i);
+            let prefix = &line[..p.frame.lead + Indent::of(&line[p.frame.lead..]).bytes];
             let block = fence && self.focus == p.start + prefix.len() + 2 && !p.block.is_code() && self.doc.slice(self.focus..p.end()).trim().is_empty();
             let (insert, inside) = match (block, fence) {
-                (true, _) => (format!("`\n{prefix}\n{prefix}```"), 2 + prefix.len()),
+                (true, _) => (format!("`\n{prefix}```"), 1),
                 (false, true) => ("````".to_owned(), 1),
                 (false, false) => (format!("{c}{close}"), c.len_utf8()),
             };

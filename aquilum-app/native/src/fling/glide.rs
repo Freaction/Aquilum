@@ -24,16 +24,12 @@ impl Glide {
 }
 
 impl Trail {
-    pub fn clear(&mut self) {
-        self.samples.clear();
-    }
-
     pub fn release(&mut self, scale: f64) -> Option<Fling> {
         let mut samples = std::mem::take(&mut self.samples);
         let (last, x, y) = samples.pop_back()?;
         let &(from, px, py) = samples.back()?;
         let ms = |t: Instant| -from.saturating_duration_since(t).as_secs_f64() * 1000.0;
-        let (vx, vy) = slope(samples.iter().map(|s| (ms(s.0), s.1, s.2)), false)?;
+        let (vx, vy) = slope(samples.iter().map(|s| (ms(s.0), s.1, s.2)))?;
         let measured = vx.hypot(vy);
         let friction = FRICTION_PER_MS * scale;
         if measured <= friction {

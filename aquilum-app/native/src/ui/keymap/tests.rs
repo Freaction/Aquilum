@@ -1,4 +1,4 @@
-use masonry::core::keyboard::{Key, Modifiers};
+use masonry::core::keyboard::{Code, Key, Modifiers};
 
 use super::chord::{Chord, Name, Shift};
 use super::table::BINDINGS;
@@ -52,6 +52,35 @@ fn every_chord_runs_its_own_command_and_no_global_one_hides_a_field_key() {
                 }
             }
         }
+    }
+}
+
+#[test]
+fn latin_layout_shortcuts_use_the_letter_in_every_scope() {
+    for scopes in [&[Scope::Global][..]].iter().chain(WIDGETS) {
+        for binding in BINDINGS.iter().filter(|b| scopes.contains(&b.scope)) {
+            for chord in binding.chords.iter().chain(binding.hidden).filter(|c| c.here() && matches!(c.name, Name::Char(c) if c.is_ascii_alphabetic())) {
+                let (key, modifiers) = press(chord);
+                let code = if chord.name == Name::Char('c') { Code::KeyI } else { Code::KeyC };
+                let actual = super::shortcut_key(key.clone(), code, modifiers);
+                assert_eq!(actual, key, "{} in {scopes:?} changed with the physical key", chord.label());
+                assert_eq!(command(scopes, &actual, modifiers), Some(binding.command));
+            }
+        }
+    }
+}
+
+#[test]
+fn non_latin_shortcuts_keep_working_without_affecting_typing_or_altgr() {
+    use masonry::core::keyboard::NamedKey;
+    let action = crate::test_dir::command();
+    let key = Key::Character("с".into());
+    let resolved = super::shortcut_key(key.clone(), Code::KeyC, action);
+    assert_eq!(command(&[Scope::Text], &resolved, action), Some(Command::Copy));
+    assert_eq!(super::shortcut_key(key.clone(), Code::KeyC, Modifiers::empty()), key);
+    assert_eq!(super::shortcut_key(key.clone(), Code::KeyC, action | Modifiers::ALT), key);
+    for key in [Key::Character(";".into()), Key::Character("C".into()), Key::Named(NamedKey::Tab), Key::Named(NamedKey::Unidentified)] {
+        assert_eq!(super::shortcut_key(key.clone(), Code::KeyC, action), key);
     }
 }
 

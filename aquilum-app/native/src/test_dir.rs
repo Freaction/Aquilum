@@ -25,9 +25,14 @@ pub fn options(width: u32, height: u32, scale_factor: f64) -> masonry::app::Rend
 }
 
 pub fn key(root: &mut masonry::app::RenderRoot, key: masonry::core::keyboard::Key, modifiers: masonry::core::keyboard::Modifiers) {
-    use masonry::core::keyboard::{Code, KeyState, KeyboardEvent, Location};
+    key_with_code(root, key, masonry::core::keyboard::Code::Unidentified, modifiers);
+}
+
+pub fn key_with_code(root: &mut masonry::app::RenderRoot, key: masonry::core::keyboard::Key, code: masonry::core::keyboard::Code, modifiers: masonry::core::keyboard::Modifiers) {
+    use masonry::core::keyboard::{KeyState, KeyboardEvent, Location};
+    let key = crate::ui::keymap::shortcut_key(key, code, modifiers);
     for state in [KeyState::Down, KeyState::Up] {
-        let event = KeyboardEvent { state, key: key.clone(), code: Code::Unidentified, location: Location::Standard, modifiers, repeat: false, is_composing: false };
+        let event = KeyboardEvent { state, key: key.clone(), code, location: Location::Standard, modifiers, repeat: false, is_composing: false };
         root.handle_text_event(masonry::core::TextEvent::Keyboard(event));
     }
 }

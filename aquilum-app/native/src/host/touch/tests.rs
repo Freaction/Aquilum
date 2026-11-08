@@ -151,6 +151,81 @@ fn a_cancelled_touch_neither_clicks_nor_presses_long() {
     assert_eq!(touch.up(1, Point::new(10.0, 10.0), ms(start, 50)), None);
 }
 
+fn quick_flick(render_every: u64, release_delay: u64) -> (Touch, Instant) {
+    let start = Instant::now();
+    let mut touch = Touch::default();
+    touch.down(1, Point::new(100.0, 100.0), start, 1.0);
+    for sample in 1..=6 {
+        let time = sample * 6;
+        let distance = 0.04 * (time * time) as f64;
+        touch.moved(1, Point::new(100.0, 100.0 + distance), ms(start, time));
+        if sample % render_every == 0 { touch.frame(ms(start, time)); }
+    }
+    let released = ms(start, 36 + release_delay);
+    assert!(touch.up(1, Point::new(100.0, 100.0 + 0.04 * 36.0 * 36.0), released).is_none());
+    scrolled(&mut touch, released);
+    (touch, released)
+}
+
+#[test]
+fn a_short_flick_has_inertia_even_before_the_first_rendered_frame() {
+    let (mut touch, released) = quick_flick(100, 0);
+    assert!(scrolled(&mut touch, ms(released, 16)).y > 10.0, "the gesture lost its velocity while no frame was drawn");
+}
+
+#[test]
+fn finger_velocity_does_not_depend_on_rendering_cadence() {
+    let mut steps = Vec::new();
+    for every in [1, 3, 100] {
+        let (mut touch, released) = quick_flick(every, 0);
+        steps.push(scrolled(&mut touch, ms(released, 16)).y);
+    }
+    assert!(steps.iter().all(|&step| (step - steps[0]).abs() < 1e-6), "the same finger movement produced different inertia: {steps:?}");
+}
+
+#[test]
+fn an_unchanged_lift_position_does_not_brake_a_fast_flick() {
+    let (mut immediate, released) = quick_flick(1, 0);
+    let expected = scrolled(&mut immediate, ms(released, 16));
+    let (mut delayed, released) = quick_flick(1, 8);
+    let actual = scrolled(&mut delayed, ms(released, 16));
+    assert!(near(actual, expected), "lifting the finger inserted a false stop: {actual:?}, expected {expected:?}");
+}
+
+#[test]
+fn slowing_swipes_keep_their_direction_after_release() {
+    let start = Instant::now();
+    for positions in [[0.0, 10.0, 18.0, 24.0, 28.0, 30.0], [0.0, 24.0, 42.0, 54.0, 60.0, 62.0]] {
+        for direction in [-1.0, 1.0] {
+            let mut touch = Touch::default();
+            touch.down(1, Point::new(100.0, 100.0), start, 1.0);
+            for (k, y) in positions.into_iter().enumerate().skip(1) {
+                touch.moved(1, Point::new(100.0, 100.0 + y * direction), ms(start, k as u64 * 8));
+            }
+            let released = ms(start, 44);
+            touch.up(1, Point::new(100.0, 100.0 + positions[5] * direction), released);
+            scrolled(&mut touch, released);
+            let step = scrolled(&mut touch, released + FRAME).y;
+            assert!(step * direction > 0.0, "a slowing swipe {positions:?} stopped or reversed: {step}");
+        }
+    }
+}
+
+#[test]
+fn a_drag_resumes_directly_after_a_gap_in_events() {
+    let start = Instant::now();
+    let mut touch = Touch::default();
+    touch.down(1, Point::new(100.0, 100.0), start, 1.0);
+    touch.moved(1, Point::new(100.0, 120.0), ms(start, 16));
+    scrolled(&mut touch, ms(start, 16));
+    assert_eq!(touch.settle(ms(start, 500)), None);
+    assert_eq!(touch.long_press(ms(start, 500)), None);
+    touch.moved(1, Point::new(100.0, 170.0), ms(start, 500));
+    assert!(near(scrolled(&mut touch, ms(start, 508)), Vec2::new(0.0, 50.0)), "a gap must not stop movement under the finger");
+    touch.moved(1, Point::new(100.0, 140.0), ms(start, 516));
+    assert!(near(scrolled(&mut touch, ms(start, 524)), Vec2::new(0.0, -30.0)), "the content must follow a direction change immediately");
+}
+
 #[test]
 fn a_held_finger_drags_instead_of_scrolling() {
     let (mut touch, start) = (Touch::default(), Instant::now());

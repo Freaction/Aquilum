@@ -45,15 +45,17 @@ fn shortcuts_toggle_bold_italic_and_strike() {
 
 #[test]
 fn three_backticks_open_a_fence_in_its_quote_or_list_and_enter_stays_inside() {
-    for (source, fenced) in [("", "```\n\nкод\n```"), ("> ", "> ```\n> \n> код\n> ```"), ("- пункт\n  ", "- пункт\n  ```\n  \n  код\n  ```")] {
-        let mut root = markdown_root(source);
-        press(&mut root, Key::Named(NamedKey::End), crate::test_dir::command());
-        for _ in 0..3 {
-            super::support::typing(&mut root, "`");
+    for (source, prefix) in [("", ""), ("> ", "> "), ("> > ", "> > "), ("- пункт\n  ", "  "), ("- пункт\n  - подпункт\n    ", "    "), ("> - пункт\n>   ", ">   ")] {
+        for language in ["", "rust"] {
+            let mut root = markdown_root(source);
+            press(&mut root, Key::Named(NamedKey::End), crate::test_dir::command());
+            super::support::typing(&mut root, "```");
+            super::support::typing(&mut root, language);
+            assert_eq!(text(&root), format!("{source}```{language}\n{prefix}```"), "the caret must stay on the language line");
+            named(&mut root, NamedKey::Enter);
+            super::support::typing(&mut root, "код");
+            assert_eq!(text(&root), format!("{source}```{language}\n{prefix}код\n{prefix}```"));
         }
-        named(&mut root, NamedKey::Enter);
-        super::support::typing(&mut root, "код");
-        assert_eq!(text(&root), fenced);
     }
     let mut root = markdown_root("слово");
     named(&mut root, NamedKey::End);

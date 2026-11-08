@@ -13,32 +13,58 @@ fn steps(mut fling: Fling, from: Instant) -> Vec<f64> {
 }
 
 #[test]
-fn quadratic_motion_gives_the_speed_at_the_last_sample() {
+fn accelerating_motion_uses_the_recent_average_speed() {
     let start = Instant::now();
-    let mut trail = Trail::touch();
+    let mut trail = Trail::default();
     for k in 0..6 {
         let t = 0.008 * f64::from(k);
         trail.push(after(start, t), 0.0, 2000.0 * t + 30000.0 * t * t);
     }
     let (vx, vy) = trail.velocity(after(start, 0.04)).expect("скорость по шести точкам");
-    assert!(vx.abs() < 1e-6 && (vy - 4400.0).abs() < 1.0, "скорость {vy} вместо 4400 (производная в последней точке)");
+    assert!(vx.abs() < 1e-6 && (vy - 3200.0).abs() < 1.0, "скорость {vy} вместо 3200 (средняя за последние 40 мс)");
 }
 
 #[test]
 fn two_samples_give_a_straight_line() {
     let start = Instant::now();
-    let mut trail = Trail::touch();
+    let mut trail = Trail::default();
     trail.push(start, 0.0, 0.0);
     trail.push(after(start, 0.01), 30.0, 0.0);
     let (vx, _) = trail.velocity(after(start, 0.01)).expect("скорость по двум точкам");
     assert!((vx - 3000.0).abs() < 0.5, "скорость {vx} вместо 3000");
-    assert!(Trail::touch().velocity(start).is_none());
+    assert!(Trail::default().velocity(start).is_none());
+}
+
+#[test]
+fn slowing_down_does_not_reverse_a_swipe() {
+    let start = Instant::now();
+    for positions in [[0.0, 24.0, 42.0, 54.0, 60.0, 62.0], [0.0, 20.0, 35.0, 43.0, 47.0, 48.0], [0.0, 40.0, 60.0, 70.0, 74.0, 75.0]] {
+        for direction in [-1.0, 1.0] {
+            let mut trail = Trail::default();
+            for (k, position) in positions.into_iter().enumerate() {
+                trail.push(start + Duration::from_millis(k as u64 * 8), 0.0, position * direction);
+            }
+            let (_, vy) = trail.velocity(after(start, 0.04)).expect("moving finger");
+            assert!(vy * direction > 0.0, "one-way swipe {positions:?} produced velocity {vy} in direction {direction}");
+        }
+    }
+}
+
+#[test]
+fn a_real_direction_change_uses_recent_movement() {
+    let start = Instant::now();
+    let mut trail = Trail::default();
+    for (k, y) in [0.0, 20.0, 40.0, 60.0, 80.0, 100.0, 80.0, 60.0, 40.0, 20.0, 0.0].into_iter().enumerate() {
+        trail.push(start + Duration::from_millis(k as u64 * 8), 0.0, y);
+    }
+    let (_, vy) = trail.velocity(after(start, 0.08)).expect("moving finger");
+    assert!(vy < 0.0, "the old direction survived a turn: {vy}");
 }
 
 #[test]
 fn a_pause_before_release_means_the_finger_stopped() {
     let start = Instant::now();
-    let mut trail = Trail::touch();
+    let mut trail = Trail::default();
     for k in 0..5 {
         trail.push(after(start, 0.01 * f64::from(k)), 0.0, 40.0 * f64::from(k));
     }
@@ -49,7 +75,7 @@ fn a_pause_before_release_means_the_finger_stopped() {
 #[test]
 fn a_pause_forgets_the_movement_before_it() {
     let start = Instant::now();
-    let mut trail = Trail::touch();
+    let mut trail = Trail::default();
     for k in 0..5 {
         trail.push(after(start, 0.01 * f64::from(k)), 0.0, 40.0 * f64::from(k));
     }
@@ -62,7 +88,7 @@ fn a_pause_forgets_the_movement_before_it() {
 #[test]
 fn a_sample_at_the_same_moment_replaces_the_previous_one() {
     let start = Instant::now();
-    let mut trail = Trail::touch();
+    let mut trail = Trail::default();
     trail.push(start, 0.0, 0.0);
     trail.push(after(start, 0.01), 0.0, 10.0);
     trail.push(after(start, 0.01), 0.0, 20.0);

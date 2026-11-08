@@ -5,11 +5,27 @@ mod table;
 #[cfg(test)]
 mod tests;
 
-use masonry::core::keyboard::{Key, Modifiers};
+use masonry::core::keyboard::{Code, Key, Modifiers};
 
 pub use chord::{action, action_key, extend, typing};
 pub use gesture::Gesture;
 use table::BINDINGS;
+
+/// Respect layout letters; retain physical shortcuts for non-Latin layouts.
+pub fn shortcut_key(key: Key, code: Code, modifiers: Modifiers) -> Key {
+    const LETTERS: [Code; 26] = [
+        Code::KeyA, Code::KeyB, Code::KeyC, Code::KeyD, Code::KeyE, Code::KeyF, Code::KeyG, Code::KeyH, Code::KeyI,
+        Code::KeyJ, Code::KeyK, Code::KeyL, Code::KeyM, Code::KeyN, Code::KeyO, Code::KeyP, Code::KeyQ, Code::KeyR,
+        Code::KeyS, Code::KeyT, Code::KeyU, Code::KeyV, Code::KeyW, Code::KeyX, Code::KeyY, Code::KeyZ,
+    ];
+    if action(modifiers) && !modifiers.alt()
+        && matches!(&key, Key::Character(text) if !text.is_ascii())
+        && let Some(index) = LETTERS.iter().position(|&letter| letter == code)
+    {
+        return Key::Character(char::from(b'a' + index as u8).to_string());
+    }
+    key
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scope {

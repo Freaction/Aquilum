@@ -1,15 +1,6 @@
 use super::*;
 use crate::ui::keymap::{self, Command, Scope};
 
-fn latin(code: Code) -> Option<char> {
-    const LETTERS: [Code; 26] = [
-        Code::KeyA, Code::KeyB, Code::KeyC, Code::KeyD, Code::KeyE, Code::KeyF, Code::KeyG, Code::KeyH, Code::KeyI,
-        Code::KeyJ, Code::KeyK, Code::KeyL, Code::KeyM, Code::KeyN, Code::KeyO, Code::KeyP, Code::KeyQ, Code::KeyR,
-        Code::KeyS, Code::KeyT, Code::KeyU, Code::KeyV, Code::KeyW, Code::KeyX, Code::KeyY, Code::KeyZ,
-    ];
-    LETTERS.iter().position(|&c| c == code).map(|i| char::from(b'a' + i as u8))
-}
-
 impl Host {
     pub(super) fn text_event(&mut self, event: TextEvent) {
         if let Some(root) = &mut self.root {
@@ -84,10 +75,7 @@ impl Host {
             ElementState::Pressed => KeyState::Down,
             ElementState::Released => KeyState::Up,
         };
-        let key = match latin(code) {
-            Some(letter) if keymap::action(self.modifiers) && !self.modifiers.alt() => Key::Character(letter.to_string()),
-            _ => key,
-        };
+        let key = keymap::shortcut_key(key, code, self.modifiers);
         if state == KeyState::Down && self.shortcut(&key, event.repeat) {
             return;
         }
