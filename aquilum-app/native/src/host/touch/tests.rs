@@ -291,6 +291,25 @@ fn a_fast_flick_keeps_inertia_when_frames_arrive_as_instant_bursts() {
 }
 
 #[test]
+fn a_quick_flick_drained_in_one_instant_burst_still_flings() {
+    // Fast swipe: all moves share one Instant::now() stamp (typical Android input drain).
+    let start = Instant::now();
+    let mut touch = Touch::default();
+    touch.down(1, Point::new(100.0, 100.0), start, 1.0);
+    let burst = start + Duration::from_millis(2);
+    for (k, y) in [24.0, 80.0, 160.0, 260.0, 380.0].into_iter().enumerate() {
+        touch.moved(1, Point::new(100.0, 100.0 + y), burst + Duration::from_micros(k as u64 * 40));
+    }
+    let released = start + Duration::from_millis(36);
+    assert!(touch.up(1, Point::new(100.0, 480.0), released).is_none());
+    scrolled(&mut touch, released);
+    let steps: Vec<f64> = (1..200).map(|k| scrolled(&mut touch, released + FRAME * k).y).take_while(|&y| y > 0.0).collect();
+    assert!(steps.len() > 3, "быстрый свайп в одной пачке Instant потерял инерцию");
+    assert!(steps[0] > 8.0, "инерция слишком слабая для быстрого свайпа: {}", steps[0]);
+    assert!(steps.windows(2).all(|w| w[1] <= w[0]), "нет замедления: {steps:?}");
+}
+
+#[test]
 fn a_held_finger_drags_instead_of_scrolling() {
     let (mut touch, start) = (Touch::default(), Instant::now());
     touch.down(1, Point::new(100.0, 100.0), start, DP);

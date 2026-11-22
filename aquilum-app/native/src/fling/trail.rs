@@ -40,8 +40,11 @@ impl Trail {
             if dt > STOPPED && (x - px).hypot(y - py) < 1.0 {
                 self.samples.clear();
             } else if dt < MIN_SAMPLE_GAP {
-                // Same OS poll / Instant burst: keep the latest point at this slot.
+                // Same OS poll / Instant burst: keep the first stamp, latest point.
+                // Preserving `t` leaves a usable wall duration from scroll start → lift.
                 self.samples.pop_back();
+                self.samples.push_back((t, x, y));
+                return;
             }
         }
         self.samples.push_back((at, x, y));
@@ -50,11 +53,20 @@ impl Trail {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.samples.len()
+    }
+
+    /// True when the newest sample is still fresh at `at` (finger had not paused).
+    pub fn fresh(&self, at: Instant) -> bool {
+        self.samples.back().is_some_and(|&(newest, _, _)| at.saturating_duration_since(newest) <= STOPPED)
+    }
+
     pub fn velocity(&self, at: Instant) -> Option<(f64, f64)> {
-        let &(newest, _, _) = self.samples.back()?;
-        if at.saturating_duration_since(newest) > STOPPED {
+        if !self.fresh(at) {
             return None;
         }
+        let &(newest, _, _) = self.samples.back()?;
         let age = |t: Instant| -newest.saturating_duration_since(t).as_secs_f64();
         slope(self.samples.iter().map(|&(t, x, y)| (age(t), x, y)))
     }

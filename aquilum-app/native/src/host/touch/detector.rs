@@ -1,10 +1,13 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use masonry::kurbo::{Point, Vec2};
 
 use super::scale::Scale;
 use crate::fling::{Fling, Trail};
 use crate::ui::keymap::gesture::{DOUBLE_TAP, DOUBLE_TAP_SLOP, FLING_MAX_VELOCITY, FLING_MIN_VELOCITY, LONG_PRESS, TAP_TIMEOUT, TOUCH_SLOP};
+
+/// Assumed spacing when Android drains a flick as one Instant::now() burst.
+const BURST_FRAME: Duration = Duration::from_millis(8);
 
 #[derive(Clone, Copy, Default, PartialEq)]
 enum Phase {
@@ -33,6 +36,10 @@ pub struct Touch {
     /// Keeps vsync alive between move bursts so fling can start and run.
     tracking: bool,
     trail: Trail,
+    /// Wall time and travel when scrolling started — fallback for Instant-collapsed flicks.
+    scroll_anchor: Option<(Instant, f64, f64)>,
+    /// Distinct scroll moves since `scroll_anchor` (for burst duration estimates).
+    scroll_moves: u32,
     scale: Scale,
     scroll: Vec2,
     zoom: f64,
@@ -55,6 +62,8 @@ impl Touch {
             // Empty trail until scrolling starts — a stationary press must not
             // dilute the fling speed of the swipe that follows.
             self.trail = Trail::touch();
+            self.scroll_anchor = None;
+            self.scroll_moves = 0;
             self.tracking = true;
             self.settled = false;
             let repeated = self.tap.take().filter(|&(up, from, _)| at.saturating_duration_since(up) <= DOUBLE_TAP && (position - from).hypot() < DOUBLE_TAP_SLOP * dp);
@@ -81,11 +90,14 @@ impl Touch {
                     self.phase = Phase::Scrolling;
                     self.scroll += offset * (1.0 - slop / offset.hypot());
                     self.trail = Trail::touch();
+                    self.scroll_anchor = Some((at, self.travel.x, self.travel.y));
+                    self.scroll_moves = 1;
                     self.trail.push(at, self.travel.x, self.travel.y);
                 }
             }
             Phase::Scrolling => {
                 self.scroll += step;
+                self.scroll_moves = self.scroll_moves.saturating_add(1);
                 self.trail.push(at, self.travel.x, self.travel.y);
                 self.zoom += self.scale.moved(self.span(), self.dp);
             }
@@ -175,9 +187,23 @@ impl Touch {
 
     fn release(&mut self, at: Instant) -> Option<Fling> {
         let (max, min) = (FLING_MAX_VELOCITY * self.dp, FLING_MIN_VELOCITY * self.dp);
-        let (vx, vy) = self.trail.velocity(at)?;
+        let (vx, vy) = self.trail.velocity(at).or_else(|| self.collapsed_flick_velocity(at))?;
         let velocity = (vx.clamp(-max, max), vy.clamp(-max, max));
         (velocity.0.abs() > min || velocity.1.abs() > min).then(|| Fling::spline(at, velocity, self.dp))
+    }
+
+    /// Fast Android flicks often arrive as one Instant::now() burst, so the trail
+    /// collapses to a single sample and slope() cannot fit a speed. Recover from
+    /// travel since scroll start over max(wall dt, moves × frame).
+    fn collapsed_flick_velocity(&self, at: Instant) -> Option<(f64, f64)> {
+        if !self.trail.fresh(at) || self.trail.len() != 1 {
+            return None;
+        }
+        let (t0, x0, y0) = self.scroll_anchor?;
+        let wall = at.saturating_duration_since(t0);
+        let from_moves = BURST_FRAME * self.scroll_moves.max(1);
+        let dt = wall.max(from_moves).max(BURST_FRAME).as_secs_f64();
+        Some(((self.travel.x - x0) / dt, (self.travel.y - y0) / dt))
     }
 
     fn lift(&mut self, finger: usize) -> bool {
