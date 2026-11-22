@@ -97,14 +97,14 @@ fn a_sample_at_the_same_moment_replaces_the_previous_one() {
 }
 
 #[test]
-fn touch_trail_keeps_a_hundred_milliseconds_of_history() {
+fn touch_trail_uses_the_recent_fifty_milliseconds() {
     let start = Instant::now();
     let mut trail = Trail::touch();
     for k in 0..=10 {
         trail.push(start + Duration::from_millis(k * 10), 0.0, 50.0 * k as f64);
     }
     let (_, vy) = trail.velocity(start + Duration::from_millis(100)).expect("скорость");
-    assert!((vy - 5000.0).abs() < 1.0, "скорость {vy} вместо 5000 по окну 100 мс");
+    assert!((vy - 5000.0).abs() < 1.0, "скорость {vy} вместо 5000 по окну 50 мс");
 }
 
 #[test]

@@ -2,8 +2,10 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 const TOUCHPAD_HORIZON: Duration = Duration::from_millis(40);
-/// Android VelocityTracker keeps about 100 ms of history for flings.
-const TOUCH_HORIZON: Duration = Duration::from_millis(100);
+/// Recent window for fling speed. Shorter than Android's 100 ms history so a
+/// flick's release velocity is not diluted by the slow start of the gesture —
+/// closer to ImpulseVelocityTracker / Telegram's feel.
+const TOUCH_HORIZON: Duration = Duration::from_millis(50);
 const STOPPED: Duration = Duration::from_millis(40);
 const HISTORY: usize = 20;
 

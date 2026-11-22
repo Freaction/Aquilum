@@ -30,8 +30,9 @@ pub struct Touch {
     focus: Point,
     travel: Vec2,
     /// Latest finger sample not yet committed to the velocity trail.
-    /// Committed once per display frame (and on release) so Instant::now() bursts
-    /// cannot invent multi‑million px/s flings the way raw per-move stamps can.
+    /// Committed once per display frame (and on release), matching Android's
+    /// practice of deriving fling speed from display-timed motion, not from
+    /// back-to-back Instant::now() stamps inside one input burst.
     moved: Option<Instant>,
     trail: Trail,
     scale: Scale,
@@ -52,8 +53,9 @@ impl Touch {
             self.dp = dp;
             self.down = position;
             self.travel = Vec2::ZERO;
+            // Start an empty touch trail. Seeding (0,0) here would dilute the
+            // fling speed with the stationary press that precedes every swipe.
             self.trail = Trail::touch();
-            self.trail.push(at, 0.0, 0.0);
             self.moved = None;
             self.settled = false;
             let repeated = self.tap.take().filter(|&(up, from, _)| at.saturating_duration_since(up) <= DOUBLE_TAP && (position - from).hypot() < DOUBLE_TAP_SLOP * dp);
@@ -80,6 +82,11 @@ impl Touch {
                 if offset.hypot() > slop {
                     self.phase = Phase::Scrolling;
                     self.scroll += offset * (1.0 - slop / offset.hypot());
+                    // Velocity history starts at the first scrolling sample so the
+                    // fling inherits the finger's speed at lift, like Telegram.
+                    self.trail = Trail::touch();
+                    self.trail.push(at, self.travel.x, self.travel.y);
+                    self.moved = None;
                 }
             }
             Phase::Scrolling => {

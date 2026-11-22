@@ -129,6 +129,21 @@ fn a_flick_keeps_scrolling_at_the_speed_of_the_finger_and_stops() {
 }
 
 #[test]
+fn a_medium_flick_glides_about_a_screen_like_telegram() {
+    let start = Instant::now();
+    let mut touch = Touch::default();
+    // ~2500 px/s: on a phone (density ~3) this is a medium flick of about a screen.
+    let end = flick(&mut touch, start, 20.0);
+    let steps: Vec<f64> = (1..400).map(|k| scrolled(&mut touch, end + FRAME * k).y).take_while(|&y| y > 0.0).collect();
+    let path: f64 = steps.iter().sum();
+    let ms = steps.len() as f64 * FRAME.as_secs_f64() * 1000.0;
+    assert!(steps.windows(2).all(|w| w[1] <= w[0]), "нет замедления: {steps:?}");
+    assert!(path > 500.0, "инерция слишком короткая для среднего свайпа: {path}");
+    assert!(path < 2000.0, "инерция уносит слишком далеко: {path}");
+    assert!((500.0..=1800.0).contains(&ms), "длительность {ms} мс не похожа на мобильный fling");
+}
+
+#[test]
 fn touching_a_running_fling_stops_it_without_a_click() {
     let start = Instant::now();
     let mut touch = Touch::default();
