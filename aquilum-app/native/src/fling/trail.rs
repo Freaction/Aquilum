@@ -1,35 +1,49 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-const HORIZON: Duration = Duration::from_millis(40);
-/// Touch moves from one OS burst are often handled back-to-back with nearly identical
-/// `Instant::now()` stamps. Keep one sample per burst so velocity stays in px/s, not px/µs.
-const MIN_SAMPLE_GAP: Duration = Duration::from_millis(1);
+const TOUCHPAD_HORIZON: Duration = Duration::from_millis(40);
+/// Android VelocityTracker keeps about 100 ms of history for flings.
+const TOUCH_HORIZON: Duration = Duration::from_millis(100);
+const STOPPED: Duration = Duration::from_millis(40);
 const HISTORY: usize = 20;
 
-#[derive(Default)]
 pub struct Trail {
     pub(super) samples: VecDeque<(Instant, f64, f64)>,
+    horizon: Duration,
+}
+
+impl Default for Trail {
+    fn default() -> Self {
+        Trail { samples: VecDeque::new(), horizon: TOUCHPAD_HORIZON }
+    }
 }
 
 impl Trail {
+    pub fn touch() -> Self {
+        Trail { horizon: TOUCH_HORIZON, ..Trail::default() }
+    }
+
+    #[allow(dead_code)] // used by the Windows touchpad path
     pub fn clear(&mut self) {
         self.samples.clear();
     }
 
     pub fn push(&mut self, at: Instant, x: f64, y: f64) {
-        if self.samples.back().is_some_and(|&(t, _, _)| at.saturating_duration_since(t) < MIN_SAMPLE_GAP) {
+        if self.samples.back().is_some_and(|&(t, _, _)| at.saturating_duration_since(t) > STOPPED) {
+            self.samples.clear();
+        }
+        if self.samples.back().is_some_and(|&(t, _, _)| t == at) {
             self.samples.pop_back();
         }
         self.samples.push_back((at, x, y));
-        while self.samples.len() > HISTORY || self.samples.front().is_some_and(|&(t, _, _)| at.saturating_duration_since(t) > HORIZON) {
+        while self.samples.len() > HISTORY || self.samples.front().is_some_and(|&(t, _, _)| at.saturating_duration_since(t) > self.horizon) {
             self.samples.pop_front();
         }
     }
 
     pub fn velocity(&self, at: Instant) -> Option<(f64, f64)> {
         let &(newest, _, _) = self.samples.back()?;
-        if at.saturating_duration_since(newest) > HORIZON {
+        if at.saturating_duration_since(newest) > STOPPED {
             return None;
         }
         let age = |t: Instant| -newest.saturating_duration_since(t).as_secs_f64();

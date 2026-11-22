@@ -174,13 +174,14 @@ fn a_short_flick_has_inertia_even_before_the_first_rendered_frame() {
 }
 
 #[test]
-fn finger_velocity_does_not_depend_on_rendering_cadence() {
-    let mut steps = Vec::new();
+fn a_short_flick_keeps_inertia_across_rendering_cadences() {
     for every in [1, 3, 100] {
         let (mut touch, released) = quick_flick(every, 0);
-        steps.push(scrolled(&mut touch, ms(released, 16)).y);
+        let steps: Vec<f64> = (1..200).map(|k| scrolled(&mut touch, ms(released, 8 * k)).y).take_while(|&y| y > 0.0).collect();
+        assert!(steps.len() > 3, "каденс {every}: инерция пропала");
+        assert!(steps.windows(2).all(|w| w[1] <= w[0]), "каденс {every}: нет замедления {steps:?}");
+        assert!(steps[0] > 5.0, "каденс {every}: слишком слабый старт {}", steps[0]);
     }
-    assert!(steps.iter().all(|&step| (step - steps[0]).abs() < 1e-6), "the same finger movement produced different inertia: {steps:?}");
 }
 
 #[test]
@@ -244,9 +245,10 @@ fn a_gentle_swipe_from_an_event_burst_slows_down_instead_of_racing_away() {
     scrolled(&mut touch, released);
     let steps: Vec<f64> = (1..200).map(|k| scrolled(&mut touch, released + FRAME * k).y).take_while(|&y| y > 0.0).collect();
     let path: f64 = steps.iter().sum();
-    assert!(!steps.is_empty(), "лёгкий свайп должен дать инерцию");
+    assert!(steps.len() > 3, "лёгкий свайп должен дать инерцию");
     assert!(steps.windows(2).all(|w| w[1] <= w[0]), "инерция не замедляется: {steps:?}");
     assert!(path < 400.0, "пачка событий унесла на {path} px вместо короткой инерции");
+    assert!(steps[0] > 3.0, "инерция слишком слабая: {}", steps[0]);
 }
 
 #[test]

@@ -29,6 +29,10 @@ pub struct Touch {
     down: Point,
     focus: Point,
     travel: Vec2,
+    /// Latest finger sample not yet committed to the velocity trail.
+    /// Committed once per display frame (and on release) so Instant::now() bursts
+    /// cannot invent multi‑million px/s flings the way raw per-move stamps can.
+    moved: Option<Instant>,
     trail: Trail,
     scale: Scale,
     scroll: Vec2,
@@ -48,8 +52,9 @@ impl Touch {
             self.dp = dp;
             self.down = position;
             self.travel = Vec2::ZERO;
-            self.trail.clear();
+            self.trail = Trail::touch();
             self.trail.push(at, 0.0, 0.0);
+            self.moved = None;
             self.settled = false;
             let repeated = self.tap.take().filter(|&(up, from, _)| at.saturating_duration_since(up) <= DOUBLE_TAP && (position - from).hypot() < DOUBLE_TAP_SLOP * dp);
             self.phase = match (self.fling.take(), repeated) {
@@ -67,7 +72,7 @@ impl Touch {
         let focus = self.centroid();
         let step = focus - std::mem::replace(&mut self.focus, focus);
         self.travel += step;
-        self.trail.push(at, self.travel.x, self.travel.y);
+        self.moved = Some(at);
         match self.phase {
             Phase::Pressed(..) => {
                 let offset = focus - self.down;
@@ -145,10 +150,11 @@ impl Touch {
     }
 
     pub fn active(&self) -> bool {
-        self.fling.is_some() || self.scroll != Vec2::ZERO || self.zoom != 0.0
+        self.moved.is_some() || self.fling.is_some() || self.scroll != Vec2::ZERO || self.zoom != 0.0
     }
 
     pub fn frame(&mut self, at: Instant) -> Frame {
+        self.sample();
         let mut scroll = std::mem::take(&mut self.scroll);
         if let Some(step) = self.fling.as_mut().map(|fling| fling.advance(at)) {
             match step {
@@ -161,10 +167,17 @@ impl Touch {
     }
 
     fn release(&mut self, at: Instant) -> Option<Fling> {
+        self.sample();
         let (max, min) = (FLING_MAX_VELOCITY * self.dp, FLING_MIN_VELOCITY * self.dp);
         let (vx, vy) = self.trail.velocity(at)?;
         let velocity = (vx.clamp(-max, max), vy.clamp(-max, max));
         (velocity.0.abs() > min || velocity.1.abs() > min).then(|| Fling::spline(at, velocity, self.dp))
+    }
+
+    fn sample(&mut self) {
+        if let Some(at) = self.moved.take() {
+            self.trail.push(at, self.travel.x, self.travel.y);
+        }
     }
 
     fn lift(&mut self, finger: usize) -> bool {
