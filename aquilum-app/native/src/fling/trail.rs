@@ -2,6 +2,9 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 const HORIZON: Duration = Duration::from_millis(40);
+/// Touch moves from one OS burst are often handled back-to-back with nearly identical
+/// `Instant::now()` stamps. Keep one sample per burst so velocity stays in px/s, not px/µs.
+const MIN_SAMPLE_GAP: Duration = Duration::from_millis(1);
 const HISTORY: usize = 20;
 
 #[derive(Default)]
@@ -15,7 +18,7 @@ impl Trail {
     }
 
     pub fn push(&mut self, at: Instant, x: f64, y: f64) {
-        if self.samples.back().is_some_and(|&(t, _, _)| t == at) {
+        if self.samples.back().is_some_and(|&(t, _, _)| at.saturating_duration_since(t) < MIN_SAMPLE_GAP) {
             self.samples.pop_back();
         }
         self.samples.push_back((at, x, y));

@@ -97,6 +97,34 @@ fn a_sample_at_the_same_moment_replaces_the_previous_one() {
 }
 
 #[test]
+fn a_burst_of_nearly_simultaneous_samples_does_not_invent_a_max_fling() {
+    let start = Instant::now();
+    let mut trail = Trail::default();
+    // Gentle swipe: each display frame delivers several moves stamped with Instant::now()
+    // microseconds apart. Without coalescing, the fit would read millions of px/s.
+    for frame in 0..=5 {
+        let base = start + Duration::from_millis(frame * 8);
+        let y0 = 8.0 * frame as f64;
+        for (k, y) in [y0, y0 + 2.0, y0 + 4.0, y0 + 6.0, y0 + 8.0].into_iter().enumerate() {
+            trail.push(base + Duration::from_micros(k as u64 * 40), 0.0, y);
+        }
+    }
+    let (_, vy) = trail.velocity(start + Duration::from_millis(40)).expect("скорость");
+    assert!((vy - 1000.0).abs() < 50.0, "пачка событий дала скорость {vy} вместо ~1000");
+}
+
+#[test]
+fn spaced_samples_still_measure_a_real_swipe() {
+    let start = Instant::now();
+    let mut trail = Trail::default();
+    for k in 0..=5 {
+        trail.push(start + Duration::from_millis(k * 8), 0.0, 40.0 * k as f64);
+    }
+    let (_, vy) = trail.velocity(start + Duration::from_millis(40)).expect("скорость");
+    assert!((vy - 5000.0).abs() < 1.0, "скорость {vy} вместо 5000");
+}
+
+#[test]
 fn a_fling_travels_as_far_and_as_long_as_on_android() {
     let start = Instant::now();
     let steps = steps(Fling::spline(start, (0.0, 1000.0), 1.0), start);

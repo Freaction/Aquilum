@@ -227,6 +227,29 @@ fn a_drag_resumes_directly_after_a_gap_in_events() {
 }
 
 #[test]
+fn a_gentle_swipe_from_an_event_burst_slows_down_instead_of_racing_away() {
+    let start = Instant::now();
+    let mut touch = Touch::default();
+    touch.down(1, Point::new(100.0, 100.0), start, 1.0);
+    for frame in 1..=6 {
+        let base = start + Duration::from_millis(frame * 8);
+        let y0 = 8.0 * frame as f64;
+        for (k, y) in [y0, y0 + 2.0, y0 + 4.0, y0 + 6.0, y0 + 8.0].into_iter().enumerate() {
+            touch.moved(1, Point::new(100.0, 100.0 + y), base + Duration::from_micros(k as u64 * 40));
+        }
+        scrolled(&mut touch, base);
+    }
+    let released = start + Duration::from_millis(48);
+    touch.up(1, Point::new(100.0, 148.0), released);
+    scrolled(&mut touch, released);
+    let steps: Vec<f64> = (1..200).map(|k| scrolled(&mut touch, released + FRAME * k).y).take_while(|&y| y > 0.0).collect();
+    let path: f64 = steps.iter().sum();
+    assert!(!steps.is_empty(), "лёгкий свайп должен дать инерцию");
+    assert!(steps.windows(2).all(|w| w[1] <= w[0]), "инерция не замедляется: {steps:?}");
+    assert!(path < 400.0, "пачка событий унесла на {path} px вместо короткой инерции");
+}
+
+#[test]
 fn a_held_finger_drags_instead_of_scrolling() {
     let (mut touch, start) = (Touch::default(), Instant::now());
     touch.down(1, Point::new(100.0, 100.0), start, DP);
