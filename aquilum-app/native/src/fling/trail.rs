@@ -2,11 +2,13 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 const TOUCHPAD_HORIZON: Duration = Duration::from_millis(40);
-/// Recent window for fling speed. Shorter than Android's 100 ms history so a
-/// flick's release velocity is not diluted by the slow start of the gesture —
-/// closer to ImpulseVelocityTracker / Telegram's feel.
+/// Recent window for fling speed (Impulse-style): inherit the finger's speed at lift.
 const TOUCH_HORIZON: Duration = Duration::from_millis(50);
 const STOPPED: Duration = Duration::from_millis(40);
+/// Touch moves from one OS burst share nearly identical Instant::now() stamps.
+/// Collapse sub‑millisecond stamps so velocity stays in px/s, not px/µs, while
+/// keeping real ~120 Hz samples from distinct frames.
+const MIN_SAMPLE_GAP: Duration = Duration::from_millis(1);
 const HISTORY: usize = 20;
 
 pub struct Trail {
@@ -31,11 +33,16 @@ impl Trail {
     }
 
     pub fn push(&mut self, at: Instant, x: f64, y: f64) {
-        if self.samples.back().is_some_and(|&(t, _, _)| at.saturating_duration_since(t) > STOPPED) {
-            self.samples.clear();
-        }
-        if self.samples.back().is_some_and(|&(t, _, _)| t == at) {
-            self.samples.pop_back();
+        if let Some(&(t, px, py)) = self.samples.back() {
+            let dt = at.saturating_duration_since(t);
+            // Only treat a gap as "finger stopped" when the position did not move.
+            // Sparse sampling must not wipe a continuous swipe's history.
+            if dt > STOPPED && (x - px).hypot(y - py) < 1.0 {
+                self.samples.clear();
+            } else if dt < MIN_SAMPLE_GAP {
+                // Same OS poll / Instant burst: keep the latest point at this slot.
+                self.samples.pop_back();
+            }
         }
         self.samples.push_back((at, x, y));
         while self.samples.len() > HISTORY || self.samples.front().is_some_and(|&(t, _, _)| at.saturating_duration_since(t) > self.horizon) {

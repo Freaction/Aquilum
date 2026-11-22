@@ -267,6 +267,30 @@ fn a_gentle_swipe_from_an_event_burst_slows_down_instead_of_racing_away() {
 }
 
 #[test]
+fn a_fast_flick_keeps_inertia_when_frames_arrive_as_instant_bursts() {
+    // Android often drains several PointerMoved events in one poll with µs Instant gaps.
+    let start = Instant::now();
+    let mut touch = Touch::default();
+    touch.down(1, Point::new(100.0, 100.0), start, 1.0);
+    assert!(touch.active(), "finger down must keep vsync alive between move bursts");
+    for frame in 1..=8 {
+        let base = start + Duration::from_millis(frame * 8);
+        let y0 = 20.0 * frame as f64;
+        for (k, y) in [y0, y0 + 5.0, y0 + 10.0, y0 + 15.0, y0 + 20.0].into_iter().enumerate() {
+            touch.moved(1, Point::new(100.0, 100.0 + y), base + Duration::from_micros(k as u64 * 30));
+        }
+        assert!(touch.active());
+        scrolled(&mut touch, base);
+    }
+    let released = start + Duration::from_millis(64);
+    touch.up(1, Point::new(100.0, 260.0), released);
+    scrolled(&mut touch, released);
+    let step = scrolled(&mut touch, released + FRAME).y;
+    assert!(step > 10.0, "burst-stamped flick lost its fling: {step}");
+    assert!(touch.active(), "fling must keep vsync after lift");
+}
+
+#[test]
 fn a_held_finger_drags_instead_of_scrolling() {
     let (mut touch, start) = (Touch::default(), Instant::now());
     touch.down(1, Point::new(100.0, 100.0), start, DP);

@@ -29,11 +29,9 @@ pub struct Touch {
     down: Point,
     focus: Point,
     travel: Vec2,
-    /// Latest finger sample not yet committed to the velocity trail.
-    /// Committed once per display frame (and on release), matching Android's
-    /// practice of deriving fling speed from display-timed motion, not from
-    /// back-to-back Instant::now() stamps inside one input burst.
-    moved: Option<Instant>,
+    /// True while a finger is down and may still produce scroll/zoom this gesture.
+    /// Keeps vsync alive between move bursts so fling can start and run.
+    tracking: bool,
     trail: Trail,
     scale: Scale,
     scroll: Vec2,
@@ -49,14 +47,15 @@ impl Touch {
         self.fingers.push((finger, position));
         if self.fingers.len() > 1 {
             self.phase = Phase::Scrolling;
+            self.tracking = true;
         } else {
             self.dp = dp;
             self.down = position;
             self.travel = Vec2::ZERO;
-            // Start an empty touch trail. Seeding (0,0) here would dilute the
-            // fling speed with the stationary press that precedes every swipe.
+            // Empty trail until scrolling starts — a stationary press must not
+            // dilute the fling speed of the swipe that follows.
             self.trail = Trail::touch();
-            self.moved = None;
+            self.tracking = true;
             self.settled = false;
             let repeated = self.tap.take().filter(|&(up, from, _)| at.saturating_duration_since(up) <= DOUBLE_TAP && (position - from).hypot() < DOUBLE_TAP_SLOP * dp);
             self.phase = match (self.fling.take(), repeated) {
@@ -74,7 +73,6 @@ impl Touch {
         let focus = self.centroid();
         let step = focus - std::mem::replace(&mut self.focus, focus);
         self.travel += step;
-        self.moved = Some(at);
         match self.phase {
             Phase::Pressed(..) => {
                 let offset = focus - self.down;
@@ -82,15 +80,13 @@ impl Touch {
                 if offset.hypot() > slop {
                     self.phase = Phase::Scrolling;
                     self.scroll += offset * (1.0 - slop / offset.hypot());
-                    // Velocity history starts at the first scrolling sample so the
-                    // fling inherits the finger's speed at lift, like Telegram.
                     self.trail = Trail::touch();
                     self.trail.push(at, self.travel.x, self.travel.y);
-                    self.moved = None;
                 }
             }
             Phase::Scrolling => {
                 self.scroll += step;
+                self.trail.push(at, self.travel.x, self.travel.y);
                 self.zoom += self.scale.moved(self.span(), self.dp);
             }
             Phase::Idle | Phase::Held | Phase::Done => {}
@@ -105,6 +101,7 @@ impl Touch {
         if !self.lift(finger) || !self.fingers.is_empty() {
             return None;
         }
+        self.tracking = false;
         match std::mem::take(&mut self.phase) {
             Phase::Pressed(_, count) => {
                 self.tap = Some((at, self.down, count));
@@ -133,6 +130,10 @@ impl Touch {
     pub fn cancel(&mut self, finger: usize) {
         if self.lift(finger) {
             self.phase = if self.fingers.is_empty() { Phase::Idle } else { Phase::Done };
+            if self.fingers.is_empty() {
+                self.tracking = false;
+                self.fling = None;
+            }
         }
     }
 
@@ -157,11 +158,10 @@ impl Touch {
     }
 
     pub fn active(&self) -> bool {
-        self.moved.is_some() || self.fling.is_some() || self.scroll != Vec2::ZERO || self.zoom != 0.0
+        self.tracking || self.fling.is_some() || self.scroll != Vec2::ZERO || self.zoom != 0.0
     }
 
     pub fn frame(&mut self, at: Instant) -> Frame {
-        self.sample();
         let mut scroll = std::mem::take(&mut self.scroll);
         if let Some(step) = self.fling.as_mut().map(|fling| fling.advance(at)) {
             match step {
@@ -174,17 +174,10 @@ impl Touch {
     }
 
     fn release(&mut self, at: Instant) -> Option<Fling> {
-        self.sample();
         let (max, min) = (FLING_MAX_VELOCITY * self.dp, FLING_MIN_VELOCITY * self.dp);
         let (vx, vy) = self.trail.velocity(at)?;
         let velocity = (vx.clamp(-max, max), vy.clamp(-max, max));
         (velocity.0.abs() > min || velocity.1.abs() > min).then(|| Fling::spline(at, velocity, self.dp))
-    }
-
-    fn sample(&mut self) {
-        if let Some(at) = self.moved.take() {
-            self.trail.push(at, self.travel.x, self.travel.y);
-        }
     }
 
     fn lift(&mut self, finger: usize) -> bool {
