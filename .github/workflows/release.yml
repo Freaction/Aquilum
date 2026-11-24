@@ -326,14 +326,14 @@ jobs:
           sleep 2
           openbox &
           sleep 2
-          APPIMAGE_EXTRACT_AND_RUN=1 dist/Aquilum_${VERSION}_amd64.AppImage --trace --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" > shots/appimage.log 2>&1 &
+          APPIMAGE_EXTRACT_AND_RUN=1 dist/Aquilum_${VERSION}_amd64.AppImage --metrics "$PWD/shots/metrics.json" --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" > shots/appimage.log 2>&1 &
           pid=$!
           for i in $(seq 1 30); do wmctrl -l | grep -q . && break; sleep 1; done
           sleep 5
           import -window root shots/appimage.png || true
           wmctrl -lG
           kill -0 $pid || { echo "the AppImage exited"; tail -40 shots/appimage.log; exit 1; }
-          grep -q RedrawRequested shots/appimage.log || { echo "no frame was drawn"; tail -40 shots/appimage.log; exit 1; }
+          test -s shots/metrics.json || { echo "no frame was drawn"; tail -40 shots/appimage.log; exit 1; }
           rm -f "$RUNNER_TEMP/data/window-state.json"
           wmctrl -i -c "$(wmctrl -l | awk 'NR==1{print $1}')"
           for i in $(seq 1 40); do kill -0 $pid 2>/dev/null || break; sleep 0.5; done
@@ -364,11 +364,11 @@ jobs:
           printf '# Test\n' > /tmp/vault/Test.md
           Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
           sleep 2
-          DISPLAY=:99 aquilum-app --trace --vault /tmp/vault --data-dir /tmp/data > /tmp/app.log 2>&1 &
+          DISPLAY=:99 aquilum-app --metrics /tmp/metrics.json --vault /tmp/vault --data-dir /tmp/data > /tmp/app.log 2>&1 &
           pid=$!
           sleep 12
           kill -0 $pid || { echo "the app exited"; tail -40 /tmp/app.log; exit 1; }
-          grep -q RedrawRequested /tmp/app.log || { echo "no frame was drawn"; tail -40 /tmp/app.log; exit 1; }
+          test -s /tmp/metrics.json || { echo "no frame was drawn"; tail -40 /tmp/app.log; exit 1; }
           kill $pid
           echo "runs on $(. /etc/os-release; echo $PRETTY_NAME)"
           EOF

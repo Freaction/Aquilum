@@ -104,7 +104,7 @@ jobs:
           exit(1)
           EOF
           swiftc -O check.swift -o check
-          ./.artifacts/cargo-native/release/aquilum-native --trace --metrics "$PWD/shots/metrics.json" --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" > shots/app.log 2>&1 &
+          ./.artifacts/cargo-native/release/aquilum-native --metrics "$PWD/shots/metrics.json" --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" > shots/app.log 2>&1 &
           pid=$!
           status=0
           ./check || status=$?
@@ -140,7 +140,7 @@ jobs:
           sleep 2
           openbox &
           sleep 2
-          ./.artifacts/cargo-native/release/aquilum-native --trace --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" > shots/app.log 2>&1 &
+          ./.artifacts/cargo-native/release/aquilum-native --metrics "$PWD/shots/metrics.json" --vault "$RUNNER_TEMP/vault" --data-dir "$RUNNER_TEMP/data" --open "$RUNNER_TEMP/vault/Проверка.md" > shots/app.log 2>&1 &
           pid=$!
           sleep 12
           import -window root shots/linux.png || true
@@ -151,9 +151,9 @@ jobs:
           sleep 3
           import -window root shots/linux-maximized.png || true
           wmctrl -lG | tee -a shots/wmctrl.txt
-          echo "--- app.log"; grep -E 'SurfaceResized|Moved' shots/app.log | tail -10 || true
-          widest=$(grep -o 'SurfaceResized(PhysicalSize { width: [0-9]*' shots/app.log | grep -oE '[0-9]+$' | sort -n | tail -1)
-          echo "widest surface: ${widest:-none}"
+          if [ ! -s shots/metrics.json ]; then echo "no frame was presented"; status=1; fi
+          widest=$(awk 'NF>=5 {print $5}' shots/wmctrl.txt | sort -n | tail -1)
+          echo "widest window: ${widest:-none}"
           if [ "${widest:-0}" -le 1000 ]; then
             echo "window did not stretch to the screen"; status=1
             { pgrep -a openbox || echo "openbox is not running"; xwininfo -root -tree; } > shots/x11.txt 2>&1 || true
