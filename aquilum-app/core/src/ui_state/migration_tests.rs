@@ -43,7 +43,7 @@ const VERSION_ONE: &str = "CREATE TABLE workspaces (
 
 #[test]
 fn version_one_allows_new_file_beside_missing_tombstone_after_migration() {
-    let connection = Connection::open_in_memory().expect("database");
+    let connection = crate::sqlite::memory();
     connection
         .execute_batch(
             VERSION_ONE,
@@ -72,12 +72,12 @@ fn version_one_allows_new_file_beside_missing_tombstone_after_migration() {
     let version = connection
         .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
         .expect("version");
-    assert_eq!(version, 9);
+    assert_eq!(version, 10);
 }
 
 #[test]
 fn newer_schema_is_rejected_without_downgrade() {
-    let connection = Connection::open_in_memory().expect("database");
+    let connection = crate::sqlite::memory();
     connection
         .execute_batch("PRAGMA user_version = 99;")
         .expect("version");
@@ -103,7 +103,7 @@ fn unavailable_database_does_not_prevent_service_creation() {
 
 #[test]
 fn migration_preserves_foreign_keys_and_cascades() {
-    let connection = Connection::open_in_memory().expect("database");
+    let connection = crate::sqlite::memory();
     connection
         .execute_batch(
             &format!("PRAGMA foreign_keys = ON; {VERSION_ONE}"),
@@ -145,7 +145,7 @@ fn migration_preserves_foreign_keys_and_cascades() {
 
 #[test]
 fn upgrading_from_five_keeps_the_session_and_adds_the_graph_camera() {
-    let connection = Connection::open_in_memory().expect("database");
+    let connection = crate::sqlite::memory();
     migrate(&connection).expect("fresh database");
     connection
         .execute_batch(
@@ -194,12 +194,12 @@ fn upgrading_from_five_keeps_the_session_and_adds_the_graph_camera() {
         .expect("version");
 
     assert_eq!(row, ("tab".to_owned(), None, None, None));
-    assert_eq!(version, 9);
+    assert_eq!(version, 10);
 }
 
 #[test]
 fn unused_versions_table_is_dropped() {
-    let connection = Connection::open_in_memory().expect("database");
+    let connection = crate::sqlite::memory();
     migrate(&connection).expect("migration");
     let tables = connection
         .query_row(
@@ -243,12 +243,12 @@ fn schema_shape(connection: &Connection) -> Vec<String> {
 
 #[test]
 fn a_fresh_database_is_created_at_the_latest_version_without_dead_tables() {
-    let connection = Connection::open_in_memory().expect("database");
+    let connection = crate::sqlite::memory();
     migrate(&connection).expect("migration");
     let version = connection
         .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
         .expect("version");
-    assert_eq!(version, 9);
+    assert_eq!(version, 10);
     assert!(
         !schema_shape(&connection).iter().any(|line| line.contains("document_versions")),
         "новая база не создаёт таблицу, которую потом удаляет миграция"
@@ -257,46 +257,10 @@ fn a_fresh_database_is_created_at_the_latest_version_without_dead_tables() {
 
 #[test]
 fn a_migrated_database_ends_with_the_same_schema_as_a_fresh_one() {
-    let fresh = Connection::open_in_memory().expect("fresh");
+    let fresh = crate::sqlite::memory();
     migrate(&fresh).expect("fresh migration");
-    let migrated = Connection::open_in_memory().expect("legacy");
+    let migrated = crate::sqlite::memory();
     migrated.execute_batch(VERSION_ONE).expect("legacy schema");
     migrate(&migrated).expect("legacy migration");
     assert_eq!(schema_shape(&migrated), schema_shape(&fresh));
-}
-
-#[test]
-fn a_database_from_a_newer_version_is_set_aside_by_reset_and_replaced_with_a_fresh_one() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("ui-state.sqlite3");
-    rusqlite::Connection::open(&path)
-        .unwrap()
-        .execute_batch("PRAGMA user_version = 99;")
-        .unwrap();
-    let service = crate::ui_state::UiStateService::open(&path);
-    assert!(service.list_workspaces().is_err());
-
-    service.reset(1_234).unwrap();
-
-    assert!(service.list_workspaces().unwrap().is_empty());
-    assert!(dir.path().join("ui-state.sqlite3.broken-1234").exists());
-}
-
-#[test]
-fn reset_sets_aside_a_database_that_was_open_and_in_use() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("ui-state.sqlite3");
-    let service = crate::ui_state::UiStateService::open(&path);
-    service.resolve_workspace("C:/vault", 1).unwrap();
-    assert_eq!(service.list_workspaces().unwrap().len(), 1);
-
-    service.reset(42).unwrap();
-
-    assert!(service.list_workspaces().unwrap().is_empty());
-    assert!(dir.path().join("ui-state.sqlite3.broken-42").exists());
-
-    service.reset(43).unwrap();
-
-    assert!(dir.path().join("ui-state.sqlite3.broken-43").exists());
-    assert!(!dir.path().join("ui-state.sqlite3.broken-42").exists(), "остаётся только последняя отложенная копия");
 }

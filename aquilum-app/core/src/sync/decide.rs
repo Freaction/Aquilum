@@ -52,7 +52,7 @@ pub fn settle<'a>(vault: &Vault<'_>, mut facts: Facts<'a>) -> Result<Option<(Fac
     })
 }
 
-fn local_change(root: &Path, path: &str, local: Option<LocalFile>, record: Option<&Record>) -> Result<(Side, Option<String>), SyncError> {
+fn local_change(root: &Path, path: &str, local: Option<&LocalFile>, record: Option<&Record>) -> Result<(Side, Option<String>), SyncError> {
     let (Some(local), Some(record)) = (local, record) else {
         return Ok((if local.is_some() { Side::Changed } else { Side::Absent }, None));
     };
@@ -69,12 +69,12 @@ pub fn edited(root: &Path, scope: SyncSettings, records: &Records, path: &str) -
     }
     let local = fs::metadata(absolute(root, path)).ok().filter(|metadata| metadata.is_file()).and_then(|metadata| stat(&metadata).ok());
     let record = records.get(path).ok().flatten();
-    if let (Some(local), Some(record)) = (local, &record) {
+    if let (Some(local), Some(record)) = (local.as_ref(), &record) {
         if record.modified != UNKNOWN.modified && local.size != record.size {
             return true;
         }
     }
-    match local_change(root, path, local, record.as_ref()) {
+    match local_change(root, path, local.as_ref(), record.as_ref()) {
         Ok((Side::Same, _)) => false,
         Ok((Side::Absent, _)) => record.is_some() || records.holds_under(path).unwrap_or(true),
         _ => true,

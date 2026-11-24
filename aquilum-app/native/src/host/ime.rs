@@ -45,7 +45,7 @@ impl Host {
         if !self.ime_enabled {
             let editor = self.root.as_ref().and_then(focused_editor);
             crate::android::ime::start(hint(editor).contains(ImeHint::MULTILINE));
-            if editor.is_some_and(TextEditor::is_renaming) {
+            if editor.is_some_and(|editor| !editor.multiline()) {
                 crate::android::ime::show();
             }
             self.ime_enabled = true;
@@ -103,8 +103,10 @@ impl Host {
     }
 
     #[cfg(target_os = "android")]
-    pub(super) fn ime_tapped(&self) {
-        if self.ime_enabled && self.root.as_ref().and_then(focused_editor).is_some() {
+    pub(super) fn ime_tapped(&mut self) {
+        let Some(window) = self.window.clone() else { return };
+        if self.root.as_ref().and_then(focused_editor).is_some() {
+            self.ime_start(&*window);
             crate::android::ime::show();
         }
     }
@@ -134,6 +136,11 @@ impl Host {
             if let Some(editor) = root.focused_widget().filter(|_| focused_editor(root).is_some()) {
                 self.app.text_command(root, editor, command);
             }
+        }
+        let images = crate::android::ime::images();
+        self.app.drop_files(root, &images, None);
+        for image in images {
+            let _ = std::fs::remove_file(image);
         }
     }
 }

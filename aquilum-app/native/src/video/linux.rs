@@ -1,11 +1,11 @@
 use std::path::Path;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 use gstreamer as gst;
 use gstreamer::prelude::*;
 use gstreamer_app::AppSink;
 use gstreamer_video::{VideoCapsBuilder, VideoFormat, VideoInfo};
-use masonry::peniko::{Blob, ImageAlphaType, ImageBrush, ImageData, ImageFormat};
+use masonry::peniko::{ImageAlphaType, ImageBrush};
 
 const PREROLL: gst::ClockTime = gst::ClockTime::from_seconds(5);
 
@@ -100,8 +100,7 @@ impl Engine {
         for row in map.chunks(stride).take(h) {
             pixels.extend_from_slice(row.get(..w * 4)?);
         }
-        let data = ImageData { data: Blob::new(Arc::new(pixels)), format: ImageFormat::Rgba8, alpha_type: ImageAlphaType::Alpha, width: w as u32, height: h as u32 };
-        Some(ImageBrush::new(data))
+        crate::render::from_rgba(pixels, w as u32, h as u32, ImageAlphaType::Alpha)
     }
 
     pub fn poster(path: &Path) -> Option<ImageBrush> {

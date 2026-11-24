@@ -35,7 +35,5 @@ pub use analyzer::ANALYZER_VERSION;
 
 use std::sync::Arc;
 
-pub use models::IndexRevision;
-
 pub use service::SearchService;
-pub type IndexNotifier = Arc<dyn Fn(IndexRevision) + Send + Sync>;
+pub type IndexNotifier = Arc<dyn Fn(&std::path::Path) + Send + Sync>;

@@ -1,12 +1,13 @@
 mod draws;
 mod glyphs;
 mod hash;
-mod merge;
+pub(super) mod merge;
 mod region;
 mod sink;
 mod stack;
 
 use masonry::kurbo::{Affine, Rect, RoundedRect, Vec2};
+
 
 use super::scroll::{self, close};
 use super::sprite::Sprite;

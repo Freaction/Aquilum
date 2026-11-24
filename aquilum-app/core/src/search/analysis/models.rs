@@ -13,9 +13,5 @@ pub struct AnalysisResult {
     pub path: String,
     pub title: String,
     pub raw_score: f64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub similarity: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub confidence: Option<f64>,
     pub reasons: Vec<String>,
 }

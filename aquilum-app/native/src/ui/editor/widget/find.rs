@@ -35,15 +35,18 @@ impl TextEditor {
         } else {
             let (tx, rx) = channel();
             let (rope, wake) = (self.doc.rope(), self.wake.clone());
-            std::thread::spawn(move || {
+            if aquilum_core::threads::background("поиск по заметке", move || {
                 let _zone = aq_trace::zone("фон: поиск по заметке");
                 if tx.send(find_in(&rope, &matcher, &cancel)).is_ok()
                     && let Some(wake) = wake
                 {
                     wake();
                 }
-            });
-            self.find.pending = Some(rx);
+            })
+            .is_ok()
+            {
+                self.find.pending = Some(rx);
+            }
         }
         self.find.active = self.find.active.min(self.find.matches.len().saturating_sub(1));
     }

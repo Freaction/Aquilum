@@ -35,7 +35,6 @@ fn index_note(root: &Path, index: &SearchIndex, writer: &IndexWriter, transactio
             HashMap::new()
         }
     };
-    wiki::register(transaction, root, path)?;
     let (mut keys, mut ordinal, mut changed, mut created) = (pages::Keys::default(), 0, false, probe.created);
     while let Some(page) = pages.next()? {
         if page.first {
@@ -57,15 +56,15 @@ fn index_note(root: &Path, index: &SearchIndex, writer: &IndexWriter, transactio
         pages::delete(transaction, id)?;
         changed = true;
     }
-    upsert(transaction, key, probe.fingerprint, created)?;
+    upsert(transaction, root, path, probe.fingerprint, created)?;
     Ok(changed)
 }
 
 pub(super) fn store_page(transaction: &Transaction<'_>, path: &Path, page_key: &str, ordinal: usize, page: &Page) -> Result<(), SearchError> {
     let id = pages::insert(transaction, &path.to_string_lossy(), page_key, ordinal, page)?;
-    wiki::insert_links(transaction, id, path, &page.text)?;
-    tasks::insert(transaction, id, path, &tasks::note_tasks(&page.text))?;
-    fields::store(transaction, id, path, &fields::page_fields(&page.text, page.first))
+    wiki::insert_links(transaction, id, &page.text)?;
+    tasks::insert(transaction, id, &tasks::note_tasks(&page.text))?;
+    fields::store(transaction, id, &fields::page_fields(&page.text, page.first))
 }
 
 pub(crate) fn add_page(index: &SearchIndex, writer: &IndexWriter, path: &Path, page: &Page, key: &str) -> Result<(), SearchError> {

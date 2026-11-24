@@ -30,6 +30,7 @@ impl Host {
             WindowEvent::PointerMoved { .. } => "указатель",
             _ => "событие окна",
         });
+        #[cfg(not(feature = "installed"))]
         if self.args.trace {
             eprintln!("{:>8.1} мс  {event:?}", self.started.elapsed().as_secs_f64() * 1000.0);
         }
@@ -66,7 +67,7 @@ impl Host {
             }
             WindowEvent::DataTransferReceived { value, .. } => {
                 if let (Ok(paths), Some(root)) = (value.try_as_file_paths(), &mut self.root) {
-                    self.app.drop_files(root, &paths, masonry::kurbo::Point::new(self.drop_at.x, self.drop_at.y));
+                    self.app.drop_files(root, &paths, Some(masonry::kurbo::Point::new(self.drop_at.x, self.drop_at.y)));
                 }
                 self.handle_signals(event_loop);
             }

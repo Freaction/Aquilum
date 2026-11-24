@@ -1,4 +1,5 @@
 use super::*;
+use masonry::kurbo::Point;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 

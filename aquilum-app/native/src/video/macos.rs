@@ -1,7 +1,6 @@
 use std::path::Path;
-use std::sync::Arc;
 
-use masonry::peniko::{Blob, ImageAlphaType, ImageBrush, ImageData, ImageFormat};
+use masonry::peniko::{ImageAlphaType, ImageBrush};
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{AllocAnyThread, MainThreadMarker};
@@ -103,8 +102,7 @@ impl Engine {
             if pixels.is_empty() || w == 0 || h == 0 {
                 return None;
             }
-            let data = ImageData { data: Blob::new(Arc::new(pixels)), format: ImageFormat::Bgra8, alpha_type: ImageAlphaType::Alpha, width: w as u32, height: h as u32 };
-            Some(ImageBrush::new(data))
+            crate::render::from_bgrx(pixels, w as u32, h as u32)
         }
     }
 }
@@ -138,7 +136,6 @@ pub fn poster(path: &Path) -> Option<ImageBrush> {
         let context = CGBitmapContextCreate(pixels.as_mut_ptr().cast(), w, h, 8, w * 4, Some(&space), info)?;
         CGContext::draw_image(Some(&context), CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(w as f64, h as f64)), Some(&image));
         drop(context);
-        let data = ImageData { data: Blob::new(Arc::new(pixels)), format: ImageFormat::Rgba8, alpha_type: ImageAlphaType::AlphaPremultiplied, width: w as u32, height: h as u32 };
-        Some(ImageBrush::new(data))
+        crate::render::from_rgba(pixels, w as u32, h as u32, ImageAlphaType::AlphaPremultiplied)
     }
 }

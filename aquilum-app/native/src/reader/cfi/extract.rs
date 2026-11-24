@@ -1,4 +1,7 @@
-use crate::reader::dom::{Dom, NodeId};
+use crate::reader::dom::Dom;
+#[cfg(test)]
+use crate::reader::dom::NodeId;
+#[cfg(test)]
 use super::locate::{Point, is_text};
 
 pub fn order(dom: &Dom) -> (Vec<u32>, Vec<u32>) {
@@ -21,7 +24,7 @@ pub fn order(dom: &Dom) -> (Vec<u32>, Vec<u32>) {
     (enter, exit)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 fn boundary(dom: &Dom, enter: &[u32], exit: &[u32], point: Point) -> (u32, u32) {
     match point {
         Point::Before(node) => (enter[node as usize], 0),
@@ -34,7 +37,7 @@ fn boundary(dom: &Dom, enter: &[u32], exit: &[u32], point: Point) -> (u32, u32) 
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub fn text(dom: &Dom, start: Point, end: Point) -> String {
     let (enter, exit) = order(dom);
     let (from, to) = (boundary(dom, &enter, &exit, start), boundary(dom, &enter, &exit, end));

@@ -74,9 +74,13 @@ fn download(inner: &Inner, url: &str) -> Option<PathBuf> {
         let _ = std::fs::File::options().append(true).open(&target).and_then(|f| f.set_modified(std::time::SystemTime::now()));
         return Some(target);
     }
-    std::fs::create_dir_all(&inner.cache).ok()?;
-    let partial = target.with_extension("part");
     let response = aquilum_core::web_agent::web_agent("images").get(url).call().ok()?;
+    if let Err(error) = std::fs::create_dir(&inner.cache)
+        && error.kind() != std::io::ErrorKind::AlreadyExists
+    {
+        return None;
+    }
+    let partial = target.with_extension("part");
     let copied = std::fs::File::create(&partial).and_then(|mut file| std::io::copy(&mut response.into_reader(), &mut file));
     (copied.is_ok() && std::fs::rename(&partial, &target).is_ok()).then_some(target)
 }

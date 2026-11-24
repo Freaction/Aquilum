@@ -66,13 +66,3 @@ pub fn covering(rect: masonry::kurbo::Rect) -> Area {
     let (x0, y0) = (r.x0.max(0.0), r.y0.max(0.0));
     Area { x: x0 as u32, y: y0 as u32, w: (r.x1 - x0).max(0.0) as u32, h: (r.y1 - y0).max(0.0) as u32 }
 }
-
-pub fn blend(under: u32, color: [f32; 4], coverage: f32) -> u32 {
-    let under = super::in_canvas_order(under);
-    let a = color[3] * coverage;
-    let channel = |shift: u32, value: f32| {
-        let dest = ((under >> shift) & 0xff) as f32;
-        ((dest * (1.0 - a) + value * 255.0 * coverage).round().clamp(0.0, 255.0) as u32) << shift
-    };
-    super::in_canvas_order(0xff00_0000 | channel(0, color[0]) | channel(8, color[1]) | channel(16, color[2]))
-}

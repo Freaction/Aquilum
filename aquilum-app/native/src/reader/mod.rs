@@ -107,7 +107,7 @@ impl Book {
         Some(cfi::join(&self.sections.get(index)?.base, &local.to_string()))
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub fn text(&self, index: usize, start: Point, end: Point) -> Option<String> {
         Some(cfi::text(self.document(index)?, start, end))
     }

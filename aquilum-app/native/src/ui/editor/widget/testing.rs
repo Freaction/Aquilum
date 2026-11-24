@@ -17,6 +17,16 @@ impl TextEditor {
         self.doc.source.is_some()
     }
 
+    pub fn image_selected(&self) -> bool {
+        self.media.selected.is_some()
+    }
+
+    pub fn image_grip(&self) -> Option<Rect> {
+        let start = self.media.selected?;
+        let view = self.media_view(start)?;
+        Some(view.grip() + self.embed_origin(self.doc.at_offset(start)))
+    }
+
     pub fn inline_boxes(&self, line: usize) -> usize {
         self.doc.paragraph(line).decor().boxes.len()
     }

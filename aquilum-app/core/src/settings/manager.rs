@@ -138,6 +138,15 @@ mod tests {
     }
 
     #[test]
+    fn settings_with_the_removed_live_tabs_key_still_load() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("settings.json"), r#"{"editor":{"liveTabs":5,"maxWidthCh":70}}"#).unwrap();
+        let config = SettingsManager::new(dir.path()).get_config();
+        assert_eq!(config.editor.max_width_ch, 70);
+        assert!(!dir.path().join("settings.json.unreadable").exists());
+    }
+
+    #[test]
     fn unreadable_settings_are_set_aside_before_defaults_are_written() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("settings.json");

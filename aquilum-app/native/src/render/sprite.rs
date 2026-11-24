@@ -5,9 +5,8 @@ use std::rc::Rc;
 use masonry::kurbo::{Rect, RoundedRect, Vec2};
 use masonry::peniko::{Color, ImageBrush};
 
-use super::in_canvas_order;
 use super::stamp::{Stamps, covering};
-use crate::cover::over;
+use super::{canvas_color, over};
 use crate::output::{Area, Canvas};
 
 struct Entry {
@@ -114,7 +113,7 @@ fn baked(sprite: &Sprite, area: Area) -> Rc<Vec<u32>> {
                 .map(|(x, y)| {
                     let c = coverage(key.shape, key.clip, f64::from(x) + 0.5, f64::from(y) + 0.5);
                     let channel = |v: f32| (v * c * 255.0).round() as u8;
-                    in_canvas_order(u32::from_ne_bytes([channel(color[0]), channel(color[1]), channel(color[2]), channel(color[3])]))
+                    canvas_color([channel(color[0]), channel(color[1]), channel(color[2]), channel(color[3])])
                 })
                 .collect(),
         );

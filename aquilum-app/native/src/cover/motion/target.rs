@@ -1,5 +1,7 @@
 use std::ops::Range;
 
+use crate::render::over;
+
 pub struct Pixels<'a> {
     pub data: &'a mut [u32],
     pub stride: usize,
@@ -81,13 +83,4 @@ pub fn pack(rgb: [u8; 3], alpha: f64) -> u32 {
 fn scale_pixel(p: u32, k: f64) -> u32 {
     let m = |shift: u32| ((f64::from((p >> shift) & 0xff) * k).round() as u32) << shift;
     m(0) | m(8) | m(16) | m(24)
-}
-
-pub fn over(source: u32, dest: u32) -> u32 {
-    let inverse = 255 - (source >> 24);
-    let rb = (dest & 0x00ff_00ff) * inverse;
-    let ag = ((dest >> 8) & 0x00ff_00ff) * inverse;
-    let rb = ((rb + ((rb >> 8) & 0x00ff_00ff) + 0x0080_0080) >> 8) & 0x00ff_00ff;
-    let ag = (ag + ((ag >> 8) & 0x00ff_00ff) + 0x0080_0080) & 0xff00_ff00;
-    source + (rb | ag)
 }

@@ -38,6 +38,21 @@ struct Shared {
 
 pub struct Worker(Arc<Shared>);
 
+struct Canvas<'a> {
+    ctx: RenderContext,
+    resources: Resources,
+    surfaces: crate::render::Surfaces,
+    cache: hayro::RenderCache<'a>,
+    key: Option<(usize, f64)>,
+}
+
+impl Canvas<'_> {
+    fn new() -> Self {
+        let ctx = RenderContext::new_with(1, 1, crate::render::render_settings(0));
+        Canvas { ctx, resources: Resources::new(), surfaces: crate::render::Surfaces::default(), cache: hayro::RenderCache::new(), key: None }
+    }
+}
+
 impl Worker {
     pub fn new(path: PathBuf, wake: Arc<dyn Fn() + Send + Sync>) -> Self {
         let shared = Arc::new(Shared::default());
@@ -58,7 +73,6 @@ impl Worker {
         let mut state = self.0.state.lock().unwrap_or_else(|e| e.into_inner());
         state.revision += 1;
         state.request = Some(view);
-        // A completed obsolete frame must not keep its buffer alive.
         state.inbox.frame = None;
         self.0.ready.notify_one();
     }
@@ -103,11 +117,7 @@ fn run(path: PathBuf, shared: &Shared, wake: &Arc<dyn Fn() + Send + Sync>) -> Re
     }
     shared.state.lock().unwrap_or_else(|e| e.into_inner()).inbox.opened = Some(sizes);
     wake();
-    let mut ctx = RenderContext::new_with(1, 1, crate::render::render_settings(0));
-    let mut resources = Resources::new();
-    let mut surfaces = crate::render::Surfaces::default();
-    let mut cache = hayro::RenderCache::new();
-    let mut cache_key = None;
+    let mut canvas = Canvas::new();
     loop {
         let (view, revision) = {
             let mut state = shared.state.lock().unwrap_or_else(|e| e.into_inner());
@@ -120,39 +130,35 @@ fn run(path: PathBuf, shared: &Shared, wake: &Arc<dyn Fn() + Send + Sync>) -> Re
             if std::mem::take(&mut state.trim) { (None, state.revision) } else { (state.request.take(), state.revision) }
         };
         let Some(view) = view else {
-            ctx = RenderContext::new_with(1, 1, crate::render::render_settings(0));
-            resources = Resources::new();
-            surfaces = crate::render::Surfaces::default();
-            cache = hayro::RenderCache::new();
-            cache_key = None;
+            canvas = Canvas::new();
             crate::system::release_memory();
             continue;
         };
         let Some(page) = pdf.pages().get(view.page) else { continue };
-        // Keep font/image caches for the current page and raster scale only.
         let key = (view.page, view.scale * view.dpi);
-        if cache_key != Some(key) {
-            cache = hayro::RenderCache::new();
-            cache_key = Some(key);
+        if canvas.key != Some(key) {
+            canvas.cache = hayro::RenderCache::new();
+            canvas.key = Some(key);
         }
         let (width, height) = view.pixels();
-        ctx.reset_and_resize(width, height);
+        canvas.ctx.reset_and_resize(width, height);
         let transform = Affine::scale(view.dpi) * view.transform() * page.initial_transform(true).to_kurbo();
-        hayro::render_into(page, &cache, &InterpreterSettings::default(), &hayro::RenderSettings::default(), &mut ctx, transform);
-        ctx.flush();
+        hayro::render_into(page, &canvas.cache, &InterpreterSettings::default(), &hayro::RenderSettings::default(), &mut canvas.ctx, transform);
+        canvas.ctx.flush();
         {
             let state = shared.state.lock().unwrap_or_else(|e| e.into_inner());
             if state.closed {
                 return Ok(());
             }
             if state.revision != revision {
-                ctx.reset();
+                canvas.ctx.reset();
                 continue;
             }
         }
+        let Canvas { ctx, resources, surfaces, .. } = &mut canvas;
         let image = surfaces.owned_frame(width, height, |target| {
             let settings = RasterizerSettings { target_init: TargetInit::Clear(vello_cpu::color::palette::css::WHITE), ..Default::default() };
-            ctx.render_with(target, &mut resources, settings);
+            ctx.render_with(target, resources, settings);
         });
         ctx.reset();
         let mut state = shared.state.lock().unwrap_or_else(|e| e.into_inner());

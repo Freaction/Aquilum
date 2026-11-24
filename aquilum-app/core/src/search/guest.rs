@@ -80,13 +80,11 @@ impl SearchService {
 
     fn close_when_idle(&self, generation: u64) {
         let service = self.clone();
-        let spawned = std::thread::Builder::new()
-            .name("aquilum-guest-idle".to_owned())
-            .spawn(move || {
-                while let Some(wait) = service.close_if_idle(generation, IDLE_LIMIT) {
-                    std::thread::sleep(wait);
-                }
-            });
+        let spawned = crate::threads::background("aquilum-guest-idle", move || {
+            while let Some(wait) = service.close_if_idle(generation, IDLE_LIMIT) {
+                std::thread::sleep(wait);
+            }
+        });
         if let Err(error) = spawned {
             eprintln!("[aquilum:guest] таймер простоя не запущен: {error}");
         }

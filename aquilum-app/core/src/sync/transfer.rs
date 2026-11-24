@@ -25,6 +25,7 @@ pub fn execute(vault: &Vault<'_>, steps: &[(Facts<'_>, Action)], outcome: &mut O
         for _ in 0..TRANSFERS.min(steps.len()) {
             let (sender, net, next) = (sender.clone(), &net, &next);
             scope.spawn(move || {
+                crate::threads::lower_priority();
                 while let Some((facts, action)) = steps.get(next.fetch_add(1, Ordering::Relaxed)).filter(|_| !net.watch.stopped()) {
                     if sender.send((facts, *action, fetch(net, facts, *action))).is_err() {
                         return;

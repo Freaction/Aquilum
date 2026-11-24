@@ -212,6 +212,69 @@ fn slowing_swipes_keep_their_direction_after_release() {
 }
 
 #[test]
+fn a_gentle_swipe_from_an_event_burst_slows_down_instead_of_racing_away() {
+    let start = Instant::now();
+    let mut touch = Touch::default();
+    touch.down(1, Point::new(100.0, 100.0), start, 1.0);
+    for frame in 1..=6 {
+        let base = start + Duration::from_millis(frame * 8);
+        let y0 = 8.0 * frame as f64;
+        for (k, y) in [y0, y0 + 2.0, y0 + 4.0, y0 + 6.0, y0 + 8.0].into_iter().enumerate() {
+            touch.moved(1, Point::new(100.0, 100.0 + y), base + Duration::from_micros(k as u64 * 40));
+        }
+        scrolled(&mut touch, base);
+    }
+    let released = start + Duration::from_millis(48);
+    touch.up(1, Point::new(100.0, 148.0), released);
+    scrolled(&mut touch, released);
+    let steps: Vec<f64> = (1..200).map(|k| scrolled(&mut touch, released + FRAME * k).y).take_while(|&y| y > 0.0).collect();
+    let path: f64 = steps.iter().sum();
+    assert!(steps.len() > 3, "лёгкий свайп должен дать инерцию");
+    assert!(steps.windows(2).all(|w| w[1] <= w[0]), "инерция не замедляется: {steps:?}");
+    assert!(path < 400.0, "пачка событий унесла на {path} px вместо короткой инерции");
+    assert!(steps[0] > 3.0, "инерция слишком слабая: {}", steps[0]);
+}
+
+#[test]
+fn a_fast_flick_keeps_inertia_when_frames_arrive_as_instant_bursts() {
+    let start = Instant::now();
+    let mut touch = Touch::default();
+    touch.down(1, Point::new(100.0, 100.0), start, 1.0);
+    for frame in 1..=8 {
+        let base = start + Duration::from_millis(frame * 8);
+        let y0 = 20.0 * frame as f64;
+        for (k, y) in [y0, y0 + 5.0, y0 + 10.0, y0 + 15.0, y0 + 20.0].into_iter().enumerate() {
+            touch.moved(1, Point::new(100.0, 100.0 + y), base + Duration::from_micros(k as u64 * 30));
+        }
+        scrolled(&mut touch, base);
+    }
+    let released = start + Duration::from_millis(64);
+    touch.up(1, Point::new(100.0, 260.0), released);
+    scrolled(&mut touch, released);
+    let step = scrolled(&mut touch, released + FRAME).y;
+    assert!(step > 10.0, "быстрый свайп пачками Instant потерял инерцию: {step}");
+    assert!(touch.active(), "после отрыва инерция должна держать кадры");
+}
+
+#[test]
+fn a_quick_flick_drained_in_one_instant_burst_still_flings() {
+    let start = Instant::now();
+    let mut touch = Touch::default();
+    touch.down(1, Point::new(100.0, 100.0), start, 1.0);
+    let burst = start + Duration::from_millis(2);
+    for (k, y) in [24.0, 80.0, 160.0, 260.0, 380.0].into_iter().enumerate() {
+        touch.moved(1, Point::new(100.0, 100.0 + y), burst + Duration::from_micros(k as u64 * 40));
+    }
+    let released = start + Duration::from_millis(36);
+    assert!(touch.up(1, Point::new(100.0, 480.0), released).is_none());
+    scrolled(&mut touch, released);
+    let steps: Vec<f64> = (1..200).map(|k| scrolled(&mut touch, released + FRAME * k).y).take_while(|&y| y > 0.0).collect();
+    assert!(steps.len() > 3, "быстрый свайп в одной пачке Instant потерял инерцию");
+    assert!(steps[0] > 8.0, "инерция слишком слабая для быстрого свайпа: {}", steps[0]);
+    assert!(steps.windows(2).all(|w| w[1] <= w[0]), "нет замедления: {steps:?}");
+}
+
+#[test]
 fn a_drag_resumes_directly_after_a_gap_in_events() {
     let start = Instant::now();
     let mut touch = Touch::default();

@@ -22,7 +22,7 @@ pub fn vaults_home() -> Option<PathBuf> {
 
 pub fn main(app: AndroidApp) {
     java::init(&app);
-    let _ = rayon::ThreadPoolBuilder::new().num_threads(crate::WORKERS).build_global();
+    crate::start_workers();
     if let Err(err) = run(app) {
         report!("{err}");
     }

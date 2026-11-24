@@ -4,7 +4,7 @@ use masonry::app::RenderRoot;
 use masonry::core::keyboard::{Key, Modifiers, NamedKey};
 use masonry::peniko::{Blob, ImageAlphaType, ImageBrush, ImageData, ImageFormat};
 
-use super::support::{click, drag, focused, named, press, selected, text, typing, unfocused, TAG};
+use super::support::{click, drag, drag_touch, editor_id, focused, named, press, selected, tap_touch, text, typing, unfocused, TAG};
 use crate::ui::editor::resolve::{Book, Fetch, Grid, Media, Request, Resolver};
 use crate::ui::editor::TextEditor;
 
@@ -40,6 +40,63 @@ fn caret(root: &RenderRoot) -> usize {
 
 fn source_shown(root: &RenderRoot) -> bool {
     root.get_widget_with_tag(TAG).unwrap().inner().image_source_shown()
+}
+
+fn insert_line(root: &mut RenderRoot, line: &str) -> bool {
+    let id = editor_id(root);
+    root.edit_widget(id, |mut w| TextEditor::insert_media(&mut w.downcast(), &[line.to_owned()], None))
+}
+
+fn caret_at_end(root: &mut RenderRoot) {
+    let id = editor_id(root);
+    let end = root.get_widget_with_tag(TAG).unwrap().inner().len();
+    root.edit_widget(id, |mut w| TextEditor::select_byte_range(&mut w.downcast(), end, end));
+    let _ = root.redraw();
+}
+
+#[test]
+fn an_image_is_inserted_at_the_caret_in_a_list_a_quote_and_a_table_cell() {
+    let mut root = focused(editor_with_images("- пункт "), 600, 400);
+    caret_at_end(&mut root);
+    assert!(insert_line(&mut root, "![](a.png)"));
+    assert_eq!(text(&root), "- пункт ![](a.png)");
+
+    let mut root = focused(editor_with_images("> цитата "), 600, 400);
+    caret_at_end(&mut root);
+    assert!(insert_line(&mut root, "![](a.png)"));
+    assert_eq!(text(&root), "> цитата ![](a.png)");
+
+    let mut root = focused(editor_with_images("| a | b |\n| --- | --- |\n| 1 | 2 |"), 600, 400);
+    click(&mut root, 60.0, 50.0);
+    assert!(insert_line(&mut root, "![](a.png)"));
+    assert!(text(&root).starts_with("| a![](a.png) | b |"), "{}", text(&root));
+}
+
+#[test]
+fn an_image_is_not_inserted_in_the_title_or_a_code_fence() {
+    let mut root = focused(TextEditor::single_line("заголовок"), 600, 80);
+    assert!(!insert_line(&mut root, "![](a.png)"), "картинка вставилась в заголовок");
+    assert_eq!(text(&root), "заголовок");
+
+    let mut root = focused(editor_with_images("```\nкод\n```"), 600, 400);
+    let id = editor_id(&root);
+    root.edit_widget(id, |mut w| TextEditor::select_byte_range(&mut w.downcast(), 4, 4));
+    let _ = root.redraw();
+    assert!(!insert_line(&mut root, "![](a.png)"), "картинка вставилась в блок кода");
+    assert_eq!(text(&root), "```\nкод\n```");
+}
+
+#[test]
+fn a_touch_tap_shows_image_controls_and_the_corner_grip_resizes() {
+    let mut root = unfocused(editor_with_images("![](a.png)\nтекст"), 600, 400);
+    tap_touch(&mut root, 300.0, 100.0);
+    let editor = root.get_widget_with_tag(TAG).unwrap().inner();
+    assert!(editor.image_selected(), "тап не выбрал картинку");
+    let grip = editor.image_grip().expect("ручка ресайза не появилась");
+    let from = (grip.center().x, grip.center().y);
+    drag_touch(&mut root, from, (from.0 + 50.0, from.1));
+    assert_ne!(text(&root), "![](a.png)\nтекст", "протяжка ручки не изменила ширину: {}", text(&root));
+    assert!(text(&root).starts_with("!["), "{}", text(&root));
 }
 
 #[test]

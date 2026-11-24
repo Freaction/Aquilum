@@ -2,25 +2,22 @@ use super::parse::Task;
 use crate::search::error::SearchError;
 use rusqlite::{params, Connection, Transaction};
 use std::collections::HashMap;
-use std::path::Path;
 
 pub const TASKS_DDL: &str = "CREATE TABLE IF NOT EXISTS note_tasks (
            page INTEGER NOT NULL REFERENCES note_pages(id) ON DELETE CASCADE,
-           path TEXT NOT NULL,
            ordinal INTEGER NOT NULL,
            line INTEGER NOT NULL,
            done INTEGER NOT NULL,
            text TEXT NOT NULL,
            PRIMARY KEY(page, ordinal)
-         ) WITHOUT ROWID;
-         CREATE INDEX IF NOT EXISTS note_tasks_path ON note_tasks(path);
-         CREATE INDEX IF NOT EXISTS note_tasks_open ON note_tasks(done)";
+         ) WITHOUT ROWID";
 
-pub fn insert(transaction: &Transaction<'_>, page: i64, path: &Path, tasks: &[Task]) -> Result<(), SearchError> {
-    let path_text = path.to_string_lossy();
-    let mut statement = transaction.prepare_cached("INSERT INTO note_tasks(page, path, ordinal, line, done, text) VALUES(?1, ?2, ?3, ?4, ?5, ?6)")?;
+pub const TASKS: &str = "note_tasks task JOIN note_pages page ON page.id = task.page";
+
+pub fn insert(transaction: &Transaction<'_>, page: i64, tasks: &[Task]) -> Result<(), SearchError> {
+    let mut statement = transaction.prepare_cached("INSERT INTO note_tasks VALUES(?1, ?2, ?3, ?4, ?5)")?;
     for (ordinal, task) in tasks.iter().enumerate() {
-        statement.execute(params![page, path_text, ordinal as i64, task.line as i64, i64::from(task.done), task.text])?;
+        statement.execute(params![page, ordinal as i64, task.line as i64, i64::from(task.done), task.text])?;
     }
     Ok(())
 }
@@ -29,9 +26,8 @@ pub fn read(connection: &Connection, paths: &[String]) -> Result<HashMap<String,
     let mut found: HashMap<String, Vec<Task>> = HashMap::new();
     let sql = |list: &str| {
         format!(
-            "SELECT task.path, page.start_line + task.line, task.done, task.text
-             FROM note_tasks task JOIN note_pages page ON page.id = task.page
-             WHERE task.path IN ({list}) ORDER BY task.path, page.ordinal, task.ordinal"
+            "SELECT page.path, page.start_line + task.line, task.done, task.text FROM {TASKS}
+             WHERE page.path IN ({list}) ORDER BY page.path, page.ordinal, task.ordinal"
         )
     };
     let row = |row: &rusqlite::Row<'_>| {

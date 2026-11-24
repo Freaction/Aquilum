@@ -188,6 +188,7 @@ impl EventLoop {
             match event {
                 MainEvent::InitWindow { .. } => {
                     app.can_create_surfaces(&self.window_target);
+                    resized = true;
                 },
                 MainEvent::TerminateWindow { .. } => {
                     app.destroy_surfaces(&self.window_target);
@@ -283,14 +284,8 @@ impl EventLoop {
         }
 
         if self.running {
-            if resized {
-                let size = if let Some(native_window) = self.android_app.native_window().as_ref() {
-                    let width = native_window.width() as _;
-                    let height = native_window.height() as _;
-                    PhysicalSize::new(width, height)
-                } else {
-                    PhysicalSize::new(0, 0)
-                };
+            if let Some(native_window) = self.android_app.native_window().filter(|_| resized) {
+                let size = PhysicalSize::new(native_window.width() as _, native_window.height() as _);
                 let event = event::WindowEvent::SurfaceResized(size);
                 app.window_event(&self.window_target, GLOBAL_WINDOW, event);
             }

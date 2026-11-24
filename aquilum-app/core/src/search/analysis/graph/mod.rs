@@ -32,13 +32,7 @@ impl GraphSnapshot {
         wiki::for_each_link(
             connection,
             root,
-            documents.iter().map(|document| {
-                (
-                    document.path.as_str(),
-                    document.relative_key.as_str(),
-                    document.title_key.as_str(),
-                )
-            }),
+            &documents,
             |source, target| {
                 let source_path = source;
                 let target_path = target;
@@ -146,8 +140,6 @@ impl GraphSnapshot {
                 title,
                 path: path.clone(),
                 raw_score: candidate.raw_score,
-                similarity: None,
-                confidence: None,
                 reasons: self.reasons(&candidate.common_neighbours),
             })
             .collect()

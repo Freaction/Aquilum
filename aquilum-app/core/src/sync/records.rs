@@ -1,10 +1,24 @@
 use super::remote::RemoteFile;
+use super::scan::key;
 use serde::{Deserialize, Serialize};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashMap;
 use std::path::Path;
 
 const SELECT: &str = "SELECT path, hash, size, modified, remote_id, remote_rev, checksum, remote_size, remote_modified FROM records";
+
+const RECORDS: &str = "CREATE TABLE IF NOT EXISTS records (
+         key TEXT PRIMARY KEY,
+         path TEXT NOT NULL,
+         hash TEXT NOT NULL,
+         size INTEGER NOT NULL,
+         modified INTEGER NOT NULL,
+         remote_id TEXT NOT NULL,
+         remote_rev TEXT NOT NULL,
+         checksum TEXT NOT NULL,
+         remote_size INTEGER NOT NULL,
+         remote_modified INTEGER NOT NULL
+     ) WITHOUT ROWID";
 
 pub struct Record {
     pub hash: String,
@@ -40,71 +54,48 @@ pub struct Size {
 
 impl Records {
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
-        Self::prepare(Connection::open(path)?)
+        let connection = crate::sqlite::open(path)?;
+        connection.execute_batch(&format!("{RECORDS}; CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT NOT NULL);"))?;
+        if connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))? < 2 {
+            keyed(&connection)?;
+        }
+        Ok(Self { connection })
     }
 
     #[cfg(test)]
     pub fn memory() -> rusqlite::Result<Self> {
-        Self::prepare(Connection::open_in_memory()?)
-    }
-
-    fn prepare(connection: Connection) -> rusqlite::Result<Self> {
-        connection.execute_batch(crate::SQLITE_PRAGMAS)?;
-        connection.execute_batch(
-            "CREATE TABLE IF NOT EXISTS records (
-                 path TEXT PRIMARY KEY,
-                 hash TEXT NOT NULL,
-                 size INTEGER NOT NULL,
-                 modified INTEGER NOT NULL,
-                 remote_id TEXT NOT NULL,
-                 remote_rev TEXT NOT NULL,
-                 checksum TEXT NOT NULL,
-                 remote_size INTEGER NOT NULL,
-                 remote_modified INTEGER NOT NULL
-             );
-             CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
-        )?;
-        Ok(Self { connection })
+        Self::open(Path::new(":memory:"))
     }
 
     pub fn all(&self) -> rusqlite::Result<HashMap<String, Record>> {
         let mut statement = self.connection.prepare(SELECT)?;
-        let rows = statement.query_map([], |row| record(row).map(|record| (record.remote.path.clone(), record)))?;
-        rows.collect()
+        let mut found = HashMap::new();
+        for record in statement.query_map([], record)? {
+            let record = record?;
+            found.insert(key(&record.remote.path), record);
+        }
+        Ok(found)
     }
 
     pub fn get(&self, path: &str) -> rusqlite::Result<Option<Record>> {
-        self.connection.query_row(&format!("{SELECT} WHERE path = ?1"), [path], record).optional()
+        self.connection.prepare_cached(&format!("{SELECT} WHERE key = ?1"))?.query_row([key(path)], record).optional()
     }
 
     pub fn holds_under(&self, folder: &str) -> rusqlite::Result<bool> {
-        self.connection.query_row("SELECT EXISTS(SELECT 1 FROM records WHERE path > ?1 AND path < ?2)", [format!("{folder}/"), format!("{folder}0")], |row| row.get(0))
+        let folder = key(folder);
+        self.connection.query_row("SELECT EXISTS(SELECT 1 FROM records WHERE key > ?1 AND key < ?2)", [format!("{folder}/"), format!("{folder}0")], |row| row.get(0))
     }
 
     pub fn put(&self, record: &Record) -> rusqlite::Result<()> {
-        let remote = &record.remote;
-        self.connection.prepare_cached("INSERT OR REPLACE INTO records VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)")?.execute(
-            params![
-                remote.path,
-                record.hash,
-                record.size as i64,
-                record.modified as i64,
-                remote.id,
-                remote.rev,
-                remote.checksum,
-                remote.size as i64,
-                remote.modified as i64
-            ],
-        )?;
-        Ok(())
+        insert(&self.connection, record)
     }
 
     pub fn remove(&self, path: &str) -> rusqlite::Result<()> {
-        self.connection.prepare_cached("DELETE FROM records WHERE path = ?1")?.execute([path]).map(|_| ())
+        self.connection.prepare_cached("DELETE FROM records WHERE key = ?1")?.execute([key(path)]).map(|_| ())
     }
 
     pub fn forget_stat(&self, path: &str) -> rusqlite::Result<()> {
-        self.connection.execute("UPDATE records SET size = 0, modified = 0 WHERE path = ?1", [path]).map(|_| ())
+        self.connection.prepare_cached("UPDATE records SET size = 0, modified = 0 WHERE key = ?1")?.execute([key(path)]).map(|_| ())
     }
 
     pub fn forget_cursor(&self) -> rusqlite::Result<()> {
@@ -125,8 +116,37 @@ impl Records {
     }
 
     pub fn commit(&self, cursor: &str, scope: &str) -> rusqlite::Result<()> {
-        self.connection.execute("INSERT OR REPLACE INTO state VALUES ('cursor', ?1), ('scope', ?2)", [cursor, scope]).map(|_| ())
+        self.connection.execute("INSERT OR REPLACE INTO state VALUES ('cursor', ?1), ('scope', ?2)", [cursor, scope])?;
+        crate::sqlite::maintain(&self.connection)
     }
+}
+
+fn insert(connection: &Connection, record: &Record) -> rusqlite::Result<()> {
+    let remote = &record.remote;
+    let insert = "INSERT OR REPLACE INTO records (key, path, hash, size, modified, remote_id, remote_rev, checksum, remote_size, remote_modified) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)";
+    connection.prepare_cached(insert)?.execute(params![
+        key(&remote.path),
+        remote.path,
+        record.hash,
+        record.size as i64,
+        record.modified as i64,
+        remote.id,
+        remote.rev,
+        remote.checksum,
+        remote.size as i64,
+        remote.modified as i64
+    ])?;
+    Ok(())
+}
+
+fn keyed(connection: &Connection) -> rusqlite::Result<()> {
+    let transaction = connection.unchecked_transaction()?;
+    let old = transaction.prepare(SELECT)?.query_map([], record)?.collect::<rusqlite::Result<Vec<_>>>()?;
+    transaction.execute_batch(&format!("DROP TABLE records; {RECORDS}; PRAGMA user_version = 2;"))?;
+    for record in &old {
+        insert(&transaction, record)?;
+    }
+    transaction.commit()
 }
 
 fn record(row: &Row<'_>) -> rusqlite::Result<Record> {

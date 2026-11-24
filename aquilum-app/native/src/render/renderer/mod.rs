@@ -51,11 +51,10 @@ pub struct Renderer {
     pub(super) overlay: Overlay,
     pub(super) stamps: Stamps,
     pub(super) faded: Option<super::fade::Cached>,
-    sprites: Vec<Sprite>,
+    pub(super) sprites: Vec<Sprite>,
     sprite_stamps: Stamps,
     sprite_changes: Option<Area>,
     stamped: Option<Vec<Sprite>>,
-    shifted: Vec<Area>,
     #[cfg(test)]
     pub(super) frame: (u16, u16, Vec<u32>),
     #[cfg(test)]
@@ -73,7 +72,7 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(threads: u16) -> Self {
         Renderer {
-            painter: Painter::new(1, 1, super::paint::settings(threads)),
+            painter: Painter::new(1, 1, super::render_settings(threads)),
             tracker: Tracker::new(),
             params: None,
             live: Vec::new(),
@@ -86,7 +85,6 @@ impl Renderer {
             sprite_stamps: Stamps::default(),
             sprite_changes: None,
             stamped: None,
-            shifted: Vec::new(),
             #[cfg(test)]
             frame: (0, 0, Vec::new()),
             #[cfg(test)]
@@ -102,13 +100,13 @@ impl Renderer {
         }
     }
 
+    #[cfg(not(feature = "installed"))]
     pub fn toggle_overlay(&mut self) {
-        self.overlay.on = !self.overlay.on;
-        self.overlay.pending = true;
+        self.overlay.toggle();
     }
 
     pub fn overlay_busy(&self) -> bool {
-        self.overlay.on || self.overlay.pending
+        self.overlay.busy()
     }
 
     pub(super) fn frame<'a>(&self, layers: &'a VisualLayerPlan) -> Option<Frame<'a>> {
@@ -136,6 +134,7 @@ impl Renderer {
     }
 
     pub fn trim(&mut self) {
+        super::offscreen::trim();
         self.painter.trim();
         self.stamps.forget();
         self.stamps.trim();

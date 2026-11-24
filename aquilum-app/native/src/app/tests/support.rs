@@ -31,7 +31,7 @@ pub(super) fn bench_scale(default: f64) -> f64 {
 }
 
 pub(super) fn raster_threads() -> u16 {
-    std::env::var("AQUILUM_BENCH_THREADS").ok().and_then(|v| v.parse().ok()).unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get() as u16 - 1))
+    std::env::var("AQUILUM_BENCH_THREADS").ok().and_then(|v| v.parse().ok()).unwrap_or_else(|| crate::args::defaults().threads)
 }
 
 pub(super) fn channel(pixel: u32, shift: u32) -> i32 {

@@ -24,6 +24,7 @@ impl Host {
         };
         let scene = t0.elapsed();
         if let (Some(update), Some(accessibility)) = (access_update, self.accessibility.as_mut()) {
+            #[cfg(not(feature = "installed"))]
             if self.args.trace {
                 eprintln!("доступность: обновление дерева, узлов {}", update.nodes.len());
             }
@@ -41,8 +42,7 @@ impl Host {
         if recolored {
             self.background = Some(shown);
             set_background(&*window, shown);
-            let rgba = shown.to_rgba8();
-            output.set_background(crate::render::in_canvas_order(u32::from_ne_bytes([rgba.r, rgba.g, rgba.b, rgba.a])));
+            output.set_background(crate::render::canvas_color(shown.to_rgba8().to_u8_array()));
         }
         let full = std::mem::take(&mut self.full_next) || output.fresh() || recolored;
         let raster_start = Instant::now();

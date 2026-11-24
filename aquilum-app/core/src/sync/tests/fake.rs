@@ -1,3 +1,4 @@
+use super::super::scan::key;
 use crate::sync::{Delta, Remote, RemoteError, RemoteFile, RemoteResult};
 use crate::text::content::{read_bytes, Content};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -44,12 +45,12 @@ impl FakeRemote {
 
     pub fn text(&self, path: &str) -> Option<String> {
         let state = self.state.lock().unwrap();
-        let file = state.files.get(path)?;
+        let file = state.files.get(&key(path))?;
         Some(String::from_utf8(state.revisions[&file.rev].clone()).unwrap())
     }
 
     pub fn paths(&self) -> Vec<String> {
-        self.state.lock().unwrap().files.keys().cloned().collect()
+        self.state.lock().unwrap().files.values().map(|file| file.path.clone()).collect()
     }
 
     pub fn uploads(&self) -> usize {
@@ -64,7 +65,8 @@ impl FakeRemote {
 
     pub fn remove_folder(&self, folder: &str) {
         let mut state = self.state.lock().unwrap();
-        state.files.retain(|path, _| !path.starts_with(&format!("{folder}/")));
+        let prefix = format!("{}/", key(folder));
+        state.files.retain(|path, _| !path.starts_with(&prefix));
         state.log.push(folder.to_owned());
     }
 
@@ -124,7 +126,7 @@ fn store(state: &mut State, path: &str, bytes: Vec<u8>, modified: u64) -> Remote
         modified,
     };
     state.revisions.insert(rev, bytes);
-    state.files.insert(path.to_owned(), file.clone());
+    state.files.insert(key(path), file.clone());
     state.log.push(path.to_owned());
     file
 }
@@ -145,8 +147,8 @@ impl Remote for FakeRemote {
         }
         let from: usize = cursor.parse().map_err(|_| RemoteError::Failed("курсор".into()))?;
         let touched: BTreeSet<&String> = state.log[from..].iter().collect();
-        let changed = touched.iter().filter_map(|path| state.files.get(*path).cloned()).collect();
-        let removed = touched.iter().filter(|path| !state.files.contains_key(**path)).map(|path| (*path).clone()).collect();
+        let changed = touched.iter().filter_map(|path| state.files.get(&key(path)).cloned()).collect();
+        let removed = touched.iter().filter(|path| !state.files.contains_key(&key(path))).map(|path| (*path).clone()).collect();
         Ok(Some(Delta { changed, removed, cursor: state.log.len().to_string() }))
     }
 
@@ -168,8 +170,8 @@ impl Remote for FakeRemote {
             if state.refuse_uploads {
                 return Err(RemoteError::Failed("облако недоступно".into()));
             }
-            let current = state.files.get(path).map(|file| file.rev.as_str());
-            if current != replaces.map(|file| file.rev.as_str()) {
+            let current = state.files.get(&key(path)).map(|file| file.rev.clone());
+            if current.as_deref() != replaces.map(|file| file.rev.as_str()) {
                 return Err(RemoteError::Stale);
             }
             state.uploads += 1;
@@ -179,10 +181,10 @@ impl Remote for FakeRemote {
 
     fn delete(&self, file: &RemoteFile) -> RemoteResult<()> {
         let mut state = self.state.lock().unwrap();
-        if state.files.get(&file.path).map(|current| &current.rev) != Some(&file.rev) {
+        if state.files.get(&key(&file.path)).map(|current| current.rev.as_str()) != Some(file.rev.as_str()) {
             return Err(RemoteError::Stale);
         }
-        state.files.remove(&file.path);
+        state.files.remove(&key(&file.path));
         state.log.push(file.path.clone());
         Ok(())
     }

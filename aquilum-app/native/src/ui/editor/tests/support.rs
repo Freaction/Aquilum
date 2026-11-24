@@ -1,8 +1,8 @@
 use masonry::app::RenderRoot;
 use masonry::core::keyboard::{Key, Modifiers, NamedKey};
-use masonry::core::{NewWidget, PointerButton, PointerEvent, PointerScrollEvent, PointerState, ScrollDelta, TextEvent, Widget, WidgetId, WidgetTag};
+use masonry::core::{NewWidget, PointerButton, PointerButtonEvent, PointerEvent, PointerScrollEvent, PointerState, ScrollDelta, TextEvent, Widget, WidgetId, WidgetTag};
 
-use crate::test_dir::{MOUSE, moved, pointer_at, primary};
+use crate::test_dir::{MOUSE, TOUCH, moved, pointer_at};
 use masonry::dpi::PhysicalPosition;
 
 use crate::test_dir::command;
@@ -79,20 +79,24 @@ pub(super) fn paste(root: &mut RenderRoot, s: &str) {
     let _ = root.redraw();
 }
 
-fn pointer_move(root: &mut RenderRoot, state: &PointerState) {
-    root.handle_pointer_event(moved(MOUSE, state.clone()));
+fn pointer_move(root: &mut RenderRoot, pointer: masonry::core::PointerInfo, state: &PointerState) {
+    root.handle_pointer_event(moved(pointer, state.clone()));
     let _ = root.redraw();
 }
 
 fn gesture(root: &mut RenderRoot, from: (f64, f64), to: (f64, f64), count: u8) {
+    gesture_with(root, from, to, count, MOUSE);
+}
+
+fn gesture_with(root: &mut RenderRoot, from: (f64, f64), to: (f64, f64), count: u8, pointer: masonry::core::PointerInfo) {
     let mut state = PointerState { count, ..pointer_at(from.0, from.1, 1.0) };
-    pointer_move(root, &state);
+    pointer_move(root, pointer, &state);
     state.buttons.insert(PointerButton::Primary);
-    root.handle_pointer_event(PointerEvent::Down(primary(state.clone())));
+    root.handle_pointer_event(PointerEvent::Down(PointerButtonEvent { pointer, button: Some(PointerButton::Primary), state: state.clone() }));
     state.position = PhysicalPosition::new(to.0, to.1);
-    pointer_move(root, &state);
+    pointer_move(root, pointer, &state);
     state.buttons.remove(PointerButton::Primary);
-    root.handle_pointer_event(PointerEvent::Up(primary(state)));
+    root.handle_pointer_event(PointerEvent::Up(PointerButtonEvent { pointer, button: Some(PointerButton::Primary), state }));
     let _ = root.redraw();
 }
 
@@ -106,6 +110,16 @@ pub(super) fn drag(root: &mut RenderRoot, from: (f64, f64), to: (f64, f64)) {
 
 pub(super) fn tap(root: &mut RenderRoot, x: f64, y: f64, count: u8, jitter: f64) {
     gesture(root, (x, y), (x + jitter, y + jitter / 2.0), count);
+}
+
+pub(super) fn tap_touch(root: &mut RenderRoot, x: f64, y: f64) {
+    gesture_with(root, (x, y), (x, y), 1, TOUCH);
+    root.handle_pointer_event(PointerEvent::Leave(TOUCH));
+    let _ = root.redraw();
+}
+
+pub(super) fn drag_touch(root: &mut RenderRoot, from: (f64, f64), to: (f64, f64)) {
+    gesture_with(root, from, to, 1, TOUCH);
 }
 
 pub(super) fn wheel(root: &mut RenderRoot, at: (f64, f64), delta: (f64, f64)) {

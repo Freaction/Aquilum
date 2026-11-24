@@ -68,8 +68,7 @@ pub(super) fn clip_bounds(clip: &ClipRef<'_>, shift: f64) -> (u64, Rect) {
             h.affine(Affine::translate((0.0, shift)) * *transform);
             h.geometry(shape);
             h.stroke(stroke);
-            let w = stroke.width.max(1.0) * stroke.miter_limit.max(1.0);
-            transform.transform_rect_bbox(convert::shape_bounds(shape).inflate(w, w))
+            convert::stroke_bounds(shape, stroke, *transform)
         }
     };
     (h.finish(), rect)

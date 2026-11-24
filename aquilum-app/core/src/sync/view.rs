@@ -1,6 +1,7 @@
 use super::cycle::Vault;
 use super::records::Record;
 use super::remote::RemoteFile;
+use super::scan::key;
 use super::SyncError;
 use std::collections::{HashMap, HashSet};
 
@@ -41,10 +42,10 @@ pub fn observe(vault: &Vault<'_>) -> Result<(View, String), SyncError> {
         _ => None,
     };
     let included = |files: Vec<RemoteFile>| -> HashMap<String, RemoteFile> {
-        files.into_iter().filter(|file| vault.scope.included(vault.root, &file.path)).map(|file| (file.path.clone(), file)).collect()
+        files.into_iter().filter(|file| vault.scope.included(vault.root, &file.path)).map(|file| (key(&file.path), file)).collect()
     };
     Ok(match delta {
-        Some(delta) => (View::Delta { changed: included(delta.changed), removed: delta.removed.into_iter().collect() }, delta.cursor),
+        Some(delta) => (View::Delta { changed: included(delta.changed), removed: delta.removed.into_iter().map(|path| key(&path)).collect() }, delta.cursor),
         None => {
             let cursor = vault.remote.cursor()?;
             (View::Full(included(vault.remote.list()?)), cursor)

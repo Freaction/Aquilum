@@ -9,7 +9,7 @@ use masonry::imaging::record::Glyph as SceneGlyph;
 use masonry::kurbo::Rect;
 
 use super::PdfSink;
-use super::geometry::{paint, solid, transform};
+use super::geometry::{ink, transform};
 
 struct Placed {
     id: GlyphId,
@@ -57,9 +57,8 @@ impl PdfSink<'_, '_> {
         if draw.composite.alpha <= 0.0 || !self.visible(draw.transform, line) {
             return;
         }
-        let Some(color) = solid(&draw.brush) else { return };
-        let (color, opacity) = paint(color, draw.composite.alpha);
-        if opacity.get() <= 0.0 || draw.font_size <= 0.0 {
+        let Some((color, opacity)) = ink(&draw.brush, draw.composite.alpha) else { return };
+        if draw.font_size <= 0.0 {
             return;
         }
         let Some((font, chars)) = self.fonts.get(draw.font, draw.normalized_coords) else { return };

@@ -46,8 +46,8 @@ impl IndexProgress {
         }
     }
 
-    pub fn bump_revision(&self) -> u64 {
-        self.revision.fetch_add(1, Ordering::Relaxed) + 1
+    pub fn bump_revision(&self) {
+        self.revision.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn begin_scan(&self) {

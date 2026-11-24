@@ -4,7 +4,7 @@ use aquilum_core::recent::Recent;
 use masonry::imaging::MaskMode;
 use masonry::imaging::record::{Scene, replay_transformed};
 use masonry::kurbo::Affine;
-use vello_cpu::{Mask, Pixmap, RenderSettings};
+use vello_cpu::Mask;
 
 use super::Painter;
 use super::error::PaintError;
@@ -20,17 +20,15 @@ pub fn get_or_render_mask(
     transform: Affine,
     width: u16,
     height: u16,
-    settings: RenderSettings,
 ) -> Result<Mask, PaintError> {
     if let Some(mask) = cache.find(|(s, m, t)| *m == mode && *t == transform && s == scene) {
         return Ok(mask.clone());
     }
 
-    let mut sub = Painter::new(width, height, settings);
+    let mut sub = Painter::new(width, height, super::render_settings(0));
     replay_transformed(scene, &mut sub, transform);
     sub.finish()?;
-    let mut pixmap = Pixmap::new(width, height);
-    sub.ctx.render(&mut pixmap, &mut sub.resources);
+    let pixmap = sub.pixmap();
     let mask = match mode {
         MaskMode::Alpha => Mask::new_alpha(&pixmap),
         MaskMode::Luminance => Mask::new_luminance(&pixmap),

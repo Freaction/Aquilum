@@ -50,7 +50,7 @@ pub fn drags(cursor: CursorIcon) -> bool {
 }
 
 pub fn thumb(cursor: CursorIcon) -> bool {
-    matches!(cursor, CursorIcon::Grab | CursorIcon::Grabbing)
+    matches!(cursor, CursorIcon::Grab | CursorIcon::Grabbing | CursorIcon::NwseResize)
 }
 
 pub fn shown(cursor: CursorIcon) -> CursorIcon {

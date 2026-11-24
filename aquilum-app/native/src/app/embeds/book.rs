@@ -30,9 +30,7 @@ pub(super) fn drain(inner: &Inner) {
             let book = if waiting { Fetch::Pending } else { load(inner, &target, path) };
             changed |= settle(&inner.books, &target, epoch, book);
         }
-        if changed {
-            inner.touch();
-        }
+        inner.touch(changed);
     }
 }
 

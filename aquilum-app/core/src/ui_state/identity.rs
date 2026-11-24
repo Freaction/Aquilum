@@ -1,19 +1,11 @@
 use super::database::UiStateDatabase;
 use super::error::UiStateError;
-use super::models::KnownWorkspace;
-use super::paths::display_workspace;
+use super::models::{parse_uuid_column, KnownWorkspace};
 use crate::settings::models::SyncSettings;
-use crate::search::paths::{identity, same_path};
+use crate::search::paths::same_path;
 use rusqlite::{params, OptionalExtension};
-use std::collections::HashSet;
 use std::path::Path;
 use uuid::Uuid;
-
-fn parse_uuid(value: String) -> Result<Uuid, UiStateError> {
-    Uuid::parse_str(&value).map_err(|error| UiStateError::Database {
-        message: error.to_string(),
-    })
-}
 
 impl UiStateDatabase {
     pub fn list_workspaces(&self) -> Result<Vec<KnownWorkspace>, UiStateError> {
@@ -24,24 +16,15 @@ impl UiStateDatabase {
                  ORDER BY last_seen_ms DESC",
             )?;
         let rows = statement.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, String>(4)?,
-            ))
+            Ok(KnownWorkspace {
+                id: parse_uuid_column(row.get(0)?, 0)?,
+                path: row.get(1)?,
+                last_seen_ms: row.get(2)?,
+                home_page: row.get(3)?,
+                sync: serde_json::from_str(&row.get::<_, String>(4)?).unwrap_or_default(),
+            })
         })?;
-        let (mut workspaces, mut seen) = (Vec::new(), HashSet::new());
-        for row in rows {
-            let (id, path, last_seen_ms, home_page, sync) = row?;
-            let path = display_workspace(&path);
-            if seen.insert(identity(Path::new(&path))) {
-                let sync = serde_json::from_str(&sync).unwrap_or_default();
-                workspaces.push(KnownWorkspace { id: parse_uuid(id)?, path, last_seen_ms, home_page, sync });
-            }
-        }
-        Ok(workspaces)
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     fn find_workspace(&self, path: &str) -> Result<Option<Uuid>, UiStateError> {
@@ -100,20 +83,17 @@ impl UiStateDatabase {
                 "SELECT id FROM documents
                  WHERE workspace_id = ?1 AND relative_path = ?2 AND status = 'active'",
                 params![workspace_id.to_string(), relative_path],
-                |row| row.get::<_, String>(0),
+                |row| parse_uuid_column(row.get(0)?, 0),
             )
             .optional()?;
-        let is_new = existing.is_none();
-        let id = match existing {
-            Some(value) => parse_uuid(value)?,
-            None => Uuid::new_v4(),
-        };
-        if is_new {
-            self.connection.execute(
-                "INSERT INTO documents(id, workspace_id, relative_path) VALUES(?1, ?2, ?3)",
-                params![id.to_string(), workspace_id.to_string(), relative_path],
-            )?;
+        if let Some(id) = existing {
+            return Ok(id);
         }
+        let id = Uuid::new_v4();
+        self.connection.execute(
+            "INSERT INTO documents(id, workspace_id, relative_path) VALUES(?1, ?2, ?3)",
+            params![id.to_string(), workspace_id.to_string(), relative_path],
+        )?;
         Ok(id)
     }
 

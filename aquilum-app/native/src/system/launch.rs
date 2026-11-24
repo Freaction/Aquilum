@@ -49,11 +49,14 @@ pub fn launch(mut command: Command, what: &str) {
     let what = what.to_owned();
     match command.spawn() {
         Ok(mut child) => {
-            std::thread::spawn(move || match child.wait() {
+            let waiting = aquilum_core::threads::background("ожидание программы", move || match child.wait() {
                 Ok(status) if !status.success() => report!("{what} не открыт: {status}"),
                 Err(error) => report!("{what} не открыт: {error}"),
                 Ok(_) => {}
             });
+            if let Err(error) = waiting {
+                report!("завершение программы не отслеживается: {error}");
+            }
         }
         Err(error) => report!("{what} не открыт: {error}"),
     }

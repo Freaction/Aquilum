@@ -1,20 +1,17 @@
 use masonry::app::VisualLayerPlan;
 use masonry::kurbo::Rect;
-use vello_cpu::{PixmapMut, RasterizerSettings, TargetInit};
 
 use super::{Frame, Renderer};
 use crate::output::{Area, Canvas, Target};
 use crate::render::damage::Damage;
 use crate::render::layer::{Layer, area, area_of};
-use crate::render::overlay::Mark;
 use crate::render::paint::{PaintError, Painter};
 use crate::render::sprite;
-use crate::render::stamp::covering;
 
 impl Renderer {
     pub(super) fn lift_sprites(&mut self, canvas: &mut dyn Canvas, touched: &[Area]) {
         let unchanged = self.stamped.as_ref().is_some_and(|stamped| stamped.iter().eq(self.sprites.iter().filter(|s| !s.covered)));
-        if !self.overlay.on && unchanged && self.sprite_stamps.untouched(touched) {
+        if !self.overlay.busy() && unchanged && self.sprite_stamps.untouched(touched) {
             return;
         }
         self.sprite_stamps.restore(canvas);
@@ -52,7 +49,7 @@ impl Renderer {
         let sprites = std::mem::take(&mut self.tracker.sprites);
         self.sprite_changes = sprite::changes(&self.sprites, &sprites);
         self.sprites = sprites;
-        self.shifted = damage.moves.iter().map(|m| area((m.x, m.y, m.w, m.h))).collect();
+        self.overlay.damage(&damage);
         #[cfg(test)]
         {
             self.shifts += damage.moves.len();
@@ -66,11 +63,8 @@ impl Renderer {
         if dirty.is_empty() {
             return Ok(dirty);
         }
-        for &rect in &damage.areas {
-            self.overlay.flash(area(rect), Mark::Raster);
-        }
         let blit = self.tracker.blit.and_then(|blit| {
-            let (pixmap, _) = crate::render::surface::find(blit.id)?;
+            let (pixmap, _) = crate::render::pixels::lookup(blit.id)?;
             Some((blit, blit.inner(&pixmap)?, pixmap))
         });
         #[cfg(test)]
@@ -85,9 +79,9 @@ impl Renderer {
                 let _zone = aq_trace::zone("сдвиг прокрутки");
                 crate::render::scroll::shift_rows(pixels, usize::from(width), *shift);
             }
-            for &area in &damage.areas {
-                let inside = blit.as_ref().and_then(|(_, inner, _)| overlap(area, *inner));
-                for part in around(area, inside) {
+            for &rect in &damage.areas {
+                let inside = blit.as_ref().and_then(|(_, inner, _)| area(rect).intersect(*inner)).map(|a| (a.x as u16, a.y as u16, a.w as u16, a.h as u16));
+                for part in around(rect, inside) {
                     if let Err(err) = raster(painter, &frame, pixels, width, height, part, None) {
                         result = Err(err);
                         return;
@@ -107,19 +101,6 @@ impl Renderer {
         }
         result.map(|()| dirty)
     }
-
-    pub(super) fn decorate(&mut self, canvas: &mut dyn Canvas) -> Option<Area> {
-        self.overlay.pending = false;
-        if !self.overlay.on {
-            return self.overlay.show(canvas, &mut self.stamps, &[]);
-        }
-        let scale = self.params.map_or(1.0, |p| p.2);
-        let mut outlines: Vec<(Area, Mark)> = crate::render::scroll::snapshot().into_iter().map(|r| (covering(r.viewport.scale_from_origin(scale)), Mark::Region)).collect();
-        outlines.extend(self.shifted.iter().map(|a| (*a, Mark::Shift)));
-        outlines.extend(self.live.iter().map(|l| (area(l.area), Mark::Layer)));
-        outlines.extend(self.sprites.iter().filter(|s| !s.covered).map(|s| (covering(s.bounds()), Mark::Sprite)));
-        self.overlay.show(canvas, &mut self.stamps, &outlines)
-    }
 }
 
 fn raster(painter: &mut Painter, frame: &Frame<'_>, pixels: &mut [u32], width: u16, height: u16, (x, y, w, h): (u16, u16, u16, u16), after: Option<u64>) -> Result<(), PaintError> {
@@ -131,16 +112,9 @@ fn raster(painter: &mut Painter, frame: &Frame<'_>, pixels: &mut [u32], width: u
         painter.finish()?;
     }
     let _zone = aq_trace::zone("растеризация");
-    let pixmap = PixmapMut::new(width, height, bytemuck::cast_slice_mut(pixels)).expect("холст вывода");
-    let settings = RasterizerSettings { target_init: TargetInit::SrcOver, pixel_format: crate::render::PIXEL_FORMAT, offset: (x, y) };
-    painter.ctx.render_with(pixmap, &mut painter.resources, settings);
+    painter.render_onto(pixels, width, height, (x, y));
     crate::render::night::canvas(pixels, usize::from(width), (x, y, w, h));
     Ok(())
-}
-
-fn overlap((x, y, w, h): (u16, u16, u16, u16), inner: Rect) -> Option<(u16, u16, u16, u16)> {
-    let r = Rect::new(f64::from(x), f64::from(y), f64::from(x) + f64::from(w), f64::from(y) + f64::from(h)).intersect(inner);
-    (r.width() > 0.0 && r.height() > 0.0).then(|| (r.x0 as u16, r.y0 as u16, r.width() as u16, r.height() as u16))
 }
 
 fn around(area: (u16, u16, u16, u16), inside: Option<(u16, u16, u16, u16)>) -> impl Iterator<Item = (u16, u16, u16, u16)> {

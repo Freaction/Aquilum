@@ -2,10 +2,11 @@ use crate::search::paths::relative_slash_path;
 use super::ast::Source;
 use crate::search::error::SearchError;
 use crate::search::fields::paths_with_tag;
-use crate::search::wiki::{candidate_sources, outgoing_links, resolve_many};
+use crate::search::metadata::all_paths;
+use crate::search::wiki::{self, candidate_sources, outgoing_links};
 use rusqlite::Connection;
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub fn resolve(
     connection: &Connection,
@@ -51,13 +52,13 @@ fn select_isolated(
     match source {
         Source::Once => Ok(HashSet::new()),
         Source::Tag(tag) => paths_with_tag(connection, tag),
-        Source::LinksTo(target) => match note_path(connection, root, origin, target)? {
+        Source::LinksTo(target) => match wiki::resolve(connection, root, origin, target)? {
             Some(path) => Ok(candidate_sources(connection, root, &path)?
                 .into_iter()
                 .collect()),
             None => Ok(HashSet::new()),
         },
-        Source::LinksFrom(target) => match note_path(connection, root, origin, target)? {
+        Source::LinksFrom(target) => match wiki::resolve(connection, root, origin, target)? {
             Some(path) => Ok(outgoing_links(connection, root, &path)?
                 .into_iter()
                 .filter_map(|link| link.path)
@@ -130,26 +131,6 @@ fn in_folder(root: &Path, folder: &str, universe: &[String]) -> HashSet<String> 
         })
         .cloned()
         .collect()
-}
-
-fn note_path(
-    connection: &Connection,
-    root: &Path,
-    origin: &Path,
-    target: &str,
-) -> Result<Option<PathBuf>, SearchError> {
-    Ok(resolve_many(connection, root, origin, &[target.to_owned()])?
-        .into_iter()
-        .next()
-        .flatten())
-}
-
-fn all_paths(connection: &Connection) -> Result<Vec<String>, SearchError> {
-    let mut statement = connection.prepare("SELECT path FROM documents ORDER BY path")?;
-    let rows = statement
-        .query_map([], |row| row.get::<_, String>(0))?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows)
 }
 
 #[cfg(test)]

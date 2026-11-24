@@ -30,32 +30,39 @@ impl App {
         if !plain && self.paste_formatted(root) {
             return true;
         }
-        if let Some(text) = crate::clipboard::text() {
-            root.handle_text_event(masonry::core::TextEvent::ClipboardPaste(text));
+        let text = crate::clipboard::text();
+        if text.as_deref().is_none_or(clipboard_image_uri) && crate::clipboard::png().is_some_and(|png| self.paste_image(root, &png)) {
             return true;
         }
-        crate::clipboard::png().is_some_and(|png| self.paste_image(root, &png))
+        let Some(text) = text else { return false };
+        root.handle_text_event(masonry::core::TextEvent::ClipboardPaste(text));
+        true
+    }
+
+    pub(in crate::app) fn pick_note_image(&self) {
+        let Some(note) = self.note.as_ref().map(|n| n.path.clone()) else { return };
+        self.pick(move || {
+            let file = crate::native_dialog::pick_file("Images", &crate::images::EXTENSIONS)?;
+            Some(super::book::Picked::NoteImage(note, file))
+        });
     }
 
     pub(in crate::app) fn paste_image(&mut self, root: &mut RenderRoot, png: &[u8]) -> bool {
         if self.note_ids.as_ref().is_none_or(|ids| root.focused_widget() != Some(ids.body.id())) {
             return false;
         }
-        self.insert_media(root, &[Source::Bytes(png, "image.png")], None);
-        true
+        self.insert_media(root, &[Source::Bytes(png, "image.png")], None)
     }
 
-    pub fn drop_files(&mut self, root: &mut RenderRoot, paths: &[PathBuf], at: Point) {
+    pub fn drop_files(&mut self, root: &mut RenderRoot, paths: &[PathBuf], at: Option<Point>) {
         let media: Vec<Source<'_>> = paths.iter().filter(|p| kind(&p.to_string_lossy()).is_some()).map(|p| Source::Path(p)).collect();
-        self.insert_media(root, &media, Some(at));
+        self.insert_media(root, &media, at);
     }
 
-    fn insert_media(&mut self, root: &mut RenderRoot, sources: &[Source<'_>], at: Option<Point>) {
-        let (Some(ids), Some(workspace)) = (&self.note_ids, self.tree.root()) else { return };
-        let Some(body) = root.get_widget(ids.body.id()) else { return };
+    pub(in crate::app) fn insert_media(&mut self, root: &mut RenderRoot, sources: &[Source<'_>], at: Option<Point>) -> bool {
+        let (Some(ids), Some(workspace)) = (&self.note_ids, self.tree.root()) else { return false };
+        let Some(body) = root.get_widget(ids.body.id()) else { return false };
         let column = body.ctx().bounding_box().width();
-        let editor = body.downcast::<TextEditor>().map(|e| e.inner());
-        let Some(offset) = editor.map(|e| at.map_or(e.caret_offset(), |p| e.offset_at(body.ctx().window_transform().inverse(), p))) else { return };
         let lines: Vec<String> = sources
             .iter()
             .filter_map(|source| {
@@ -69,8 +76,11 @@ impl App {
                 Some(media_line(&relative, width))
             })
             .collect();
-        if !lines.is_empty() {
-            ids.body.edit(root, |mut editor| TextEditor::insert_block(&mut editor, offset, &lines));
-        }
+        !lines.is_empty() && ids.body.edit(root, |mut editor| TextEditor::insert_media(&mut editor, &lines, at)).unwrap_or(false)
     }
+}
+
+fn clipboard_image_uri(text: &str) -> bool {
+    let text = text.trim();
+    text.is_empty() || text.starts_with("content:")
 }

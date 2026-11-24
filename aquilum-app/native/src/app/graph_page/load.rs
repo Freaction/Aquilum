@@ -4,6 +4,7 @@ use std::sync::Arc;
 use masonry::app::RenderRoot;
 
 use super::App;
+use crate::app::jobs;
 use crate::graph;
 use crate::ui::graph::GraphView;
 use crate::ui::settings::controls::Slider;
@@ -17,16 +18,8 @@ impl App {
         }
         self.graph.loading = true;
         self.graph.stale = false;
-        let generation = self.graph.generation;
-        let core = Arc::clone(&self.workspace.core);
-        let tx = self.graph.tx.clone();
-        let wake = Arc::clone(&self.workspace.wake);
-        std::thread::spawn(move || {
-            let result = graph::load(&core, &workspace);
-            if tx.send((generation, result)).is_ok() {
-                wake();
-            }
-        });
+        let (generation, core) = (self.graph.generation, Arc::clone(&self.workspace.core));
+        jobs::deliver("граф: загрузка", self.graph.tx.clone(), &self.workspace.wake, move || Some((generation, graph::load(&core, &workspace))));
     }
 
     pub(in crate::app) fn graph_links_changed(&mut self) {

@@ -13,7 +13,7 @@ pub fn starting_with(
 ) -> Result<Vec<Candidate>, SearchError> {
     read(
         connection,
-        "SELECT path, title_key FROM wiki_documents
+        "SELECT path, title_key FROM documents
          WHERE title_key >= ?1 AND title_key < ?2
          ORDER BY length(title_key), title_key
          LIMIT ?3",
@@ -28,7 +28,7 @@ pub fn containing(
 ) -> Result<Vec<Candidate>, SearchError> {
     read(
         connection,
-        "SELECT path, title_key FROM wiki_documents
+        "SELECT path, title_key FROM documents
          WHERE title_key LIKE ?1 ESCAPE '\\'
            AND NOT (title_key >= ?2 AND title_key < ?3)
          ORDER BY length(title_key), title_key

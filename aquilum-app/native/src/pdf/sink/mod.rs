@@ -11,7 +11,8 @@ use masonry::imaging::{BlurredRoundedRect, ClipRef, FillRef, GeometryRef, GlyphR
 use masonry::kurbo::{self, Affine, Rect};
 use masonry::peniko::BrushRef;
 
-use geometry::{bounds, paint, path, rule, scale_of, solid};
+use crate::render::shape_bounds;
+use geometry::{ink, path, rule, scale_of};
 
 pub use fonts::Fonts;
 
@@ -82,18 +83,14 @@ impl PaintSink for PdfSink<'_, '_> {
     }
 
     fn fill(&mut self, draw: FillRef<'_>) {
-        if draw.composite.alpha <= 0.0 || !self.visible(draw.transform, bounds(&draw.shape)) {
+        if draw.composite.alpha <= 0.0 || !self.visible(draw.transform, shape_bounds(&draw.shape)) {
             return;
         }
         if let BrushRef::Image(brush) = &draw.brush {
             self.fill_image(&draw, brush);
             return;
         }
-        let Some(color) = solid(&draw.brush) else { return };
-        let (color, opacity) = paint(color, draw.composite.alpha);
-        if opacity.get() <= 0.0 {
-            return;
-        }
+        let Some((color, opacity)) = ink(&draw.brush, draw.composite.alpha) else { return };
         let Some(path) = path(&(self.base * draw.transform), &draw.shape) else { return };
         self.surface.set_stroke(None);
         self.surface.set_fill(Some(Fill { paint: color.into(), opacity, rule: rule(draw.fill_rule) }));
@@ -102,15 +99,11 @@ impl PaintSink for PdfSink<'_, '_> {
 
     fn stroke(&mut self, draw: StrokeRef<'_>) {
         let width = draw.stroke.width;
-        if draw.composite.alpha <= 0.0 || !self.visible(draw.transform, bounds(&draw.shape).inflate(width, width)) {
+        if draw.composite.alpha <= 0.0 || !self.visible(draw.transform, shape_bounds(&draw.shape).inflate(width, width)) {
             return;
         }
-        let Some(color) = solid(&draw.brush) else { return };
+        let Some((color, opacity)) = ink(&draw.brush, draw.composite.alpha) else { return };
         let full = self.base * draw.transform;
-        let (color, opacity) = paint(color, draw.composite.alpha);
-        if opacity.get() <= 0.0 {
-            return;
-        }
         let Some(path) = path(&full, &draw.shape) else { return };
         let line_cap = match draw.stroke.start_cap {
             kurbo::Cap::Butt => LineCap::Butt,

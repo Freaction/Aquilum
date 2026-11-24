@@ -392,14 +392,13 @@ fn a_query_from_once_ignores_the_notes_it_was_given() {
 
 #[test]
 fn a_query_from_once_is_answered_without_an_index() {
-    use crate::search::models::IndexRevision;
     use crate::search::service::SearchService;
     use std::path::PathBuf;
     use std::sync::Arc;
 
     let service = SearchService::new(
         PathBuf::from("."),
-        Arc::new(|_: IndexRevision| {}),
+        Arc::new(|_: &std::path::Path| {}),
     );
     let output = service
         .run_dataview_query("", "", "TABLE WITHOUT ID 2 + 2 AS \"Сумма\" FROM once", 0)

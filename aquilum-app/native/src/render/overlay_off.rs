@@ -1,18 +1,22 @@
-use super::stamp::Stamps;
+use super::damage::Damage;
+use super::renderer::Renderer;
 use crate::output::{Area, Canvas};
 
-pub use super::mark::Mark;
-
 #[derive(Default)]
-pub struct Overlay {
-    pub on: bool,
-    pub pending: bool,
-}
+pub struct Overlay;
 
 impl Overlay {
-    pub fn flash(&mut self, _: Area, _: Mark) {}
+    pub fn busy(&self) -> bool {
+        false
+    }
 
-    pub fn show(&mut self, _: &mut dyn Canvas, _: &mut Stamps, _: &[(Area, Mark)]) -> Option<Area> {
+    pub fn damage(&mut self, _: &Damage) {}
+
+    pub fn live(&mut self, _: Area) {}
+}
+
+impl Renderer {
+    pub(super) fn decorate(&mut self, _: &mut dyn Canvas) -> Option<Area> {
         None
     }
 }

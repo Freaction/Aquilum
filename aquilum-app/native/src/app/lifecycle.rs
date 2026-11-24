@@ -51,7 +51,15 @@ impl App {
 
     pub fn shutdown(&mut self) {
         self.persist();
+        for chore in self.chores.drain(..) {
+            let _ = chore.join();
+        }
         self.workspace.core.shutdown();
+    }
+
+    pub(in crate::app) fn own(&mut self, chore: Option<std::thread::JoinHandle<()>>) {
+        self.chores.retain(|chore| !chore.is_finished());
+        self.chores.extend(chore);
     }
 
     pub fn hold_due(&mut self, now: Instant) -> bool {

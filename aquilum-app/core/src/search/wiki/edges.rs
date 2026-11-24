@@ -8,39 +8,40 @@ pub struct WikiDocument {
     pub path: String,
     pub relative_key: String,
     pub title_key: String,
+    pub created_ns: i64,
+    pub modified_ns: i64,
 }
 
 pub fn read_documents(connection: &Connection) -> Result<Vec<WikiDocument>, SearchError> {
     let mut statement =
-        connection.prepare("SELECT path, relative_key, title_key FROM wiki_documents")?;
+        connection.prepare("SELECT path, relative_key, title_key, created_ns, modified_ns FROM documents ORDER BY path")?;
     let rows = statement.query_map([], |row| {
         Ok(WikiDocument {
             path: row.get(0)?,
             relative_key: row.get(1)?,
             title_key: row.get(2)?,
+            created_ns: row.get(3)?,
+            modified_ns: row.get(4)?,
         })
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-pub fn for_each_link<'a, D>(
+pub fn for_each_link(
     connection: &Connection,
     root: &Path,
-    documents: D,
+    documents: &[WikiDocument],
     mut visit: impl FnMut(&str, &str),
-) -> Result<(), SearchError>
-where
-    D: IntoIterator<Item = (&'a str, &'a str, &'a str)>,
-{
+) -> Result<(), SearchError> {
     let mut by_title = HashMap::<&str, Vec<&str>>::new();
     let mut by_relative = HashMap::<&str, Vec<&str>>::new();
-    for (path, relative_key, title_key) in documents {
-        by_relative.entry(relative_key).or_default().push(path);
-        by_title.entry(title_key).or_default().push(path);
+    for document in documents {
+        by_relative.entry(&document.relative_key).or_default().push(&document.path);
+        by_title.entry(&document.title_key).or_default().push(&document.path);
     }
 
     let mut statement =
-        connection.prepare("SELECT source_path, target_key, target_kind FROM wiki_links")?;
+        connection.prepare("SELECT page.path, link.target_key, link.target_kind FROM wiki_links link JOIN note_pages page ON page.id = link.page")?;
     let rows = statement.query_map([], |row| {
         Ok((
             row.get::<_, String>(0)?,

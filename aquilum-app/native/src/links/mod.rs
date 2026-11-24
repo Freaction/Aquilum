@@ -4,10 +4,6 @@ mod panel;
 pub mod reader;
 
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::mpsc::Sender;
-
-use aquilum_core::Core;
 
 pub use mode::{Method, Mode};
 pub use notes::{find_note, linked_file_path};
@@ -42,16 +38,4 @@ pub struct Request {
     pub mode: Mode,
     pub method: Method,
     pub text: String,
-}
-
-pub fn spawn(core: Arc<Core>, request: Request, results: Sender<Listing>, wake: Arc<dyn Fn() + Send + Sync>) {
-    std::thread::spawn(move || {
-        let listing = {
-            let _zone = aq_trace::zone("фон: панель ссылок");
-            run(&core, &request)
-        };
-        if results.send(listing).is_ok() {
-            wake();
-        }
-    });
 }

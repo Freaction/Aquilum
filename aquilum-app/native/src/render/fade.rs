@@ -6,7 +6,6 @@ use masonry::imaging::Painter as Sink;
 use masonry::imaging::record::replay_transformed;
 use masonry::kurbo::{Affine, Rect};
 use masonry::peniko::{Color, ImageBrush};
-use vello_cpu::{Pixmap, PixmapMut, RasterizerSettings, TargetInit};
 
 use super::paint::PaintError;
 use super::renderer::Renderer;
@@ -79,8 +78,7 @@ impl Renderer {
             self.painter.begin(x, y, w, h);
             replay_transformed(scene, &mut self.painter, Affine::scale(scale) * layer);
             self.painter.finish()?;
-            let mut pixmap = Pixmap::new(w, h);
-            self.painter.ctx.render_with(&mut pixmap, &mut self.painter.resources, RasterizerSettings::default());
+            let mut pixmap = self.painter.pixmap();
             super::night::image(&mut pixmap);
             self.faded = Some(Cached { id, area, image: super::brush(pixmap) });
         }
@@ -97,9 +95,7 @@ impl Renderer {
         canvas.with_target(&mut |mut target| {
             stamps.save(&mut target, window);
             let Target { pixels, width, height } = target;
-            let pixmap = PixmapMut::new(width, height, bytemuck::cast_slice_mut(&mut *pixels)).expect("холст вывода");
-            let settings = RasterizerSettings { target_init: TargetInit::SrcOver, pixel_format: crate::render::PIXEL_FORMAT, offset: (0, 0) };
-            painter.ctx.render_with(pixmap, &mut painter.resources, settings);
+            painter.render_onto(pixels, width, height, (0, 0));
         });
         Ok(Some(window))
     }

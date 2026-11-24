@@ -83,7 +83,6 @@ pub struct EditorSettings {
     pub selection_matches: bool,
     pub auto_link_title: bool,
     pub paste_formatting: bool,
-    pub live_tabs: u32,
     pub link_suggest: bool,
     pub link_suggest_min_chars: u32,
     #[serde(flatten)]
@@ -101,7 +100,6 @@ impl Default for EditorSettings {
             selection_matches: false,
             auto_link_title: true,
             paste_formatting: true,
-            live_tabs: 3,
             link_suggest: true,
             link_suggest_min_chars: 2,
             font: FontSettings {
@@ -187,10 +185,16 @@ impl Default for TrashSettings {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct HistorySettings {
     pub retention_days: u32,
+}
+
+impl Default for HistorySettings {
+    fn default() -> Self {
+        Self { retention_days: 90 }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -29,7 +29,7 @@ impl Checkpoints {
         let (tx, rx) = channel();
         let until = self.wanted;
         (self.rx, self.edits, self.until) = (Some(rx), Vec::new(), until);
-        std::thread::spawn(move || {
+        let _ = aquilum_core::threads::background("контрольные точки", move || {
             let _zone = aq_trace::zone("фон: контрольные точки разбора");
             scan(rope, from, state, until, tx);
         });

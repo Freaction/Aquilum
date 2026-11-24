@@ -32,10 +32,7 @@ pub fn run(args: Args, mut event_loop: EventLoop) -> Result<(), String> {
     let app = App::new(workspace, args.text.clone());
     let threads = args.threads;
     let metrics = Metrics::new(threads, args.metrics.clone());
-    let mut renderer = Renderer::new(threads);
-    if args.paint_flashing {
-        renderer.toggle_overlay();
-    }
+    let renderer = Renderer::new(threads);
     #[allow(unused_mut)]
     let mut host = Host {
         args,
@@ -80,9 +77,13 @@ pub fn run(args: Args, mut event_loop: EventLoop) -> Result<(), String> {
         #[cfg(target_os = "linux")]
         system_theme,
     };
+    #[cfg(not(feature = "installed"))]
+    if host.args.paint_flashing {
+        host.renderer.toggle_overlay();
+    }
     #[cfg(feature = "memory-probe")]
     {
-        host.probe = host.args.memory_probe.clone().map(|out| crate::memory_probe::Probe::new(out, host.args.probe_notes.clone()));
+        host.probe =host.args.memory_probe.clone().map(|out| crate::memory_probe::Probe::new(out, host.args.probe_notes.clone()));
     }
     event_loop.run_app_on_demand(host).map_err(|e| format!("цикл событий завершился с ошибкой: {e}"))
 }

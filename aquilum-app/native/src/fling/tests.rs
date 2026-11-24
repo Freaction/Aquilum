@@ -97,6 +97,17 @@ fn a_sample_at_the_same_moment_replaces_the_previous_one() {
 }
 
 #[test]
+fn samples_from_one_poll_share_the_first_stamp() {
+    let start = Instant::now();
+    let mut trail = Trail::default();
+    trail.push(start, 0.0, 0.0);
+    trail.push(start + Duration::from_micros(40), 0.0, 20.0);
+    trail.push(start + Duration::from_millis(8), 0.0, 40.0);
+    let (_, vy) = trail.velocity(start + Duration::from_millis(8)).expect("скорость");
+    assert!((vy - 2500.0).abs() < 1.0, "скорость {vy} вместо 2500: пачка микросекунд склеилась в (0, 20) за 8 мс");
+}
+
+#[test]
 fn a_fling_travels_as_far_and_as_long_as_on_android() {
     let start = Instant::now();
     let steps = steps(Fling::spline(start, (0.0, 1000.0), 1.0), start);

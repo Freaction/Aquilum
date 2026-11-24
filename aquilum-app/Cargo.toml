@@ -55,6 +55,42 @@ opt-level = 3
 [profile.release.package.bytemuck]
 opt-level = 3
 
+[profile.release.package.png]
+opt-level = 3
+
+[profile.release.package.fdeflate]
+opt-level = 3
+
+[profile.release.package.flate2]
+opt-level = 3
+
+[profile.release.package.miniz_oxide]
+opt-level = 3
+
+[profile.release.package.crc32fast]
+opt-level = 3
+
+[profile.release.package.simd-adler32]
+opt-level = 3
+
+[profile.release.package.adler2]
+opt-level = 3
+
+[profile.release.package.hayro]
+opt-level = 3
+
+[profile.release.package.hayro-syntax]
+opt-level = 3
+
+[profile.release.package.hayro-interpret]
+opt-level = 3
+
+[profile.release.package.hayro-font]
+opt-level = 3
+
+[profile.release.package.moxcms]
+opt-level = 3
+
 [patch."https://github.com/linebender/xilem"]
 masonry_core = { path = "native/vendor/masonry_core" }
 masonry = { path = "native/vendor/masonry" }

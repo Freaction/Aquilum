@@ -76,7 +76,7 @@ impl PaintSink for Tracker {
             && draw.composite.alpha >= 1.0
             && draw.composite.blend == BlendMode::default()
             && crate::render::blit::fits(draw.transform)
-            && crate::render::surface::find(image.image.data.id()).is_some()
+            && crate::render::pixels::lookup(image.image.data.id()).is_some_and(|(_, direct)| direct)
         {
             self.blit = Some(crate::render::blit::Blit { id: image.image.data.id(), transform: draw.transform, rect: bounds.intersect(level.clip) });
         }
@@ -112,9 +112,8 @@ impl PaintSink for Tracker {
         h.brush(&draw.brush, draw.brush_transform);
         h.composite(draw.composite);
         h.stroke(draw.stroke);
-        let w = draw.stroke.width.max(1.0) * draw.stroke.miter_limit.max(1.0);
-        let bounds = draw.transform.transform_rect_bbox(convert::shape_bounds(&draw.shape).inflate(w, w));
-        let steady = if draw.stroke.dash_pattern.is_empty() { self.steady(&draw.shape, draw.transform, &draw.brush, w) } else { None };
+        let bounds = convert::stroke_bounds(&draw.shape, draw.stroke, draw.transform);
+        let steady = if draw.stroke.dash_pattern.is_empty() { self.steady(&draw.shape, draw.transform, &draw.brush, convert::stroke_reach(draw.stroke)) } else { None };
         self.add(h, bounds, steady, None);
     }
 
@@ -133,13 +132,7 @@ impl PaintSink for Tracker {
         }
         h.composite(draw.composite);
         let spread = draw.std_dev * 3.0;
-        let [_, skew_y, skew_x, scale_y, _, _] = draw.transform.as_coeffs();
-        let steady = (skew_x == 0.0 && skew_y == 0.0 && scale_y > 0.0).then(|| {
-            let inset = draw.radius + spread;
-            let band = draw.transform.transform_rect_bbox(Rect::new(draw.rect.x0, draw.rect.y0 + inset, draw.rect.x1, draw.rect.y1 - inset));
-            let clip = self.top().clip;
-            (band.y0.max(clip.y0).ceil(), band.y1.min(clip.y1).floor())
-        });
+        let steady = self.band(draw.rect, draw.radius + spread, draw.transform);
         self.add(h, draw.transform.transform_rect_bbox(draw.rect.inflate(spread, spread)), steady, None);
     }
 }

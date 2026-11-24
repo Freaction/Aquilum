@@ -9,15 +9,9 @@ const MAX_INTITLE: usize = 2;
 struct RestPage {
     title: Option<String>,
     extract: Option<String>,
-    thumbnail: Option<Thumb>,
     content_urls: Option<ContentUrls>,
     #[serde(rename = "type")]
     page_type: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Thumb {
-    source: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -115,7 +109,6 @@ fn search_item_to_hit(lang: &str, item: SearchItem) -> WikixivHit {
         url: format!("https://{lang}.wikipedia.org/wiki/{}", encode_path(&item.title)),
         title: item.title,
         snippet: truncate(strip_html(item.snippet.as_deref().unwrap_or_default())),
-        thumbnail_url: None,
         from_filename: false,
         matched_terms: Vec::new(),
     }
@@ -142,7 +135,6 @@ fn page_to_hit(lang: &str, page: RestPage) -> Option<WikixivHit> {
         title,
         url,
         snippet: truncate(page.extract.unwrap_or_default()),
-        thumbnail_url: page.thumbnail.and_then(|t| t.source),
         from_filename: false,
         matched_terms: Vec::new(),
     })

@@ -118,8 +118,10 @@ fn the_latest_name_of_a_version_wins_and_an_empty_one_removes_it() {
 }
 
 #[test]
-fn retention_keeps_named_versions_and_drops_names_of_removed_ones() {
+fn retention_keeps_named_versions_while_the_note_exists_and_drops_names_of_removed_ones() {
     let directory = tempfile::tempdir().unwrap();
+    let note = directory.path().join("Идея.md");
+    fs::write(&note, "текст").unwrap();
     let dir = history_dir(directory.path(), Path::new("Идея.md"));
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
     let old = now - 40 * DAY.as_secs();
@@ -133,6 +135,10 @@ fn retention_keeps_named_versions_and_drops_names_of_removed_ones() {
 
     assert!(named.exists() && !plain.exists());
     assert_eq!(fs::read_dir(&dir).unwrap().count(), 2, "осталась версия и её название");
+
+    fs::remove_file(&note).unwrap();
+    assert_eq!(remove_expired(directory.path(), 30), 1, "имя не держит версии удалённой заметки");
+    assert!(!dir.exists(), "история удалённой заметки убрана целиком");
 }
 
 #[test]

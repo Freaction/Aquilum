@@ -102,15 +102,34 @@ impl TextEditor {
         Self::repaint(this);
     }
 
-    pub fn insert_block(this: &mut WidgetMut<'_, Self>, at: usize, lines: &[String]) {
-        let at = at.min(this.widget.doc.len());
-        this.widget.doc.include(at);
-        let Range { start: line_start, end: line_end } = this.widget.doc.line_at(at);
-        let prefix = if at == line_start { "" } else { "\n" };
-        let tail = if this.widget.doc.slice(at..line_end).trim().is_empty() { "" } else { "\n" };
-        let insert = format!("{prefix}{}\n{tail}", lines.join("\n\n"));
-        this.widget.replace(at..at, &insert, Kind::Other);
-        Self::edited(this);
+    pub fn insert_media(this: &mut WidgetMut<'_, Self>, lines: &[String], at: Option<Point>) -> bool {
+        if let Some(at) = at {
+            let offset = this.widget.offset_at(this.ctx.window_transform().inverse(), at);
+            this.widget.anchor = offset;
+            this.widget.focus = offset;
+            this.widget.column = None;
+        }
+        if !this.widget.allows_media() {
+            return false;
+        }
+        let text = lines.join("\n");
+        if this.widget.table.as_ref().is_some_and(|s| s.active.is_some()) {
+            let Some((session, view)) = this.widget.table_parts() else { return false };
+            return match session.insert(view, &text) {
+                crate::ui::editor::table::Outcome::Write(model) => {
+                    this.widget.write_table(&model);
+                    this.widget.sync_editing();
+                    Self::edited(this);
+                    true
+                }
+                _ => false,
+            };
+        }
+        if this.widget.table_active() {
+            return false;
+        }
+        Self::insert_text(this, &text);
+        true
     }
 
     pub fn apply_external(this: &mut WidgetMut<'_, Self>, range: Range<usize>, insert: &str, undoable: bool) {

@@ -1,22 +1,22 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use masonry::app::RenderRoot;
 
-use super::super::App;
+use super::super::{App, jobs};
 use super::BOOK_EXTENSIONS;
 use crate::frontmatter::{self, BOOK_COVER, BOOK_FILE, COVER, PAGE_COVER, PAGE_COVER_POSITION, PAGES, READER_POSITION, READ_PERCENT};
 use crate::ui::widgets::TextButton;
 use crate::vault_files::{self, Source};
 
-#[derive(Debug)]
 pub(in crate::app) enum Picked {
     Workspace(PathBuf),
     NewVault(Result<PathBuf, String>),
     CloudVault(PathBuf),
     PageCover(PathBuf, PathBuf),
     BookCover(PathBuf, PathBuf),
+    NoteImage(PathBuf, PathBuf),
     Book(PathBuf, Option<PathBuf>),
+    Pdf(PathBuf, crate::native_dialog::Destination),
 }
 
 const BYTES_PER_PAGE: u64 = 1024;
@@ -53,14 +53,10 @@ impl App {
     }
 
     pub(in crate::app) fn pick(&self, choose: impl FnOnce() -> Option<Picked> + Send + 'static) {
-        let (sender, wake) = (self.picked_tx.clone(), Arc::clone(&self.workspace.wake));
-        std::thread::spawn(move || {
-            if let Some(picked) = choose()
-                && sender.send(picked).is_ok()
-            {
-                wake();
-            }
-        });
+        let delivery = jobs::delivery(self.picked_tx.clone(), &self.workspace.wake, choose);
+        if let Err(error) = std::thread::Builder::new().name("диалог выбора".into()).spawn(delivery) {
+            report!("диалог выбора не открыт: {error}");
+        }
     }
 
     fn set_book_busy(&self, root: &mut RenderRoot, busy: bool) {
@@ -108,13 +104,17 @@ impl App {
                     self.set_fields(root, &[(BOOK_COVER, relative)]);
                 }
             }
+            Picked::NoteImage(note, file) if current(&note) => {
+                self.insert_media(root, &[Source::Path(&file)], None);
+            }
             Picked::Book(note, file) => {
                 self.set_book_busy(root, false);
                 if let Some(file) = file.filter(|_| current(&note)) {
                     self.import_book(root, &file);
                 }
             }
-            Picked::PageCover(..) | Picked::BookCover(..) => {}
+            Picked::Pdf(note, dest) if current(&note) => self.write_pdf(dest),
+            Picked::PageCover(..) | Picked::BookCover(..) | Picked::NoteImage(..) | Picked::Pdf(..) => {}
         }
         false
     }

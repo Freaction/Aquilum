@@ -24,9 +24,9 @@ fn decodes_the_core_snapshot() {
     for v in [1u32, 1, 0, 1] {
         bytes.extend(v.to_le_bytes());
     }
-    let (positions, created, modified, degrees, edges, epoch) = decode(&bytes).unwrap();
+    let (positions, created, modified, degrees, edges) = decode(&bytes).unwrap();
     assert_eq!(positions, [[1.0, 2.0], [3.0, 4.0]]);
-    assert_eq!((created, modified, degrees, edges, epoch), (vec![10.0, 11.0], vec![12.0, 13.0], vec![1, 1], vec![[0, 1]], 7));
+    assert_eq!((created, modified, degrees, edges), (vec![10.0, 11.0], vec![12.0, 13.0], vec![1, 1], vec![[0, 1]]));
 }
 
 #[test]

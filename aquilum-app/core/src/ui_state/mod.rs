@@ -1,4 +1,6 @@
 pub mod cleanup;
+#[cfg(test)]
+mod cleanup_tests;
 pub mod database;
 #[cfg(test)]
 mod efficiency_tests;
@@ -7,7 +9,6 @@ pub mod identity;
 pub mod load;
 pub mod migrations;
 pub mod models;
-pub mod paths;
 pub mod reader;
 pub mod service;
 pub mod state;

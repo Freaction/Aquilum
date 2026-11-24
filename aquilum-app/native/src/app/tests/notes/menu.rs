@@ -83,7 +83,7 @@ fn a_touch_selection_brings_up_the_edit_menu_under_it_and_its_items_keep_the_edi
 #[test]
 fn right_click_and_a_double_tap_on_empty_space_offer_paste_and_inserts() {
     let (mut h, _) = opened(NOTE);
-    let caret = [Paste, SelectAll, InsertBook, InsertTable, InsertFrontmatter];
+    let caret = [Paste, SelectAll, UploadImage, PasteImage, InsertBook, InsertTable, InsertFrontmatter];
     let (empty, word, second) = (caret_at(&mut h, NOTE.len()), caret_at(&mut h, 3), caret_at(&mut h, NOTE.find("вторая").unwrap() + 4));
     press(&mut h, empty.center(), PointerButton::Secondary, 1);
     let (frame, commands) = menu(&h).expect("правый щелчок не открыл меню");

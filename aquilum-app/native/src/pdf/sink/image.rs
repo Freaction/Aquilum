@@ -63,12 +63,11 @@ fn straight(image: &peniko::ImageData) -> Option<RgbaImage> {
     let count = (image.width * image.height) as usize;
     let mut rgba = Vec::with_capacity(count * 4);
     for px in image.data.data().chunks_exact(4).take(count) {
-        let (r, g, b, a) = match image.format {
-            ImageFormat::Bgra8 => (px[2], px[1], px[0], px[3]),
-            _ => (px[0], px[1], px[2], px[3]),
+        let px = match image.format {
+            ImageFormat::Bgra8 => [px[2], px[1], px[0], px[3]],
+            _ => [px[0], px[1], px[2], px[3]],
         };
-        let straight = |c: u8| if image.alpha_type == ImageAlphaType::AlphaPremultiplied && a > 0 && a < 255 { ((u32::from(c) * 255 + u32::from(a) / 2) / u32::from(a)).min(255) as u8 } else { c };
-        rgba.extend([straight(r), straight(g), straight(b), a]);
+        rgba.extend(if image.alpha_type == ImageAlphaType::AlphaPremultiplied { crate::render::unpremultiply(px) } else { px });
     }
     RgbaImage::from_raw(image.width, image.height, rgba)
 }

@@ -1,6 +1,6 @@
 use super::super::error::SearchError;
 use super::parser::extract;
-use super::resolver::LinkResolver;
+use super::resolver::resolve;
 use super::target::{relative_key, relative_target, select_candidate, target_key, title_key};
 use crate::files::document::hash_file;
 use crate::search::pages::Pages;
@@ -24,7 +24,6 @@ pub fn plan_for_rename(
     fallback_candidates: Option<&[String]>,
 ) -> Result<Vec<LinkRewrite>, SearchError> {
     let mut rewrites = Vec::new();
-    let mut resolver = LinkResolver::new(connection)?;
     for stored_path in sources {
         let source_path = if same_path(&stored_path, old_path) {
             new_path
@@ -37,7 +36,7 @@ pub fn plan_for_rename(
         let mut changes = Vec::new();
         while let Ok(Some(page)) = pages.next() {
             for link in extract(&page.text) {
-                if targets_path(&mut resolver, root, &stored_path, &link.target, old_path, fallback_candidates)? {
+                if targets_path(connection, root, &stored_path, &link.target, old_path, fallback_candidates)? {
                     let path_style = page.text[link.note_range.clone()].replace('\\', "/").contains('/');
                     let range = page.start + link.note_range.start..page.start + link.note_range.end;
                     changes.push((range, relative_target(root, new_path, path_style)));
@@ -56,7 +55,7 @@ pub fn plan_for_rename(
 }
 
 fn targets_path(
-    resolver: &mut LinkResolver<'_>,
+    connection: &Connection,
     root: &Path,
     source: &Path,
     target: &str,
@@ -71,7 +70,7 @@ fn targets_path(
     if let Some(candidates) = fallback_candidates {
         return Ok(named && (kind == "path" || select_candidate(root, source, candidates).is_some_and(|path| same_path(&path, old_path))));
     }
-    if let Some(path) = resolver.resolve(root, source, target)? {
+    if let Some(path) = resolve(connection, root, source, target)? {
         return Ok(same_path(&path, old_path));
     }
     Ok(named)

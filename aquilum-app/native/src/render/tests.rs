@@ -97,7 +97,7 @@ fn published_frame_survives_regions_that_miss_it() {
     use masonry::kurbo::Affine;
     let mut surfaces = surface::Surfaces::default();
     let frame = surfaces.frame(8, 8, |pixels| pixels.chunks_exact_mut(4).for_each(|pixel| pixel.copy_from_slice(&[200, 30, 30, 255])));
-    let mut painter = paint::Painter::new(8, 8, paint::settings(0));
+    let mut painter = paint::Painter::new(8, 8, paint::render_settings(0));
     let mut center = |with_image: bool| {
         painter.begin(0, 0, 8, 8);
         if with_image {
@@ -150,7 +150,7 @@ fn graph_frame_is_copied_exactly_like_the_rasterizer_draws_it() {
     renderer.render(&layers, W, H, scale, BG).expect("кадр");
     assert!(renderer.blitted, "картинка графа копируется напрямую");
     let frame = renderer.frame(&layers).expect("кадр");
-    let mut painter = paint::Painter::new(W, H, paint::settings(0));
+    let mut painter = paint::Painter::new(W, H, paint::render_settings(0));
     painter.begin(0, 0, W, H);
     frame.paint_into(&mut painter);
     painter.finish().unwrap();
@@ -172,7 +172,7 @@ fn owned_surface_frames_preserve_transparency_metadata_when_reused() {
             ctx.flush();
             ctx.render_with(target, &mut vello_cpu::Resources::new(), vello_cpu::RasterizerSettings::default());
         });
-        let pixmap = super::pixels::lookup(image.image.data.id()).unwrap();
+        let (pixmap, _) = super::pixels::lookup(image.image.data.id()).unwrap();
         assert!(pixmap.may_have_transparency(), "transparent PDF paper was advertised as opaque");
         assert_eq!(pixmap.data()[7].a, 0);
         assert_eq!(pixmap.data()[0].a, 255);

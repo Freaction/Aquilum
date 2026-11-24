@@ -46,10 +46,10 @@ impl ReaderView {
                 pdf.turn(true);
             }
             2 => {
-                pdf.zoom(1.0 / 1.2, center);
+                pdf.zoom(1.0 / keymap::gesture::ZOOM_STEP, center);
             }
             3 => {
-                pdf.zoom(1.2, center);
+                pdf.zoom(keymap::gesture::ZOOM_STEP, center);
             }
             4 => pdf.fit(false),
             5 => pdf.fit(true),
@@ -116,33 +116,32 @@ impl ReaderView {
     }
 
     pub(super) fn pdf_pointer(&mut self, ctx: &mut EventCtx<'_>, event: &PointerEvent) {
-        match event {
+        let Content::Pdf(pdf) = &mut self.session else { return };
+        let origin = self.body.origin().to_vec2();
+        let changed = match event {
             PointerEvent::Gesture(gesture) => {
-                if let masonry::core::PointerGesture::Pinch(delta) = gesture.gesture {
-                    let p = ctx.local_position(gesture.state.position);
-                    if !self.body.contains(p) || self.pdf_bar.contains(p) {
-                        return;
-                    }
-                    self.pdf_drag = None;
-                    let changed = self.session.pdf_mut().unwrap().zoom((1.0 + f64::from(delta)).max(0.01), p - self.body.origin().to_vec2());
-                    self.moved(ctx, changed);
-                    ctx.set_handled();
+                let masonry::core::PointerGesture::Pinch(delta) = gesture.gesture else { return };
+                let p = ctx.local_position(gesture.state.position);
+                if !self.body.contains(p) || self.pdf_bar.contains(p) {
+                    return;
                 }
+                self.pdf_drag = None;
+                ctx.set_handled();
+                pdf.zoom((1.0 + f64::from(delta)).max(0.01), p - origin)
             }
             PointerEvent::Scroll(PointerScrollEvent { delta, state, .. }) => {
                 let p = ctx.local_position(state.position);
                 if !self.body.contains(p) || self.pdf_bar.contains(p) {
                     return;
                 }
+                ctx.set_handled();
                 let delta = crate::ui::scroll::pixels(delta, ctx.scale_factor(), self.body.height());
-                let changed = if keymap::pointer::zoom(state.modifiers) {
-                    self.session.pdf_mut().unwrap().zoom((delta.y * 0.01).exp(), p - self.body.origin().to_vec2())
+                if keymap::pointer::zoom(state.modifiers) {
+                    pdf.zoom((delta.y * keymap::gesture::PINCH_ZOOM).exp(), p - origin)
                 } else {
                     self.pdf_drag = None;
-                    self.session.pdf_mut().unwrap().pan(delta)
-                };
-                self.moved(ctx, changed);
-                ctx.set_handled();
+                    pdf.pan(delta)
+                }
             }
             PointerEvent::Down(down) if keymap::pointer::press(down.button) => {
                 let p = ctx.local_position(down.state.position);
@@ -151,20 +150,21 @@ impl ReaderView {
                     ctx.capture_pointer();
                     ctx.set_handled();
                 }
+                return;
             }
             PointerEvent::Move(update) => {
+                let Some(last) = self.pdf_drag else { return };
                 let p = ctx.local_position(update.current.position);
-                if let Some(last) = self.pdf_drag {
-                    self.pdf_drag = Some(p);
-                    let changed = self.session.pdf_mut().unwrap().pan(p - last);
-                    self.moved(ctx, changed);
-                    ctx.set_handled();
-                }
+                self.pdf_drag = Some(p);
+                ctx.set_handled();
+                pdf.pan(p - last)
             }
             PointerEvent::Up(_) | PointerEvent::Cancel(_) => {
                 self.pdf_drag = None;
+                return;
             }
-            _ => {}
-        }
+            _ => return,
+        };
+        self.moved(ctx, changed);
     }
 }

@@ -3,7 +3,9 @@ mod format;
 mod locate;
 mod parse;
 
-pub use extract::{order, text};
+pub use extract::order;
+#[cfg(test)]
+pub use extract::text;
 pub use format::join;
 pub use locate::{Point, element_path, from_range, resolve};
 pub use parse::parse;

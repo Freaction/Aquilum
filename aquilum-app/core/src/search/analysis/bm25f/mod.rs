@@ -135,8 +135,6 @@ fn fetch(
             title: title(&path),
             path,
             raw_score,
-            similarity: None,
-            confidence: None,
             reasons,
         });
     }

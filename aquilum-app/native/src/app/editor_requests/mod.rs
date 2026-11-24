@@ -3,12 +3,10 @@ pub mod suggest;
 
 pub use menu::EditorCommand;
 
-use std::sync::Arc;
-
 use masonry::app::RenderRoot;
 use masonry::kurbo::Point;
 
-use super::{App, Popup};
+use super::{App, Popup, jobs};
 use crate::ui::editor::resolve::Request;
 use crate::ui::editor::TextEditor;
 
@@ -24,12 +22,7 @@ impl App {
                 self.open_viewer(root, sharp.unwrap_or(image));
             }
             Request::LinkTitle { editor, placeholder, url } => {
-                let (sender, wake) = (self.titles_tx.clone(), Arc::clone(&self.workspace.wake));
-                std::thread::spawn(move || {
-                    if sender.send((editor, placeholder, aquilum_core::link_title::fetch::page_title(&url))).is_ok() {
-                        wake();
-                    }
-                });
+                jobs::deliver("заголовок ссылки", self.titles_tx.clone(), &self.workspace.wake, move || Some((editor, placeholder, aquilum_core::link_title::fetch::page_title(&url))));
             }
             Request::Open { target, wiki, new_tab } => {
                 let target = if wiki { crate::links::Target::Wiki(target) } else { crate::links::Target::Url(target) };

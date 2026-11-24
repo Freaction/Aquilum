@@ -1,21 +1,11 @@
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
 
 use masonry::app::RenderRoot;
 
 use super::FileTree;
 use super::model::{self, Counts};
-
-fn spawn<T: Send + 'static>(wake: Arc<dyn Fn() + Send + Sync>, work: impl FnOnce() -> T + Send + 'static) -> Receiver<T> {
-    let (sender, receiver) = channel();
-    std::thread::spawn(move || {
-        if sender.send(work()).is_ok() {
-            wake();
-        }
-    });
-    receiver
-}
+use crate::app::jobs;
 
 fn ready<T>(slot: &mut Option<Receiver<T>>) -> Option<T> {
     let value = slot.as_ref()?.try_recv().ok()?;
@@ -33,12 +23,16 @@ impl FileTree {
 
     pub(super) fn count_notes(&mut self) {
         let Some(root) = self.model.root().map(Path::to_path_buf) else { return };
-        self.counting = Some(spawn(Arc::clone(&self.wake), move || Counts::scan(&root)));
+        let (sender, receiver) = channel();
+        jobs::deliver("дерево: счёт заметок", sender, &self.wake, move || Some(Counts::scan(&root)));
+        self.counting = Some(receiver);
     }
 
     pub(super) fn reindex(&mut self) {
         let Some(root) = self.model.root().filter(|_| self.model.filtering()).map(Path::to_path_buf) else { return };
-        self.indexing = Some(spawn(Arc::clone(&self.wake), move || model::index(&root)));
+        let (sender, receiver) = channel();
+        jobs::deliver("дерево: список для фильтра", sender, &self.wake, move || Some(model::index(&root)));
+        self.indexing = Some(receiver);
     }
 
     pub fn poll(&mut self, root: &mut RenderRoot) {

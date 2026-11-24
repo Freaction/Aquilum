@@ -56,6 +56,10 @@ pub(super) fn claim<T: Clone>(store: &Cache<T>, key: &str) -> (Fetch<T>, u64, Op
     }
 }
 
+pub(super) fn wanted<T>(store: &Cache<T>, key: &str) -> bool {
+    store.entries.lock().unwrap_or_else(|e| e.into_inner()).get(key).is_some_and(|entry| entry.running)
+}
+
 pub(super) fn settle<T: PartialEq>(store: &Cache<T>, key: &str, epoch: u64, result: Fetch<T>) -> bool {
     let mut entries = store.entries.lock().unwrap_or_else(|e| e.into_inner());
     let Some(entry) = entries.get_mut(key) else { return false };

@@ -82,14 +82,16 @@ mod window_state;
 mod workspace;
 
 #[cfg(target_os = "android")]
-pub use android::{documents::deliver as android_document, ime::action as android_ime_action, ime::received as android_ime_state, link as android_link, main as android_main};
+pub use android::{documents::deliver as android_document, ime::action as android_ime_action, ime::image as android_ime_image, ime::received as android_ime_state, link as android_link, main as android_main};
 #[cfg(target_os = "android")]
 pub use ime_sync::{ImeState, Message as ImeMessage};
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
 pub use args::Args;
 
-const WORKERS: usize = 4;
+fn start_workers() {
+    let _ = rayon::ThreadPoolBuilder::new().num_threads(aquilum_core::threads::count(aquilum_core::threads::Work::Parallel)).build_global();
+}
 
 #[cfg(not(target_os = "android"))]
 pub fn desktop_main() {
@@ -104,7 +106,7 @@ pub fn desktop_main() {
     if std::env::args().any(|argument| argument == "--mcp-stdio") {
         std::process::exit(aquilum_core::mcp::run_stdio_bridge(workspace::APP_ID));
     }
-    let _ = rayon::ThreadPoolBuilder::new().num_threads(WORKERS).build_global();
+    start_workers();
     let result = args::parse().and_then(|args| host::run(args, winit::event_loop::EventLoop::new().map_err(|e| format!("цикл событий: {e}"))?));
     if let Err(err) = &result {
         report!("{err}");

@@ -48,8 +48,8 @@ pub fn image(key: Key) -> Option<Pattern> {
         return Some(Pattern { image: image.clone(), exact: true });
     }
     jobs.wanted.insert(key.id, key);
-    if jobs.running.insert(key.id) {
-        std::thread::spawn(move || work(key.id));
+    if jobs.running.insert(key.id) && aquilum_core::threads::background("обложка", move || work(key.id)).is_err() {
+        jobs.running.remove(key.id);
     }
     let nearest = jobs
         .done

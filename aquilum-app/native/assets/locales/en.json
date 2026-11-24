@@ -39,6 +39,8 @@
     "insertBook": "Insert book",
     "insertTable": "Insert table",
     "insertFrontmatter": "Insert metadata",
+    "uploadImage": "Upload image",
+    "pasteImage": "Paste image",
     "table": {
       "menuAria": "Table actions",
       "copy": "Copy table",

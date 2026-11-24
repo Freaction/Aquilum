@@ -9,7 +9,8 @@ use super::damage::Damage;
 use super::live::{self, Motion};
 use super::paint::PaintError;
 use super::renderer::Renderer;
-use crate::cover::{MotionPixels, over};
+use super::over;
+use crate::cover::MotionPixels;
 use crate::output::{Area, Canvas, Target};
 use split::Part;
 
@@ -49,12 +50,8 @@ pub(super) fn area((x, y, w, h): (u16, u16, u16, u16)) -> Area {
     Area { x: u32::from(x), y: u32::from(y), w: u32::from(w), h: u32::from(h) }
 }
 
-fn touches(damage: &Damage, (x, y, w, h): (u16, u16, u16, u16)) -> bool {
-    let layer = Rect::new(f64::from(x), f64::from(y), f64::from(x) + f64::from(w), f64::from(y) + f64::from(h));
-    damage.areas.iter().copied().chain(damage.moves.iter().map(|m| (m.x, m.y, m.w, m.h))).any(|(dx, dy, dw, dh)| {
-        let i = layer.intersect(Rect::new(f64::from(dx), f64::from(dy), f64::from(dx) + f64::from(dw), f64::from(dy) + f64::from(dh)));
-        i.width() > 0.0 && i.height() > 0.0
-    })
+fn touches(damage: &Damage, layer: (u16, u16, u16, u16)) -> bool {
+    damage.areas.iter().copied().chain(damage.moves.iter().map(|m| (m.x, m.y, m.w, m.h))).any(|d| area(layer).intersect(area(d)).is_some())
 }
 
 impl Renderer {
@@ -147,7 +144,7 @@ impl Renderer {
             });
             self.caches.insert(layer.id, cache);
             self.frames.insert(layer.id, index);
-            self.overlay.flash(area(layer.area), super::overlay::Mark::Live);
+            self.overlay.live(area(layer.area));
             bounds = Some(bounds.map_or(area(layer.area), |b| b.union(area(layer.area))));
         }
         Ok(bounds)

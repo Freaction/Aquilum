@@ -49,10 +49,21 @@ impl Filter {
         self.rows(pixels, stride, area);
     }
 
+    #[cfg(target_arch = "x86_64")]
+    #[target_feature(enable = "sse4.1")]
+    fn rows_sse41(&self, pixels: &mut [u32], stride: usize, area: Area) {
+        self.rows(pixels, stride, area);
+    }
+
     fn canvas(&self, pixels: &mut [u32], stride: usize, area: Area) {
         #[cfg(target_arch = "x86_64")]
-        if std::arch::is_x86_feature_detected!("avx2") {
-            return unsafe { self.rows_avx2(pixels, stride, area) };
+        {
+            if std::arch::is_x86_feature_detected!("avx2") {
+                return unsafe { self.rows_avx2(pixels, stride, area) };
+            }
+            if std::arch::is_x86_feature_detected!("sse4.1") {
+                return unsafe { self.rows_sse41(pixels, stride, area) };
+            }
         }
         self.rows(pixels, stride, area);
     }
@@ -62,8 +73,7 @@ impl Filter {
             255 => self.opaque(pixel, red),
             0 => pixel,
             alpha => {
-                let straight = |at: u32| ((pixel >> at & 0xff) * 255 / alpha).min(255) << at;
-                let opaque = self.opaque(0xff00_0000 | straight(0) | straight(8) | straight(16), red);
+                let opaque = self.opaque(0xff00_0000 | u32::from_le_bytes(super::unpremultiply(pixel.to_le_bytes())), red);
                 let scaled = |at: u32| (((opaque >> at & 0xff) * alpha + 127) / 255) << at;
                 alpha << 24 | scaled(0) | scaled(8) | scaled(16)
             }

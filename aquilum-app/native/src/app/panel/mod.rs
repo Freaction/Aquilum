@@ -9,7 +9,7 @@ use masonry::core::{ErasedAction, WidgetId};
 
 use aquilum_core::files::document::head;
 
-use super::{App, Outcome};
+use super::{App, Outcome, jobs};
 use crate::links::{self, Listing, Method, Mode, Request};
 use crate::ui::backlinks;
 use crate::ui::widgets::{IconButton, ItemAction, Pressed, Slot};
@@ -21,11 +21,11 @@ impl App {
         core.sync.set_vault(vault, crate::dates::offset_seconds());
     }
 
-    pub(super) fn start_index(&self) {
+    pub(super) fn start_index(&mut self) {
         self.bind_sync();
         let Some(root) = self.workspace.root.clone() else { return };
         let core = Arc::clone(&self.workspace.core);
-        std::thread::spawn(move || {
+        self.own(jobs::detach("индекс базы", move || {
             let canonical = aquilum_core::search::paths::canonical_path(&root);
             if let Err(error) = core.watcher.watch(&canonical) {
                 report!("наблюдение за базой не запущено: {error}");
@@ -33,7 +33,7 @@ impl App {
             if let Err(error) = core.search.prepare(&root.to_string_lossy()) {
                 report!("индекс базы не подготовлен: {error:?}");
             }
-        });
+        }));
     }
 
     pub(super) fn panel_visible(&self) -> bool {
@@ -78,7 +78,8 @@ impl App {
                 _ => String::new(),
             };
             let request = Request { generation: self.panel_generation, workspace: workspace.to_path_buf(), document, mode, method, text };
-            links::spawn(Arc::clone(&self.workspace.core), request, self.panel_tx.clone(), Arc::clone(&self.workspace.wake));
+            let core = Arc::clone(&self.workspace.core);
+            jobs::deliver("фон: панель ссылок", self.panel_tx.clone(), &self.workspace.wake, move || Some(links::run(&core, &request)));
         }
         if !refresh {
             self.render_panel(root);

@@ -101,11 +101,35 @@ fn pasted_image_is_saved_and_embedded() {
     assert!(h.app.paste_image(&mut h.root, png.get_ref()));
     h.deliver();
     let text = h.body_text();
-    let embed = text.lines().find(|l| l.starts_with("![")).unwrap_or_else(|| panic!("нет встраивания: {text:?}"));
-    let path = embed.split("](<").nth(1).and_then(|p| p.strip_suffix(">)")).or_else(|| embed.split("](").nth(1).and_then(|p| p.strip_suffix(')'))).unwrap();
+    let (path, width) = embedded_image(&text).unwrap_or_else(|| panic!("нет встраивания: {text:?}"));
     assert!(h.vault.path().join(path).is_file(), "файл не сохранён: {path}");
-    let width: f64 = embed[2..].split(['|', ']']).next().unwrap().parse().unwrap();
-    assert!(width < 2000.0, "ширина не ограничена колонкой: {embed}");
+    assert!(width < 2000.0, "ширина не ограничена колонкой: {text}");
+}
+
+#[test]
+fn an_image_picked_from_the_device_is_embedded() {
+    let mut h = Harness::new();
+    let note = h.write_note("Картинки.md", "до");
+    h.open(note.clone());
+    let _ = h.root.redraw();
+    let file = h.vault.path().join("shot.png");
+    image::RgbaImage::from_pixel(80, 40, image::Rgba([0, 180, 80, 255])).save(&file).unwrap();
+    h.app.on_picked(&mut h.root, crate::app::book::Picked::NoteImage(note.clone(), file));
+    h.deliver();
+    let text = h.body_text();
+    let (path, _) = embedded_image(&text).unwrap_or_else(|| panic!("нет встраивания: {text:?}"));
+    assert!(h.vault.path().join(path).is_file(), "файл не сохранён: {path}");
+    h.app.on_picked(&mut h.root, crate::app::book::Picked::NoteImage(h.vault.path().join("другая.md"), h.vault.path().join("shot.png")));
+    assert_eq!(h.body_text(), text, "картинка вставилась в другую заметку");
+}
+
+fn embedded_image(text: &str) -> Option<(&str, f64)> {
+    let start = text.find("![")?;
+    let rest = &text[start + 2..];
+    let params = rest.split(['|', ']']).next()?;
+    let width = params.parse().ok()?;
+    let path = rest.split("](<").nth(1).and_then(|p| p.split('>').next()).or_else(|| rest.split("](").nth(1).and_then(|p| p.split(')').next()))?;
+    Some((path, width))
 }
 
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -141,7 +165,7 @@ fn pdf_export_keeps_what_the_editor_shows() {
         }
     }
     let note = h.write_note("Экспорт.md", &body);
-    let embeds = crate::app::embeds::Embeds::new(std::sync::Arc::clone(&h.app.workspace.core), vault, note, h._data.path().join("remote"), std::sync::Arc::new(|| {}));
+    let embeds = crate::app::note_page::export::loading(&h.app.workspace.core, &vault, note, h._data.path());
     let pdf = crate::app::note_page::export::render("Экспорт", crop::Rope::from(body.as_str()), crate::ui::editor::Smart::default(), Some(embeds)).unwrap();
     if let Ok(out) = std::env::var("AQ_OUT") {
         std::fs::write(std::path::Path::new(&out).join("export.pdf"), &pdf).unwrap();

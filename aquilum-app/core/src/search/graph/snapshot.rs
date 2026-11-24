@@ -18,17 +18,9 @@ pub struct RenderSnapshot {
     pub edges: Vec<u32>,
 }
 
-struct NodeRow {
-    path: String,
-    relative_key: String,
-    title_key: String,
-    created_ns: i64,
-    modified_ns: i64,
-}
-
 impl RenderSnapshot {
     pub fn build(connection: &Connection, root: &Path) -> Result<Self, SearchError> {
-        let nodes = read_nodes(connection)?;
+        let nodes = wiki::read_documents(connection)?;
         let directed = read_directed_edges(connection, root, &nodes)?;
         let links = rank::out_links(nodes.len(), &directed);
         let ranks = rank::pagerank(nodes.len(), &links);
@@ -66,29 +58,10 @@ impl RenderSnapshot {
     }
 }
 
-fn read_nodes(connection: &Connection) -> Result<Vec<NodeRow>, SearchError> {
-    let mut statement = connection.prepare(
-        "SELECT wiki_documents.path, wiki_documents.relative_key, wiki_documents.title_key,
-                COALESCE(documents.created_ns, 0), COALESCE(documents.modified_ns, 0)
-         FROM wiki_documents LEFT JOIN documents ON documents.path = wiki_documents.path
-         ORDER BY wiki_documents.path",
-    )?;
-    let rows = statement.query_map([], |row| {
-        Ok(NodeRow {
-            path: row.get(0)?,
-            relative_key: row.get(1)?,
-            title_key: row.get(2)?,
-            created_ns: row.get(3)?,
-            modified_ns: row.get(4)?,
-        })
-    })?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
-}
-
 fn read_directed_edges(
     connection: &Connection,
     root: &Path,
-    nodes: &[NodeRow],
+    nodes: &[wiki::edges::WikiDocument],
 ) -> Result<Vec<(u32, u32)>, SearchError> {
     let mut identity_of_path = HashMap::<&str, u32>::with_capacity(nodes.len());
     for (identity, node) in nodes.iter().enumerate() {
@@ -98,13 +71,7 @@ fn read_directed_edges(
     wiki::for_each_link(
         connection,
         root,
-        nodes.iter().map(|node| {
-            (
-                node.path.as_str(),
-                node.relative_key.as_str(),
-                node.title_key.as_str(),
-            )
-        }),
+        nodes,
         |source, target| {
             let Some(from) = identity_of_path.get(source).copied() else {
                 return;
@@ -190,7 +157,7 @@ mod tests {
             crate::search::index_document::index_text(&transaction, root, &path, body).expect("wiki row");
             transaction
                 .execute(
-                    "INSERT INTO documents(path, modified_ns, size, created_ns) VALUES(?1, 200, 10, 100)",
+                    "UPDATE documents SET modified_ns = 200, size = 10, created_ns = 100 WHERE path = ?1",
                     [path.to_string_lossy().as_ref()],
                 )
                 .expect("document row");

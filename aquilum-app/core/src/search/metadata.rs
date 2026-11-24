@@ -16,26 +16,24 @@ pub struct FileState {
 pub type Fingerprint = (i64, i64);
 pub type PathKey = [u8; 16];
 
-const SCHEMA_VERSION: i64 = 13;
+const SCHEMA_VERSION: i64 = 14;
 
 const DOCUMENTS_DDL: &str = "CREATE TABLE IF NOT EXISTS documents (
            path TEXT PRIMARY KEY,
+           relative_key TEXT NOT NULL,
+           title_key TEXT NOT NULL,
            modified_ns INTEGER NOT NULL,
            size INTEGER NOT NULL,
-           analyzer_version INTEGER NOT NULL DEFAULT 0,
-           created_ns INTEGER NOT NULL DEFAULT 0,
-           created_source INTEGER NOT NULL DEFAULT 0
-          ) WITHOUT ROWID";
+           analyzer_version INTEGER NOT NULL,
+           created_ns INTEGER NOT NULL,
+           created_source INTEGER NOT NULL
+          ) WITHOUT ROWID;
+         CREATE INDEX IF NOT EXISTS documents_title ON documents(title_key);
+         CREATE INDEX IF NOT EXISTS documents_relative ON documents(relative_key)";
 
 pub fn open(path: &Path) -> Result<Connection, SearchError> {
-    let connection = Connection::open(path)?;
-    let version = connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
-    let auto_vacuum = connection.query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0))?;
-    if auto_vacuum != 2 {
-        connection.execute_batch("PRAGMA auto_vacuum=INCREMENTAL; VACUUM;")?;
-    }
-    connection.execute_batch(crate::SQLITE_PRAGMAS)?;
-    if version < SCHEMA_VERSION {
+    let connection = crate::sqlite::open(path)?;
+    if connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))? < SCHEMA_VERSION {
         connection.execute_batch(&format!(
             "DROP TABLE IF EXISTS wiki_links;
              DROP TABLE IF EXISTS wiki_documents;
@@ -43,8 +41,7 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
              DROP TABLE IF EXISTS note_tasks;
              DROP TABLE IF EXISTS note_pages;
              DROP TABLE IF EXISTS documents;
-             PRAGMA user_version={SCHEMA_VERSION};
-             VACUUM;"
+             PRAGMA user_version={SCHEMA_VERSION};"
         ))?;
     }
     connection.execute_batch(&format!("{DOCUMENTS_DDL}; {}; {}; {}; {};", super::pages::PAGES_DDL, super::wiki::WIKI_DDL, super::fields::FIELDS_DDL, super::tasks::TASKS_DDL))?;
@@ -63,15 +60,6 @@ pub fn for_paths<T>(connection: &Connection, paths: &[String], sql: impl Fn(&str
             visit(item?);
         }
     }
-    Ok(())
-}
-
-pub fn maintain(connection: &Connection) -> Result<(), SearchError> {
-    let free = connection.query_row("PRAGMA freelist_count", [], |row| row.get::<_, i64>(0))?;
-    if free > 0 {
-        connection.execute_batch("PRAGMA incremental_vacuum(256);")?;
-    }
-    connection.execute_batch("PRAGMA wal_checkpoint(PASSIVE);")?;
     Ok(())
 }
 
@@ -107,6 +95,12 @@ pub fn fingerprint(metadata: &fs::Metadata) -> Fingerprint {
 pub fn current(transaction: &Transaction<'_>, path: &str) -> Result<Option<FileState>, SearchError> {
     let sql = format!("SELECT {FILE_STATE_COLUMNS} FROM documents WHERE path=?1");
     Ok(transaction.query_row(&sql, [path], |row| file_state(row, 0)).optional()?)
+}
+
+pub fn all_paths(connection: &Connection) -> Result<Vec<String>, SearchError> {
+    let mut statement = connection.prepare("SELECT path FROM documents ORDER BY path")?;
+    let rows = statement.query_map([], |row| row.get(0))?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 pub fn paths_after(transaction: &Transaction<'_>, after: &str, limit: usize) -> Result<Vec<String>, SearchError> {

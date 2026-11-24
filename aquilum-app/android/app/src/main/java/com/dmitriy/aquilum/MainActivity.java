@@ -14,6 +14,7 @@ import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.MimeTypeMap;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
@@ -27,6 +28,10 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.lifecycle.Lifecycle;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 public class MainActivity extends DocumentActivity {
     private static final int SAFE_AREA = WindowInsetsCompat.Type.systemBars()
@@ -166,6 +171,34 @@ public class MainActivity extends DocumentActivity {
     public String pasteHtml() {
         ClipData.Item item = pasted();
         return item == null ? null : item.getHtmlText();
+    }
+
+    public String pasteImage() {
+        ClipData clip = getSystemService(ClipboardManager.class).getPrimaryClip();
+        if (clip == null) return null;
+        for (int i = 0; i < clip.getItemCount(); i++) {
+            Uri uri = clip.getItemAt(i).getUri();
+            String path = uri == null ? null : cacheImage(uri, getContentResolver().getType(uri));
+            if (path != null) return path;
+        }
+        return null;
+    }
+
+    String cacheImage(Uri uri, String mime) {
+        if (mime != null && !mime.startsWith("image/")) return null;
+        String extension = mime == null ? null : MimeTypeMap.getSingleton().getExtensionFromMimeType(mime);
+        File dir = new File(getCacheDir(), "pasted");
+        dir.mkdirs();
+        File out = new File(dir, extension == null ? "image" : "image." + extension);
+        try (InputStream in = getContentResolver().openInputStream(uri); OutputStream dest = new FileOutputStream(out)) {
+            if (in == null) return null;
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) dest.write(buf, 0, n);
+            return out.getAbsolutePath();
+        } catch (IOException ignored) {
+            return null;
+        }
     }
 
     public String updateFile() {

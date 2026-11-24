@@ -66,7 +66,7 @@ impl TextEditor {
         self.table.as_ref().is_some_and(|s| s.active.is_some() || s.range.is_some())
     }
 
-    fn sync_editing(&mut self) {
+    pub(super) fn sync_editing(&mut self) {
         self.doc.editing = self.table.as_ref().and_then(|s| s.active.map(|cell| (s.start, cell)));
     }
 

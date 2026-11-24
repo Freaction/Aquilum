@@ -63,6 +63,7 @@ impl Host {
             for request in self.accessibility.as_ref().map(Accessibility::drain).unwrap_or_default() {
                 match request {
                     a11y::Request::Activate => {
+                        #[cfg(not(feature = "installed"))]
                         if self.args.trace {
                             eprintln!("доступность: клиент подключился");
                         }

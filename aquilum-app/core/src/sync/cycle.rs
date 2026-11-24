@@ -41,7 +41,7 @@ impl Vault<'_> {
 
 pub struct Facts<'a> {
     pub path: &'a str,
-    pub local: Option<LocalFile>,
+    pub local: Option<&'a LocalFile>,
     pub hash: Option<String>,
     pub remote: Option<&'a RemoteFile>,
     pub record: Option<&'a Record>,
@@ -62,8 +62,8 @@ pub fn run(vault: &Vault<'_>) -> Result<Outcome, SyncError> {
     let remote = Halt { inner: vault.remote, watch: vault.watch };
     let vault = &Vault { remote: &remote, ..*vault };
     let records = vault.records.all()?;
-    let local = survey(vault, &records)?;
     let mut outcome = Outcome::default();
+    let local = survey(vault, &records, &mut outcome)?;
     if stopped(vault, &mut outcome) {
         return Ok(outcome);
     }
@@ -78,10 +78,13 @@ pub fn run(vault: &Vault<'_>) -> Result<Outcome, SyncError> {
             return Ok(outcome);
         }
         let record = records.get(path);
-        let facts = Facts { path, local: local.files.get(path).copied(), hash: None, remote: view.get(path, record), record };
+        let local_file = local.files.get(path);
+        let remote = view.get(path, record);
+        let disk = local_file.map(|file| file.path.as_str()).or_else(|| remote.map(|file| file.path.as_str())).or_else(|| record.map(|record| record.remote.path.as_str())).unwrap_or(path);
+        let facts = Facts { path: disk, local: local_file, hash: None, remote, record };
         match settle(vault, facts) {
             Ok(step) => plan.extend(step),
-            Err(error) => fail(vault, &mut outcome, path, error)?,
+            Err(error) => fail(vault, &mut outcome, disk, error)?,
         }
     }
     let deletions = plan.iter().filter(|(_, action)| matches!(action, Action::DeleteLocal | Action::DeleteRemote)).count();

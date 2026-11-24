@@ -69,7 +69,6 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
     let long = results.iter().find(|result| result.title == "long").unwrap();
     assert!(title_match.raw_score > long.raw_score);
     assert!(short.raw_score > long.raw_score);
-    assert!(results.iter().all(|result| result.confidence.is_none()));
 }
 
 #[test]

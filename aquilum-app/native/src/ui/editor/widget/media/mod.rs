@@ -37,6 +37,13 @@ impl MediaState {
 }
 
 impl TextEditor {
+    pub(super) fn allows_media(&self) -> bool {
+        if self.single_line || self.doc.markdown.is_none() {
+            return false;
+        }
+        !matches!(self.doc.paragraph(self.doc.at_offset(self.focus)).block, Block::Code { .. } | Block::Meta | Block::Comment)
+    }
+
     pub(super) fn media_view(&self, start: usize) -> Option<&MediaView> {
         let p = self.doc.paragraph(self.doc.at_offset(start));
         match (p.start == start, p.embed.map(|e| &e.view)) {
@@ -56,7 +63,7 @@ impl TextEditor {
         if local.y >= view.height {
             return None;
         }
-        let overlay = MediaOverlay { hovered: true, ..self.media_overlay(p.start) };
+        let overlay = self.media_overlay(p.start);
         Some((p.start, view.hit(local, &overlay, reach))).filter(|(_, hit)| *hit != MediaHit::Outside)
     }
 

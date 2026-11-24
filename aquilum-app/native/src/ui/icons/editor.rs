@@ -41,6 +41,11 @@ pub const TABLE: Icon = Icon::lucide(&[
     Shape::Path("M3 15h18"),
     Shape::Rect { x: 3.0, y: 3.0, w: 18.0, h: 18.0, rx: 2.0 },
 ]);
+pub const IMAGE: Icon = Icon::lucide(&[
+    Shape::Rect { x: 3.0, y: 3.0, w: 18.0, h: 18.0, rx: 2.0 },
+    Shape::Circle { cx: 9.0, cy: 9.0, r: 2.0 },
+    Shape::Path("m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"),
+]);
 pub const ROWS: Icon = Icon::lucide(&[Shape::Rect { x: 3.0, y: 3.0, w: 18.0, h: 18.0, rx: 2.0 }, Shape::Path("M21 9H3"), Shape::Path("M21 15H3")]);
 pub const COLUMNS: Icon = Icon::lucide(&[Shape::Rect { x: 3.0, y: 3.0, w: 18.0, h: 18.0, rx: 2.0 }, Shape::Path("M9 3v18"), Shape::Path("M15 3v18")]);
 pub const ZOOM_IN: Icon = Icon::lucide(&[Shape::Circle { cx: 11.0, cy: 11.0, r: 8.0 }, Shape::Path("M21 21 16.65 16.65"), Shape::Path("M11 8v6"), Shape::Path("M8 11h6")]);

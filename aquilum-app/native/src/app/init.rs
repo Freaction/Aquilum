@@ -44,6 +44,7 @@ impl App {
             panel_rx,
             panel_body: None,
             retention_done: Arc::default(),
+            chores: Vec::new(),
             controls: None,
             window: Size::ZERO,
             resizing: None,
@@ -91,12 +92,12 @@ impl App {
             app.updater.install();
         }
         let remote = app.workspace.data_dir.join("remote");
-        std::thread::spawn(move || {
+        app.own(jobs::detach("очистка временных файлов", move || {
             embeds::prune_remote(&remote);
             if crate::updater::available() {
                 aquilum_core::files::remove_matching(&std::env::temp_dir(), |name| name.starts_with(crate::updater::UPDATE_DIR));
             }
-        });
+        }));
         app.refresh_home();
         app.cleanup_retention();
         app

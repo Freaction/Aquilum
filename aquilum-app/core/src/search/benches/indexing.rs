@@ -101,7 +101,7 @@ fn benchmark_save_breakdown() {
         transaction.commit().unwrap();
         steps[3].push(started.elapsed());
         let started = Instant::now();
-        crate::search::metadata::maintain(&connection).unwrap();
+        crate::sqlite::maintain(&connection).unwrap();
         steps[4].push(started.elapsed());
     }
     let fsync = (0..7)

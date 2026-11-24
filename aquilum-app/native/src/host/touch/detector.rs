@@ -4,7 +4,8 @@ use masonry::kurbo::{Point, Vec2};
 
 use super::scale::Scale;
 use crate::fling::{Fling, Trail};
-use crate::ui::keymap::gesture::{DOUBLE_TAP, DOUBLE_TAP_SLOP, FLING_MAX_VELOCITY, FLING_MIN_VELOCITY, LONG_PRESS, TAP_TIMEOUT, TOUCH_SLOP};
+use crate::ui::keymap::gesture::{DOUBLE_TAP, DOUBLE_TAP_SLOP, FLING_BURST_FRAME, FLING_MAX_VELOCITY, FLING_MIN_VELOCITY, LONG_PRESS, TAP_TIMEOUT, TOUCH_SLOP};
+
 
 #[derive(Clone, Copy, Default, PartialEq)]
 enum Phase {
@@ -30,6 +31,8 @@ pub struct Touch {
     focus: Point,
     travel: Vec2,
     trail: Trail,
+    scroll_anchor: Option<(Instant, f64, f64)>,
+    scroll_moves: u32,
     scale: Scale,
     scroll: Vec2,
     zoom: f64,
@@ -49,7 +52,8 @@ impl Touch {
             self.down = position;
             self.travel = Vec2::ZERO;
             self.trail.clear();
-            self.trail.push(at, 0.0, 0.0);
+            self.scroll_anchor = None;
+            self.scroll_moves = 0;
             self.settled = false;
             let repeated = self.tap.take().filter(|&(up, from, _)| at.saturating_duration_since(up) <= DOUBLE_TAP && (position - from).hypot() < DOUBLE_TAP_SLOP * dp);
             self.phase = match (self.fling.take(), repeated) {
@@ -67,7 +71,6 @@ impl Touch {
         let focus = self.centroid();
         let step = focus - std::mem::replace(&mut self.focus, focus);
         self.travel += step;
-        self.trail.push(at, self.travel.x, self.travel.y);
         match self.phase {
             Phase::Pressed(..) => {
                 let offset = focus - self.down;
@@ -75,10 +78,17 @@ impl Touch {
                 if offset.hypot() > slop {
                     self.phase = Phase::Scrolling;
                     self.scroll += offset * (1.0 - slop / offset.hypot());
+                    self.begin_scroll(at);
                 }
             }
             Phase::Scrolling => {
                 self.scroll += step;
+                if self.scroll_anchor.is_none() {
+                    self.begin_scroll(at);
+                } else {
+                    self.scroll_moves = self.scroll_moves.saturating_add(1);
+                    self.trail.push(at, self.travel.x, self.travel.y);
+                }
                 self.zoom += self.scale.moved(self.span(), self.dp);
             }
             Phase::Idle | Phase::Held | Phase::Done => {}
@@ -162,9 +172,27 @@ impl Touch {
 
     fn release(&mut self, at: Instant) -> Option<Fling> {
         let (max, min) = (FLING_MAX_VELOCITY * self.dp, FLING_MIN_VELOCITY * self.dp);
-        let (vx, vy) = self.trail.velocity(at)?;
+        let (vx, vy) = self.trail.velocity(at).or_else(|| self.collapsed_flick_velocity(at))?;
         let velocity = (vx.clamp(-max, max), vy.clamp(-max, max));
         (velocity.0.abs() > min || velocity.1.abs() > min).then(|| Fling::spline(at, velocity, self.dp))
+    }
+
+    fn begin_scroll(&mut self, at: Instant) {
+        self.scroll_anchor = Some((at, self.travel.x, self.travel.y));
+        self.scroll_moves = 1;
+        self.trail.clear();
+        self.trail.push(at, self.travel.x, self.travel.y);
+    }
+
+    fn collapsed_flick_velocity(&self, at: Instant) -> Option<(f64, f64)> {
+        if self.trail.len() != 1 || !self.trail.fresh(at) {
+            return None;
+        }
+        let (t0, x0, y0) = self.scroll_anchor?;
+        let wall = at.saturating_duration_since(t0);
+        let from_moves = FLING_BURST_FRAME * self.scroll_moves.max(1);
+        let dt = wall.max(from_moves).as_secs_f64();
+        Some(((self.travel.x - x0) / dt, (self.travel.y - y0) / dt))
     }
 
     fn lift(&mut self, finger: usize) -> bool {

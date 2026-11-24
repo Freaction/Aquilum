@@ -29,7 +29,7 @@ impl Workspace {
         if data_dir.ends_with(APP_ID) {
             aquilum_core::migration::migrate_legacy_data(&data_dir);
             let (data, webview) = (data_dir.clone(), std::env::var_os("LOCALAPPDATA").map(|local| PathBuf::from(local).join(APP_ID)));
-            std::thread::spawn(move || aquilum_core::migration::remove_tauri_leftovers(&data, webview.as_deref()));
+            let _ = aquilum_core::threads::background("остатки прежней версии", move || aquilum_core::migration::remove_tauri_leftovers(&data, webview.as_deref()));
         }
 
         let (sender, events) = channel();

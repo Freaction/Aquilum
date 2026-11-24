@@ -51,7 +51,7 @@ impl App {
                 CoreEvent::WorkspaceRescanned => rescan = true,
                 CoreEvent::WorkspaceChanged(paths) => changed.extend(paths.into_iter().map(PathBuf::from)),
                 CoreEvent::ContentChanged(paths) => edited.extend(paths.into_iter().map(PathBuf::from)),
-                CoreEvent::LinksChanged(_) => links_changed = true,
+                CoreEvent::LinksChanged => links_changed = true,
                 CoreEvent::NoteHistoryChanged(changed) => {
                     history_changed |= self.tabs.active().path.as_deref() == Some(Path::new(&changed.path));
                 }

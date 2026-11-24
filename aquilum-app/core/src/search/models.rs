@@ -38,14 +38,6 @@ impl SearchIndexStatus {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct IndexRevision {
-    pub workspace_path: String,
-    pub generation: u64,
-    pub revision: u64,
-}
-
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SearchResult {
     pub path: String,
     pub title: String,

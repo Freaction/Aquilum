@@ -2,7 +2,7 @@ use super::analysis::graph::GraphSnapshot;
 use super::error::SearchError;
 use super::guest::Guest;
 use super::index::SearchIndex;
-use super::models::{IndexRevision, SearchIndexStatus};
+use super::models::SearchIndexStatus;
 use super::paths::{canonical_path, canonical_workspace, same_path};
 use super::progress::IndexProgress;
 use super::worker::WorkerHandle;
@@ -97,16 +97,11 @@ impl SearchService {
             None => self.open_index(root, true)?,
         };
         let progress = Arc::clone(&opened.progress);
-        let generation = opened.generation;
         let previous = self.active.write().map_err(SearchError::task)?.replace(opened);
         drop(previous);
         clear_if(&self.analysis_graph, |_| true);
         let snapshot = progress.snapshot();
-        (self.index_notifier)(IndexRevision {
-            workspace_path: workspace.to_owned(),
-            generation,
-            revision: snapshot.revision,
-        });
+        (self.index_notifier)(std::path::Path::new(workspace));
         Ok(snapshot)
     }
 

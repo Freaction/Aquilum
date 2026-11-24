@@ -55,10 +55,7 @@ pub fn run(core: &Core, request: &Request) -> Listing {
                     let items = results
                         .into_iter()
                         .map(|r| Item {
-                            counter: Some(match r.confidence {
-                                Some(confidence) => format!("{:.1}%", confidence * 100.0),
-                                None => format!("{:.2}", r.raw_score),
-                            }),
+                            counter: Some(format!("{:.2}", r.raw_score)),
                             title: r.title,
                             target: Target::Note(PathBuf::from(r.path), None),
                             reasons: r.reasons,

@@ -12,7 +12,9 @@ pub struct Args {
     pub text: String,
     pub threads: u16,
     pub metrics: Option<PathBuf>,
+    #[cfg(not(feature = "installed"))]
     pub trace: bool,
+    #[cfg(not(feature = "installed"))]
     pub paint_flashing: bool,
     pub restore: bool,
     pub keep_position: bool,
@@ -34,9 +36,11 @@ pub fn defaults() -> Args {
         data_dir: None,
         size: None,
         text: String::new(),
-        threads: std::thread::available_parallelism().map_or(2, |n| n.get().clamp(2, 4) as u16),
+        threads: aquilum_core::threads::count(aquilum_core::threads::Work::Frame) as u16,
         metrics: None,
+        #[cfg(not(feature = "installed"))]
         trace: false,
+        #[cfg(not(feature = "installed"))]
         paint_flashing: false,
         focus: false,
         restore: true,
@@ -75,6 +79,7 @@ pub fn parse() -> Result<Args, String> {
             }
             "--threads" => args.threads = value()?.parse().map_err(|e| format!("--threads: {e}"))?,
             "--metrics" => args.metrics = Some(value()?.into()),
+            #[cfg(not(feature = "installed"))]
             "--trace" => args.trace = true,
             #[cfg(not(feature = "installed"))]
             "--paint-flashing" => args.paint_flashing = true,

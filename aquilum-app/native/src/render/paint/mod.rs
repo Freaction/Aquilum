@@ -6,19 +6,17 @@ mod runs;
 mod sink;
 
 use masonry::kurbo::{Affine, Rect};
-use vello_cpu::{RenderContext, RenderSettings, Resources};
+use vello_cpu::{Pixmap, PixmapMut, RasterizerSettings, RenderContext, RenderSettings, Resources, TargetInit};
 
 pub use error::PaintError;
 use mask::{MASK_CACHE_LIMIT, Masks};
 
-pub fn settings(threads: u16) -> RenderSettings {
+pub fn render_settings(threads: u16) -> RenderSettings {
     let level = RenderSettings::default().level;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     let level = level.as_sse4_2().map_or(level, vello_cpu::Level::Sse4_2);
     RenderSettings { num_threads: threads, level }
 }
-
-const TOLERANCE: f64 = 0.1;
 
 pub struct Painter {
     pub(super) ctx: RenderContext,
@@ -114,6 +112,18 @@ impl Painter {
         }
         self.ctx.flush();
         Ok(())
+    }
+
+    pub(super) fn pixmap(&mut self) -> Pixmap {
+        let mut pixmap = Pixmap::new(self.width(), self.height());
+        self.ctx.render_with(&mut pixmap, &mut self.resources, RasterizerSettings::default());
+        pixmap
+    }
+
+    pub(super) fn render_onto(&mut self, pixels: &mut [u32], width: u16, height: u16, offset: (u16, u16)) {
+        let target = PixmapMut::new(width, height, bytemuck::cast_slice_mut(pixels)).expect("холст вывода");
+        let settings = RasterizerSettings { target_init: TargetInit::SrcOver, pixel_format: crate::render::PIXEL_FORMAT, offset };
+        self.ctx.render_with(target, &mut self.resources, settings);
     }
 
     pub(super) fn set_error_once(&mut self, err: PaintError) {

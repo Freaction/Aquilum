@@ -5,7 +5,7 @@ mod dreams;
 mod target;
 mod tunnel;
 
-pub use target::{Pixels, Target, over};
+pub use target::{Pixels, Target};
 use target::pack;
 
 pub fn fps(id: &str) -> f64 {

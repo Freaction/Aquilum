@@ -16,9 +16,14 @@ use std::time::Duration;
 
 use aquilum_core::Core;
 use aquilum_core::search::paths::is_markdown;
+use aquilum_core::threads::Work;
 
+use super::jobs::{self, Queue};
 use crate::ui::editor::resolve::{Book, Fetch, Grid, Media, Request, Resolver};
-use cache::{Cache, Entry, claim, commit, settle};
+use cache::{Cache, Entry, claim, commit, settle, wanted};
+
+static MEDIA: Queue = Queue::new("вставки: картинки", Work::Background);
+static QUERIES: Queue = Queue::new("вставки: запросы", Work::Parallel);
 
 struct Inner {
     core: Arc<Core>,
@@ -44,8 +49,10 @@ struct BookQueue {
 }
 
 impl Inner {
-    fn touch(&self) {
-        self.changed.store(true, Ordering::Release);
+    fn touch(&self, changed: bool) {
+        if changed {
+            self.changed.store(true, Ordering::Release);
+        }
         (self.wake)();
     }
 
@@ -124,7 +131,7 @@ impl Embeds {
             stale = true;
         }
         if stale {
-            self.0.touch();
+            self.0.touch(true);
         }
     }
 
@@ -139,37 +146,33 @@ impl Embeds {
         true
     }
 
-    fn fetch<T: Clone + PartialEq + Send + 'static>(&self, cache: fn(&Inner) -> &Cache<T>, key: &str, work: impl FnOnce(&Inner) -> Fetch<T> + Send + 'static) -> (Fetch<T>, u64) {
+    fn fetch<T: Clone + PartialEq + Send + 'static>(&self, queue: &'static Queue, cache: fn(&Inner) -> &Cache<T>, key: &str, work: impl FnOnce(&Inner) -> Fetch<T> + Send + 'static) -> (Fetch<T>, u64) {
         let (value, stamp, epoch) = claim(cache(&self.0), key);
         let Some(epoch) = epoch else { return (value, stamp) };
         let inner = Arc::clone(&self.0);
         let key = key.to_owned();
-        std::thread::spawn(move || {
-            let result = {
-                let _zone = aq_trace::zone("фон: вставка");
-                work(&inner)
-            };
-            if settle(cache(&inner), &key, epoch, result) {
-                inner.touch();
+        queue.push(move || {
+            if wanted(cache(&inner), &key) {
+                let result = work(&inner);
+                inner.touch(settle(cache(&inner), &key, epoch, result));
             }
         });
         (value, stamp)
     }
 }
 
-
 fn forget(inner: &Arc<Inner>) {
     inner.grids.epoch.fetch_add(1, Ordering::AcqRel);
     inner.suggestions.epoch.fetch_add(1, Ordering::AcqRel);
     inner.books.epoch.fetch_add(1, Ordering::AcqRel);
     links::refresh(inner);
-    inner.touch();
+    inner.touch(true);
 }
 
 fn refresh_after(inner: &Arc<Inner>, query: String, seconds: u32) {
     let weak = Arc::downgrade(inner);
     let epoch = inner.grids.epoch.load(Ordering::Acquire);
-    std::thread::spawn(move || {
+    jobs::detach("вставки: обновление запроса", move || {
         std::thread::sleep(Duration::from_secs(u64::from(seconds.max(1))));
         let Some(inner) = weak.upgrade().filter(|inner| inner.grids.epoch.load(Ordering::Acquire) == epoch) else { return };
         if let Some(entry) = inner.grids.entries.lock().unwrap_or_else(|e| e.into_inner()).get_mut(&query) {

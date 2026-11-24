@@ -78,8 +78,7 @@ impl Tracker {
     }
 
     pub(super) fn steady(&self, shape: &GeometryRef<'_>, transform: Affine, brush: &BrushRef<'_>, band: f64) -> Option<(f64, f64)> {
-        let [_, skew_y, skew_x, scale_y, _, _] = transform.as_coeffs();
-        if !matches!(brush, BrushRef::Solid(_)) || skew_x != 0.0 || skew_y != 0.0 || scale_y <= 0.0 {
+        if !matches!(brush, BrushRef::Solid(_)) {
             return None;
         }
         let (rect, radius) = match shape {
@@ -90,7 +89,14 @@ impl Tracker {
             }
             _ => return None,
         };
-        let inset = radius + band;
+        self.band(rect, radius + band, transform)
+    }
+
+    pub(super) fn band(&self, rect: Rect, inset: f64, transform: Affine) -> Option<(f64, f64)> {
+        let [_, skew_y, skew_x, scale_y, _, _] = transform.as_coeffs();
+        if skew_x != 0.0 || skew_y != 0.0 || scale_y <= 0.0 {
+            return None;
+        }
         let steady = transform.transform_rect_bbox(Rect::new(rect.x0, rect.y0 + inset, rect.x1, rect.y1 - inset));
         let clip = self.top().clip;
         Some((steady.y0.max(clip.y0).ceil(), steady.y1.min(clip.y1).floor()))

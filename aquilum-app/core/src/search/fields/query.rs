@@ -1,16 +1,17 @@
 use super::value::{lower, Field, FieldKind};
 use crate::search::error::SearchError;
-use crate::search::metadata::for_paths;
+use crate::search::metadata::{all_paths, for_paths};
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
+
+const FIELDS: &str = "note_fields field JOIN note_pages page ON page.id = field.page";
 
 pub fn read(connection: &Connection, paths: &[String]) -> Result<HashMap<String, Vec<Field>>, SearchError> {
     let mut found: HashMap<String, Vec<Field>> = HashMap::new();
     let sql = |list: &str| {
         format!(
-            "SELECT field.path, field.key, field.kind, field.text, field.items
-             FROM note_fields field JOIN note_pages page ON page.id = field.page
-             WHERE field.path IN ({list}) ORDER BY field.path, page.ordinal, field.ordinal"
+            "SELECT page.path, field.key, field.kind, field.text, field.items FROM {FIELDS}
+             WHERE page.path IN ({list}) ORDER BY page.path, page.ordinal, field.ordinal"
         )
     };
     let row = |row: &rusqlite::Row<'_>| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?, row.get::<_, String>(3)?, row.get::<_, Option<String>>(4)?));
@@ -32,7 +33,7 @@ pub fn candidates(
     for (key, value) in equals {
         let found = lookup(
             connection,
-            "SELECT DISTINCT path FROM note_fields WHERE key_lower=?1 AND text_lower=?2",
+            &format!("SELECT DISTINCT page.path FROM {FIELDS} WHERE field.key_lower=?1 AND field.text_lower=?2"),
             &[lower(key), lower(value)],
         )?;
         narrowed = Some(intersect(narrowed, found));
@@ -40,7 +41,7 @@ pub fn candidates(
     for key in has {
         let found = lookup(
             connection,
-            "SELECT DISTINCT path FROM note_fields WHERE key_lower=?1 AND text_lower<>''",
+            &format!("SELECT DISTINCT page.path FROM {FIELDS} WHERE field.key_lower=?1 AND field.text_lower<>''"),
             &[lower(key)],
         )?;
         narrowed = Some(intersect(narrowed, found));
@@ -59,7 +60,7 @@ pub fn paths_with_tag(connection: &Connection, tag: &str) -> Result<HashSet<Stri
     let wanted = lower(tag.trim_start_matches('#'));
     let nested = format!("{wanted}/");
     let mut statement =
-        connection.prepare("SELECT path, text_lower, items FROM note_fields WHERE key_lower='tags'")?;
+        connection.prepare(&format!("SELECT page.path, field.text_lower, field.items FROM {FIELDS} WHERE field.key_lower='tags'"))?;
     let rows = statement.query_map([], |row| {
         Ok((
             row.get::<_, String>(0)?,
@@ -98,14 +99,6 @@ fn lookup(
             row.get::<_, String>(0)
         })?
         .collect::<Result<HashSet<_>, _>>()?;
-    Ok(rows)
-}
-
-fn all_paths(connection: &Connection) -> Result<Vec<String>, SearchError> {
-    let mut statement = connection.prepare("SELECT path FROM documents ORDER BY path")?;
-    let rows = statement
-        .query_map([], |row| row.get::<_, String>(0))?
-        .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
 

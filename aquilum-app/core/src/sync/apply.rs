@@ -70,7 +70,7 @@ pub fn present<T>(value: Option<T>) -> Result<T, SyncError> {
     value.ok_or(SyncError::Changed)
 }
 
-pub fn remember(vault: &Vault<'_>, path: &str, hash: String, local: LocalFile, mut remote: RemoteFile) -> Result<(), SyncError> {
+pub fn remember(vault: &Vault<'_>, path: &str, hash: String, local: &LocalFile, mut remote: RemoteFile) -> Result<(), SyncError> {
     remote.path = path.to_owned();
     Ok(vault.records.put(&Record { hash, size: local.size, modified: local.modified, remote })?)
 }
@@ -110,7 +110,7 @@ fn pull(vault: &Vault<'_>, facts: &Facts<'_>, staged: &Staged) -> Result<(), Syn
     let path = absolute(vault.root, facts.path);
     let written = write_local(vault, facts, &path, &staged.open()?)?;
     stamp(&path, remote.modified)?;
-    remember(vault, facts.path, written.hash, UNKNOWN, remote.clone())
+    remember(vault, facts.path, written.hash, &UNKNOWN, remote.clone())
 }
 
 fn write_local(vault: &Vault<'_>, facts: &Facts<'_>, path: &Path, content: &FileContent) -> Result<FileWriteResult, SyncError> {

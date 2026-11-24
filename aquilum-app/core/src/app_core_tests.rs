@@ -91,25 +91,31 @@ fn watch_batches_reach_the_host_as_the_event_it_can_act_on() {
 }
 
 #[test]
-fn caches_of_forgotten_workspaces_leave_the_disk() {
+fn search_caches_stay_only_for_recent_existing_workspaces_and_sync_records_for_known_ones() {
     let (directory, core, _events) = open_core();
-    let known = crate::search::paths::canonical_path(directory.path()).join("Известная");
-    fs::create_dir_all(&known).unwrap();
-    core.ui_state.resolve_workspace(&known.to_string_lossy(), 0).unwrap();
-    let (kept, forgotten) = (crate::search::paths::cache_key(&known), "f".repeat(64));
+    let base = crate::search::paths::canonical_path(directory.path());
+    let now = 100 * 24 * 60 * 60 * 1000;
+    let roots = [("Свежая", now), ("Давняя", 0), ("Пропавшая", now)].map(|(name, seen)| {
+        let root = base.join(name);
+        fs::create_dir_all(&root).unwrap();
+        core.ui_state.resolve_workspace(&root.to_string_lossy(), seen).unwrap();
+        crate::search::paths::cache_key(&root)
+    });
+    fs::remove_dir(base.join("Пропавшая")).unwrap();
+    let forgotten = "f".repeat(64);
     let data = directory.path().join("data");
     fs::create_dir_all(data.join("sync")).unwrap();
-    for key in [&kept, &forgotten] {
+    for key in roots.iter().chain([&forgotten]) {
         fs::create_dir_all(data.join("search-v2").join(key)).unwrap();
         fs::write(data.join("sync").join(format!("{key}.sqlite3")), "").unwrap();
     }
     fs::write(data.join("sync").join(format!("{forgotten}.sqlite3-wal")), "").unwrap();
     fs::write(data.join("sync").join("dropbox.json"), "{}").unwrap();
 
-    core.prune_caches();
+    core.prune_caches(now);
 
-    assert_eq!(listing(&data.join("search-v2")), [kept.clone()]);
-    let mut synced = vec![format!("{kept}.sqlite3"), "dropbox.json".to_owned()];
+    assert_eq!(listing(&data.join("search-v2")), [roots[0].clone()]);
+    let mut synced = roots.iter().map(|key| format!("{key}.sqlite3")).chain(["dropbox.json".to_owned()]).collect::<Vec<_>>();
     synced.sort();
     assert_eq!(listing(&data.join("sync")), synced);
 }

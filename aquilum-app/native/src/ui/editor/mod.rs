@@ -44,4 +44,5 @@ pub struct ContextMenu {
     pub around: masonry::kurbo::Rect,
     pub selected: bool,
     pub inserts: bool,
+    pub media: bool,
 }

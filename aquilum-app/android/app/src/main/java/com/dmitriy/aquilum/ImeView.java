@@ -1,6 +1,7 @@
 package com.dmitriy.aquilum;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.Selection;
@@ -12,12 +13,15 @@ import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 
 import androidx.core.view.inputmethod.EditorInfoCompat;
+import androidx.core.view.inputmethod.InputConnectionCompat;
+import androidx.core.view.inputmethod.InputContentInfoCompat;
 
 import java.util.Arrays;
 
 final class ImeView extends View {
     private static native void onImeState(int session, int seq, boolean echo, char[] text, int[] marks);
     private static native boolean onImeAction(int id);
+    private static native boolean onImeImage(String path);
 
     private final InputMethodManager keyboard;
     private final Editable text = Editable.Factory.getInstance().newEditable("");
@@ -48,7 +52,6 @@ final class ImeView extends View {
         text.replace(0, text.length(), "");
         requestFocus();
         keyboard.restartInput(this);
-        keyboard.showSoftInput(this, 0);
     }
 
     void stop() {
@@ -108,7 +111,24 @@ final class ImeView extends View {
         info.initialSelStart = Selection.getSelectionStart(text);
         info.initialSelEnd = Selection.getSelectionEnd(text);
         EditorInfoCompat.setInitialSurroundingText(info, text);
-        return connection;
+        if (!multiline) {
+            return connection;
+        }
+        EditorInfoCompat.setContentMimeTypes(info, new String[] {"image/*"});
+        return InputConnectionCompat.createWrapper(connection, info, this::image);
+    }
+
+    private boolean image(InputContentInfoCompat content, int flags, Bundle options) {
+        if ((flags & InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION) != 0) {
+            try {
+                content.requestPermission();
+            } catch (Exception e) {
+                return false;
+            }
+        }
+        String path = ((MainActivity) getContext()).cacheImage(content.getContentUri(), content.getDescription().getMimeType(0));
+        content.releasePermission();
+        return path != null && onImeImage(path);
     }
 
     private boolean edited(boolean done) {

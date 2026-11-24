@@ -71,15 +71,19 @@ impl Updater {
             return;
         }
         Attempt::clear(&self.data_dir);
+        self.run(|_| match find() {
+            Ok(Some(release)) => Status::Available(release),
+            Ok(None) => Status::Latest,
+            Err(error) => Status::Failed(error),
+        });
+    }
+
+    fn run(&self, job: impl FnOnce(&Updater) -> Status + Send + 'static) {
         self.set(Status::Checking);
         let this = self.clone();
-        std::thread::spawn(move || {
-            this.set(match find() {
-                Ok(Some(release)) => Status::Available(release),
-                Ok(None) => Status::Latest,
-                Err(error) => Status::Failed(error),
-            });
-        });
+        if let Err(error) = aquilum_core::threads::background("обновление", move || this.set(job(&this))) {
+            self.set(Status::Failed(error.to_string()));
+        }
     }
 
     pub fn install(&self) {
@@ -90,18 +94,16 @@ impl Updater {
             Status::Available(release) => Some(release),
             _ => None,
         };
-        self.set(Status::Checking);
-        let this = self.clone();
-        std::thread::spawn(move || {
+        self.run(move |this| {
             let result = found.map_or_else(find, |release| Ok(Some(release))).and_then(|release| match release {
                 Some(release) => this.download(&release).map(|()| Some(release.version)),
                 None => Ok(None),
             });
-            this.set(match result {
+            match result {
                 Ok(Some(version)) => Status::Ready(version),
                 Ok(None) => Status::Latest,
                 Err(error) => Status::Failed(error),
-            });
+            }
         });
     }
 

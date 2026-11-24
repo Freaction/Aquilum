@@ -2,7 +2,6 @@ use super::error::SearchError;
 use super::index::SearchIndex;
 use super::progress::IndexProgress;
 use super::sync::IndexSynchronizer;
-use super::models::IndexRevision;
 use super::IndexNotifier;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -27,7 +26,6 @@ struct WorkerContext {
     metadata_path: PathBuf,
     cancelled: Arc<AtomicBool>,
     progress: Arc<IndexProgress>,
-    generation: u64,
     index_notifier: IndexNotifier,
 }
 
@@ -37,7 +35,6 @@ impl WorkerHandle {
         index: Arc<SearchIndex>,
         metadata_path: PathBuf,
         progress: Arc<IndexProgress>,
-        generation: u64,
         index_notifier: IndexNotifier,
     ) -> Result<Self, SearchError> {
         let (sender, receiver) = mpsc::channel();
@@ -48,27 +45,24 @@ impl WorkerHandle {
             metadata_path,
             cancelled: Arc::clone(&cancelled),
             progress: Arc::clone(&progress),
-            generation,
             index_notifier,
         };
-        let thread = std::thread::Builder::new()
-            .name("aquilum-search-index".to_owned())
-            .spawn(move || {
-                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(&context, receiver)));
-                let failure = match outcome {
-                    Ok(Ok(())) => None,
-                    Ok(Err(error)) => Some(error),
-                    Err(panic) => Some(SearchError::Task {
-                        message: format!("поток индексации упал: {}", panic_message(panic.as_ref())),
-                    }),
-                };
-                if let Some(error) = failure {
-                    progress.failed(&error);
-                }
-            })
-            .map_err(|error| SearchError::Task {
-                message: error.to_string(),
-            })?;
+        let thread = crate::threads::background("aquilum-search-index", move || {
+            let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(&context, receiver)));
+            let failure = match outcome {
+                Ok(Ok(())) => None,
+                Ok(Err(error)) => Some(error),
+                Err(panic) => Some(SearchError::Task {
+                    message: format!("поток индексации упал: {}", panic_message(panic.as_ref())),
+                }),
+            };
+            if let Some(error) = failure {
+                progress.failed(&error);
+            }
+        })
+        .map_err(|error| SearchError::Task {
+            message: error.to_string(),
+        })?;
         Ok(Self { sender, cancelled, thread: Some(thread) })
     }
 
@@ -131,12 +125,8 @@ fn run(
 }
 
 fn notify_index(context: &WorkerContext) {
-    let revision = context.progress.bump_revision();
-    (context.index_notifier)(IndexRevision {
-        workspace_path: context.root.to_string_lossy().into_owned(),
-        generation: context.generation,
-        revision,
-    });
+    context.progress.bump_revision();
+    (context.index_notifier)(&context.root);
 }
 
 fn collect_batch(
@@ -176,7 +166,7 @@ mod tests {
         let notifier: IndexNotifier = Arc::new(move |_| {
             let _ = scanned.send(());
         });
-        let worker = WorkerHandle::spawn(root, index, directory.path().join("documents.sqlite3"), Arc::new(IndexProgress::new(0, 1)), 1, notifier).unwrap();
+        let worker = WorkerHandle::spawn(root, index, directory.path().join("documents.sqlite3"), Arc::new(IndexProgress::new(0, 1)), notifier).unwrap();
         done.recv_timeout(Duration::from_secs(20)).expect("первый проход завершился");
 
         let started = Instant::now();

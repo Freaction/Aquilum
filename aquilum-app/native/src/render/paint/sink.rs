@@ -7,8 +7,8 @@ use masonry::imaging::record::Glyph as SceneGlyph;
 use masonry::kurbo::{Affine, Shape as _};
 use masonry::peniko::{BlendMode, BrushRef};
 
-use super::{Painter, TOLERANCE};
-use super::convert;
+use super::Painter;
+use super::convert::{self, TOLERANCE};
 use super::error::PaintError;
 use super::mask;
 
@@ -33,7 +33,7 @@ impl PaintSink for Painter {
                 }
             }
         } else {
-            let (transform, path, fill_rule) = convert::clip_to_path(clip, TOLERANCE);
+            let (transform, path, fill_rule) = convert::clip_to_path(clip);
             self.set_transform(transform);
             self.ctx.set_fill_rule(fill_rule);
             self.ctx.push_clip_path(&path);
@@ -60,7 +60,7 @@ impl PaintSink for Painter {
         let (clip_path, clip_transform) = match group.clip {
             None => (None, Affine::IDENTITY),
             Some(clip) => {
-                let (transform, path, fill_rule) = convert::clip_to_path(clip, TOLERANCE);
+                let (transform, path, fill_rule) = convert::clip_to_path(clip);
                 self.ctx.set_fill_rule(fill_rule);
                 (Some(path), transform)
             }
@@ -78,7 +78,6 @@ impl PaintSink for Painter {
                     self.shift * mask.transform,
                     width,
                     height,
-                    self.settings,
                 ) {
                     Ok(m) => Some(m),
                     Err(err) => {
@@ -133,36 +132,19 @@ impl PaintSink for Painter {
             None => draw.brush,
         };
         let paint = convert::brush_to_paint(brush, draw.composite, &mut self.images);
-        self.set_transform(draw.transform);
         self.ctx.set_fill_rule(draw.fill_rule);
-        self.ctx.set_paint_transform(draw.brush_transform.unwrap_or(Affine::IDENTITY));
-        self.ctx.set_blend_mode(draw.composite.blend);
-        self.ctx.set_paint(paint);
-        match draw.shape {
-            GeometryRef::Rect(r) => self.ctx.fill_rect(&r),
-            GeometryRef::RoundedRect(rr) => self.ctx.fill_path(&rr.to_path(TOLERANCE)),
-            GeometryRef::Path(p) => self.ctx.fill_path(p),
-            GeometryRef::OwnedPath(p) => self.ctx.fill_path(&p),
-        }
+        place(self, draw.transform, draw.brush_transform, draw.composite.blend, paint);
+        draw_shape(&mut self.ctx, draw.shape, false);
     }
 
     fn stroke(&mut self, draw: StrokeRef<'_>) {
-        let w = draw.stroke.width.max(1.0) * draw.stroke.miter_limit.max(1.0);
-        if self.error.is_some() || self.after.is_some() || convert::invisible(&draw.brush, draw.composite) || self.offscreen(draw.transform.transform_rect_bbox(convert::shape_bounds(&draw.shape).inflate(w, w))) {
+        if self.error.is_some() || self.after.is_some() || convert::invisible(&draw.brush, draw.composite) || self.offscreen(convert::stroke_bounds(&draw.shape, draw.stroke, draw.transform)) {
             return;
         }
         let paint = convert::brush_to_paint(draw.brush, draw.composite, &mut self.images);
-        self.set_transform(draw.transform);
         self.ctx.set_stroke(draw.stroke.clone());
-        self.ctx.set_paint_transform(draw.brush_transform.unwrap_or(Affine::IDENTITY));
-        self.ctx.set_blend_mode(draw.composite.blend);
-        self.ctx.set_paint(paint);
-        match draw.shape {
-            GeometryRef::Rect(r) => self.ctx.stroke_rect(&r),
-            GeometryRef::RoundedRect(rr) => self.ctx.stroke_path(&rr.to_path(TOLERANCE)),
-            GeometryRef::Path(p) => self.ctx.stroke_path(p),
-            GeometryRef::OwnedPath(p) => self.ctx.stroke_path(&p),
-        }
+        place(self, draw.transform, draw.brush_transform, draw.composite.blend, paint);
+        draw_shape(&mut self.ctx, draw.shape, true);
     }
 
     fn glyph_run(&mut self, draw: GlyphRunRef<'_>, glyphs: &mut dyn Iterator<Item = SceneGlyph>) {
@@ -181,5 +163,30 @@ impl PaintSink for Painter {
         self.ctx.set_blend_mode(draw.composite.blend);
         // Обычная тень; инвертированная (внутренняя) в imaging пока не выражается.
         self.ctx.fill_blurred_rounded_rect(&draw.rect, draw.radius as f32, draw.std_dev as f32, false);
+    }
+}
+
+fn place(painter: &mut Painter, transform: Affine, brush_transform: Option<Affine>, blend: BlendMode, paint: vello_cpu::PaintType) {
+    painter.set_transform(transform);
+    painter.ctx.set_paint_transform(brush_transform.unwrap_or(Affine::IDENTITY));
+    painter.ctx.set_blend_mode(blend);
+    painter.ctx.set_paint(paint);
+}
+
+fn draw_shape(ctx: &mut vello_cpu::RenderContext, shape: GeometryRef<'_>, stroke: bool) {
+    match shape {
+        GeometryRef::Rect(rect) => {
+            if stroke { ctx.stroke_rect(&rect) } else { ctx.fill_rect(&rect) }
+        }
+        GeometryRef::RoundedRect(rounded) => {
+            let path = rounded.to_path(TOLERANCE);
+            if stroke { ctx.stroke_path(&path) } else { ctx.fill_path(&path) }
+        }
+        GeometryRef::Path(path) => {
+            if stroke { ctx.stroke_path(path) } else { ctx.fill_path(path) }
+        }
+        GeometryRef::OwnedPath(path) => {
+            if stroke { ctx.stroke_path(&path) } else { ctx.fill_path(&path) }
+        }
     }
 }

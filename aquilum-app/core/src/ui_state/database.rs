@@ -9,15 +9,13 @@ pub struct UiStateDatabase {
 
 impl UiStateDatabase {
     pub fn open(path: &Path) -> Result<Self, UiStateError> {
-        let connection = Connection::open(path)?;
+        let connection = crate::sqlite::open(path)?;
         migrate(&connection)?;
         Ok(Self { connection })
     }
 
     #[cfg(test)]
     pub fn memory() -> Result<Self, UiStateError> {
-        let connection = Connection::open_in_memory()?;
-        migrate(&connection)?;
-        Ok(Self { connection })
+        Self::open(Path::new(":memory:"))
     }
 }

@@ -15,13 +15,24 @@ pub enum EditorCommand {
     Copy,
     Paste,
     SelectAll,
+    UploadImage,
+    PasteImage,
     InsertBook,
     InsertTable,
     InsertFrontmatter,
 }
 
 const SELECTED: &[EditorCommand] = &[EditorCommand::Cut, EditorCommand::Copy, EditorCommand::Paste, EditorCommand::SelectAll];
-const CARET: &[EditorCommand] = &[EditorCommand::Paste, EditorCommand::SelectAll, EditorCommand::InsertBook, EditorCommand::InsertTable, EditorCommand::InsertFrontmatter];
+const CARET: &[EditorCommand] = &[
+    EditorCommand::Paste,
+    EditorCommand::SelectAll,
+    EditorCommand::UploadImage,
+    EditorCommand::PasteImage,
+    EditorCommand::InsertBook,
+    EditorCommand::InsertTable,
+    EditorCommand::InsertFrontmatter,
+];
+const MEDIA: &[EditorCommand] = &[EditorCommand::Paste, EditorCommand::SelectAll, EditorCommand::UploadImage, EditorCommand::PasteImage];
 const PLAIN: &[EditorCommand] = &[EditorCommand::Paste, EditorCommand::SelectAll];
 
 impl EditorCommand {
@@ -31,6 +42,8 @@ impl EditorCommand {
             EditorCommand::Copy => (t("common.copy"), icons::COPY),
             EditorCommand::Paste => (t("common.paste"), icons::CLIPBOARD),
             EditorCommand::SelectAll => (t("common.selectAll"), icons::TEXT_SELECT),
+            EditorCommand::UploadImage => (t("editor.uploadImage"), icons::UPLOAD),
+            EditorCommand::PasteImage => (t("editor.pasteImage"), icons::IMAGE),
             EditorCommand::InsertBook => (t("editor.insertBook"), icons::BOOK_OPEN),
             EditorCommand::InsertTable => (t("editor.insertTable"), icons::TABLE),
             EditorCommand::InsertFrontmatter => (t("editor.insertFrontmatter"), icons::TAG),
@@ -74,25 +87,30 @@ impl App {
             self.remove_editor_menu(root);
             return;
         };
-        let commands = match (menu.selected, menu.inserts) {
-            (true, _) => SELECTED,
-            (false, true) => CARET,
-            (false, false) => PLAIN,
+        let commands = match (menu.selected, menu.inserts, menu.media) {
+            (true, ..) => SELECTED,
+            (false, true, _) => CARET,
+            (false, false, true) => MEDIA,
+            (false, false, false) => PLAIN,
         };
-        if let Some((layer, shown, current)) = self.editor_menu
-            && (shown, current) == (editor, commands)
-        {
-            return self.place_layer(root, layer, menu.around);
-        }
+        let keep_at = match self.editor_menu {
+            Some((layer, shown, current)) if shown == editor && current == commands => {
+                return self.place_layer(root, layer, menu.around);
+            }
+            Some((layer, shown, _)) if shown == editor => root.get_widget(layer).map(|w| w.ctx().bounding_box().origin()),
+            _ => None,
+        };
         self.remove_editor_menu(root);
         let has_frontmatter = self.has_frontmatter();
         let labels: Vec<(String, icons::Icon)> = commands.iter().map(|command| command.entry()).collect();
         let entries: Vec<Entry<'_>> = commands.iter().zip(&labels).map(|(&command, (label, icon))| Entry { label, icon: Some(*icon), disabled: command == EditorCommand::InsertFrontmatter && has_frontmatter, divided: false }).collect();
         let widget = Menu::holding(Menu::entries(&t("editor.actions"), &entries), editor);
         let layer = widget.id();
-        root.add_layer(widget, Point::ZERO);
+        root.add_layer(widget, keep_at.unwrap_or(Point::ZERO));
         self.editor_menu = Some((layer, editor, commands));
-        self.place_layer(root, layer, menu.around);
+        if keep_at.is_none() {
+            self.place_layer(root, layer, menu.around);
+        }
     }
 
     pub(in crate::app) fn on_editor_menu(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> bool {
@@ -140,6 +158,12 @@ impl App {
                 self.paste(root, false);
             }
             EditorCommand::SelectAll => edit(root, &TextEditor::select_everything),
+            EditorCommand::UploadImage => self.pick_note_image(),
+            EditorCommand::PasteImage => {
+                if let Some(png) = crate::clipboard::png() {
+                    self.paste_image(root, &png);
+                }
+            }
             EditorCommand::InsertBook => edit(root, &|e| TextEditor::insert_text(e, "> [!book] [[Название книги]]\n")),
             EditorCommand::InsertTable => edit(root, &|e| TextEditor::insert_table(e, 2, 2)),
             EditorCommand::InsertFrontmatter => {

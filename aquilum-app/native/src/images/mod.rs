@@ -9,6 +9,7 @@ use masonry::peniko::{Blob, ImageAlphaType, ImageBrush, WeakBlob};
 
 mod decode;
 mod kind;
+mod shrink;
 
 pub use kind::{MediaKind, extension, kind};
 
@@ -65,7 +66,7 @@ fn shown() -> u32 {
 }
 
 fn decode_within(bytes: &[u8], limit: u32) -> Option<Picture> {
-    let decoded = decode::decode(bytes, limit, MAX_PIXELS)?;
+    let decoded = decode::decode(bytes, limit)?;
     let image = crate::render::from_rgba(decoded.pixels, decoded.width, decoded.height, ImageAlphaType::Alpha)?;
     Some(Picture { image, natural: decoded.natural })
 }

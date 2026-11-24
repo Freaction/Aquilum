@@ -110,19 +110,6 @@ impl Canvas for Pixels {
     }
 }
 
-pub fn closest<T: Copy>(items: &[T], cost: impl Fn(T, T) -> f64) -> Option<(usize, usize, f64)> {
-    let mut best: Option<(usize, usize, f64)> = None;
-    for a in 0..items.len() {
-        for b in a + 1..items.len() {
-            let extra = cost(items[a], items[b]);
-            if best.is_none_or(|(_, _, c)| extra < c) {
-                best = Some((a, b, extra));
-            }
-        }
-    }
-    best
-}
-
 #[cfg(not(target_os = "android"))]
 pub fn merge(areas: &mut Vec<Area>) {
     merge_to(areas, MAX_RECTS);
@@ -131,13 +118,7 @@ pub fn merge(areas: &mut Vec<Area>) {
 #[cfg(not(target_os = "android"))]
 fn merge_to(areas: &mut Vec<Area>, limit: usize) {
     areas.retain(|a| a.w > 0 && a.h > 0);
-    while let Some((a, b, cost)) = closest(areas, |x, y| (x.union(y).size() - x.size() - y.size()) as f64) {
-        if areas.len() <= limit && cost > 0.0 {
-            return;
-        }
-        areas[a] = areas[a].union(areas[b]);
-        areas.swap_remove(b);
-    }
+    crate::render::merge_closest(areas, |x, y| (x.union(y).size() - x.size() - y.size()) as f64, Area::union, |count, _, _, cost| count <= limit && cost > 0.0);
 }
 
 impl Area {

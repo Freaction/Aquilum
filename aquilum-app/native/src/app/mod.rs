@@ -15,6 +15,7 @@ mod graph_page;
 mod history;
 mod home;
 mod init;
+pub(crate) mod jobs;
 mod lifecycle;
 mod media;
 mod note_page;
@@ -140,6 +141,7 @@ pub struct App {
     panel_rx: Receiver<Listing>,
     panel_body: Option<Body>,
     retention_done: Arc<std::sync::atomic::AtomicBool>,
+    chores: Vec<std::thread::JoinHandle<()>>,
     controls: Option<(WidgetId, Handle<WindowButton>)>,
     window: Size,
     resizing: Option<(crate::interface::Side, f64, f64)>,

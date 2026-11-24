@@ -5,7 +5,6 @@ use super::css::{Background, Rgba, Val};
 use prepare::prepare;
 use shape::Prepared;
 
-const BACKGROUND_THREADS: usize = 2;
 const MAX_DRIFT: f64 = 0.3;
 
 type Premul = [f32; 4];
@@ -77,13 +76,14 @@ pub fn expand(cell: &Cell, width: u32, height: u32) -> Vec<u8> {
 pub(super) fn rasterize(backgrounds: &[&Background], width: u32, height: u32, scale: f64, whole: (u32, u32)) -> Vec<u8> {
     let area = (f64::from(whole.0) / scale, f64::from(whole.1) / scale);
     let prepared = prepared(backgrounds, area);
-    let mut out = vec![0u8; (width * height * 4) as usize];
-    let row = (width * 4) as usize;
-    let rows_per = (height as usize).div_ceil(BACKGROUND_THREADS).max(1);
+    let row = width as usize * 4;
+    let mut out = vec![0u8; row * height as usize];
+    let rows_per = (height as usize).div_ceil(aquilum_core::threads::count(aquilum_core::threads::Work::Background)).max(1);
     std::thread::scope(|scope| {
         for (chunk, rows) in out.chunks_mut(row * rows_per).enumerate() {
             let prepared = &prepared;
             scope.spawn(move || {
+                aquilum_core::threads::lower_priority();
                 let first = (chunk * rows_per) as u32;
                 for (i, line) in rows.chunks_mut(row).enumerate() {
                     render_row(prepared, line, first + i as u32, width, scale);

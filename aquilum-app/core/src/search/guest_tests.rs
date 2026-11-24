@@ -1,4 +1,3 @@
-use crate::search::models::IndexRevision;
 use crate::search::service::SearchService;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -26,8 +25,8 @@ impl Fixture {
         let sink = Arc::clone(&announced);
         let service = SearchService::new(
             root.join("indexes"),
-            Arc::new(move |event: IndexRevision| {
-                sink.lock().unwrap().push(event.workspace_path);
+            Arc::new(move |workspace: &Path| {
+                sink.lock().unwrap().push(workspace.to_string_lossy().into_owned());
             }),
         );
         Self {
@@ -166,6 +165,31 @@ fn a_write_reaches_the_guest_index() {
         assert!(Instant::now() < deadline, "правка не дошла до гостевого индекса");
         std::thread::sleep(Duration::from_millis(20));
     }
+}
+
+#[test]
+fn a_pruned_cache_is_rebuilt_for_the_agent_and_for_a_manual_open() {
+    let fixture = Fixture::new();
+    let old = fixture.workspace("old", "Давняя");
+    let other = fixture.workspace("other", "Чужая");
+    let cache = fixture.root.join("indexes").join(crate::search::paths::cache_key(Path::new(&old)));
+    let forget_old = || {
+        fixture.service.open_guest(&other).unwrap();
+        fixture.service.prune(&Default::default());
+        assert!(!cache.exists(), "кэш давней базы удалён");
+    };
+    fixture.service.open_guest(&old).unwrap();
+    fixture.wait_scanned(&old);
+    forget_old();
+
+    fixture.service.open_guest(&old).unwrap();
+    fixture.wait_scanned(&old);
+    assert!(fixture.finds(&old, "давняя"), "агент получил индекс, построенный заново");
+
+    forget_old();
+    fixture.service.prepare(&old).unwrap();
+    fixture.wait_scanned(&old);
+    assert!(fixture.finds(&old, "давняя"), "ручное открытие тоже строит индекс заново");
 }
 
 fn same(root: &Path, workspace: &str) -> bool {

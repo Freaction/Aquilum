@@ -14,10 +14,7 @@ impl Painter {
         }
         let bounds = match clip {
             ClipRef::Fill { transform, shape, .. } => transform.transform_rect_bbox(convert::shape_bounds(shape)),
-            ClipRef::Stroke { transform, shape, stroke } => {
-                let w = stroke.width.max(1.0) * stroke.miter_limit.max(1.0);
-                transform.transform_rect_bbox(convert::shape_bounds(shape).inflate(w, w))
-            }
+            ClipRef::Stroke { transform, shape, stroke } => convert::stroke_bounds(shape, stroke, *transform),
         };
         if !self.filtered() && !self.frame.overlaps(bounds) {
             self.culled = 1;

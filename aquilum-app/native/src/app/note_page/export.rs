@@ -1,14 +1,19 @@
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
+use aquilum_core::Core;
 use masonry::app::{RenderRoot, RenderRootOptions, WindowSizePolicy};
 use masonry::core::{NewWidget, WindowEvent};
 use masonry::dpi::PhysicalSize;
 use masonry::properties::types::CrossAxisAlignment;
 use masonry::widgets::Flex;
 
-use super::super::App;
+use super::super::book::Picked;
+use super::super::{App, jobs};
 use super::super::embeds::Embeds;
+use crate::native_dialog::Destination;
 use crate::ui::editor::resolve::Resolver;
 use crate::ui::editor::{Smart, TextEditor};
 use crate::ui::tokens::size;
@@ -16,29 +21,46 @@ use crate::ui::{style, theme};
 
 const LOADING: Duration = Duration::from_secs(15);
 
+pub(in crate::app) type Loading = (Embeds, Receiver<()>);
+
+pub(in crate::app) fn loading(core: &Arc<Core>, root: &Path, note: PathBuf, data_dir: &Path) -> Loading {
+    let (changed, changes) = channel();
+    let wake = move || {
+        let _ = changed.send(());
+    };
+    (Embeds::new(Arc::clone(core), root.to_path_buf(), note, data_dir.join("remote"), Arc::new(wake)), changes)
+}
+
+fn stem(note: &Path) -> String {
+    note.file_stem().unwrap_or_default().to_string_lossy().into_owned()
+}
+
 impl App {
     pub(in crate::app) fn export_pdf(&mut self, _root: &mut RenderRoot) {
-        let Some(note) = &self.note else { return };
-        let title = note.path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-        let body = self.body();
-        let smart = Smart::from_config(&self.workspace.core.settings.get_config());
-        let embeds = self.tree.root().map(|root| Embeds::new(Arc::clone(&self.workspace.core), root.to_path_buf(), note.path.clone(), self.workspace.data_dir.join("remote"), Arc::new(|| {})));
-        std::thread::spawn(move || {
-            let Some(dest) = crate::native_dialog::save_file("PDF", &["pdf"], &format!("{title}.pdf")) else { return };
-            if let Err(error) = render(&title, body, smart, embeds).and_then(|pdf| dest.write(&pdf)) {
+        let Some(note) = self.note.as_ref().map(|n| n.path.clone()) else { return };
+        let name = format!("{}.pdf", stem(&note));
+        self.pick(move || crate::native_dialog::save_file("PDF", &["pdf"], &name).map(|dest| Picked::Pdf(note, dest)));
+    }
+
+    pub(in crate::app) fn write_pdf(&mut self, dest: Destination) {
+        let Some(note) = self.note.as_ref().map(|n| n.path.clone()) else { return };
+        let (body, smart) = (self.body(), Smart::from_config(&self.workspace.core.settings.get_config()));
+        let embeds = self.tree.root().map(|root| loading(&self.workspace.core, root, note.clone(), &self.workspace.data_dir));
+        self.own(jobs::detach("экспорт PDF", move || {
+            if let Err(error) = render(&stem(&note), body, smart, embeds).and_then(|pdf| dest.write(&pdf)) {
                 report!("{dest} не экспортирован в PDF: {error}");
             }
-        });
+        }));
     }
 }
 
-pub(in crate::app) fn render(title: &str, body: crop::Rope, smart: Smart, embeds: Option<Embeds>) -> Result<Vec<u8>, String> {
+pub(in crate::app) fn render(title: &str, body: crop::Rope, smart: Smart, embeds: Option<Loading>) -> Result<Vec<u8>, String> {
     theme::printing(|| paper(title, body, smart, embeds))
 }
 
-fn paper(title: &str, body: crop::Rope, smart: Smart, embeds: Option<Embeds>) -> Result<Vec<u8>, String> {
+fn paper(title: &str, body: crop::Rope, smart: Smart, embeds: Option<Loading>) -> Result<Vec<u8>, String> {
     let width = crate::pdf::content_width().floor();
-    let resolver = embeds.clone().map(|e| Arc::new(e) as Arc<dyn Resolver>);
+    let resolver = embeds.as_ref().map(|(e, _)| Arc::new(e.clone()) as Arc<dyn Resolver>);
     let heading = NewWidget::new(TextEditor::single_line(title).styled(style::editor_title)).with_class(style::EDITOR_TEXT);
     let text = NewWidget::new(TextEditor::entire(body).printed().styled(style::editor_text).markdown().with_resolver(resolver).with_smart(smart)).with_class(style::EDITOR_TEXT);
     let id = text.id();
@@ -54,15 +76,13 @@ fn paper(title: &str, body: crop::Rope, smart: Smart, embeds: Option<Embeds>) ->
     let mut root = RenderRoot::new(NewWidget::new(column).with_class(style::EDITOR).erased(), |_| {}, options);
     theme::register_fonts(&mut root);
     let _ = root.redraw();
-    if let Some(embeds) = &embeds {
-        let started = Instant::now();
-        while started.elapsed() < LOADING {
+    if let Some((embeds, changes)) = &embeds {
+        let until = Instant::now() + LOADING;
+        while let Some(left) = until.checked_duration_since(Instant::now()) {
             if embeds.take_changed() {
                 root.edit_widget(id, |mut w| TextEditor::refresh_embeds(&mut w.downcast()));
                 let _ = root.redraw();
-            } else if embeds.busy() {
-                std::thread::sleep(Duration::from_millis(20));
-            } else {
+            } else if !embeds.busy() || changes.recv_timeout(left).is_err() {
                 break;
             }
         }

@@ -8,6 +8,7 @@ use masonry::app::RenderRoot;
 use masonry::core::WidgetId;
 
 use super::{App, Outcome, Popup, WorkspacesState};
+use crate::app::jobs;
 use crate::ui::handle::Handle;
 use crate::ui::widgets::Slot;
 use crate::ui::workspaces::{Cloud as View, cloud_section};
@@ -44,12 +45,8 @@ impl App {
 
     pub(super) fn list_cloud(&self, slot: Handle<Slot>) -> Cloud {
         let listed = channel();
-        let (sender, core, wake) = (listed.0.clone(), Arc::clone(&self.workspace.core), Arc::clone(&self.workspace.wake));
-        std::thread::spawn(move || {
-            if sender.send(core.sync.vaults().map_err(|error| error.to_string())).is_ok() {
-                wake();
-            }
-        });
+        let core = Arc::clone(&self.workspace.core);
+        jobs::deliver("облако: список баз", listed.0.clone(), &self.workspace.wake, move || Some(core.sync.vaults().map_err(|error| error.to_string())));
         Cloud { slot, listed, rows: Vec::new() }
     }
 

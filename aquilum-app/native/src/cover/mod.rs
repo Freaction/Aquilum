@@ -8,7 +8,7 @@ pub use raster::Cell;
 #[cfg(test)]
 pub use raster::expand;
 
-pub use motion::{Pixels as MotionPixels, Target as MotionTarget, animated, forget_tile, fps as motion_fps, over, render as render_motion};
+pub use motion::{Pixels as MotionPixels, Target as MotionTarget, animated, forget_tile, fps as motion_fps, render as render_motion};
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -168,7 +168,7 @@ mod tests {
                 let pixels: Vec<u8> = base
                     .chunks_exact(4)
                     .zip(&motion)
-                    .flat_map(|(b, &m)| super::over(m, u32::from_le_bytes([b[0], b[1], b[2], b[3]])).to_le_bytes())
+                    .flat_map(|(b, &m)| crate::render::over(m, u32::from_le_bytes([b[0], b[1], b[2], b[3]])).to_le_bytes())
                     .collect();
                 image::RgbaImage::from_raw(w as u32, h as u32, pixels).unwrap().save(dir.join(format!("motion-{id}-{t}.png"))).unwrap();
             }

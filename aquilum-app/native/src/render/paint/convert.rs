@@ -1,35 +1,33 @@
 //! Преобразования типов между Masonry/imaging и vello_cpu.
 
 use std::collections::HashMap;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 use masonry::imaging::{ClipRef, Composite, Filter, GeometryRef};
-use masonry::kurbo::{Affine, BezPath, Rect, Shape as _, StrokeOpts, stroke};
+use masonry::kurbo::{Affine, BezPath, Rect, Shape as _, Stroke, StrokeOpts, stroke};
 use masonry::peniko::{Brush, BrushRef, Fill, ImageData};
 use vello_cpu::filter_effects::{EdgeMode, Filter as VelloFilter, FilterGraph, FilterPrimitive};
 use vello_cpu::{Image, ImageSource, PaintType};
 
 const IMAGE_FRAMES: u64 = 2;
 
+pub const TOLERANCE: f64 = 0.1;
+
 #[derive(Default)]
 pub struct Images {
-    sources: HashMap<u64, (ImageSource, u64, Option<Weak<()>>)>,
+    sources: HashMap<u64, (ImageSource, u64)>,
     frame: u64,
 }
 
 impl Images {
     fn source(&mut self, data: &ImageData) -> ImageSource {
         let frame = self.frame;
-        let (source, used, _) = self.sources.entry(data.data.id()).or_insert_with(|| {
-            if let Some((pixmap, owner)) = crate::render::surface::find(data.data.id()) {
-                return (ImageSource::Pixmap(pixmap), frame, Some(owner));
-            }
+        let (source, used) = self.sources.entry(data.data.id()).or_insert_with(|| {
             let source = match crate::render::pixels::lookup(data.data.id()) {
-                Some(pixmap) => ImageSource::Pixmap(pixmap),
-                None if data.data.data().len() != data.width as usize * data.height as usize * 4 => ImageSource::Pixmap(Arc::new(vello_cpu::Pixmap::new(1, 1))),
+                Some((pixmap, _)) => ImageSource::Pixmap(pixmap),
                 None => ImageSource::from_peniko_image_data(data),
             };
-            (source, frame, None)
+            (source, frame)
         });
         *used = frame;
         source.clone()
@@ -38,7 +36,7 @@ impl Images {
     pub fn next_frame(&mut self) {
         self.frame += 1;
         let frame = self.frame;
-        self.sources.retain(|_, (_, used, owner)| frame - *used < IMAGE_FRAMES && owner.as_ref().is_none_or(|o| o.strong_count() > 0));
+        self.sources.retain(|_, (_, used)| frame - *used < IMAGE_FRAMES);
     }
 }
 
@@ -50,23 +48,21 @@ pub fn brush_to_paint(brush: BrushRef<'_>, composite: Composite, images: &mut Im
     }
 }
 
-pub fn geometry_to_path(geom: GeometryRef<'_>, tolerance: f64) -> BezPath {
+pub fn geometry_to_path(geom: GeometryRef<'_>) -> BezPath {
     match geom {
-        GeometryRef::Rect(r) => r.to_path(tolerance),
-        GeometryRef::RoundedRect(rr) => rr.to_path(tolerance),
+        GeometryRef::Rect(r) => r.to_path(TOLERANCE),
+        GeometryRef::RoundedRect(rr) => rr.to_path(TOLERANCE),
         GeometryRef::Path(p) => p.clone(),
         GeometryRef::OwnedPath(p) => p,
     }
 }
 
-pub fn clip_to_path(clip: ClipRef<'_>, tolerance: f64) -> (Affine, BezPath, Fill) {
+pub fn clip_to_path(clip: ClipRef<'_>) -> (Affine, BezPath, Fill) {
     match clip {
-        ClipRef::Fill { transform, shape, fill_rule } => {
-            (transform, geometry_to_path(shape, tolerance), fill_rule)
-        }
+        ClipRef::Fill { transform, shape, fill_rule } => (transform, geometry_to_path(shape), fill_rule),
         ClipRef::Stroke { transform, shape, stroke: style } => {
-            let path = geometry_to_path(shape, tolerance);
-            let outline = stroke(path.iter(), style, &StrokeOpts::default(), tolerance);
+            let path = geometry_to_path(shape);
+            let outline = stroke(path.iter(), style, &StrokeOpts::default(), TOLERANCE);
             (transform, outline, Fill::NonZero)
         }
     }
@@ -111,6 +107,15 @@ pub fn shape_bounds(shape: &GeometryRef<'_>) -> Rect {
         GeometryRef::Path(p) => p.bounding_box(),
         GeometryRef::OwnedPath(p) => p.bounding_box(),
     }
+}
+
+pub fn stroke_reach(stroke: &Stroke) -> f64 {
+    stroke.width.max(1.0) * stroke.miter_limit.max(1.0)
+}
+
+pub fn stroke_bounds(shape: &GeometryRef<'_>, stroke: &Stroke, transform: Affine) -> Rect {
+    let reach = stroke_reach(stroke);
+    transform.transform_rect_bbox(shape_bounds(shape).inflate(reach, reach))
 }
 
 pub fn line_bounds(y: f32, font_size: f32, glyph_transform: Option<Affine>, transform: Affine) -> Rect {

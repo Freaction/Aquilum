@@ -15,8 +15,12 @@ impl Trail {
     }
 
     pub fn push(&mut self, at: Instant, x: f64, y: f64) {
-        if self.samples.back().is_some_and(|&(t, _, _)| t == at) {
-            self.samples.pop_back();
+        if let Some(&(t, _, _)) = self.samples.back() {
+            if at.saturating_duration_since(t) < crate::ui::keymap::gesture::FLING_SAMPLE_GAP {
+                self.samples.pop_back();
+                self.samples.push_back((t, x, y));
+                return;
+            }
         }
         self.samples.push_back((at, x, y));
         while self.samples.len() > HISTORY || self.samples.front().is_some_and(|&(t, _, _)| at.saturating_duration_since(t) > HORIZON) {
@@ -24,11 +28,19 @@ impl Trail {
         }
     }
 
+    pub(crate) fn len(&self) -> usize {
+        self.samples.len()
+    }
+
+    pub(crate) fn fresh(&self, at: Instant) -> bool {
+        self.samples.back().is_some_and(|&(newest, _, _)| at.saturating_duration_since(newest) <= HORIZON)
+    }
+
     pub fn velocity(&self, at: Instant) -> Option<(f64, f64)> {
-        let &(newest, _, _) = self.samples.back()?;
-        if at.saturating_duration_since(newest) > HORIZON {
+        if !self.fresh(at) {
             return None;
         }
+        let &(newest, _, _) = self.samples.back()?;
         let age = |t: Instant| -newest.saturating_duration_since(t).as_secs_f64();
         slope(self.samples.iter().map(|&(t, x, y)| (age(t), x, y)))
     }

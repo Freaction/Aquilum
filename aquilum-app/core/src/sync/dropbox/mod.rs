@@ -5,6 +5,7 @@ mod types;
 use self::api::{copy, json, Api, Body, CONTENT};
 use self::hash::content_hash;
 use self::types::{Cursor, Entry, Metadata, Session};
+use super::scan::key;
 use super::{Account, Client, Delta, Remote, RemoteError, RemoteFile, RemoteResult};
 use crate::search::note_date::{parse_at, to_civil_at};
 use crate::search::paths::is_hidden_name;
@@ -56,7 +57,7 @@ impl Dropbox {
     fn relative(&self, display: &str) -> Option<String> {
         let skip = self.root.chars().count() + 1;
         let prefix: String = display.chars().take(skip).collect();
-        if prefix.to_lowercase() != format!("{}/", self.root).to_lowercase() {
+        if key(&prefix) != key(&format!("{}/", self.root)) {
             return None;
         }
         let relative: String = display.chars().skip(skip).collect();
@@ -111,7 +112,7 @@ impl Remote for Dropbox {
             Err(RemoteError::Missing) => return Ok(None),
             page => page?,
         };
-        let root = self.root.to_lowercase();
+        let root = key(&self.root);
         let (mut changed, mut removed) = (BTreeMap::new(), Vec::new());
         let cursor = self.api.pages(first, |entry| {
             match entry {
@@ -125,8 +126,9 @@ impl Remote for Dropbox {
                 }
                 Entry::Deleted { path_display, .. } => {
                     if let Some(path) = self.relative(&path_display) {
-                        let folder = format!("{path}/");
-                        changed.retain(|known: &String, _| known != &path && !known.starts_with(&folder));
+                        let want = key(&path);
+                        let folder = format!("{want}/");
+                        changed.retain(|known, _| key(known) != want && !key(known).starts_with(&folder));
                         removed.push(path);
                     }
                 }
@@ -182,7 +184,7 @@ fn folders(api: &Api) -> RemoteResult<Vec<String>> {
         }
         Ok(())
     })?;
-    names.sort_by_key(|name| name.to_lowercase());
+    names.sort_by_key(|name| key(name));
     Ok(names)
 }
 

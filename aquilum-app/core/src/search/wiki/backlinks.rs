@@ -1,6 +1,6 @@
 use super::super::error::SearchError;
 use super::super::models::Backlink;
-use super::resolver::select_candidates;
+use super::resolver::candidates;
 use super::target::{relative_key, select_candidate, title_key};
 use super::LINK_LIST_LIMIT;
 use rusqlite::{params, Connection};
@@ -17,10 +17,10 @@ pub fn backlinks(
 ) -> Result<Vec<Backlink>, SearchError> {
     let title = title_key(document);
     let relative = relative_key(root, document);
-    let candidates = select_candidates(connection, &title)?;
+    let candidates = candidates(connection, "title_key", &title)?;
     let mut statement = connection.prepare(
         "SELECT * FROM (
-           SELECT link.source_path, link.target_kind, page.start + link.byte_offset AS at, page.start_utf16 + link.offset_utf16
+           SELECT page.path AS source_path, link.target_kind, page.start + link.byte_offset AS at, page.start_utf16 + link.offset_utf16
            FROM wiki_links link JOIN note_pages page ON page.id = link.page
            WHERE (link.target_kind='name' AND link.target_key=?1) OR (link.target_kind='path' AND link.target_key=?2))
          WHERE source_path > ?3 OR (source_path = ?3 AND at > ?4)

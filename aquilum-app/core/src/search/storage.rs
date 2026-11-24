@@ -1,7 +1,6 @@
 use super::error::SearchError;
 use super::index::SearchIndex;
 use super::metadata;
-use super::models::IndexRevision;
 use super::paths::cache_key;
 use super::progress::IndexProgress;
 use super::service::{clear_if, OpenIndex, SearchService};
@@ -33,7 +32,6 @@ impl SearchService {
             Arc::clone(&index),
             metadata_path.clone(),
             Arc::clone(&progress),
-            generation,
             self.refresh_notifier(root.clone(), generation, Arc::clone(&visible)),
         )?;
         Ok(OpenIndex {
@@ -55,12 +53,12 @@ impl SearchService {
     ) -> IndexNotifier {
         let analysis_graph = Arc::clone(&self.analysis_graph);
         let index_notifier = Arc::clone(&self.index_notifier);
-        Arc::new(move |event: IndexRevision| {
+        Arc::new(move |workspace: &std::path::Path| {
             clear_if(&analysis_graph, |cached| {
                 cached.root == root && cached.generation == generation
             });
             if visible.load(Ordering::Relaxed) {
-                (index_notifier)(event);
+                (index_notifier)(workspace);
             }
         })
     }

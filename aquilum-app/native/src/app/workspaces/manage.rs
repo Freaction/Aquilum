@@ -47,7 +47,8 @@ impl App {
                 RENAME => state.open = Open::Rename(vault),
                 DUPLICATE => {
                     let core = Arc::clone(&self.workspace.core);
-                    self.pick(move || Some(Picked::NewVault(file_ops::duplicate(&core, &path).map_err(|error| error.to_string()))));
+                    let copy = crate::app::jobs::deliver("копия базы", self.picked_tx.clone(), &self.workspace.wake, move || Some(Picked::NewVault(file_ops::duplicate(&core, &path).map_err(|error| error.to_string()))));
+                    self.own(copy);
                 }
                 SYNC => {
                     self.update_sync(&path, |sync| sync.enabled = !synced);

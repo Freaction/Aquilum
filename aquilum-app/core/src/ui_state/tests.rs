@@ -45,8 +45,6 @@ fn lists_known_workspaces_most_recently_seen_first() {
 #[test]
 fn one_folder_written_in_different_forms_is_one_workspace() {
     let (mut database, workspace_id, _document_id, _epoch) = setup();
-    let older = "INSERT INTO workspaces(id, path, last_seen_ms) VALUES(?1, ?2, 0)";
-    database.connection.execute(older, rusqlite::params![Uuid::new_v4().to_string(), r"\\?\C:\Notes"]).unwrap();
     assert_eq!(database.resolve_workspace(r"C:\notes", 7).unwrap(), workspace_id);
     database.set_home_page(r"\\?\c:\notes", "a").unwrap();
     let known = database.list_workspaces().unwrap();
@@ -80,18 +78,6 @@ fn a_moved_workspace_keeps_its_id_and_replaces_a_stale_entry() {
     let known = database.list_workspaces().expect("workspaces");
     assert_eq!(known.iter().map(|w| (w.id, w.path.as_str())).collect::<Vec<_>>(), [(workspace_id, "C:/renamed")]);
     assert_eq!(database.resolve_workspace("C:/renamed", 9).expect("resolve"), workspace_id);
-}
-
-#[test]
-fn listed_paths_drop_the_windows_verbatim_prefix() {
-    use super::paths::display_workspace;
-
-    assert_eq!(
-        display_workspace(r"\\?\D:\База знаний копия\NeuroNet"),
-        r"D:\База знаний копия\NeuroNet"
-    );
-    assert_eq!(display_workspace(r"\\?\UNC\server\share"), r"\\server\share");
-    assert_eq!(display_workspace("/home/user/notes"), "/home/user/notes");
 }
 
 fn view(document_id: Uuid, position: i64) -> ViewStateInput {
@@ -172,31 +158,6 @@ fn previous_epoch_cannot_write_after_session_reopens() {
 }
 
 #[test]
-fn missing_document_is_retained_until_cutoff_then_cascades() {
-    let (mut database, workspace_id, document_id, epoch) = setup();
-    database
-        .save_batch(&batch(workspace_id, document_id, epoch, 1, 20))
-        .expect("batch");
-    database
-        .mark_document_missing(document_id, 100)
-        .expect("missing");
-    assert_eq!(database.purge_missing(99, 500).expect("early purge"), 0);
-    let replacement = database
-        .resolve_document(workspace_id, "note.md")
-        .expect("replacement");
-    assert_ne!(replacement, document_id);
-    assert_eq!(database.purge_missing(100, 500).expect("purge"), 1);
-    let loaded = database.load_session(workspace_id, "main").expect("load");
-    assert!(loaded.tabs.is_empty());
-    assert!(loaded.views.is_empty());
-    assert!(loaded.active_tab_id.is_none());
-    let resolved = database
-        .resolve_document(workspace_id, "note.md")
-        .expect("resolve replacement");
-    assert_eq!(resolved, replacement);
-}
-
-#[test]
 fn rename_preserves_document_identity() {
     let (mut database, workspace_id, document_id, _) = setup();
     database
@@ -212,7 +173,8 @@ fn rename_preserves_document_identity() {
 fn zero_cleanup_limit_does_not_delete_tombstone() {
     let (mut database, _, document_id, _) = setup();
     database
-        .mark_document_missing(document_id, 100)
+        .connection
+        .execute("UPDATE documents SET missing_since_ms = 100 WHERE id = ?1", [document_id.to_string()])
         .expect("missing");
     assert_eq!(database.purge_missing(100, 0).expect("purge"), 0);
 }

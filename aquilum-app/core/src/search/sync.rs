@@ -13,7 +13,6 @@ use std::sync::Arc;
 use tantivy::IndexWriter;
 
 pub const INDEX_MEMORY_BUDGET: usize = 40_000_000;
-const INDEX_THREADS: usize = 2;
 const COMMIT_BATCH_SIZE: usize = 10_000;
 
 pub struct IndexSynchronizer {
@@ -67,11 +66,12 @@ impl IndexSynchronizer {
         output.commit()?;
         output.remove_stale(&transaction, &known)?;
         transaction.commit()?;
-        metadata::maintain(&self.connection)?;
+        crate::sqlite::maintain(&self.connection)?;
         output.progress.completed(output.index.document_count());
         self.release_writer()
     }
 
+    #[cfg(test)]
     pub fn holds_writer(&self) -> bool {
         self.output.writer.is_some()
     }
@@ -105,7 +105,7 @@ impl IndexSynchronizer {
         output.commit()?;
         transaction.commit()?;
         if changed {
-            metadata::maintain(&self.connection)?;
+            crate::sqlite::maintain(&self.connection)?;
         }
         self.release_writer()?;
         Ok(changed)
@@ -156,7 +156,9 @@ impl Output {
 
 fn ensure_writer<'w>(slot: &'w mut Option<IndexWriter>, index: &SearchIndex) -> Result<&'w mut IndexWriter, SearchError> {
     if slot.is_none() {
-        *slot = Some(index.index.writer_with_num_threads(INDEX_THREADS, INDEX_MEMORY_BUDGET)?);
+        let threads = crate::threads::count(crate::threads::Work::Background);
+        let options = tantivy::indexer::IndexWriterOptions::builder().num_worker_threads(threads).num_merge_threads(1).memory_budget_per_thread(INDEX_MEMORY_BUDGET / threads).build();
+        *slot = Some(index.index.writer_with_options(options)?);
     }
     slot.as_mut().ok_or_else(|| SearchError::task("index writer is missing"))
 }

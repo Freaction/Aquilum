@@ -13,11 +13,11 @@ impl App {
         self.refresh_history(root);
     }
 
-    pub(in crate::app) fn cleanup_retention(&self) {
+    pub(in crate::app) fn cleanup_retention(&mut self) {
         let Some(workspace) = self.tree.root().map(Path::to_path_buf) else { return };
         let core = std::sync::Arc::clone(&self.workspace.core);
         let (done, wake) = (std::sync::Arc::clone(&self.retention_done), std::sync::Arc::clone(&self.workspace.wake));
-        std::thread::spawn(move || {
+        self.own(super::super::jobs::detach("очистка корзины и истории", move || {
             let config = core.settings.get_config();
             if let Err(error) = cleanup_trash_impl(&workspace, config.trash.retention_days) {
                 report!("корзина не очищена: {error:?}");
@@ -28,10 +28,10 @@ impl App {
             if let Err(error) = core.ui_state.cleanup(config.trash.retention_days, crate::dates::now_ms()) {
                 report!("состояние документов не очищено: {error:?}");
             }
-            core.prune_caches();
+            core.prune_caches(crate::dates::now_ms());
             done.store(true, std::sync::atomic::Ordering::Release);
             wake();
-        });
+        }));
     }
 
     pub(in crate::app) fn on_retention_done(&mut self, root: &mut RenderRoot) {

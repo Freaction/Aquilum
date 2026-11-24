@@ -18,27 +18,23 @@ impl App {
             .and_then(|known| known.into_iter().find(|w| w.path == workspace))
             .map(|w| w.home_page.trim().to_owned())
             .unwrap_or_default();
-        let sender = self.home_tx.clone();
-        let wake = Arc::clone(&self.workspace.wake);
         if page.is_empty() {
-            let _ = sender.send((generation, None));
-            wake();
+            let _ = self.home_tx.send((generation, None));
+            (self.workspace.wake)();
             return;
         }
         let core = Arc::clone(&self.workspace.core);
-        std::thread::spawn(move || {
+        jobs::deliver("домашняя страница", self.home_tx.clone(), &self.workspace.wake, move || {
             let result = core.search.resolve_wiki_links(&workspace, &workspace, std::slice::from_ref(&page));
             if matches!(result, Err(aquilum_core::search::error::SearchError::Unavailable { .. })) {
-                return;
+                return None;
             }
             let path = result
                 .map_err(|error| report!("домашняя страница не найдена: {error:?}"))
                 .ok()
                 .and_then(|r| r.paths.into_iter().next().flatten())
                 .map(PathBuf::from);
-            if sender.send((generation, path)).is_ok() {
-                wake();
-            }
+            Some((generation, path))
         });
     }
 

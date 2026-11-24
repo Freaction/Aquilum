@@ -14,6 +14,7 @@ const PASTE_PLAIN: i32 = 16_908_337;
 struct Bridge {
     session: Session,
     commands: Vec<Command>,
+    images: Vec<std::path::PathBuf>,
     wake: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
@@ -57,6 +58,15 @@ pub fn action(id: i32) -> bool {
 
 pub fn commands() -> Vec<Command> {
     with(|bridge| std::mem::take(&mut bridge.commands))
+}
+
+pub fn image(path: String) -> bool {
+    notify(|bridge| bridge.images.push(path.into()));
+    true
+}
+
+pub fn images() -> Vec<std::path::PathBuf> {
+    with(|bridge| std::mem::take(&mut bridge.images))
 }
 
 pub fn start(multiline: bool) {

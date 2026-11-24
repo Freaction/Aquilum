@@ -18,7 +18,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Weak};
-use std::thread;
 use std::time::{Duration, Instant};
 
 pub struct SyncService {
@@ -36,7 +35,7 @@ impl SyncService {
 
     pub fn start(&self, core: Weak<Core>) {
         let shared = Arc::clone(&self.shared);
-        thread::Builder::new().name("aquilum-sync".into()).spawn(move || work(&shared, &core)).expect("поток синхронизации");
+        crate::threads::background("aquilum-sync", move || work(&shared, &core)).expect("поток синхронизации");
     }
 
     pub fn status(&self) -> SyncStatus {
@@ -124,7 +123,7 @@ impl SyncService {
         let cancel = Arc::new(AtomicBool::new(false));
         let (shared, core, stop) = (Arc::clone(&self.shared), Arc::downgrade(core), Arc::clone(&cancel));
         let mut state = self.shared.lock();
-        let waiting = thread::spawn(move || {
+        let waiting = crate::threads::background("вход в облако", move || {
             let tokens = login.finish(&web_agent("sync"), &stop).map_err(|error| error.to_string());
             let connected = tokens.and_then(|tokens| start_over(&shared.folder, tokens).map_err(|error| error.to_string()));
             shared.change(|state| {
@@ -138,7 +137,7 @@ impl SyncService {
             if let Some(core) = core.upgrade() {
                 core.emit(CoreEvent::SyncChanged);
             }
-        });
+        })?;
         state.problem = None;
         state.login = Some((cancel, waiting));
         Ok(url)

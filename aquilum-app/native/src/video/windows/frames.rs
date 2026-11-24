@@ -1,4 +1,4 @@
-use masonry::peniko::{ImageAlphaType, ImageBrush};
+use masonry::peniko::ImageBrush;
 use windows::Win32::Media::MediaFoundation::{
     IMFSample, IMFSourceReader, MF_MT_DEFAULT_STRIDE, MF_MT_FRAME_SIZE, MF_MT_MAJOR_TYPE, MF_MT_SUBTYPE, MF_SOURCE_READER_ALL_STREAMS,
     MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING, MF_SOURCE_READER_FIRST_VIDEO_STREAM, MF_SOURCE_READERF_ENDOFSTREAM, MFCreateAttributes,
@@ -99,11 +99,7 @@ impl Frames {
                 }
             }
             let _ = buffer.Unlock();
-            for px in pixels.chunks_exact_mut(4) {
-                px.swap(0, 2);
-                px[3] = 255;
-            }
-            crate::render::from_rgba(pixels, self.width, self.height, ImageAlphaType::Alpha)
+            crate::render::from_bgrx(pixels, self.width, self.height)
         }
     }
 }

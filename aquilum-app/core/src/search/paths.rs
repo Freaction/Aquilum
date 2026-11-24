@@ -15,12 +15,7 @@ pub fn title(path: impl AsRef<Path>) -> String {
 }
 
 pub fn identity(path: &Path) -> String {
-    let normalized: String = slash_path(path).nfc().collect();
-    let normalized = normalized
-        .strip_prefix("//?/UNC/")
-        .map(|path| format!("//{path}"))
-        .or_else(|| normalized.strip_prefix("//?/").map(ToOwned::to_owned))
-        .unwrap_or(normalized);
+    let normalized: String = slash_path(&normalize_extended_prefix(path.to_path_buf())).nfc().collect();
     if cfg!(any(windows, target_os = "macos")) {
         normalized.trim_end_matches('/').to_lowercase()
     } else {
@@ -91,8 +86,7 @@ pub fn canonical_path(path: &Path) -> PathBuf {
     normalize_extended_prefix(resolved.unwrap_or_else(|_| path.to_path_buf()))
 }
 
-fn normalize_extended_prefix(path: PathBuf) -> PathBuf {
-    #[cfg(windows)]
+pub fn normalize_extended_prefix(path: PathBuf) -> PathBuf {
     {
         let value = path.to_string_lossy();
         if let Some(path) = value.strip_prefix(r"\\?\UNC\") {

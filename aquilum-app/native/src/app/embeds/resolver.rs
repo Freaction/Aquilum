@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-use super::{Embeds, Entry, book, claim, dataview, links, media, refresh_after};
+use super::{Embeds, Entry, MEDIA, QUERIES, book, claim, dataview, links, media, refresh_after};
 use crate::ui::editor::resolve::{Book, Fetch, Grid, Media, Request, Resolver};
 
 const SUGGESTIONS: usize = 12;
@@ -11,7 +11,7 @@ impl Resolver for Embeds {
     fn dataview(&self, query: &str) -> (Fetch<Grid>, u64) {
         let text = query.to_owned();
         let weak = Arc::downgrade(&self.0);
-        self.fetch(|i| &i.grids, query, move |inner| {
+        self.fetch(&QUERIES, |i| &i.grids, query, move |inner| {
             let (result, refresh) = dataview::run(inner, &text);
             if let (Some(seconds), Some(strong)) = (refresh, weak.upgrade()) {
                 refresh_after(&strong, text, seconds);
@@ -34,7 +34,7 @@ impl Resolver for Embeds {
                 entries.insert(key.clone(), Entry { value: Fetch::Ready(media), epoch, running: false, stamp, used: true, next: None });
             }
         }
-        self.fetch(|i| &i.media, &key, move |inner| {
+        self.fetch(&MEDIA, |i| &i.media, &key, move |inner| {
             let fetched = media::load(inner, &source_owned, wiki);
             if let Fetch::Ready(media) = &fetched {
                 media::remember(shared, media);
@@ -51,7 +51,7 @@ impl Resolver for Embeds {
         if !queue.running {
             queue.running = true;
             let inner = Arc::clone(&self.0);
-            std::thread::spawn(move || book::drain(&inner));
+            QUERIES.push(move || book::drain(&inner));
         }
         (value, stamp)
     }
@@ -59,7 +59,7 @@ impl Resolver for Embeds {
     fn suggest(&self, query: &str) -> Option<Vec<String>> {
         let (text, key) = (query.to_owned(), query.to_lowercase());
         self.0.suggestions.entries.lock().unwrap_or_else(|e| e.into_inner()).retain(|k, _| *k == key);
-        let (fetched, _) = self.fetch(|i| &i.suggestions, &key, move |inner| {
+        let (fetched, _) = self.fetch(&QUERIES, |i| &i.suggestions, &key, move |inner| {
             match inner.core.search.suggest_notes(&inner.workspace(), &text, SUGGESTIONS) {
                 Ok(notes) => Fetch::Ready(notes.into_iter().map(|n| n.title).collect()),
                 Err(_) => Fetch::Ready(Vec::new()),

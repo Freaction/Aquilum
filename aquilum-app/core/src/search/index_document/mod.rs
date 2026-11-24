@@ -21,7 +21,7 @@ pub(crate) use note::add_page;
 #[cfg(test)]
 pub fn index_text(transaction: &Transaction<'_>, root: &Path, path: &Path, body: &str) -> Result<(), SearchError> {
     let key = path.to_string_lossy();
-    wiki::register(transaction, root, path)?;
+    upsert(transaction, root, path, (0, 0), CreatedAt { nanos: 0, source: CreatedSource::ModifiedTime })?;
     pages::remove(transaction, &key)?;
     let Some(page) = pages::Pages::of(&body).next()? else { return Ok(()) };
     note::store_page(transaction, path, &pages::Keys::default().next(&key, &page), 0, &page)
@@ -47,7 +47,6 @@ pub fn probe_one(transaction: &Transaction<'_>, path: &Path, found: &std::fs::Me
 
 pub fn remove_note(index: &SearchIndex, writer: &IndexWriter, transaction: &Transaction<'_>, key: &str) -> Result<(), SearchError> {
     writer.delete_term(Term::from_field_text(index.fields.id, key));
-    wiki::remove_document(transaction, Path::new(key))?;
     pages::remove(transaction, key)?;
     transaction.execute("DELETE FROM documents WHERE path=?1", params![key])?;
     Ok(())
@@ -78,13 +77,18 @@ fn classify(
     })
 }
 
-fn upsert(transaction: &Transaction<'_>, path: &str, fingerprint: Fingerprint, created: CreatedAt) -> Result<(), SearchError> {
-    transaction.execute(
-        "INSERT INTO documents(path, modified_ns, size, analyzer_version, created_ns, created_source)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-         ON CONFLICT(path) DO UPDATE SET modified_ns=excluded.modified_ns, size=excluded.size,
-           analyzer_version=excluded.analyzer_version, created_ns=excluded.created_ns, created_source=excluded.created_source",
-        params![path, fingerprint.0, fingerprint.1, ANALYZER_VERSION, created.nanos, created.source.stored()],
-    )?;
+fn upsert(transaction: &Transaction<'_>, root: &Path, path: &Path, fingerprint: Fingerprint, created: CreatedAt) -> Result<(), SearchError> {
+    let sql = "INSERT OR REPLACE INTO documents(path, relative_key, title_key, modified_ns, size, analyzer_version, created_ns, created_source)
+               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
+    transaction.prepare_cached(sql)?.execute(params![
+        path.to_string_lossy(),
+        wiki::target::relative_key(root, path),
+        wiki::target::title_key(path),
+        fingerprint.0,
+        fingerprint.1,
+        ANALYZER_VERSION,
+        created.nanos,
+        created.source.stored()
+    ])?;
     Ok(())
 }

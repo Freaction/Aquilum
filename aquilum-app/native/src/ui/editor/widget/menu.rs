@@ -21,8 +21,9 @@ impl TextEditor {
         if bounds.is_some() && self.grips_wanted() {
             local.y1 += size::SELECTION_HANDLE_SIZE;
         }
-        let inserts = !self.single_line && self.doc.markdown.is_some() && !self.table_active();
-        let menu = ContextMenu { around: transform.transform_rect_bbox(local), selected: bounds.is_some(), inserts };
+        let media = self.allows_media();
+        let inserts = media && !self.table_active();
+        let menu = ContextMenu { around: transform.transform_rect_bbox(local), selected: bounds.is_some(), inserts, media };
         self.menu = Menu::Shown(Some(local), menu, None);
         submit(TextAction::Menu(Some(menu)));
     }
@@ -72,6 +73,13 @@ impl TextEditor {
     }
 
     pub(super) fn context_press(&mut self, ctx: &mut EventCtx<'_>, point: Point, reach: f64) {
+        if self.table.as_ref().is_some_and(|s| s.active.is_some()) {
+            self.media.selected = None;
+            ctx.request_focus();
+            self.open_menu(ctx.window_transform(), point, |shown| ctx.submit_action::<TextAction>(shown));
+            self.refresh(ctx);
+            return;
+        }
         if self.table_context(ctx, point) {
             return;
         }
@@ -79,12 +87,14 @@ impl TextEditor {
             self.leave_table();
         }
         self.media.selected = self.media_under(point, reach).map(|(start, _)| start);
-        let (offset, affinity) = self.hit(point);
-        let range = self.selection();
-        if offset < range.start || offset > range.end {
-            self.move_to((offset, affinity), false);
+        if self.media.selected.is_none() {
+            let (offset, affinity) = self.hit(point);
+            let range = self.selection();
+            if offset < range.start || offset > range.end {
+                self.move_to((offset, affinity), false);
+            }
+            ctx.request_focus();
         }
-        ctx.request_focus();
         self.open_menu(ctx.window_transform(), point, |shown| ctx.submit_action::<TextAction>(shown));
         self.refresh(ctx);
     }

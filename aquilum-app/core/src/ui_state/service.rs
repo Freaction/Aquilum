@@ -2,7 +2,6 @@ use super::database::UiStateDatabase;
 use super::error::UiStateError;
 use super::models::{KnownWorkspace, LoadedSession, OpenSessionInput, SaveStateBatchInput};
 use super::validation::{validate_batch, validate_open_session};
-use crate::files::remove_matching;
 use crate::search::paths::{canonical_path, same_path};
 use crate::settings::models::SyncSettings;
 use std::path::{Path, PathBuf};
@@ -11,11 +10,9 @@ use uuid::Uuid;
 
 const DAY_MS: i64 = 24 * 60 * 60 * 1000;
 const PURGE_BATCH: i64 = 5_000;
-const VACUUM_PAGES: i64 = 1_000;
 
 #[derive(Clone)]
 pub struct UiStateService {
-    path: PathBuf,
     storage: Arc<Mutex<Storage>>,
 }
 
@@ -26,20 +23,11 @@ enum Storage {
 
 impl UiStateService {
     pub fn open(path: &Path) -> Self {
-        Self {
-            path: path.to_path_buf(),
-            storage: Arc::new(Mutex::new(open_storage(path))),
-        }
-    }
-
-    pub fn reset(&self, now_ms: i64) -> Result<(), UiStateError> {
-        let mut storage = self.storage.lock().map_err(|error| UiStateError::Database {
-            message: error.to_string(),
-        })?;
-        *storage = Storage::Unavailable("сбрасывается".to_owned());
-        let set_aside = set_aside_database(&self.path, now_ms);
-        *storage = open_storage(&self.path);
-        set_aside
+        let storage = match UiStateDatabase::open(path) {
+            Ok(database) => Storage::Ready(database),
+            Err(error) => Storage::Unavailable(format!("{error:?}")),
+        };
+        Self { storage: Arc::new(Mutex::new(storage)) }
     }
 
     pub fn close(&self) {
@@ -142,19 +130,12 @@ impl UiStateService {
         self.with_database(|database| database.rename_document(document_id, relative_path))
     }
 
-    pub fn mark_document_missing(
-        &self,
-        document_id: Uuid,
-        now_ms: i64,
-    ) -> Result<(), UiStateError> {
-        self.with_database(|database| database.mark_document_missing(document_id, now_ms))
-    }
-
     pub fn cleanup(&self, retention_days: u32, now_ms: i64) -> Result<usize, UiStateError> {
         let cutoff_ms = now_ms.saturating_sub(i64::from(retention_days) * DAY_MS);
         self.with_database(|database| {
+            database.track_missing(now_ms)?;
             let deleted = database.purge_missing(cutoff_ms, PURGE_BATCH)?;
-            database.incremental_vacuum(VACUUM_PAGES)?;
+            crate::sqlite::maintain(&database.connection)?;
             Ok(deleted)
         })
     }
@@ -177,25 +158,4 @@ impl UiStateService {
     ) -> Result<(), UiStateError> {
         self.with_database(|database| database.save_reader_state(input))
     }
-}
-
-fn open_storage(path: &Path) -> Storage {
-    match UiStateDatabase::open(path) {
-        Ok(database) => Storage::Ready(database),
-        Err(error) => Storage::Unavailable(format!("{error:?}")),
-    }
-}
-
-fn set_aside_database(path: &Path, now_ms: i64) -> Result<(), UiStateError> {
-    if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
-        let name = name.to_string_lossy();
-        remove_matching(dir, |entry| entry.starts_with(&*name) && entry.contains(".broken-"));
-    }
-    for suffix in ["-wal", "-shm", ""] {
-        let file = PathBuf::from(format!("{}{suffix}", path.display()));
-        if file.exists() {
-            std::fs::rename(&file, format!("{}.broken-{now_ms}", file.display()))?;
-        }
-    }
-    Ok(())
 }

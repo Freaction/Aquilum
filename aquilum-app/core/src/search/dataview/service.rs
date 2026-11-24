@@ -76,13 +76,11 @@ fn filter_task_paths(
     paths: Vec<String>,
     query: &Query,
 ) -> Result<Vec<String>, SearchError> {
-    let completed_status = task_completed_filter(query);
-    let sql = match completed_status {
-        Some(false) => "SELECT DISTINCT path FROM note_tasks WHERE done = 0",
-        Some(true) => "SELECT DISTINCT path FROM note_tasks WHERE done = 1",
-        None => "SELECT DISTINCT path FROM note_tasks",
+    let done = match task_completed_filter(query) {
+        Some(done) => format!("WHERE task.done = {}", u8::from(done)),
+        None => String::new(),
     };
-    let mut statement = connection.prepare(sql)?;
+    let mut statement = connection.prepare(&format!("SELECT DISTINCT page.path FROM {} {done}", crate::search::tasks::TASKS))?;
     let task_paths: HashSet<String> = statement
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<Result<_, _>>()?;

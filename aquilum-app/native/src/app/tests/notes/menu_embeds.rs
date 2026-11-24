@@ -26,6 +26,9 @@ fn the_edit_menu_copies_an_image_line_and_table_cells() {
     let apple = block_at(&h, text.find("| яблоко").unwrap()).0 + Vec2::new(60.0, 52.0);
     press(&mut h, apple, PointerButton::Primary, 1);
     assert!(menu(&h).is_none(), "тап по ячейке открыл меню без выделения");
+    press(&mut h, apple, PointerButton::Secondary, 1);
+    assert_eq!(menu(&h).map(|(_, commands)| commands), Some(vec![Paste, SelectAll, UploadImage, PasteImage]), "в ячейке нет вставки картинки");
+    press(&mut h, apple, PointerButton::Primary, 1);
     press(&mut h, apple, PointerButton::Primary, 2);
     choose(&mut h, 1);
     assert_eq!(h.copied.as_deref(), Some("яблоко"));

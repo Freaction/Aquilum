@@ -6,7 +6,6 @@ use masonry::peniko::ImageBrush;
 pub fn video(path: &Path) -> Option<ImageBrush> {
     use std::os::windows::ffi::OsStrExt;
 
-    use masonry::peniko::ImageAlphaType;
     use windows::Win32::Foundation::SIZE as Extent;
     use windows::Win32::Graphics::Gdi::{BI_RGB, BITMAP, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, DeleteObject, GetDC, GetDIBits, GetObjectW, HGDIOBJ, ReleaseDC};
     use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
@@ -45,11 +44,7 @@ pub fn video(path: &Path) -> Option<ImageBrush> {
         if lines == 0 || width <= 0 || height <= 0 {
             return None;
         }
-        for px in pixels.chunks_exact_mut(4) {
-            px.swap(0, 2);
-            px[3] = 255;
-        }
-        crate::render::from_rgba(pixels, width as u32, height as u32, ImageAlphaType::Alpha)
+        crate::render::from_bgrx(pixels, width as u32, height as u32)
     }
 }
 

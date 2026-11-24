@@ -2,11 +2,9 @@ use super::value::Field;
 use super::value::{lower, FieldKind};
 use crate::search::error::SearchError;
 use rusqlite::{params, Transaction};
-use std::path::Path;
 
 pub const FIELDS_DDL: &str = "CREATE TABLE IF NOT EXISTS note_fields (
            page INTEGER NOT NULL REFERENCES note_pages(id) ON DELETE CASCADE,
-           path TEXT NOT NULL,
            ordinal INTEGER NOT NULL,
            key TEXT NOT NULL,
            key_lower TEXT NOT NULL,
@@ -16,18 +14,13 @@ pub const FIELDS_DDL: &str = "CREATE TABLE IF NOT EXISTS note_fields (
            items TEXT,
            PRIMARY KEY(page, ordinal)
          ) WITHOUT ROWID;
-         CREATE INDEX IF NOT EXISTS note_fields_path ON note_fields(path);
          CREATE INDEX IF NOT EXISTS note_fields_lookup ON note_fields(key_lower, text_lower)";
 
-pub fn store(transaction: &Transaction<'_>, page: i64, path: &Path, found: &[Field]) -> Result<(), SearchError> {
-    let path_text = path.to_string_lossy();
-    let mut statement = transaction.prepare_cached(
-        "INSERT INTO note_fields(page, path, ordinal, key, key_lower, kind, text, text_lower, items)
-         VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-    )?;
+pub fn store(transaction: &Transaction<'_>, page: i64, found: &[Field]) -> Result<(), SearchError> {
+    let mut statement = transaction.prepare_cached("INSERT INTO note_fields VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")?;
     for (ordinal, field) in found.iter().enumerate() {
         let items = (field.kind == FieldKind::List).then(|| serde_json::to_string(&field.items).unwrap_or_else(|_| "[]".to_owned()));
-        statement.execute(params![page, path_text, ordinal as i64, field.key, lower(&field.key), field.kind.stored(), field.text, lower(&field.text), items])?;
+        statement.execute(params![page, ordinal as i64, field.key, lower(&field.key), field.kind.stored(), field.text, lower(&field.text), items])?;
     }
     Ok(())
 }

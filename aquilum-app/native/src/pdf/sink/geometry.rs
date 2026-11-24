@@ -3,31 +3,11 @@ use krilla::geom::{Path, PathBuilder, Transform};
 use krilla::num::NormalizedF32;
 use krilla::paint::FillRule;
 use masonry::imaging::GeometryRef;
-use masonry::kurbo::{Affine, BezPath, PathEl, Rect, Shape};
+use masonry::kurbo::{Affine, PathEl};
 use masonry::peniko::{self, BrushRef, Color};
 
-const TOLERANCE: f64 = 0.1;
-
-fn outline(shape: &GeometryRef<'_>) -> BezPath {
-    match shape {
-        GeometryRef::Rect(r) => r.to_path(TOLERANCE),
-        GeometryRef::RoundedRect(r) => r.to_path(TOLERANCE),
-        GeometryRef::Path(p) => (*p).clone(),
-        GeometryRef::OwnedPath(p) => p.clone(),
-    }
-}
-
-pub(super) fn bounds(shape: &GeometryRef<'_>) -> Rect {
-    match shape {
-        GeometryRef::Rect(r) => *r,
-        GeometryRef::RoundedRect(r) => r.rect(),
-        GeometryRef::Path(p) => p.bounding_box(),
-        GeometryRef::OwnedPath(p) => p.bounding_box(),
-    }
-}
-
 pub(super) fn path(transform: &Affine, shape: &GeometryRef<'_>) -> Option<Path> {
-    let mut outline = outline(shape);
+    let mut outline = crate::render::geometry_to_path(shape.clone());
     outline.apply_affine(*transform);
     let mut builder = PathBuilder::new();
     for el in outline.elements() {
@@ -49,7 +29,7 @@ pub(super) fn rule(fill: peniko::Fill) -> FillRule {
     }
 }
 
-pub(super) fn solid(brush: &BrushRef<'_>) -> Option<Color> {
+fn solid(brush: &BrushRef<'_>) -> Option<Color> {
     match brush {
         BrushRef::Solid(color) => Some(*color),
         BrushRef::Gradient(gradient) => gradient.stops.first().map(|stop| stop.color.to_alpha_color()),
@@ -57,7 +37,12 @@ pub(super) fn solid(brush: &BrushRef<'_>) -> Option<Color> {
     }
 }
 
-pub(super) fn paint(color: Color, alpha: f32) -> (rgb::Color, NormalizedF32) {
+pub(super) fn ink(brush: &BrushRef<'_>, alpha: f32) -> Option<(rgb::Color, NormalizedF32)> {
+    let (color, opacity) = paint(solid(brush)?, alpha);
+    (opacity.get() > 0.0).then_some((color, opacity))
+}
+
+fn paint(color: Color, alpha: f32) -> (rgb::Color, NormalizedF32) {
     let c = color.to_rgba8();
     (rgb::Color::new(c.r, c.g, c.b), NormalizedF32::new((f32::from(c.a) / 255.0 * alpha).clamp(0.0, 1.0)).unwrap_or(NormalizedF32::ONE))
 }

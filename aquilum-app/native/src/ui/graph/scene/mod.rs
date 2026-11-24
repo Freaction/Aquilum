@@ -15,7 +15,8 @@ impl GraphView {
         let graph = self.graph.clone()?;
         let tm = theme::current();
         let sf = self.scale_factor;
-        let (width, height) = ((self.size.width * sf).round() as usize, (self.size.height * sf).round() as usize);
+        let side = |length: f64| (length * sf).round().min(f64::from(u16::MAX)) as usize;
+        let (width, height) = (side(self.size.width), side(self.size.height));
         if width == 0 || height == 0 {
             return None;
         }
@@ -23,13 +24,12 @@ impl GraphView {
         let (camera, cy, scale) = (self.camera, self.camera.center_y, self.camera.scale);
         let (half_w, half_h) = (self.size.width / 2.0, self.size.height / 2.0);
         {
-            use rayon::prelude::*;
             let _zone = aq_trace::zone("граф: экран");
             self.screen.resize(graph.len(), [0.0; 2]);
-            self.screen.par_iter_mut().zip(self.positions.par_iter()).for_each(|(out, &[x, y])| {
+            for (out, &[x, y]) in self.screen.iter_mut().zip(&self.positions) {
                 let (dx, dy) = camera.to_offset(f64::from(x) * s, f64::from(y) * s);
                 *out = [((dx + half_w) * sf) as f32, ((dy + half_h) * sf) as f32];
-            });
+            }
         }
         let ideal = EDGE_WORLD_HALF_WIDTH * scale;
         let half = ideal.clamp(EDGE_MIN_HALF, EDGE_MAX_HALF);

@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 
 use aquilum_core::files::error::FileCommandError;
@@ -44,16 +43,11 @@ impl App {
 
     fn read_note(&mut self, path: PathBuf) {
         let (tx, rx) = channel();
-        let (wake, read) = (Arc::clone(&self.workspace.wake), path.clone());
-        crate::disk::run(move || {
-            let opened = {
-                let _zone = aq_trace::zone("открытие: чтение файла");
-                Note::open(read)
-            };
-            if tx.send(opened).is_ok() {
-                wake();
-            }
-        });
+        let read = path.clone();
+        crate::disk::run(crate::app::jobs::delivery(tx, &self.workspace.wake, move || {
+            let _zone = aq_trace::zone("открытие: чтение файла");
+            Some(Note::open(read))
+        }));
         self.opening = Some(Opening { path, rx, done: None });
         self.hold = Some(std::time::Instant::now() + super::super::HOLD);
     }

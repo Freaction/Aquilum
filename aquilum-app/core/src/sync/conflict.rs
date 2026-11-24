@@ -1,7 +1,7 @@
 use super::apply::{create, local_hash, present, remember, stage, upload, whole};
 use super::cycle::{Facts, Vault};
 use super::remote::{RemoteError, RemoteFile};
-use super::scan::{absolute, service, stat, UNKNOWN};
+use super::scan::{absolute, relative, service, stat, LocalFile, UNKNOWN};
 use super::SyncError;
 use crate::documents::conflict::{copy_stem, ConflictCause, ConflictReport, LocalMinute};
 use crate::documents::io::{free_copy, preserve_copy};
@@ -67,12 +67,26 @@ fn merge(vault: &Vault<'_>, facts: &Facts<'_>, path: &Path, remote: &RemoteFile,
     }
     let modified = stat(&fs::metadata(path)?)?.modified;
     let uploaded = vault.remote.upload(facts.path, &FileContent::open(path)?, modified, Some(remote))?;
-    remember(vault, facts.path, written.hash, UNKNOWN, uploaded)
+    remember(vault, facts.path, written.hash, &UNKNOWN, uploaded)
+}
+
+fn copy_label(vault: &Vault<'_>, path: &Path) -> (String, String) {
+    let label = copy_stem(&title(path), &LocalMinute::now(vault.offset_seconds), vault.core.history.device());
+    let extension = path.extension().map(|extension| format!(".{}", extension.to_string_lossy())).unwrap_or_default();
+    (label, extension)
+}
+
+pub fn set_aside(vault: &Vault<'_>, path: &str) -> Result<LocalFile, SyncError> {
+    let from = absolute(vault.root, path);
+    let (label, extension) = copy_label(vault, &from);
+    let to = free_copy(&from, &label, &extension, |target| gate::move_across(vault.core, &from, target))?;
+    let mut file = stat(&fs::metadata(&to)?)?;
+    file.path = relative(vault.root, &to);
+    Ok(file)
 }
 
 fn keep_both(vault: &Vault<'_>, facts: &Facts<'_>, path: &Path, remote: &RemoteFile) -> Result<(), SyncError> {
-    let label = copy_stem(&title(path), &LocalMinute::now(vault.offset_seconds), vault.core.history.device());
-    let extension = path.extension().map(|extension| format!(".{}", extension.to_string_lossy())).unwrap_or_default();
+    let (label, extension) = copy_label(vault, path);
     let service = service(facts.path);
     let net = vault.net();
     let staged = stage(&net, remote)?;
