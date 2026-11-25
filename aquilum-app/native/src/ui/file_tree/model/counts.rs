@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use aquilum_core::files::models::{FileItem, FileItemType};
 use aquilum_core::files::workspace::read_directory_impl;
 
-use super::comparable;
+use aquilum_core::search::paths::identity;
 use super::vault::walk;
 
 #[derive(Default)]
@@ -44,18 +44,18 @@ impl Counts {
     }
 
     pub fn knows(&self, dir: &Path) -> bool {
-        self.own.contains_key(&comparable(dir))
+        self.own.contains_key(&identity(dir))
     }
 
     pub fn refresh(&mut self, dir: &Path) {
-        let key = comparable(dir);
+        let key = identity(dir);
         if !dir.is_dir() {
             self.forget(&key);
             return;
         }
         let (items, folders) = read(dir);
         self.own.insert(key.clone(), items);
-        let present: Vec<String> = folders.iter().map(|f| comparable(f)).collect();
+        let present: Vec<String> = folders.iter().map(|f| identity(f)).collect();
         let prefix_len = key.len() + 1;
         let gone: Vec<String> = self.own.range(subtree(&key)).map(|(k, _)| k).filter(|k| !k[prefix_len..].contains('/') && !present.contains(k)).cloned().collect();
         for key in gone {
@@ -69,7 +69,7 @@ impl Counts {
     }
 
     pub fn total(&self, dir: &Path) -> Option<u32> {
-        let key = comparable(dir);
+        let key = identity(dir);
         let own = *self.own.get(&key)?;
         Some(own + self.own.range(subtree(&key)).map(|(_, items)| items).sum::<u32>())
     }

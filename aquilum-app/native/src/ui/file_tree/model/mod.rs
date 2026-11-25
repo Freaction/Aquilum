@@ -13,14 +13,12 @@ mod vault;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+use aquilum_core::search::paths::identity;
+
 pub use counts::Counts;
 use filter::Filter;
 pub use sort::Sort;
 pub use vault::{Lists, index};
-
-pub fn comparable(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/").to_lowercase()
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Row {
@@ -69,7 +67,7 @@ pub struct TreeModel {
 
 impl TreeModel {
     pub fn new(root: Option<PathBuf>, expanded: impl IntoIterator<Item = PathBuf>) -> Self {
-        let expanded = expanded.into_iter().map(|p| (comparable(&p), p)).collect();
+        let expanded = expanded.into_iter().map(|p| (identity(&p), p)).collect();
         let mut model = TreeModel { root, expanded, ..Default::default() };
         model.reload_all();
         model
@@ -89,13 +87,13 @@ impl TreeModel {
     }
 
     pub fn set_colors(&mut self, colors: impl IntoIterator<Item = (PathBuf, String)>) {
-        self.colors = colors.into_iter().filter_map(|(path, name)| Some((comparable(&path), (path, crate::ui::palette::name(&name)?)))).collect();
+        self.colors = colors.into_iter().filter_map(|(path, name)| Some((identity(&path), (path, crate::ui::palette::name(&name)?)))).collect();
         self.rebuild();
     }
 
     pub fn set_color(&mut self, folders: &[PathBuf], color: Option<&'static str>) {
         for folder in folders {
-            let key = comparable(folder);
+            let key = identity(folder);
             match color {
                 Some(color) => {
                     self.colors.insert(key, (folder.clone(), color));
@@ -109,7 +107,7 @@ impl TreeModel {
     }
 
     pub fn color(&self, path: &Path) -> Option<&'static str> {
-        self.colors.get(&comparable(path)).map(|(_, color)| *color)
+        self.colors.get(&identity(path)).map(|(_, color)| *color)
     }
 
     pub fn color_entries(&self) -> Vec<(PathBuf, &'static str)> {
@@ -135,14 +133,14 @@ impl TreeModel {
 
     pub fn target_folder(&self) -> Option<PathBuf> {
         let folder = (self.selected.len() == 1)
-            .then(|| self.rows.iter().find(|r| r.folder && self.selected.contains(&comparable(&r.path))))
+            .then(|| self.rows.iter().find(|r| r.folder && self.selected.contains(&identity(&r.path))))
             .flatten();
         folder.map(|row| row.path.clone()).or_else(|| self.root.clone())
     }
 
     pub fn index_of(&self, path: &Path) -> Option<usize> {
-        let key = comparable(path);
-        self.rows.iter().position(|r| comparable(&r.path) == key)
+        let key = identity(path);
+        self.rows.iter().position(|r| identity(&r.path) == key)
     }
 
     pub fn set_active(&mut self, path: Option<PathBuf>) {

@@ -1,4 +1,4 @@
-use super::first;
+use super::{first, span_of};
 use super::super::value::Value;
 use crate::text::matcher::{Matcher, IGNORE_CASE};
 
@@ -86,17 +86,7 @@ pub fn replace(arguments: &[Value]) -> Value {
 pub fn substring(arguments: &[Value]) -> Value {
     let text = first(arguments).text();
     let symbols: Vec<char> = text.chars().collect();
-    let from = arguments.get(1).and_then(Value::as_number).unwrap_or(0.0).max(0.0) as usize;
-    let to = arguments
-        .get(2)
-        .and_then(Value::as_number)
-        .map(|value| value.max(0.0) as usize)
-        .unwrap_or(symbols.len())
-        .min(symbols.len());
-    if from >= to {
-        return Value::Text(String::new());
-    }
-    Value::Text(symbols[from..to].iter().collect())
+    Value::Text(symbols[span_of(arguments, symbols.len())].iter().collect())
 }
 
 pub fn ends(arguments: &[Value], at_start: bool) -> Value {

@@ -8,7 +8,7 @@ pub fn migrate_v9_to_v10(connection: &Connection) -> Result<(), UiStateError> {
     let transaction = connection.unchecked_transaction()?;
     let rows = transaction
         .prepare("SELECT id, path FROM workspaces ORDER BY last_seen_ms DESC")?
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+        .query_map([], |row| <(String, String)>::try_from(row))?
         .collect::<Result<Vec<_>, _>>()?;
     let mut seen = HashSet::new();
     let (kept, doubles): (Vec<_>, Vec<_>) = rows

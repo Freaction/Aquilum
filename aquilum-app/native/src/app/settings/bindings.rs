@@ -53,19 +53,12 @@ impl App {
 
     pub(super) fn field_changed(&mut self, root: &mut RenderRoot, bindings: &mut HashMap<WidgetId, Binding>, id: WidgetId, text: &str, entered: bool) -> Effect {
         match bindings.get_mut(&id) {
-            Some(Binding::Number { setter, number, minus, plus }) => {
+            Some(Binding::Number { number, .. }) => {
                 if number.commit != entered {
                     return Effect::None;
                 }
                 let Some(value) = number.parse(text) else { return Effect::None };
-                if value == number.value {
-                    return Effect::None;
-                }
-                number.value = value;
-                let (setter, minus, plus, number) = (*setter, *minus, *plus, number.clone());
-                self.typing = Some((setter, text.to_owned(), caret(root, id)));
-                update_steps(root, minus, plus, &number);
-                self.apply(setter, Value::Number(value))
+                self.set_number(root, bindings, id, value, Some(text))
             }
             Some(Binding::Text { setter, commit, value }) => {
                 if *commit != entered || value == text {
@@ -95,15 +88,25 @@ impl App {
     }
 
     pub(super) fn step_number(&mut self, root: &mut RenderRoot, bindings: &mut HashMap<WidgetId, Binding>, field: WidgetId, direction: f64) -> Effect {
-        let Some(Binding::Number { setter, number, minus, plus }) = bindings.get_mut(&field) else { return Effect::None };
+        let Some(Binding::Number { number, .. }) = bindings.get(&field) else { return Effect::None };
         let value = number.step_from(number.value, direction);
+        self.set_number(root, bindings, field, value, None)
+    }
+
+    fn set_number(&mut self, root: &mut RenderRoot, bindings: &mut HashMap<WidgetId, Binding>, field: WidgetId, value: f64, typed: Option<&str>) -> Effect {
+        let Some(Binding::Number { setter, number, minus, plus }) = bindings.get_mut(&field) else { return Effect::None };
         if value == number.value {
             return Effect::None;
         }
         number.value = value;
         let (setter, minus, plus, number) = (*setter, *minus, *plus, number.clone());
-        let text = schema::format_number(value);
-        root.edit_widget(field, |mut w| TextEditor::reset_text(&mut w.downcast(), &text));
+        match typed {
+            Some(text) => self.typing = Some((setter, text.to_owned(), caret(root, field))),
+            None => {
+                let text = schema::format_number(value);
+                root.edit_widget(field, |mut w| TextEditor::reset_text(&mut w.downcast(), &text));
+            }
+        }
         update_steps(root, minus, plus, &number);
         self.apply(setter, Value::Number(value))
     }

@@ -2,11 +2,7 @@ use super::*;
 
 impl ReaderView {
     pub(super) fn key_event(&mut self, ctx: &mut EventCtx<'_>, event: &TextEvent) {
-        let TextEvent::Keyboard(k) = event else { return };
-        if k.state != KeyState::Down {
-            return;
-        }
-        let command = keymap::command(&[Scope::Text, Scope::Reader, Scope::Global], &k.key, k.modifiers);
+        let command = keymap::pressed(&[Scope::Text, Scope::Reader, Scope::Global], event);
         if command == Some(Command::Copy) && self.popover.is_none() {
             if let Some((from, to)) = self.ordered() {
                 ctx.set_clipboard(self.session.text(from, to));

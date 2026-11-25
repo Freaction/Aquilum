@@ -1,5 +1,5 @@
 use masonry::core::{BrushIndex, render_text};
-use masonry::imaging::Painter;
+use masonry::imaging::{PaintSink, Painter};
 use masonry::kurbo::{Affine, Axis, BezPath, Point, Rect, RoundedRect, Stroke, Vec2};
 use masonry::parley::Layout;
 use masonry::peniko::Brush;
@@ -19,15 +19,12 @@ impl TableView {
         let tx = self.table_x(s);
         let bottom = TOP + self.ys[n];
         let stroke = Stroke::new(size::BORDER_1);
-        let centered = |rect: Rect, label: &Layout<BrushIndex>| Affine::translate((x + rect.center().x - f64::from(label.width()) / 2.0, y + rect.center().y - f64::from(label.height()) / 2.0));
+        let hover = |hit: Hit| (overlay.hover == Some(hit)).then_some(tm.bg_surface_hover);
         painter.with_fill_clip(Rect::new(x + self.corner, y, x + self.scroll_w, y + self.height), |painter| {
             if !overlay.print {
                 for (c, label) in self.columns.iter().enumerate() {
-                    let rect = Rect::new(tx + self.xs[c], PAD_Y, tx + self.xs[c + 1], PAD_Y + STRIP);
-                    if overlay.hover == Some(Hit::Column(c)) {
-                        painter.fill(RoundedRect::from_rect(rect + Vec2::new(x, y), 2.0), tm.bg_surface_hover).draw();
-                    }
-                    render_text(painter, centered(rect, label), label, palette, true);
+                    let rect = Rect::new(tx + self.xs[c], PAD_Y, tx + self.xs[c + 1], PAD_Y + STRIP) + Vec2::new(x, y);
+                    header(painter, rect, label, hover(Hit::Column(c)), palette);
                 }
             }
             let mut seen = 0;
@@ -56,11 +53,8 @@ impl TableView {
         if !overlay.print {
             painter.with_fill_clip(Rect::new(x, y + TOP, x + self.corner, y + bottom), |painter| {
                 for (r, label) in self.numbers.iter().enumerate() {
-                    let rect = Rect::new(0.0, TOP + self.ys[r], self.corner, TOP + self.ys[r + 1]);
-                    if overlay.hover == Some(Hit::Row(r)) {
-                        painter.fill(RoundedRect::from_rect(rect + Vec2::new(x, y), 2.0), tm.bg_surface_hover).draw();
-                    }
-                    render_text(painter, centered(rect, label), label, palette, true);
+                    let rect = Rect::new(0.0, TOP + self.ys[r], self.corner, TOP + self.ys[r + 1]) + Vec2::new(x, y);
+                    header(painter, rect, label, hover(Hit::Row(r)), palette);
                 }
             });
         }
@@ -85,6 +79,14 @@ impl TableView {
             Line::Col(..) | Line::None => {}
         }
     }
+}
+
+fn header(painter: &mut Painter<'_, impl PaintSink + ?Sized>, rect: Rect, label: &Layout<BrushIndex>, hover: Option<masonry::peniko::Color>, palette: &[Brush]) {
+    if let Some(color) = hover {
+        painter.fill(RoundedRect::from_rect(rect, 2.0), color).draw();
+    }
+    let at = Affine::translate((rect.center().x - f64::from(label.width()) / 2.0, rect.center().y - f64::from(label.height()) / 2.0));
+    render_text(painter, at, label, palette, true);
 }
 
 fn plus(painter: &mut Painter<'_>, c: Point, color: masonry::peniko::Color) {

@@ -8,7 +8,7 @@ use std::process::Command;
 use launch::launch;
 pub use launch::{app_path, appimage, restart};
 
-pub const DESKTOP: bool = cfg!(not(any(target_os = "android", target_os = "ios")));
+pub const DESKTOP: bool = !cfg!(target_os = "android");
 
 #[cfg(target_os = "windows")]
 pub fn open(target: &str) {

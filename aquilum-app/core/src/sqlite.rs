@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 use std::path::Path;
 
 const PRAGMAS: &str = "PRAGMA journal_mode = WAL;
@@ -14,6 +14,10 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
     }
     connection.execute_batch(PRAGMAS)?;
     Ok(connection)
+}
+
+pub fn read(path: &Path) -> rusqlite::Result<Connection> {
+    Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
 }
 
 #[cfg(test)]

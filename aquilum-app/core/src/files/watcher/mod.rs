@@ -76,9 +76,7 @@ impl WorkspaceWatcher {
         let stopping = Arc::new(AtomicBool::new(false));
         let thread_stopping = Arc::clone(&stopping);
         let sink = Arc::clone(&self.sink);
-        let thread = std::thread::Builder::new()
-            .name("aquilum-fs-watch".to_owned())
-            .spawn(move || deliver(watcher, &receiver, &thread_stopping, sink.as_ref()))
+        let thread = crate::threads::spawn("aquilum-fs-watch", move || deliver(watcher, &receiver, &thread_stopping, sink.as_ref()))
             .map_err(|error| format!("не удалось запустить поток наблюдателя: {error}"))?;
 
         *running = Some(Running {

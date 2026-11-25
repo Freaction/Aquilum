@@ -10,7 +10,7 @@ use masonry::peniko::Color;
 
 use super::MenuChoice;
 use crate::ui::tokens::size;
-use crate::ui::widgets::Press;
+use crate::ui::widgets::{Press, fixed_height};
 use crate::ui::{icons, text, theme};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -98,17 +98,13 @@ impl Widget for MenuItem {
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
 
     fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, _cross: Option<Length>) -> Length {
-        match (axis, len_req) {
-            (Axis::Vertical, _) => Length::px(Self::height()),
-            (Axis::Horizontal, LenReq::FitContent(space)) => space,
-            (Axis::Horizontal, _) => {
-                let (fcx, lcx) = ctx.text_contexts();
-                let width = self.line.width(fcx, lcx, &self.label, text::Style::ui(size::SIZE_20));
-                let icon = if self.leads() { size::SIZE_20 + size::GAP_MD } else { 0.0 };
-                let check = if self.checkable || self.kind == Kind::Parent { size::SIZE_20 + size::GAP_MD } else { 0.0 };
-                Length::px(width.ceil() + size::PADDING_XS * 2.0 + icon + check)
-            }
-        }
+        fixed_height(axis, len_req, Self::height(), || {
+            let (fcx, lcx) = ctx.text_contexts();
+            let width = self.line.width(fcx, lcx, &self.label, text::Style::ui(size::SIZE_20));
+            let icon = if self.leads() { size::SIZE_20 + size::GAP_MD } else { 0.0 };
+            let check = if self.checkable || self.kind == Kind::Parent { size::SIZE_20 + size::GAP_MD } else { 0.0 };
+            width.ceil() + size::PADDING_XS * 2.0 + icon + check
+        })
     }
 
     fn layout(&mut self, _ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, _size: Size) {}

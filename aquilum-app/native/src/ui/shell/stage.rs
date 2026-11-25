@@ -5,12 +5,12 @@ use masonry::core::{
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Axis, Rect, Size, Vec2};
-use masonry::layout::{LayoutSize, LenReq, Length};
+use masonry::layout::{LenReq, Length};
 
 use super::scrim::Scrim;
 use crate::interface::{Screen, Side, drawer_width};
 use crate::ui::motion::{self, EASE_DEFAULT, approach};
-use crate::ui::widgets::{RAIL_WIDTH, bezier, place};
+use crate::ui::widgets::{MaxContent, RAIL_WIDTH, bezier, inside, place};
 
 pub struct Stage {
     main: WidgetPod<dyn Widget>,
@@ -94,9 +94,7 @@ impl Stage {
     fn row(&mut self, ctx: &mut LayoutCtx<'_>, room: Rect) {
         let height = room.height();
         let cross = Some(Length::px(height));
-        let width = |ctx: &mut LayoutCtx<'_>, pod: &mut WidgetPod<dyn Widget>| {
-            ctx.compute_length(pod, LenReq::MaxContent.into(), LayoutSize::maybe(Axis::Vertical, cross), Axis::Horizontal, cross).get()
-        };
+        let width = |ctx: &mut LayoutCtx<'_>, pod: &mut WidgetPod<dyn Widget>| ctx.max_content(pod, Axis::Horizontal, cross).get();
         let (rail, sidebar, panel) = (width(ctx, &mut self.rail), width(ctx, &mut self.sidebar), width(ctx, &mut self.panel));
         let main = (room.width() - rail - sidebar - panel).max(0.0);
         self.reach = (0.0, 0.0);
@@ -166,8 +164,7 @@ impl Widget for Stage {
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size: Size) {
-        let insets = self.screen.insets;
-        let room = Rect::new(insets.x0, insets.y0, (size.width - insets.x1).max(insets.x0), (size.height - insets.y1).max(insets.y0));
+        let room = inside(size, self.screen.insets);
         if self.screen.compact {
             self.drawers(ctx, room);
         } else {

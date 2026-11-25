@@ -106,7 +106,7 @@ pub fn list_trash_impl(workspace: &Path) -> Result<Vec<TrashedFile>, FileCommand
         right
             .deleted_at_ms
             .cmp(&left.deleted_at_ms)
-            .then_with(|| left.original.cmp(&right.original))
+            .then_with(|| crate::text::collate::compare(&left.original, &right.original))
     });
     Ok(files)
 }

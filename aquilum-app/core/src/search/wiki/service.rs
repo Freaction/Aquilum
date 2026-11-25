@@ -1,5 +1,5 @@
 use super::repository::candidate_sources;
-use super::target::title_key;
+use super::target::{notes_titled, split, title_key};
 use super::{
     backlinks, outgoing_links, plan_for_rename, resolve_many, LinkRewrite,
 };
@@ -8,7 +8,6 @@ use crate::search::paths::markdown_files;
 use crate::search::models::{Backlink, OutgoingLink, WikiLinkResolution};
 use crate::search::paths::{canonical_path, inside};
 use crate::search::service::SearchService;
-use rusqlite::Connection;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -57,13 +56,23 @@ impl SearchService {
         self.with_index(workspace, |open| {
             let source = inside(&open.root, source)?;
             Ok(WikiLinkResolution {
-                paths: resolve_many(&Connection::open(&open.metadata_path)?, &open.root, &source, targets)?
+                paths: resolve_many(&crate::sqlite::read(&open.metadata_path)?, &open.root, &source, targets)?
                     .into_iter()
                     .map(|path| path.map(|value| value.to_string_lossy().into_owned()))
                     .collect(),
                 complete: !open.progress.snapshot().updating,
             })
         })
+    }
+
+    pub fn resolve_wiki_link(&self, workspace: &Path, source: &Path, target: &str) -> Option<PathBuf> {
+        let found = self.resolve_wiki_links(&workspace.to_string_lossy(), &source.to_string_lossy(), &[target.to_owned()]).ok();
+        let complete = found.as_ref().is_some_and(|found| found.complete);
+        match found.and_then(|found| found.paths.into_iter().next().flatten()) {
+            Some(path) => Some(PathBuf::from(path)),
+            None if complete => None,
+            None => notes_titled(workspace, split(target).note.rsplit(['/', '\\']).next()?).into_iter().next(),
+        }
     }
 
     pub fn plan_links_for_rename(
@@ -79,7 +88,7 @@ impl SearchService {
                 return Err(SearchError::invalid_workspace("Rename is outside workspace"));
             }
             let updating = open.progress.snapshot().updating;
-            let connection = Connection::open(&open.metadata_path)?;
+            let connection = crate::sqlite::read(&open.metadata_path)?;
             let sources = if updating {
                 markdown_files(root).collect::<Vec<_>>()
             } else {
@@ -103,5 +112,25 @@ impl SearchService {
             None if self.active_root().is_some() => Err(SearchError::invalid_workspace("Rename is outside workspace")),
             None => Ok(Vec::new()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::search::service::SearchService;
+    use std::sync::Arc;
+
+    #[test]
+    fn without_an_index_a_link_is_found_on_disk_by_its_name() {
+        let vault = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(vault.path().join("Папка")).unwrap();
+        let note = vault.path().join("Папка").join("Книга.MD");
+        std::fs::write(&note, "").unwrap();
+        let service = SearchService::new(vault.path().join("indexes"), Arc::new(|_: &std::path::Path| {}));
+        let resolve = |target: &str| service.resolve_wiki_link(vault.path(), vault.path(), target);
+        assert_eq!(resolve("книга#Раздел"), Some(note.clone()));
+        assert_eq!(resolve("Папка/Книга.md|подпись"), Some(note));
+        assert_eq!(resolve("#Раздел"), None);
+        assert_eq!(resolve("Нет такой"), None);
     }
 }

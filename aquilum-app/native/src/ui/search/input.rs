@@ -4,7 +4,7 @@ use masonry::core::{
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Point, Size};
-use masonry::layout::{LenDef, LenReq, Length, SizeDef};
+use masonry::layout::{LenReq, Length};
 use masonry::properties::types::CrossAxisAlignment;
 use masonry::properties::{Gap, Padding};
 use masonry::widgets::Flex;
@@ -15,7 +15,7 @@ use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::tokens::size;
 use crate::ui::settings::controls::InputBox;
-use crate::ui::widgets::{ControlSize, IconButton, IconView, Slot};
+use crate::ui::widgets::{ControlSize, IconButton, IconView, Slot, fit_height, fixed_height};
 use crate::ui::{icons, style, theme};
 
 pub struct Placeholder {
@@ -42,17 +42,11 @@ impl Widget for Placeholder {
     }
 
     fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, _cross: Option<Length>) -> Length {
-        match (axis, len_req) {
-            (Axis::Vertical, _) => Length::px(self.height),
-            (Axis::Horizontal, LenReq::FitContent(space)) => space,
-            (Axis::Horizontal, _) => Length::ZERO,
-        }
+        fixed_height(axis, len_req, self.height, || 0.0)
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
-        let auto = SizeDef::new(LenDef::FitContent(Length::px(size_.width)), LenDef::MaxContent);
-        let child = ctx.compute_size(&mut self.field, auto, size_.into());
-        let child = Size::new(size_.width, child.height);
+        let child = Size::new(size_.width, fit_height(ctx, &mut self.field, size_.width, size_.into()));
         ctx.run_layout(&mut self.field, child);
         ctx.place_child(&mut self.field, Point::new(0.0, ((size_.height - child.height) / 2.0).round()));
     }

@@ -1,6 +1,7 @@
 use std::path::{Component, Path, PathBuf};
 use crate::app_core::Core;
 use crate::search::paths::{markdown_files, relative_slash_path, strip_root};
+use crate::search::wiki::target::notes_titled;
 
 const SIMILAR_LIMIT: usize = 5;
 
@@ -26,7 +27,7 @@ impl Vault {
         if direct.is_file() {
             return Ok(direct);
         }
-        let mut matches = self.find_by_title(input);
+        let mut matches = notes_titled(&self.root, input);
         match matches.len() {
             0 => Err(self.not_found(input)),
             1 => Ok(matches.remove(0)),
@@ -132,16 +133,6 @@ impl Vault {
                 path.to_string_lossy()
             ))
         }
-    }
-
-    fn find_by_title(&self, title: &str) -> Vec<PathBuf> {
-        let needle = title.trim().trim_end_matches(".md").to_lowercase();
-        if needle.is_empty() {
-            return Vec::new();
-        }
-        self.markdown_files()
-            .filter(|path| crate::search::paths::title(path).to_lowercase() == needle)
-            .collect()
     }
 }
 

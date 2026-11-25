@@ -4,7 +4,6 @@ use super::{Control, Number, Row, Setter, Value};
 use crate::i18n::t;
 
 pub(super) const THEMES: [&str; 4] = ["system", "light", "dark", "night"];
-pub(super) const LANGUAGES: [&str; 2] = ["ru", "en"];
 pub(super) const READER_FLOWS: [&str; 2] = ["paginated", "scrolled"];
 pub(super) const HISTORY_DAYS: [u32; 4] = [0, 30, 90, 365];
 
@@ -64,6 +63,10 @@ pub(super) fn position<T: PartialEq>(options: &[T], value: &T) -> usize {
     options.iter().position(|o| o == value).unwrap_or(0)
 }
 
+pub(super) fn pick<T: Copy>(options: &[T], value: &Value) -> T {
+    options[index(value).min(options.len() - 1)]
+}
+
 fn weight_label(weight: u32) -> String {
     let key = match weight {
         400 => "settings.font.weightRegular",
@@ -74,10 +77,6 @@ fn weight_label(weight: u32) -> String {
         _ => return weight.to_string(),
     };
     t(key)
-}
-
-pub(super) fn language_index(language: &str) -> usize {
-    usize::from(language != "ru")
 }
 
 pub(super) fn families(base: &[&str]) -> Vec<String> {

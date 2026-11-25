@@ -35,7 +35,7 @@ pub fn deletion_page_impl(
 ) -> Result<DeletionPage, FileCommandError> {
     let mut deletions = deletions(workspace);
     deletions.sort_by(|(left_at, left), (right_at, right)| {
-        right_at.cmp(left_at).then_with(|| left.root.cmp(&right.root))
+        right_at.cmp(left_at).then_with(|| crate::text::collate::compare(&left.root.to_string_lossy(), &right.root.to_string_lossy()))
     });
     Ok(DeletionPage {
         total: deletions.len(),

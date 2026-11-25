@@ -3,6 +3,7 @@ use masonry::parley::{FontContext, FontFamily, FontStyle, FontWeight, IndentOpti
 
 use crate::reader::flow::Span;
 use crate::reader::hyphen::{self, SHY};
+use crate::ui::text::font_builder;
 
 pub(super) const BOLD: f32 = 700.0;
 const TEXT: BrushIndex = BrushIndex(0);
@@ -19,11 +20,7 @@ pub(super) struct TextStyle {
 }
 
 pub(super) fn glyph_width(fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, glyph: &str, font: FontFamily<'static>, size: f32, weight: f32) -> f32 {
-    let mut builder = lcx.ranged_builder(fcx, glyph, 1.0, true);
-    builder.push_default(StyleProperty::FontFamily(font));
-    builder.push_default(StyleProperty::FontSize(size));
-    builder.push_default(StyleProperty::FontWeight(FontWeight::new(weight)));
-    let mut layout = builder.build(glyph);
+    let mut layout = font_builder(fcx, lcx, glyph, font, size, weight).build(glyph);
     layout.break_all_lines(None);
     layout.width()
 }
@@ -46,10 +43,7 @@ fn flag(flags: &[bool], index: usize) -> bool {
 
 fn build_text(fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, text: &str, spans: &[Span], breaks: &[(usize, char)], style: &TextStyle) -> Layout<BrushIndex> {
     let shown = hyphen::apply(text, breaks);
-    let mut builder = lcx.ranged_builder(fcx, &shown, 1.0, true);
-    builder.push_default(StyleProperty::FontFamily(style.font.clone()));
-    builder.push_default(StyleProperty::FontSize(style.size));
-    builder.push_default(StyleProperty::FontWeight(FontWeight::new(style.weight)));
+    let mut builder = font_builder(fcx, lcx, &shown, style.font.clone(), style.size, style.weight);
     builder.push_default(StyleProperty::LineHeight(LineHeight::FontSizeRelative(style.line_height)));
     builder.push_default(StyleProperty::Brush(TEXT));
     for span in spans {

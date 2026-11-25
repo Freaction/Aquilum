@@ -1,7 +1,5 @@
-use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
-use masonry::layout::Length;
+use masonry::core::{NewWidget, Widget, WidgetId};
 use masonry::properties::types::CrossAxisAlignment;
-use masonry::properties::{Gap, Padding};
 use masonry::widgets::Flex;
 
 use super::{heading_label, heading_row, notice};
@@ -10,7 +8,7 @@ use crate::links::{Listing, Method, Mode, Target};
 use crate::ui::scroll::{HScroll, ScrollArea};
 use crate::ui::style;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{Caption, Chip, DocumentItem};
+use crate::ui::widgets::{Caption, Chip, DocumentItem, spaced};
 
 pub struct Body {
     pub items: Vec<(WidgetId, Target, Vec<String>)>,
@@ -27,11 +25,7 @@ pub fn body(mode: Mode, methods: &[Method], method: Method, listing: Option<&Lis
             chips.push((chip.id(), m));
             row = row.with_fixed(chip);
         }
-        let row = NewWidget::new(row).with_props(
-            PropertySet::new()
-                .with(Gap::new(Length::px(size::SPACE_6)))
-                .with(Padding::all(Length::px(size::SPACE_8))),
-        ).with_class(style::SIDEBAR);
+        let row = spaced(row, size::SPACE_6, size::SPACE_8).with_class(style::SIDEBAR);
         column = column.with_fixed(HScroll::new(row.erased()));
     }
     let mut items = Vec::new();
@@ -64,9 +58,7 @@ pub fn body(mode: Mode, methods: &[Method], method: Method, listing: Option<&Lis
             list = list.with_fixed(widget);
         }
         let gap = if mode == Mode::Outline { 0.0 } else { size::SPACE_2 };
-        let list = NewWidget::new(list).with_props(
-            PropertySet::new().with(Gap::new(Length::px(gap))).with(Padding::all(Length::px(size::SPACE_8))),
-        );
+        let list = spaced(list, gap, size::SPACE_8);
         column = column.with(NewWidget::new(ScrollArea::new(list)), 1.0);
     }
     (NewWidget::new(column).erased(), Body { items, chips })

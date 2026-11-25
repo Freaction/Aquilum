@@ -4,7 +4,6 @@ use windows::Win32::Graphics::Direct3D11::{D3D11_MAP_READ_WRITE, D3D11_MAPPED_SU
 use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_UNKNOWN;
 use windows::Win32::Graphics::Dxgi::{DXGI_PRESENT, DXGI_PRESENT_PARAMETERS, DXGI_SWAP_CHAIN_FLAG};
 use winit::event_loop::OwnedDisplayHandle;
-use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 use super::device::{capacity, create, rect, region, texture, Gpu, BUFFERS, GROWTH};
@@ -22,10 +21,7 @@ pub struct Output {
 
 impl Output {
     pub fn new(_display: OwnedDisplayHandle, window: Rc<dyn Window>) -> Result<Self, String> {
-        let Ok(RawWindowHandle::Win32(handle)) = window.window_handle().map(|h| h.as_raw()) else {
-            return Err("окно без HWND".into());
-        };
-        let hwnd = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
+        let hwnd = crate::host::hwnd(&*window).ok_or("окно без HWND")?;
         let size = window.surface_size();
         let size = (size.width.max(1), size.height.max(1));
         let capacity = (size.0.next_multiple_of(GROWTH), size.1.next_multiple_of(GROWTH));

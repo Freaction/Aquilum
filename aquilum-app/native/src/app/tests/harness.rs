@@ -24,7 +24,7 @@ impl Harness {
     }
 
     fn assemble(vault: tempfile::TempDir, data: tempfile::TempDir, theme: std::sync::MutexGuard<'static, ()>, real_vault: Option<&std::path::Path>, scale: f64) -> Self {
-        let workspace = Workspace::open(Some(data.path()), Some(real_vault.unwrap_or(vault.path())), || {}).unwrap();
+        let workspace = Workspace::open(data.path(), Some(real_vault.unwrap_or(vault.path())), Arc::new(|| {})).unwrap();
         let mut app = App::new(workspace, String::new());
         let signals: Rc<RefCell<Vec<RenderRootSignal>>> = Rc::default();
         let sink = signals.clone();

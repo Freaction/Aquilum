@@ -15,6 +15,10 @@ impl App {
         if matches!(self.popup, Some(Popup::Reader(_))) {
             return self.on_reader_action(root, id, &action);
         }
+        if self.lookup_layer() == Some(id) && action.downcast_ref::<DialogAnswer>() == Some(&DialogAnswer::Cancel) {
+            self.close_lookup(root);
+            return Outcome::default();
+        }
         if matches!(self.popup, Some(Popup::Search(_))) {
             return self.on_search_action(root, id, &action);
         }

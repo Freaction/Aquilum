@@ -1,29 +1,29 @@
 pub struct Adjacency {
-    pub offsets: Vec<u32>,
-    pub targets: Vec<u32>,
+    offsets: Vec<u32>,
+    targets: Vec<u32>,
 }
 
 impl Adjacency {
-    pub fn build(node_count: usize, edges: &[u32]) -> Self {
+    pub fn directed(node_count: usize, pairs: impl Iterator<Item = (u32, u32)> + Clone) -> Self {
         let mut offsets = vec![0u32; node_count + 1];
-        for endpoint in edges {
-            offsets[*endpoint as usize + 1] += 1;
+        for (source, _) in pairs.clone() {
+            offsets[source as usize + 1] += 1;
         }
         for node in 0..node_count {
             offsets[node + 1] += offsets[node];
         }
         let mut cursor = offsets.clone();
-        let mut targets = vec![0u32; edges.len()];
-        for pair in edges.chunks_exact(2) {
-            let (left, right) = (pair[0], pair[1]);
-            let slot = &mut cursor[left as usize];
-            targets[*slot as usize] = right;
-            *slot += 1;
-            let slot = &mut cursor[right as usize];
-            targets[*slot as usize] = left;
+        let mut targets = vec![0u32; offsets[node_count] as usize];
+        for (source, target) in pairs {
+            let slot = &mut cursor[source as usize];
+            targets[*slot as usize] = target;
             *slot += 1;
         }
         Self { offsets, targets }
+    }
+
+    pub fn build(node_count: usize, edges: &[u32]) -> Self {
+        Self::directed(node_count, edges.chunks_exact(2).flat_map(|pair| [(pair[0], pair[1]), (pair[1], pair[0])]))
     }
 
     pub fn neighbours(&self, node: u32) -> &[u32] {

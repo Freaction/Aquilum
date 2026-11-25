@@ -5,7 +5,7 @@ use windows::Win32::Media::Audio::{
 use windows::Win32::Media::MediaFoundation::{
     IMFSourceReader, MF_MT_AUDIO_AVG_BYTES_PER_SECOND, MF_MT_AUDIO_BITS_PER_SAMPLE, MF_MT_AUDIO_BLOCK_ALIGNMENT, MF_MT_AUDIO_NUM_CHANNELS,
     MF_MT_AUDIO_SAMPLES_PER_SECOND, MF_MT_MAJOR_TYPE, MF_MT_SUBTYPE, MF_SOURCE_READER_ALL_STREAMS, MF_SOURCE_READER_FIRST_AUDIO_STREAM,
-    MF_SOURCE_READERF_ENDOFSTREAM, MFAudioFormat_PCM, MFCreateMediaType, MFCreateSourceReaderFromURL, MFMediaType_Audio,
+    MFAudioFormat_PCM, MFCreateMediaType, MFCreateSourceReaderFromURL, MFMediaType_Audio,
 };
 use windows::Win32::System::Com::{CLSCTX_ALL, CoCreateInstance};
 use windows::core::HSTRING;
@@ -74,13 +74,11 @@ impl Sound {
     }
 
     fn read(&mut self) {
+        let Some((time, sample)) = super::worker::read(&self.reader, STREAM) else {
+            self.ended = true;
+            return;
+        };
         unsafe {
-            let (mut flags, mut time) = (0u32, 0i64);
-            let mut sample = None;
-            if self.reader.ReadSample(STREAM, 0, None, Some(&mut flags), Some(&mut time), Some(&mut sample)).is_err() || flags & MF_SOURCE_READERF_ENDOFSTREAM.0 as u32 != 0 {
-                self.ended = true;
-                return;
-            }
             let Some(buffer) = sample.and_then(|s| s.ConvertToContiguousBuffer().ok()) else { return };
             let (mut data, mut length) = (std::ptr::null_mut(), 0u32);
             if buffer.Lock(&mut data, None, Some(&mut length)).is_err() {
@@ -88,8 +86,8 @@ impl Sound {
             }
             let bytes = std::slice::from_raw_parts(data, length as usize);
             let from = match self.skip.take() {
-                Some(target) if (time as f64 / 1e7) < target => {
-                    let frames = ((target - time as f64 / 1e7) * f64::from(self.rate)) as usize;
+                Some(target) if time < target => {
+                    let frames = ((target - time) * f64::from(self.rate)) as usize;
                     (frames * self.block).min(bytes.len())
                 }
                 _ => 0,

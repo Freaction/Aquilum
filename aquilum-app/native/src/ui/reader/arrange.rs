@@ -4,8 +4,7 @@ impl ReaderView {
     pub(super) fn arrange(&mut self, ctx: &mut LayoutCtx<'_>, size: Size) {
         let line = Self::line_height();
         self.header = (size::SPACE_8 * 2.0 + line * 2.0 + size::SPACE_2).max(size::SPACE_48);
-        let insets = self.insets;
-        let room = Rect::new(insets.x0, insets.y0, (size.width - insets.x1).max(insets.x0), (size.height - insets.y1).max(insets.y0));
+        let room = crate::ui::widgets::inside(size, self.insets);
         self.room = room;
         let button = Size::new(size::SIZE_32, size::SIZE_32);
         let y = room.y0 + ((self.header - size::SIZE_32) / 2.0).round();
@@ -25,12 +24,11 @@ impl ReaderView {
         self.arrange_pdf(ctx);
         if let Some(popover) = &mut self.popover {
             let width = POPOVER_WIDTH.min(room.width() - size::SPACE_24);
-            let auto = SizeDef::new(LenDef::FitContent(Length::px(width)), LenDef::MaxContent);
-            let measured = ctx.compute_size(popover, auto, LayoutSize::maybe(Axis::Horizontal, Some(Length::px(width))));
-            ctx.run_layout(popover, Size::new(width, measured.height));
+            let height = crate::ui::widgets::fit_height(ctx, popover, width, LayoutSize::maybe(Axis::Horizontal, Some(Length::px(width))));
+            ctx.run_layout(popover, Size::new(width, height));
             let origin = Point::new(room.x1 - size::SPACE_12 - width, room.y0 + self.header + size::GAP_XS);
             ctx.place_child(popover, origin);
-            self.popover_rect = Rect::from_origin_size(origin, Size::new(width, measured.height));
+            self.popover_rect = Rect::from_origin_size(origin, Size::new(width, height));
         }
         let selected = self.ordered().is_some() && !self.selecting;
         if let Some(button) = &mut self.quote_button {

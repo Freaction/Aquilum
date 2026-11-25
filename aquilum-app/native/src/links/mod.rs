@@ -8,7 +8,7 @@ use std::ops::Range;
 use std::path::PathBuf;
 
 pub use mode::{Method, Mode};
-pub use notes::{find_note, linked_file_path};
+pub use notes::linked_file_path;
 pub use outline::outline;
 pub use panel::run;
 

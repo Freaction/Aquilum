@@ -4,6 +4,7 @@ use super::scalar;
 use crate::app_core::Core;
 use crate::search::analyzer::frontmatter::same_key;
 use crate::search::fields::{head_fields, Field};
+use crate::text::collate;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
@@ -37,14 +38,15 @@ pub(super) fn find_notes(core: &Core, arguments: &Value) -> Result<Value, String
         .into_iter()
         .filter(|(path, fields)| path.starts_with(&folder) && matches(fields, &filter))
         .map(|(path, fields)| {
-            let key = sort.as_deref().and_then(|name| value_of(&fields, name)).map(str::to_lowercase);
-            (key.is_none(), key, vault.relative(&path), selected(&fields, &wanted))
+            let key = sort.as_deref().and_then(|name| value_of(&fields, name)).map(collate::key);
+            let path = vault.relative(&path);
+            ((key.is_none(), key, collate::key(&path)), path, selected(&fields, &wanted))
         })
         .collect::<Vec<_>>();
-    found.sort_by(|left, right| (left.0, &left.1, &left.2).cmp(&(right.0, &right.1, &right.2)));
+    found.sort_by(|left, right| left.0.cmp(&right.0));
     let (offset, total) = (offset(arguments), found.len());
     let size = limit(arguments, 100, FIND_LIMIT);
-    let page = found.into_iter().skip(offset).take(size).map(|(_, _, path, fields)| json!({ "path": path, "fields": fields })).collect();
+    let page = found.into_iter().skip(offset).take(size).map(|(_, path, fields)| json!({ "path": path, "fields": fields })).collect();
     Ok(listing("notes", total, offset, page))
 }
 

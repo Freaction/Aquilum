@@ -65,11 +65,7 @@ impl Widget for Thumbnail {
     }
 
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
-        let TextEvent::Keyboard(key) = event else { return };
-        if key.state != KeyState::Down {
-            return;
-        }
-        match keymap::command(&[Scope::Text, Scope::Image], &key.key, key.modifiers) {
+        match keymap::pressed(&[Scope::Text, Scope::Image], event) {
             Some(Command::Paste | Command::PastePlain) => {
                 ctx.submit_action::<ThumbAction>(ThumbAction::Paste);
                 ctx.set_handled();

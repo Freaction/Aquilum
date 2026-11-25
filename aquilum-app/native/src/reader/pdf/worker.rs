@@ -57,7 +57,7 @@ impl Worker {
     pub fn new(path: PathBuf, wake: Arc<dyn Fn() + Send + Sync>) -> Self {
         let shared = Arc::new(Shared::default());
         let worker = Arc::clone(&shared);
-        std::thread::spawn(move || {
+        let _ = aquilum_core::threads::spawn("страница PDF", move || {
             let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(path, &worker, &wake)));
             if let Err(error) = outcome.unwrap_or_else(|_| Err("PDF renderer panicked".into())) {
                 let mut state = worker.state.lock().unwrap_or_else(|e| e.into_inner());

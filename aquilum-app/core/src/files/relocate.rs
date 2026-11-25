@@ -63,16 +63,19 @@ pub fn remove_files(paths: &[PathBuf]) -> u64 {
         .count() as u64
 }
 
-pub fn remove_empty_folders(root: &Path) {
-    let folders = WalkDir::new(root)
+pub fn folders(root: &Path) -> Vec<PathBuf> {
+    WalkDir::new(root)
         .min_depth(1)
         .contents_first(true)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_dir())
         .map(|entry| entry.into_path())
-        .collect::<Vec<_>>();
-    for folder in folders {
+        .collect()
+}
+
+pub fn remove_empty_folders(root: &Path) {
+    for folder in folders(root) {
         let empty = fs::read_dir(&folder).is_ok_and(|mut entries| entries.next().is_none());
         if !empty {
             continue;

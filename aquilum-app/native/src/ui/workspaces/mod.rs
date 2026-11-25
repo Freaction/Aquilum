@@ -15,7 +15,7 @@ use super::handle::Handle;
 use super::scroll::ScrollArea;
 use super::text::selectable;
 use super::tokens::size;
-use super::widgets::{IconButton, Leading, Slot, TextButton, Variant};
+use super::widgets::{IconButton, Leading, Slot, TextButton, Variant, spaced};
 use super::{icons, search};
 use crate::i18n::t;
 
@@ -51,9 +51,7 @@ pub fn dialog(list: NewWidget<dyn Widget>, cloud: bool) -> (NewWidget<Modal>, Wo
     if let Some(cloud) = cloud {
         column = column.with_fixed(cloud);
     }
-    let column = NewWidget::new(column).with_props(
-        PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))).with(Padding::all(Length::px(size::DIALOG_PADDING))),
-    );
+    let column = spaced(column, size::SPACE_4, size::DIALOG_PADDING);
     let (buttons, ids) = buttons();
     let footer = NewWidget::new(Flex::row().main_axis_alignment(MainAxisAlignment::End).with_fixed(buttons))
         .with_props(PropertySet::new().with(Padding::all(Length::px(size::DIALOG_PADDING))));

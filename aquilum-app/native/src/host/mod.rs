@@ -42,6 +42,7 @@ mod pointer;
 mod replay;
 mod signals;
 mod state;
+mod theme;
 mod touch;
 mod window;
 mod window_events;
@@ -49,7 +50,9 @@ mod window_events;
 pub(crate) use crash::report;
 pub use launch::run;
 use crash::install_crash_log;
-use window::{cloak, set_background, window_icon};
+#[cfg(target_os = "windows")]
+pub(crate) use window::hwnd;
+use window::{cloak, focus, present, set_background, window_icon};
 
 pub(crate) const PRIMARY_MOUSE: PointerInfo = PointerInfo {
     pointer_id: Some(PointerId::PRIMARY),
@@ -64,11 +67,11 @@ pub(crate) const TOUCH: PointerInfo = PointerInfo {
 };
 
 const RESIZE_BORDER: f64 = 6.0;
-const NATIVE_FRAME: bool = cfg!(target_os = "macos");
 
 struct Host {
     args: Args,
     app: App,
+    wake: Arc<dyn Fn() + Send + Sync>,
     started: Instant,
     window: Option<std::rc::Rc<dyn Window>>,
     output: Option<crate::output::Output>,
@@ -106,6 +109,5 @@ struct Host {
     click: Option<(PointerButton, Instant, winit::dpi::PhysicalPosition<f64>, u8)>,
     touch: touch::Touch,
     ime_text: Option<winit::window::ImeSurroundingText>,
-    #[cfg(target_os = "linux")]
-    system_theme: linux::Theme,
+    system_theme: theme::SystemTheme,
 }

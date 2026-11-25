@@ -1,5 +1,5 @@
 use super::cache::content_hash;
-use super::extract::{body_term_lang, extract_queries, has_enough_text, is_cyrillic};
+use super::extract::{extract_queries, has_enough_text, lang_of};
 use super::http::HttpClient;
 use super::models::{SearchRequest, WikixivHit, WikixivSearchResult};
 use super::wikipedia;
@@ -136,36 +136,18 @@ fn collect(
         if hits.len() >= MAX_TOTAL_HITS {
             break;
         }
-        let preferred_lang = if title.chars().any(is_cyrillic) { "ru" } else { "en" };
-        let mut resolved_directly = false;
-
-        for lang in [preferred_lang, if preferred_lang == "ru" { "en" } else { "ru" }] {
-            match wikipedia::summary(client, lang, title) {
-                Ok(Some(mut hit)) => {
-                    resolved_directly = true;
-                    hit.from_filename = from_filename;
-                    hit.matched_terms = vec![title.clone()];
-                    push(&mut hits, &mut seen, hit);
-                    break;
-                }
-                Ok(None) => {}
-                Err(error) => last_error = Some(error),
-            }
-        }
-
-        if !resolved_directly {
-            for lang in [preferred_lang, if preferred_lang == "ru" { "en" } else { "ru" }] {
-                match wikipedia::search_title(client, lang, title) {
-                    Ok(Some(mut hit)) => {
-                        hit.from_filename = from_filename;
-                        hit.matched_terms = vec![title.clone()];
-                        push(&mut hits, &mut seen, hit);
-                        break;
-                    }
-                    Ok(None) => {}
-                    Err(error) => last_error = Some(error),
-                }
-            }
+        let preferred = lang_of(title);
+        let langs = [preferred, if preferred == "ru" { "en" } else { "ru" }];
+        let mut find = |lookup: fn(&HttpClient, &str, &str) -> Result<Option<WikixivHit>, super::http::HttpError>| {
+            langs.into_iter().find_map(|lang| lookup(client, lang, title).unwrap_or_else(|error| {
+                last_error = Some(error);
+                None
+            }))
+        };
+        if let Some(mut hit) = find(wikipedia::summary).or_else(|| find(wikipedia::search_title)) {
+            hit.from_filename = from_filename;
+            hit.matched_terms = vec![title.clone()];
+            push(&mut hits, &mut seen, hit);
         }
     }
 
@@ -177,7 +159,7 @@ fn collect(
         if hits.len() >= MAX_TOTAL_HITS {
             break;
         }
-        match wikipedia::search_intitle(client, body_term_lang(term), term) {
+        match wikipedia::search_intitle(client, lang_of(term), term) {
             Ok(batch) => {
                 for mut hit in batch {
                     hit.matched_terms = vec![term.clone()];

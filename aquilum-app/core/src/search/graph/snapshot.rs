@@ -1,3 +1,4 @@
+use super::adjacency::Adjacency;
 use super::layout;
 use super::rank;
 use crate::search::error::SearchError;
@@ -22,7 +23,7 @@ impl RenderSnapshot {
     pub fn build(connection: &Connection, root: &Path) -> Result<Self, SearchError> {
         let nodes = wiki::read_documents(connection)?;
         let directed = read_directed_edges(connection, root, &nodes)?;
-        let links = rank::out_links(nodes.len(), &directed);
+        let links = Adjacency::directed(nodes.len(), directed.iter().copied());
         let ranks = rank::pagerank(nodes.len(), &links);
         let render_of_identity = render_order(&ranks);
         let edges = ordered_edges(&directed, &render_of_identity);

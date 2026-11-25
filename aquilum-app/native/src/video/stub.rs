@@ -9,6 +9,10 @@ impl Engine {
         None
     }
 
+    pub fn poster(_path: &Path) -> Option<ImageBrush> {
+        None
+    }
+
     pub fn toggle(&mut self) {}
 
     pub fn seek(&mut self, _fraction: f64) {}

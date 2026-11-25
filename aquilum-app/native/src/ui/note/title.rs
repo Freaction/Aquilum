@@ -5,12 +5,13 @@ use masonry::core::{
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Point, Size};
-use masonry::layout::{LenDef, LenReq, Length, SizeDef};
+use masonry::layout::{LenReq, Length};
 use masonry::parley::Layout;
 
 use crate::i18n::t;
 use crate::ui::editor::TextEditor;
 use crate::ui::tokens::{number, size};
+use crate::ui::widgets::{MaxContent, fit_height};
 use crate::ui::{text, theme};
 
 #[derive(Debug)]
@@ -61,18 +62,13 @@ impl Widget for TitleField {
                 LenReq::FitContent(space) => space,
                 _ => Length::ZERO,
             },
-            Axis::Vertical => {
-                let context = masonry::layout::LayoutSize::maybe(Axis::Horizontal, cross);
-                let inner = ctx.compute_length(&mut self.field, LenReq::MaxContent.into(), context, Axis::Vertical, cross);
-                Length::px(inner.get() + size::SPACE_12 * 2.0)
-            }
+            Axis::Vertical => Length::px(ctx.max_content(&mut self.field, Axis::Vertical, cross).get() + size::SPACE_12 * 2.0),
         }
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
-        let auto = SizeDef::new(LenDef::FitContent(Length::px(size_.width)), LenDef::MaxContent);
-        let child = ctx.compute_size(&mut self.field, auto, size_.into());
-        ctx.run_layout(&mut self.field, Size::new(size_.width, child.height));
+        let height = fit_height(ctx, &mut self.field, size_.width, size_.into());
+        ctx.run_layout(&mut self.field, Size::new(size_.width, height));
         ctx.place_child(&mut self.field, Point::new(0.0, size::SPACE_12));
     }
 

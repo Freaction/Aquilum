@@ -5,7 +5,8 @@ mod table;
 #[cfg(test)]
 mod tests;
 
-use masonry::core::keyboard::{Code, Key, Modifiers};
+use masonry::core::TextEvent;
+use masonry::core::keyboard::{Code, Key, KeyState, Modifiers};
 
 pub use chord::{action, action_key, extend, typing};
 pub use gesture::Gesture;
@@ -153,6 +154,13 @@ pub fn command(scopes: &[Scope], key: &Key, modifiers: Modifiers) -> Option<Comm
         .filter(|binding| scopes.contains(&binding.scope))
         .find(|binding| binding.chords.iter().chain(binding.hidden).any(|chord| chord.matches(key, modifiers)))
         .map(|binding| binding.command)
+}
+
+pub fn pressed(scopes: &[Scope], event: &TextEvent) -> Option<Command> {
+    match event {
+        TextEvent::Keyboard(key) if key.state == KeyState::Down => command(scopes, &key.key, key.modifiers),
+        _ => None,
+    }
 }
 
 pub fn closes(key: &Key, modifiers: Modifiers) -> bool {

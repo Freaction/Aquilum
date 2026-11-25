@@ -2,7 +2,9 @@ use masonry::accesskit::{Node, Role};
 use masonry::core::{AccessCtx, ChildrenIds, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PropertiesRef, RegisterCtx, Widget, WidgetPod};
 use masonry::imaging::Painter;
 use masonry::kurbo::{Axis, Point, Size};
-use masonry::layout::{LayoutSize, LenDef, LenReq, Length, SizeDef};
+use masonry::layout::{LenReq, Length};
+
+use super::{MaxContent, fit_height};
 
 pub struct MaxWidth<W: Widget> {
     child: WidgetPod<W>,
@@ -29,19 +31,13 @@ impl<W: Widget> Widget for MaxWidth<W> {
                 LenReq::MaxContent => Length::px(self.max),
                 LenReq::FitContent(space) => space,
             },
-            Axis::Vertical => {
-                let inner = Length::px(cross.map_or(self.max, |c| c.get().min(self.max)));
-                let context = LayoutSize::maybe(Axis::Horizontal, Some(inner));
-                ctx.compute_length(&mut self.child, LenReq::MaxContent.into(), context, Axis::Vertical, Some(inner))
-            }
+            Axis::Vertical => ctx.max_content(&mut self.child, Axis::Vertical, Some(Length::px(cross.map_or(self.max, |c| c.get().min(self.max))))),
         }
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size: Size) {
         let inner = size.width.min(self.max);
-        let auto = SizeDef::new(LenDef::FitContent(Length::px(inner)), LenDef::MaxContent);
-        let child = ctx.compute_size(&mut self.child, auto, Size::new(inner, size.height).into());
-        let child = Size::new(inner, child.height);
+        let child = Size::new(inner, fit_height(ctx, &mut self.child, inner, Size::new(inner, size.height).into()));
         ctx.run_layout(&mut self.child, child);
         ctx.place_child(&mut self.child, Point::new(((size.width - inner) / 2.0).round(), 0.0));
     }

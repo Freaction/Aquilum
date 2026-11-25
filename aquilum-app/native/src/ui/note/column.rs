@@ -12,7 +12,7 @@ use masonry::widgets::Flex;
 use crate::ui::motion::{self, EASE_IN_OUT, approach};
 use crate::ui::text;
 use crate::ui::theme::{self, EditorFont};
-use crate::ui::widgets::bezier;
+use crate::ui::widgets::{MaxContent, bezier};
 use crate::ui::tokens::size;
 
 pub fn ch_width(ctx: &mut MeasureCtx<'_>) -> f64 {
@@ -106,8 +106,7 @@ impl Widget for EditorColumn {
             },
             Axis::Vertical => {
                 let inner = Length::px(cross.map_or(max, |c| self.inner(c.get(), max)));
-                let context = masonry::layout::LayoutSize::maybe(Axis::Horizontal, Some(inner));
-                ctx.compute_length(&mut self.child, LenReq::MaxContent.into(), context, Axis::Vertical, Some(inner))
+                ctx.max_content(&mut self.child, Axis::Vertical, Some(inner))
             }
         }
     }

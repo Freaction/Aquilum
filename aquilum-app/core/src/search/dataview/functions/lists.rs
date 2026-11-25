@@ -1,4 +1,4 @@
-use super::{first, items};
+use super::{first, items, span_of};
 use super::super::value::Value;
 
 pub fn reverse(value: &Value) -> Value {
@@ -49,13 +49,7 @@ pub fn flat(value: &Value) -> Value {
 
 pub fn slice(arguments: &[Value]) -> Value {
     let items = items(first(arguments));
-    let from = arguments.get(1).and_then(Value::as_number).unwrap_or(0.0).max(0.0) as usize;
-    let to = arguments
-        .get(2)
-        .and_then(Value::as_number)
-        .map(|value| value.max(0.0) as usize)
-        .unwrap_or(items.len());
-    Value::List(items.iter().take(to).skip(from).cloned().collect())
+    Value::List(items[span_of(arguments, items.len())].to_vec())
 }
 
 pub fn edge(value: &Value, leading: bool) -> Value {

@@ -10,7 +10,7 @@ use super::card::{CardKind, ResultCard};
 use crate::i18n::t;
 use crate::ui::icons::Icon;
 use crate::ui::tokens::{number, size};
-use crate::ui::widgets::{IconView, Label, Leading, MaxWidth, Paint, Scale, kbd};
+use crate::ui::widgets::{IconView, Label, Leading, MaxWidth, Paint, Scale, kbd, spaced};
 
 pub fn empty_state(icon: Icon, title: &str, description: &str) -> NewWidget<Flex> {
     empty_state_with(icon, title, Some(description), None)
@@ -52,9 +52,7 @@ fn hints(list: &[(String, String)]) -> NewWidget<Flex> {
     for (keys, text) in list {
         row = row.with_fixed(hint(keys, text));
     }
-    NewWidget::new(row).with_props(
-        PropertySet::new().with(Gap::new(Length::px(size::SPACE_12))).with(Padding::all(Length::px(size::DIALOG_PADDING))),
-    )
+    spaced(row, size::SPACE_12, size::DIALOG_PADDING)
 }
 
 fn key(command: Command) -> String {

@@ -27,7 +27,7 @@ use crate::ui::icons;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::text::label;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{IconButton, ItemButton, Label, Leading};
+use crate::ui::widgets::{IconButton, ItemButton, Label, Leading, spaced};
 use layout::{block_widget, rows_column};
 pub use panes::{Pane, Panes};
 use schema::{Action, Context, Number, Row, Section, Setter};
@@ -116,10 +116,7 @@ fn nav(section: Section, compact: bool) -> (NewWidget<Flex>, Vec<(WidgetId, Sect
         ids.push((button.id(), item));
         column = column.with_fixed(NewWidget::new(SizedBox::new(button).height(height)));
     }
-    let column = NewWidget::new(column).with_props(
-        PropertySet::new().with(Gap::new(Length::px(size::SPACE_2))).with(Padding::all(Length::px(size::SPACE_8))),
-    );
-    (column, ids)
+    (spaced(column, size::SPACE_2, size::SPACE_8), ids)
 }
 
 pub fn card(config: &AppConfig, ctx: &Context, section: Section) -> (NewWidget<Flex>, impl FnOnce(WidgetId) -> SettingsDialog) {

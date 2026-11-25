@@ -8,7 +8,6 @@ use crate::ui::editor::TextAction;
 use super::super::{App, Outcome, Popup};
 use super::NoteTemplate;
 use crate::i18n::{t, t_with};
-use crate::ui::dialog::DialogAnswer;
 use crate::ui::handle::Handle;
 use crate::ui::icons;
 use crate::ui::scroll::ScrollArea;
@@ -92,10 +91,6 @@ impl App {
 
     pub fn on_templates_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Outcome {
         let Some(Popup::Templates(state)) = &self.popup else { return Outcome::default() };
-        if id == state.layer && matches!(action.downcast_ref::<DialogAnswer>(), Some(DialogAnswer::Cancel)) {
-            self.close_templates(root);
-            return Outcome::default();
-        }
         if let Some(btn) = state.create_button
             && id == btn
             && action.downcast_ref::<Pressed>().is_some()

@@ -111,13 +111,8 @@ impl Widget for Segmented {
 
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &masonry::core::TextEvent) {
         use crate::ui::keymap::{self, Command, Scope};
-        use masonry::core::keyboard::KeyState;
-        let masonry::core::TextEvent::Keyboard(k) = event else { return };
-        if k.state != KeyState::Down {
-            return;
-        }
         let last = self.options.len().saturating_sub(1);
-        let index = match keymap::command(&[Scope::Choice], &k.key, k.modifiers) {
+        let index = match keymap::pressed(&[Scope::Choice], event) {
             Some(Command::Decrease) => self.selected.saturating_sub(1),
             Some(Command::Increase) => (self.selected + 1).min(last),
             Some(Command::First) => 0,

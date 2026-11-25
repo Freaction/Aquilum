@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use aquilum_core::files::document::write_content_atomic;
 use serde::{Deserialize, Serialize};
 
 use crate::paths::relative;
-use crate::ui::file_tree::model::comparable;
+use aquilum_core::search::paths::identity;
 
 const MAX_ENTRIES: usize = 100;
 
@@ -23,7 +22,7 @@ pub struct Navigation {
 }
 
 fn load_all(file: &Path) -> HashMap<String, Stored> {
-    std::fs::read_to_string(file).ok().and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default()
+    crate::state_file::load(file).unwrap_or_default()
 }
 
 impl Navigation {
@@ -31,7 +30,7 @@ impl Navigation {
         let file = data_dir.join("navigation.json");
         let mut navigation = Navigation { file, root: root.map(Path::to_path_buf), entries: Vec::new(), index: None };
         let Some(root) = root else { return navigation };
-        if let Some(stored) = load_all(&navigation.file).remove(&comparable(root)) {
+        if let Some(stored) = load_all(&navigation.file).remove(&identity(root)) {
             navigation.entries = stored.entries.iter().map(|rel| crate::paths::absolute(&root, rel)).collect();
             if !navigation.entries.is_empty() {
                 navigation.index = Some(stored.index.clamp(0, navigation.entries.len() as i64 - 1) as usize);
@@ -41,7 +40,7 @@ impl Navigation {
     }
 
     pub fn push(&mut self, path: &Path) {
-        if self.index.and_then(|i| self.entries.get(i)).is_some_and(|current| comparable(current) == comparable(path)) {
+        if self.index.and_then(|i| self.entries.get(i)).is_some_and(|current| identity(current) == identity(path)) {
             return;
         }
         self.entries.truncate(self.index.map_or(0, |i| i + 1));
@@ -74,11 +73,8 @@ impl Navigation {
         let file = self.file.clone();
         crate::disk::run(move || {
             let mut all = load_all(&file);
-            all.insert(comparable(&root), stored);
-            let Ok(json) = serde_json::to_string(&all) else { return };
-            if let Err(e) = write_content_atomic(&file, &json, None) {
-                report!("история переходов не сохранена: {e}");
-            }
+            all.insert(identity(&root), stored);
+            crate::state_file::save(&file, &all, "историю переходов");
         });
     }
 }

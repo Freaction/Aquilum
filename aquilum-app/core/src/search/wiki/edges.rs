@@ -42,13 +42,7 @@ pub fn for_each_link(
 
     let mut statement =
         connection.prepare("SELECT page.path, link.target_key, link.target_kind FROM wiki_links link JOIN note_pages page ON page.id = link.page")?;
-    let rows = statement.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })?;
+    let rows = statement.query_map([], |row| <(String, String, String)>::try_from(row))?;
     for row in rows {
         let (source, key, kind) = row?;
         let candidates = if kind == "path" {

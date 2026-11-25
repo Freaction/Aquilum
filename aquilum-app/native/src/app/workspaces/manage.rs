@@ -15,23 +15,40 @@ use crate::ui::icons;
 use crate::ui::menu::{Entry, Menu};
 use crate::ui::settings::schema::Section;
 
-pub(in crate::app) const RENAME: usize = 0;
-pub(in crate::app) const DUPLICATE: usize = 1;
-pub(in crate::app) const SYNC: usize = 2;
-pub(in crate::app) const DELETE: usize = 3;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(in crate::app) enum Command {
+    Rename,
+    Duplicate,
+    Sync,
+    Forget,
+    Delete,
+}
+
+pub(in crate::app) const COMMANDS: &[Command] = if crate::system::DESKTOP {
+    &[Command::Rename, Command::Duplicate, Command::Sync, Command::Forget, Command::Delete]
+} else {
+    &[Command::Rename, Command::Duplicate, Command::Sync, Command::Delete]
+};
 
 impl App {
     pub(super) fn open_vault_menu(&mut self, root: &mut RenderRoot, state: &mut WorkspacesState, vault: Uuid, at: Point) {
         let Some(synced) = state.known(vault).map(|known| known.sync.enabled) else { return };
-        let sync = if synced { (t("workspaces.syncOff"), icons::CLOUD_OFF) } else { (t("workspaces.syncOn"), icons::CLOUD) };
-        let items = [
-            (t("common.rename"), icons::PENCIL, synced),
-            (t("common.duplicate"), icons::COPY, false),
-            (sync.0, sync.1, false),
-            (t("common.delete"), icons::TRASH, false),
-        ];
-        let entries: Vec<Entry<'_>> =
-            items.iter().enumerate().map(|(index, (label, icon, disabled))| Entry { label, icon: Some(*icon), disabled: *disabled, divided: index == DELETE }).collect();
+        let items: Vec<_> = COMMANDS
+            .iter()
+            .map(|command| match command {
+                Command::Rename => (t("common.rename"), icons::PENCIL, synced),
+                Command::Duplicate => (t("common.duplicate"), icons::COPY, false),
+                Command::Sync if synced => (t("workspaces.syncOff"), icons::CLOUD_OFF, false),
+                Command::Sync => (t("workspaces.syncOn"), icons::CLOUD, false),
+                Command::Forget => (t("workspaces.forget"), icons::X, false),
+                Command::Delete => (t("common.delete"), icons::TRASH, false),
+            })
+            .collect();
+        let entries: Vec<Entry<'_>> = items
+            .iter()
+            .zip(COMMANDS)
+            .map(|((label, icon, disabled), command)| Entry { label, icon: Some(*icon), disabled: *disabled, divided: *command == Command::Delete })
+            .collect();
         let menu = Menu::entries(&t("workspaces.actions"), &entries);
         let layer = menu.id();
         root.add_layer(menu, Point::ZERO);
@@ -42,15 +59,17 @@ impl App {
 
     pub(super) fn vault_command(&mut self, root: &mut RenderRoot, mut state: WorkspacesState, vault: Uuid, item: usize) -> Outcome {
         state.error = None;
-        if let Some((path, synced)) = state.known(vault).map(|known| (PathBuf::from(&known.path), known.sync.enabled)) {
-            match item {
-                RENAME => state.open = Open::Rename(vault),
-                DUPLICATE => {
+        if let Some((path, synced)) = state.known(vault).map(|known| (PathBuf::from(&known.path), known.sync.enabled))
+            && let Some(command) = COMMANDS.get(item)
+        {
+            match command {
+                Command::Rename => state.open = Open::Rename(vault),
+                Command::Duplicate => {
                     let core = Arc::clone(&self.workspace.core);
                     let copy = crate::app::jobs::deliver("копия базы", self.picked_tx.clone(), &self.workspace.wake, move || Some(Picked::NewVault(file_ops::duplicate(&core, &path).map_err(|error| error.to_string()))));
                     self.own(copy);
                 }
-                SYNC => {
+                Command::Sync => {
                     self.update_sync(&path, |sync| sync.enabled = !synced);
                     if !synced && !self.signed_in() {
                         crate::ui::dialog::close(root, state.dialog.layer);
@@ -58,7 +77,10 @@ impl App {
                         return Outcome::default();
                     }
                 }
-                DELETE => {
+                Command::Forget => {
+                    self.forget_vault(root, &mut state, vault, "workspaces.forgetFailed");
+                }
+                Command::Delete => {
                     let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
                     let description = t_with("workspaces.deleteDescription", &[("name", &name)]);
                     let (layer, confirm) = ConfirmDialog::new(&t("workspaces.deleteTitle"), &description, &t("common.cancel"), &t("common.delete"));
@@ -67,7 +89,6 @@ impl App {
                     state.open = Open::Delete(confirm, vault);
                     return self.keep_vaults(state);
                 }
-                _ => {}
             }
         }
         self.refresh_rows(root, &mut state);
@@ -110,20 +131,26 @@ impl App {
     }
 
     pub(super) fn delete_vault(&mut self, root: &mut RenderRoot, state: &mut WorkspacesState, vault: Uuid) {
-        let Some(path) = state.known(vault).map(|known| PathBuf::from(&known.path)) else { return };
+        let Some(path) = self.forget_vault(root, state, vault, "workspaces.deleteFailed") else { return };
+        crate::disk::run(move || {
+            if let Err(error) = std::fs::remove_dir_all(&path) {
+                report!("папка базы {} не удалена: {error}", path.display());
+            }
+        });
+    }
+
+    fn forget_vault(&mut self, root: &mut RenderRoot, state: &mut WorkspacesState, vault: Uuid, failed: &str) -> Option<PathBuf> {
+        let path = state.known(vault).map(|known| PathBuf::from(&known.path))?;
         if self.open_under(&path).is_some() {
             let next = state.vaults.iter().map(|known| PathBuf::from(&known.path)).find(|other| strip_root(&path, other).is_none() && other.is_dir());
             self.load_vault(root, next);
         }
         match self.workspace.core.ui_state.forget_workspace(vault) {
-            Ok(()) => crate::disk::run(move || {
-                if let Err(error) = std::fs::remove_dir_all(&path) {
-                    report!("папка базы {} не удалена: {error}", path.display());
-                }
-            }),
+            Ok(()) => Some(path),
             Err(error) => {
-                report!("база {} не удалена: {error:?}", path.display());
-                state.error = Some(t("workspaces.deleteFailed"));
+                report!("база {} не убрана из списка: {error:?}", path.display());
+                state.error = Some(t(failed));
+                None
             }
         }
     }

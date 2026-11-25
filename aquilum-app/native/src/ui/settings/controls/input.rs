@@ -49,8 +49,7 @@ impl<W: Widget> Widget for InputBox<W> {
             (Axis::Horizontal, None, _) => Length::px(padding_x * 2.0),
             (Axis::Vertical, ..) => {
                 let inner = self.width.or(cross.map(Length::get)).unwrap_or(0.0) - padding_x * 2.0;
-                let context = LayoutSize::maybe(Axis::Horizontal, Some(Length::px(inner)));
-                let height = ctx.compute_length(&mut self.child, LenReq::MaxContent.into(), context, Axis::Vertical, Some(Length::px(inner)));
+                let height = ctx.max_content(&mut self.child, Axis::Vertical, Some(Length::px(inner)));
                 Length::px(height.get().max(self.size.field_content()) + padding_y * 2.0)
             }
         }
@@ -59,8 +58,7 @@ impl<W: Widget> Widget for InputBox<W> {
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
         let (padding_x, padding_y) = self.size.field_padding();
         let inner = Size::new(size_.width - padding_x * 2.0, size_.height - padding_y * 2.0);
-        let child = ctx.compute_size(&mut self.child, SizeDef::new(LenDef::FitContent(Length::px(inner.width)), LenDef::MaxContent), inner.into());
-        let child = Size::new(inner.width, child.height);
+        let child = Size::new(inner.width, fit_height(ctx, &mut self.child, inner.width, inner.into()));
         ctx.run_layout(&mut self.child, child);
         let y = (size_.height - child.height) / 2.0;
         ctx.place_child(&mut self.child, Point::new(padding_x, y));

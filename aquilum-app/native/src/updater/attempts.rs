@@ -17,14 +17,11 @@ impl Attempt {
     }
 
     pub fn load(data_dir: &Path) -> Option<Attempt> {
-        let content = std::fs::read_to_string(Self::file(data_dir)).ok()?;
-        serde_json::from_str(&content).ok()
+        crate::state_file::load(&Self::file(data_dir))
     }
 
     pub fn save(&self, data_dir: &Path) {
-        if let Ok(json) = serde_json::to_string(self) {
-            let _ = std::fs::write(Self::file(data_dir), json);
-        }
+        crate::state_file::save(&Self::file(data_dir), self, "попытку обновления");
     }
 
     pub fn clear(data_dir: &Path) {

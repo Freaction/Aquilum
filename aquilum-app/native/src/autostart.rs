@@ -77,10 +77,32 @@ mod platform {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod platform {
-    fn file() -> Option<std::path::PathBuf> {
-        Some(std::path::PathBuf::from(std::env::var_os("HOME")?).join("Library/LaunchAgents").join(format!("{}.plist", super::NAME)))
+    use std::path::PathBuf;
+
+    use super::NAME;
+
+    #[cfg(target_os = "macos")]
+    fn file() -> Option<PathBuf> {
+        Some(PathBuf::from(std::env::var_os("HOME")?).join("Library/LaunchAgents").join(format!("{NAME}.plist")))
+    }
+
+    #[cfg(target_os = "macos")]
+    fn entry(exe: &str) -> String {
+        format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n  <dict>\n  <key>Label</key>\n  <string>{NAME}</string>\n  <key>ProgramArguments</key>\n  <array><string>{exe}</string></array>\n  <key>RunAtLoad</key>\n  <true/>\n  </dict>\n</plist>"
+        )
+    }
+
+    #[cfg(target_os = "linux")]
+    fn file() -> Option<PathBuf> {
+        Some(PathBuf::from(std::env::var_os("HOME")?).join(".config/autostart").join(format!("{NAME}.desktop")))
+    }
+
+    #[cfg(target_os = "linux")]
+    fn entry(exe: &str) -> String {
+        format!("[Desktop Entry]\nType=Application\nVersion=1.0\nName={NAME}\nComment={NAME} startup script\nExec=\"{exe}\"\nStartupNotify=false\nTerminal=false")
     }
 
     pub fn enabled() -> bool {
@@ -92,32 +114,18 @@ mod platform {
         if !on {
             return std::fs::remove_file(&file).is_ok() || !file.exists();
         }
-        let plist = format!(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n  <dict>\n  <key>Label</key>\n  <string>{}</string>\n  <key>ProgramArguments</key>\n  <array><string>{exe}</string></array>\n  <key>RunAtLoad</key>\n  <true/>\n  </dict>\n</plist>",
-            super::NAME
-        );
-        file.parent().is_some_and(|dir| std::fs::create_dir_all(dir).is_ok()) && std::fs::write(&file, plist).is_ok()
+        file.parent().is_some_and(|dir| std::fs::create_dir_all(dir).is_ok()) && std::fs::write(&file, entry(exe)).is_ok()
     }
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+#[cfg(target_os = "android")]
 mod platform {
-    fn file() -> Option<std::path::PathBuf> {
-        Some(std::path::PathBuf::from(std::env::var_os("HOME")?).join(".config/autostart").join(format!("{}.desktop", super::NAME)))
-    }
-
     pub fn enabled() -> bool {
-        file().is_some_and(|f| f.exists())
+        false
     }
 
-    pub fn set(on: bool, exe: &str) -> bool {
-        let Some(file) = file() else { return false };
-        if !on {
-            return std::fs::remove_file(&file).is_ok() || !file.exists();
-        }
-        let name = super::NAME;
-        let entry = format!("[Desktop Entry]\nType=Application\nVersion=1.0\nName={name}\nComment={name}startup script\nExec=\"{exe}\"\nStartupNotify=false\nTerminal=false");
-        file.parent().is_some_and(|dir| std::fs::create_dir_all(dir).is_ok()) && std::fs::write(&file, entry).is_ok()
+    pub fn set(_: bool, _: &str) -> bool {
+        false
     }
 }
 

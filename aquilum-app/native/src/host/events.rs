@@ -47,11 +47,15 @@ impl Host {
             return;
         }
         let _zone = aq_trace::zone("пробуждение");
+        if crate::instance::called()
+            && let Some(window) = &self.window
+        {
+            present(&**window);
+        }
         #[cfg(target_os = "android")]
         self.ime_inbox();
         let mut retitle = false;
         if let Some(root) = &mut self.root {
-            #[cfg(target_os = "linux")]
             if let Some(dark) = self.system_theme.take() {
                 self.app.system_theme_changed(root, dark);
             }

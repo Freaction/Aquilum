@@ -1,6 +1,7 @@
 use crate::search::paths::strip_markdown_extension;
 use super::duration::Duration;
 use crate::search::note_date;
+use crate::text::collate;
 use std::cmp::Ordering;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -94,8 +95,8 @@ impl Value {
                 left.partial_cmp(right).unwrap_or(Ordering::Equal)
             }
             (Value::Bool(left), Value::Bool(right)) => left.cmp(right),
-            (Value::Text(left), Value::Text(right)) => compare_text(left, right),
-            (Value::Link(left), Value::Link(right)) => compare_text(&left.label(), &right.label()),
+            (Value::Text(left), Value::Text(right)) => collate::compare(left, right),
+            (Value::Link(left), Value::Link(right)) => collate::compare(&left.label(), &right.label()),
             (Value::List(left), Value::List(right)) => {
                 for (left, right) in left.iter().zip(right.iter()) {
                     let ordering = left.compare(right);
@@ -140,15 +141,6 @@ fn rank(value: &Value) -> u8 {
         Value::List(_) => 6,
         Value::Object(_) => 7,
         Value::Null => 8,
-    }
-}
-
-fn compare_text(left: &str, right: &str) -> Ordering {
-    let folded = left.to_lowercase().cmp(&right.to_lowercase());
-    if folded == Ordering::Equal {
-        left.cmp(right)
-    } else {
-        folded
     }
 }
 

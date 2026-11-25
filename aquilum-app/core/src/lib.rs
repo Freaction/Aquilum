@@ -11,6 +11,7 @@ pub mod markdown;
 pub mod mcp;
 pub mod recent;
 pub mod migration;
+pub mod paths;
 pub mod search;
 pub mod settings;
 pub(crate) mod sqlite;

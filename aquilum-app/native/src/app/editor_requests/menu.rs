@@ -158,7 +158,7 @@ impl App {
                 self.paste(root, false);
             }
             EditorCommand::SelectAll => edit(root, &TextEditor::select_everything),
-            EditorCommand::UploadImage => self.pick_note_image(),
+            EditorCommand::UploadImage => self.pick_image(super::super::book::Picked::NoteImage),
             EditorCommand::PasteImage => {
                 if let Some(png) = crate::clipboard::png() {
                     self.paste_image(root, &png);

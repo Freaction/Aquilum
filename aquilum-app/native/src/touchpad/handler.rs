@@ -7,7 +7,7 @@ use windows::Win32::Graphics::DirectManipulation::{
     IDirectManipulationInteractionEventHandler_Impl, IDirectManipulationViewport, IDirectManipulationViewport2, IDirectManipulationViewportEventHandler,
     IDirectManipulationViewportEventHandler_Impl,
 };
-use windows::core::{Ref, implement};
+use windows_core::{Ref, implement};
 
 use super::{Gesture, SIZE};
 

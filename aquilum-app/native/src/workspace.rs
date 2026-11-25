@@ -21,19 +21,16 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    /// Открывает ядро в `data_dir` (по умолчанию — каталог нативной сборки) и выбирает базу:
-    /// `vault`, иначе последнюю открытую в этом каталоге данных.
-    pub fn open(data_dir: Option<&Path>, vault: Option<&Path>, wake: impl Fn() + Send + Sync + 'static) -> Result<Self, String> {
-        let data_dir = data_dir_or_default(data_dir)?;
-        std::fs::create_dir_all(&data_dir).map_err(|e| format!("{}: {e}", data_dir.display()))?;
+    /// Открывает ядро в `data_dir` и выбирает базу: `vault`, иначе последнюю открытую в этом каталоге данных.
+    pub fn open(data_dir: &Path, vault: Option<&Path>, wake: Arc<dyn Fn() + Send + Sync>) -> Result<Self, String> {
+        std::fs::create_dir_all(data_dir).map_err(|e| format!("{}: {e}", data_dir.display()))?;
         if data_dir.ends_with(APP_ID) {
-            aquilum_core::migration::migrate_legacy_data(&data_dir);
-            let (data, webview) = (data_dir.clone(), std::env::var_os("LOCALAPPDATA").map(|local| PathBuf::from(local).join(APP_ID)));
+            aquilum_core::migration::migrate_legacy_data(data_dir);
+            let (data, webview) = (data_dir.to_path_buf(), std::env::var_os("LOCALAPPDATA").map(|local| PathBuf::from(local).join(APP_ID)));
             let _ = aquilum_core::threads::background("остатки прежней версии", move || aquilum_core::migration::remove_tauri_leftovers(&data, webview.as_deref()));
         }
 
         let (sender, events) = channel();
-        let wake: Arc<dyn Fn() + Send + Sync> = Arc::new(wake);
         let waker = Arc::clone(&wake);
         let sink: Arc<dyn EventSink> = Arc::new(move |event: CoreEvent| {
             // Окно закрыто — событие некому показывать.
@@ -41,7 +38,7 @@ impl Workspace {
                 waker();
             }
         });
-        let core = Core::open(&data_dir, sink);
+        let core = Core::open(data_dir, sink);
 
         let root = match vault {
             Some(vault) => Some(aquilum_core::search::paths::canonical_path(vault)),
@@ -52,32 +49,11 @@ impl Workspace {
                 report!("база {} не запомнена: {e:?}", root.display());
             }
         }
-        Ok(Workspace { core, data_dir, root, wake, events })
+        Ok(Workspace { core, data_dir: data_dir.to_path_buf(), root, wake, events })
     }
 
     /// Все накопившиеся события ядра.
     pub fn drain_events(&self) -> Vec<CoreEvent> {
         self.events.try_iter().collect()
-    }
-}
-
-pub fn data_dir_or_default(data_dir: Option<&Path>) -> Result<PathBuf, String> {
-    match data_dir {
-        Some(dir) => Ok(dir.to_path_buf()),
-        None => Ok(platform_data_dir().ok_or("не найден каталог данных пользователя")?.join(APP_ID)),
-    }
-}
-
-/// Тот же корень, что `app_data_dir` у Tauri: %APPDATA%, ~/Library/Application Support,
-/// $XDG_DATA_HOME или ~/.local/share.
-fn platform_data_dir() -> Option<PathBuf> {
-    if cfg!(target_os = "windows") {
-        std::env::var_os("APPDATA").map(PathBuf::from)
-    } else if cfg!(target_os = "macos") {
-        std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Application Support"))
-    } else {
-        std::env::var_os("XDG_DATA_HOME")
-            .map(PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")))
     }
 }

@@ -30,7 +30,7 @@ impl UiStateDatabase {
                 "SELECT epoch, last_sequence FROM sessions
                  WHERE workspace_id = ?1 AND window_id = ?2",
                 params![input.workspace_id.to_string(), input.window_id],
-                |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+                |row| <(String, i64)>::try_from(row),
             )
             .optional()?;
         let accepted = current

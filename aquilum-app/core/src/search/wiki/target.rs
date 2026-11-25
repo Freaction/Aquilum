@@ -1,4 +1,4 @@
-use crate::search::paths::{relative_slash_path, strip_markdown_extension};
+use crate::search::paths::{markdown_files, relative_slash_path, strip_markdown_extension};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -85,6 +85,14 @@ pub fn relative_key(root: &Path, path: &Path) -> String {
 
 pub fn title_key(path: &Path) -> String {
     crate::search::paths::title(path).to_lowercase()
+}
+
+pub fn notes_titled(root: &Path, title: &str) -> Vec<PathBuf> {
+    let key = strip_markdown_extension(title.trim()).to_lowercase();
+    if key.is_empty() {
+        return Vec::new();
+    }
+    markdown_files(root).filter(|path| title_key(path) == key).collect()
 }
 
 pub fn relative_target(root: &Path, path: &Path, path_style: bool) -> String {

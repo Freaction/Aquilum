@@ -4,7 +4,6 @@ use crate::search::error::SearchError;
 use crate::search::models::SearchIndexState;
 use crate::search::paths::canonical_path;
 use crate::search::service::SearchService;
-use rusqlite::Connection;
 use std::path::Path;
 
 impl SearchService {
@@ -60,7 +59,7 @@ impl SearchService {
             if status.state != SearchIndexState::Ready || status.updating {
                 return Ok(None);
             }
-            let connection = Connection::open(&open.metadata_path)?;
+            let connection = crate::sqlite::read(&open.metadata_path)?;
             let paths = query::candidates(&connection, equals, has)?;
             let mut fields = query::read(&connection, &paths)?;
             Ok(Some(

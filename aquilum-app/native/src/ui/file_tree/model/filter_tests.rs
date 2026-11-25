@@ -95,10 +95,10 @@ fn twenty_thousand_names_filter_fast_even_in_a_debug_build() {
     for number in 0..400 {
         let folder = dir.path().join(format!("папка {number}"));
         let notes = (0..50).map(|at| file(&folder, format!("заметка {at} про кофе и чай {number}"), aquilum_core::files::models::FileItemType::File)).collect();
-        lists.insert(comparable(&folder), notes);
+        lists.insert(identity(&folder), notes);
         folders.push(file(dir.path(), format!("папка {number}"), aquilum_core::files::models::FileItemType::Folder));
     }
-    lists.insert(comparable(dir.path()), folders);
+    lists.insert(identity(dir.path()), folders);
     model.set_filter("к");
     model.set_index(lists);
     let started = std::time::Instant::now();

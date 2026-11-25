@@ -20,8 +20,12 @@ pub fn count(work: Work) -> usize {
     }
 }
 
+pub fn spawn<T: Send + 'static>(name: &str, job: impl FnOnce() -> T + Send + 'static) -> std::io::Result<JoinHandle<T>> {
+    std::thread::Builder::new().name(name.into()).spawn(job)
+}
+
 pub fn background<T: Send + 'static>(name: &str, job: impl FnOnce() -> T + Send + 'static) -> std::io::Result<JoinHandle<T>> {
-    std::thread::Builder::new().name(name.into()).spawn(move || {
+    spawn(name, move || {
         lower_priority();
         job()
     })

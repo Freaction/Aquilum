@@ -12,7 +12,6 @@ mod autostart;
 mod app;
 mod clipboard;
 mod cover;
-mod poster;
 mod graph;
 mod reader;
 mod video;
@@ -50,6 +49,7 @@ mod render;
 #[cfg(not(feature = "installed"))]
 mod replay;
 mod session;
+mod state_file;
 mod system;
 mod tabs;
 #[cfg(target_os = "windows")]

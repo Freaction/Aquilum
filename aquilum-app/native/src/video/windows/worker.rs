@@ -4,7 +4,9 @@ use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::time::{Duration, Instant};
 
-use windows::Win32::Media::MediaFoundation::{IMFSourceReader, MF_PD_DURATION, MF_SOURCE_READER_MEDIASOURCE, MF_VERSION, MFSTARTUP_FULL, MFStartup};
+use windows::Win32::Media::MediaFoundation::{
+    IMFSample, IMFSourceReader, MF_PD_DURATION, MF_SOURCE_READER_MEDIASOURCE, MF_SOURCE_READERF_ENDOFSTREAM, MF_VERSION, MFSTARTUP_FULL, MFStartup,
+};
 use windows::Win32::System::Com::StructuredStorage::{PROPVARIANT, PROPVARIANT_0, PROPVARIANT_0_0, PROPVARIANT_0_0_0};
 use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx};
 use windows::Win32::System::Variant::VT_I8;
@@ -32,6 +34,12 @@ pub(super) fn seek(reader: &IMFSourceReader, seconds: f64) {
     unsafe {
         let _ = reader.SetCurrentPosition(&GUID::zeroed(), &position);
     }
+}
+
+pub(super) fn read(reader: &IMFSourceReader, stream: u32) -> Option<(f64, Option<IMFSample>)> {
+    let (mut flags, mut time, mut sample) = (0u32, 0i64, None);
+    unsafe { reader.ReadSample(stream, 0, None, Some(&mut flags), Some(&mut time), Some(&mut sample)) }.ok()?;
+    (flags & MF_SOURCE_READERF_ENDOFSTREAM.0 as u32 == 0).then_some((time as f64 / 1e7, sample))
 }
 
 fn duration(reader: &IMFSourceReader) -> f64 {

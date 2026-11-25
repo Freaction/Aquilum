@@ -7,11 +7,11 @@
 //! Обработчики адаптера вызываются из оконной процедуры, где к `RenderRoot` не подобраться:
 //! они кладут запрос в канал и будят цикл winit, хост разбирает канал в `proxy_wake_up`.
 
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
 use masonry::accesskit::{ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, TreeUpdate};
 use winit::event::WindowEvent;
-use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
 
 pub enum Request {
@@ -35,13 +35,13 @@ pub struct Accessibility {
 
 struct Forward {
     sender: Sender<Request>,
-    proxy: EventLoopProxy,
+    wake: Arc<dyn Fn() + Send + Sync>,
 }
 
 impl Forward {
     fn send(&self, request: Request) {
         if self.sender.send(request).is_ok() {
-            self.proxy.wake_up();
+            (self.wake)();
         }
     }
 }
@@ -66,29 +66,22 @@ impl DeactivationHandler for Forward {
 
 impl Accessibility {
     /// Подключает адаптер к окну. Окно должно быть ещё невидимым: так требует Windows-адаптер.
-    pub fn attach(window: &dyn Window, proxy: EventLoopProxy) -> Option<Self> {
+    pub fn attach(window: &dyn Window, wake: Arc<dyn Fn() + Send + Sync>) -> Option<Self> {
         let (sender, requests) = channel::<Request>();
-        let activation = Forward { sender: sender.clone(), proxy: proxy.clone() };
-        let action = Forward { sender, proxy };
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
-        let handle = {
-            use winit::raw_window_handle::HasWindowHandle;
-            window.window_handle().ok()?.as_raw()
-        };
+        let activation = Forward { sender: sender.clone(), wake: Arc::clone(&wake) };
+        let action = Forward { sender, wake };
         #[cfg(target_os = "windows")]
-        let adapter = {
-            let winit::raw_window_handle::RawWindowHandle::Win32(handle) = handle else { return None };
-            accesskit_windows::SubclassingAdapter::new(accesskit_windows::HWND(handle.hwnd.get() as *mut std::ffi::c_void), activation, action)
-        };
+        let adapter = accesskit_windows::SubclassingAdapter::new(crate::host::hwnd(window)?, activation, action);
         #[cfg(target_os = "macos")]
         let adapter = {
-            let winit::raw_window_handle::RawWindowHandle::AppKit(handle) = handle else { return None };
+            use winit::raw_window_handle::HasWindowHandle;
+            let winit::raw_window_handle::RawWindowHandle::AppKit(handle) = window.window_handle().ok()?.as_raw() else { return None };
             unsafe { accesskit_macos::SubclassingAdapter::new(handle.ns_view.as_ptr(), activation, action) }
         };
         #[cfg(all(unix, not(any(target_os = "macos", target_os = "android"))))]
         let adapter = {
             let _ = window;
-            let deactivation = Forward { sender: activation.sender.clone(), proxy: activation.proxy.clone() };
+            let deactivation = Forward { sender: activation.sender.clone(), wake: Arc::clone(&activation.wake) };
             accesskit_unix::Adapter::new(activation, action, deactivation)
         };
         #[cfg(target_os = "android")]

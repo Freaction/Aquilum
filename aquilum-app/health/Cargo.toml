@@ -1,0 +1,14 @@
+[package]
+name = "aquilum-health"
+version = "0.1.0"
+description = "Source checks for Aquilum: dead code, duplicates, single gateways"
+license = "AGPL-3.0-only"
+edition = "2024"
+publish = false
+workspace = ".."
+
+[dependencies]
+syn = { version = "2", default-features = false, features = ["full", "parsing", "printing", "visit", "visit-mut"] }
+proc-macro2 = { version = "1", features = ["span-locations"] }
+quote = "1"
+toml = "1"

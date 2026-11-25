@@ -69,29 +69,27 @@ pub struct Vsync {
 }
 
 impl Vsync {
-    pub fn new(wake: impl Fn() + Send + 'static) -> Self {
+    pub fn new(wake: Arc<dyn Fn() + Send + Sync>) -> Self {
         let wanted = Arc::new(AtomicBool::new(false));
         let fired = Arc::new(AtomicU64::new(0));
         let base = Instant::now();
         let (w, f) = (wanted.clone(), fired.clone());
-        let thread = std::thread::Builder::new()
-            .name("vsync".into())
-            .spawn(move || {
-                let mut pacer = Pacer { period: DEFAULT_PERIOD, checked: None, grid: None };
-                loop {
-                    while !w.load(Ordering::Acquire) {
-                        std::thread::park();
-                    }
-                    let stamp = pacer.tick();
-                    aq_trace::mark("такт экрана");
-                    w.store(false, Ordering::Release);
-                    f.store(stamp.saturating_duration_since(base).as_nanos() as u64 + 1, Ordering::Release);
-                    wake();
+        let thread = aquilum_core::threads::spawn("vsync", move || {
+            let mut pacer = Pacer { period: DEFAULT_PERIOD, checked: None, grid: None };
+            loop {
+                while !w.load(Ordering::Acquire) {
+                    std::thread::park();
                 }
-            })
-            .expect("поток vsync")
-            .thread()
-            .clone();
+                let stamp = pacer.tick();
+                aq_trace::mark("такт экрана");
+                w.store(false, Ordering::Release);
+                f.store(stamp.saturating_duration_since(base).as_nanos() as u64 + 1, Ordering::Release);
+                wake();
+            }
+        })
+        .expect("поток vsync")
+        .thread()
+        .clone();
         Vsync { wanted, fired, base, thread }
     }
 

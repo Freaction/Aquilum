@@ -71,7 +71,7 @@ impl SearchService {
         if self.with_index(workspace, |_| Ok(())).is_err() {
             self.prepare(workspace)?;
         }
-        self.with_index(workspace, |open| work(&open.root, &Connection::open(&open.metadata_path)?))
+        self.with_index(workspace, |open| work(&open.root, &crate::sqlite::read(&open.metadata_path)?))
     }
 
     pub fn active_root(&self) -> Option<PathBuf> {

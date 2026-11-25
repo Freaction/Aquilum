@@ -196,7 +196,7 @@ version = "0.1.0"
 
 [[package]]
 name = "aquilum-android"
-version = "0.3.29"
+version = "0.3.30"
 dependencies = [
  "aquilum-native",
  "jni",
@@ -204,7 +204,7 @@ dependencies = [
 
 [[package]]
 name = "aquilum-core"
-version = "0.3.29"
+version = "0.3.30"
 dependencies = [
  "atomic-write-file",
  "base64",
@@ -232,8 +232,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "aquilum-health"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
+ "toml",
+]
+
+[[package]]
 name = "aquilum-native"
-version = "0.3.29"
+version = "0.3.30"
 dependencies = [
  "accesskit_macos",
  "accesskit_unix",
@@ -283,6 +293,7 @@ dependencies = [
  "serde_json",
  "skrifa 0.44.0",
  "softbuffer",
+ "sys-locale",
  "tempfile",
  "unicode-segmentation",
  "uuid",
@@ -4498,6 +4509,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.118",
+]
+
+[[package]]
+name = "sys-locale"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

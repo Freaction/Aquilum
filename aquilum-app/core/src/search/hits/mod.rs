@@ -7,7 +7,6 @@ use super::error::SearchError;
 use super::index::SearchFields;
 use super::models::SearchResult;
 use super::pages;
-use rusqlite::Connection;
 use crate::text::cancel::Cancel;
 use crate::text::matcher::{Fold, Matcher, Mode, Options, EXACT};
 use file::locate;
@@ -52,7 +51,7 @@ pub fn results(notes: Vec<(SearchResult, HashSet<String>, usize)>, terms: &[Stri
         let path = Path::new(&result.path);
         let placed = || match (count, hits.iter().next()) {
             (1, Some(key)) => Some(vec![pages::Placed { key: key.clone(), start: 0, start_utf16: 0 }]),
-            _ => connection.get_or_init(|| metadata.and_then(|metadata| Connection::open(metadata).ok())).as_ref().and_then(|connection| pages::placed(connection, &result.path).ok()),
+            _ => connection.get_or_init(|| metadata.and_then(|metadata| crate::sqlite::read(metadata).ok())).as_ref().and_then(|connection| pages::placed(connection, &result.path).ok()),
         };
         let first = if hits.is_empty() {
             None

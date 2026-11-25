@@ -80,12 +80,7 @@ impl Widget for Slider {
 
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &masonry::core::TextEvent) {
         use crate::ui::keymap::{self, Command, Scope};
-        use masonry::core::keyboard::KeyState;
-        let masonry::core::TextEvent::Keyboard(k) = event else { return };
-        if k.state != KeyState::Down {
-            return;
-        }
-        let value = match keymap::command(&[Scope::Slider], &k.key, k.modifiers) {
+        let value = match keymap::pressed(&[Scope::Slider], event) {
             Some(Command::Increase) => self.value + self.step,
             Some(Command::Decrease) => self.value - self.step,
             Some(Command::First) => self.min,

@@ -4,7 +4,6 @@ use super::models::{AnalysisMethod, AnalysisResult};
 use crate::search::error::SearchError;
 use crate::search::models::SearchIndexState;
 use crate::search::service::{CachedGraph, OpenIndex, SearchService};
-use rusqlite::Connection;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -70,7 +69,7 @@ impl SearchService {
     }
 
     fn link_graph(&self, open: &OpenIndex, revision: u64) -> Result<Arc<GraphSnapshot>, SearchError> {
-        let load = || Ok::<_, SearchError>(Arc::new(GraphSnapshot::load(&Connection::open(&open.metadata_path)?, &open.root)?));
+        let load = || Ok::<_, SearchError>(Arc::new(GraphSnapshot::load(&crate::sqlite::read(&open.metadata_path)?, &open.root)?));
         if !open.is_visible() {
             return load();
         }

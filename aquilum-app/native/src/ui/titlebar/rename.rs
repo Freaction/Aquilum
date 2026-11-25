@@ -36,9 +36,7 @@ impl Widget for TabRename {
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
         let width = (size_.width - size::PADDING_MD * 2.0).max(0.0);
-        let auto = SizeDef::new(LenDef::FitContent(Length::px(width)), LenDef::MaxContent);
-        let child = ctx.compute_size(&mut self.field, auto, Size::new(width, size_.height).into());
-        let child = Size::new(width, child.height);
+        let child = Size::new(width, crate::ui::widgets::fit_height(ctx, &mut self.field, width, Size::new(width, size_.height).into()));
         ctx.run_layout(&mut self.field, child);
         ctx.place_child(&mut self.field, Point::new(size::PADDING_MD, (content_y(size_.to_rect()) - child.height / 2.0).round()));
     }

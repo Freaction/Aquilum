@@ -54,7 +54,7 @@ impl App {
 
     pub(in crate::app) fn pick(&self, choose: impl FnOnce() -> Option<Picked> + Send + 'static) {
         let delivery = jobs::delivery(self.picked_tx.clone(), &self.workspace.wake, choose);
-        if let Err(error) = std::thread::Builder::new().name("диалог выбора".into()).spawn(delivery) {
+        if let Err(error) = aquilum_core::threads::spawn("диалог выбора", delivery) {
             report!("диалог выбора не открыт: {error}");
         }
     }
@@ -80,12 +80,9 @@ impl App {
         }
     }
 
-    pub(super) fn pick_image(&self, page_cover: bool) {
+    pub(in crate::app) fn pick_image(&self, picked: fn(PathBuf, PathBuf) -> Picked) {
         let Some(note) = self.note.as_ref().map(|n| n.path.clone()) else { return };
-        self.pick(move || {
-            let file = crate::native_dialog::pick_file("Images", &crate::images::EXTENSIONS)?;
-            Some(if page_cover { Picked::PageCover(note, file) } else { Picked::BookCover(note, file) })
-        });
+        self.pick(move || Some(picked(note, crate::native_dialog::pick_file("Images", &crate::images::EXTENSIONS)?)));
     }
 
     pub(in crate::app) fn on_picked(&mut self, root: &mut RenderRoot, picked: Picked) -> bool {

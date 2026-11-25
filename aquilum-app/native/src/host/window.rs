@@ -14,7 +14,7 @@ mod win {
     use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use winit::window::Window;
 
-    fn hwnd(window: &dyn Window) -> Option<HWND> {
+    pub fn hwnd(window: &dyn Window) -> Option<HWND> {
         match window.window_handle().ok()?.as_raw() {
             RawWindowHandle::Win32(handle) => Some(HWND(handle.hwnd.get() as *mut std::ffi::c_void)),
             _ => None,
@@ -37,6 +37,12 @@ mod win {
         }
     }
 
+    pub fn focus(window: &dyn Window) {
+        if let Some(hwnd) = hwnd(window) {
+            let _ = unsafe { windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(hwnd) };
+        }
+    }
+
     pub fn set_background(window: &dyn Window, color: Color) {
         let Some(hwnd) = hwnd(window) else { return };
         let rgba = color.to_rgba8();
@@ -54,7 +60,22 @@ mod win {
 }
 
 #[cfg(target_os = "windows")]
-pub(super) use win::{cloak, set_background};
+pub(super) use win::{cloak, focus, set_background};
+#[cfg(target_os = "windows")]
+pub(crate) use win::hwnd;
+
+pub(super) fn present(window: &dyn winit::window::Window) {
+    if window.is_minimized() == Some(true) {
+        window.set_minimized(false);
+    }
+    focus(window);
+    window.request_user_attention(Some(winit::window::UserAttentionType::Informational));
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(super) fn focus(window: &dyn winit::window::Window) {
+    window.focus_window();
+}
 
 #[cfg(not(target_os = "windows"))]
 pub(super) fn cloak(window: &dyn winit::window::Window, cloaked: bool) {

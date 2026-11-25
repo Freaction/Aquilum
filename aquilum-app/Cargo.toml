@@ -1,7 +1,10 @@
 [workspace]
-members = ["core", "native", "android"]
-default-members = ["core", "native"]
+members = ["core", "native", "android", "health"]
+default-members = ["core", "native", "health"]
 resolver = "2"
+
+[profile.dev.build-override]
+opt-level = 2
 
 [profile.release]
 incremental = true

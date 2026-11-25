@@ -37,7 +37,7 @@ pub fn load(
     let mut rows = Vec::with_capacity(paths.len());
 
     let sql = |list: &str| format!("SELECT path, created_ns, modified_ns, size FROM documents WHERE path IN ({list})");
-    let row = |row: &rusqlite::Row<'_>| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?, row.get::<_, i64>(3)?));
+    let row = |row: &rusqlite::Row<'_>| <(String, i64, i64, i64)>::try_from(row);
     for_paths(connection, paths, sql, row, |(path, created, modified, size)| {
         let relative = relative_slash_path(root, Path::new(&path));
         rows.push(Row {

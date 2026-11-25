@@ -184,7 +184,7 @@ fn folders(api: &Api) -> RemoteResult<Vec<String>> {
         }
         Ok(())
     })?;
-    names.sort_by_key(|name| key(name));
+    names.sort_by(|left, right| crate::text::collate::compare(left, right));
     Ok(names)
 }
 

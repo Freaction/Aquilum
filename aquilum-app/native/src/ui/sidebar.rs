@@ -1,15 +1,14 @@
-use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
+use masonry::core::{NewWidget, Widget, WidgetId};
 use masonry::kurbo::Axis;
-use masonry::layout::Length;
 use masonry::properties::types::CrossAxisAlignment;
-use masonry::properties::{Gap, Padding};
+use masonry::properties::Padding;
 use masonry::widgets::{Flex, SizedBox};
 
 use super::frame::on_sidebar;
 use super::handle::Handle;
 use super::titlebar::panel_header;
 use super::tokens::size;
-use super::widgets::{Collapse, Edge, Edged, IconButton, ItemButton, Rule, Sash};
+use super::widgets::{Collapse, Edge, Edged, IconButton, ItemButton, Rule, Sash, spaced};
 use super::{icons, style};
 use crate::i18n;
 
@@ -33,7 +32,7 @@ pub(super) fn sidebar(tree: NewWidget<impl Widget>, workspace_name: &str, width:
         .with_fixed(Rule::frame(Axis::Horizontal))
         .with(NewWidget::new(SizedBox::new(tree)).with_class(style::SIDEBAR), 1.0)
         .with_fixed(Rule::frame(Axis::Horizontal))
-        .with_fixed(NewWidget::new(footer).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_6))).with(Padding::all(Length::px(size::SPACE_6)))).with_class(style::SIDEBAR));
+        .with_fixed(spaced(footer, size::SPACE_6, size::SPACE_6).with_class(style::SIDEBAR));
     let row = Flex::row()
         .cross_axis_alignment(CrossAxisAlignment::Stretch)
         .with(NewWidget::new(column), 1.0)

@@ -7,7 +7,6 @@ use masonry::core::{ErasedAction, WidgetId};
 
 use super::{App, Popup, select_card};
 use crate::app::Outcome;
-use crate::ui::dialog::DialogAnswer;
 use crate::ui::editor::{TextAction, TextEditor};
 use crate::ui::search::CardAction;
 use crate::ui::widgets::Pressed;
@@ -23,7 +22,7 @@ impl App {
         let Some(result) = state.results.get(state.selected) else { return Outcome::default() };
         let path = PathBuf::from(&result.path);
         let offset = result.match_offset;
-        self.close_search(root);
+        self.close_lookup(root);
         let title = self.open_in_with_offset(root, path, new_tab, Some(offset));
         Outcome { title, ..Outcome::default() }
     }
@@ -34,7 +33,7 @@ impl App {
         if title.is_empty() {
             return Outcome::default();
         }
-        self.close_search(root);
+        self.close_lookup(root);
         let opened = self.create_note_titled(root, Some(&title));
         Outcome { title: opened, ..Outcome::default() }
     }
@@ -58,10 +57,6 @@ impl App {
 
     pub(in crate::app) fn on_search_action(&mut self, root: &mut RenderRoot, id: WidgetId, action: &ErasedAction) -> Outcome {
         let Some(Popup::Search(state)) = &self.popup else { return Outcome::default() };
-        if id == state.layer && matches!(action.downcast_ref::<DialogAnswer>(), Some(DialogAnswer::Cancel)) {
-            self.close_search(root);
-            return Outcome::default();
-        }
         if id == state.field.id() {
             if let Some(TextAction::Changed(text)) = action.downcast_ref::<TextAction>() {
                 self.query_changed(root, text.clone());

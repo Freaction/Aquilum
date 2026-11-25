@@ -122,11 +122,7 @@ impl Widget for Hero {
         if self.column.is_none() {
             self.column = Some(crate::ui::note::ch_width(ctx));
         }
-        match (axis, len_req) {
-            (Axis::Vertical, _) => Length::px(self.height()),
-            (Axis::Horizontal, LenReq::FitContent(space)) => space,
-            (Axis::Horizontal, _) => Length::ZERO,
-        }
+        crate::ui::widgets::fixed_height(axis, len_req, self.height(), || 0.0)
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {

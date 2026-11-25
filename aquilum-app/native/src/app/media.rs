@@ -39,14 +39,6 @@ impl App {
         true
     }
 
-    pub(in crate::app) fn pick_note_image(&self) {
-        let Some(note) = self.note.as_ref().map(|n| n.path.clone()) else { return };
-        self.pick(move || {
-            let file = crate::native_dialog::pick_file("Images", &crate::images::EXTENSIONS)?;
-            Some(super::book::Picked::NoteImage(note, file))
-        });
-    }
-
     pub(in crate::app) fn paste_image(&mut self, root: &mut RenderRoot, png: &[u8]) -> bool {
         if self.note_ids.as_ref().is_none_or(|ids| root.focused_widget() != Some(ids.body.id())) {
             return false;

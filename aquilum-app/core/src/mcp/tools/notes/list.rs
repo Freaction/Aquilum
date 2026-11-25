@@ -1,4 +1,5 @@
 use super::*;
+use crate::text::collate;
 
 pub(super) fn list_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
     let by_links = optional_text(arguments, "sort").as_deref() == Some("links");
@@ -21,7 +22,7 @@ pub(super) fn list_notes(core: &Core, arguments: &Value) -> Result<Value, String
                 .is_none_or(|matcher| matcher.first(&crate::search::paths::title(path)).is_some())
         })
         .collect::<Vec<_>>();
-    paths.sort();
+    paths.sort_by_cached_key(|path| collate::key(&vault.relative(path)));
     let total = paths.len();
     let notes = if by_links {
         let counts = core
@@ -56,6 +57,6 @@ pub(super) fn list_folders(core: &Core, arguments: &Value) -> Result<Value, Stri
         .filter(|entry| entry.file_type().is_dir() && entry.depth() > 0)
         .map(|entry| vault.relative(entry.path()))
         .collect::<Vec<_>>();
-    folders.sort();
+    folders.sort_by_cached_key(|folder| collate::key(folder));
     Ok(json!({ "root": vault.root.to_string_lossy(), "folders": folders }))
 }

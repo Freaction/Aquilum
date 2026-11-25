@@ -85,6 +85,14 @@ pub(super) fn select_card(root: &mut RenderRoot, kind: CardKind, cards: &[Widget
     }
 }
 
+pub(super) fn show_layer(root: &mut RenderRoot, card: NewWidget<Flex>, title: &str, size: CardSize, focus: WidgetId) -> WidgetId {
+    let layer = Modal::new(card, title, size, Role::Dialog, false);
+    let id = layer.id();
+    root.add_layer(layer, Point::ORIGIN);
+    root.focus_on(Some(focus));
+    id
+}
+
 impl App {
     pub fn open_search(&mut self, root: &mut RenderRoot) {
         if matches!(self.popup, Some(Popup::Search(_))) {
@@ -95,13 +103,10 @@ impl App {
         let body = Slot::new(NewWidget::new(Flex::column()).erased());
         let body_handle = Handle::of(&body);
         let card = dialog::card(search_box.widget, body, search::footer());
-        let layer = Modal::new(card, &t("search.title"), CardSize::Window(search::card_size), Role::Dialog, false);
-        let layer_id = layer.id();
-        root.add_layer(layer, Point::ORIGIN);
-        root.focus_on(Some(search_box.field.id()));
+        let layer = show_layer(root, card, &t("search.title"), CardSize::Window(search::card_size), search_box.field.id());
         let status = self.tree.root().map(|w| self.workspace.core.search.status(Some(&w.to_string_lossy())));
         self.popup = Some(Popup::Search(SearchState {
-            layer: layer_id,
+            layer,
             field: search_box.field,
             placeholder: search_box.placeholder,
             clear: search_box.clear,
@@ -120,12 +125,20 @@ impl App {
         self.render_search(root);
     }
 
-    fn close_search(&mut self, root: &mut RenderRoot) {
-        if let Some(Popup::Search(state)) = self.popup.take_if(|popup| matches!(popup, Popup::Search(_))) {
-            crate::ui::dialog::close(root, state.layer);
-            if let Some(ids) = &self.note_ids {
-                root.focus_on(Some(ids.body.id()));
-            }
+    pub(super) fn lookup_layer(&self) -> Option<WidgetId> {
+        match &self.popup {
+            Some(Popup::Search(state)) => Some(state.layer),
+            Some(Popup::Templates(state)) => Some(state.layer),
+            _ => None,
+        }
+    }
+
+    pub(super) fn close_lookup(&mut self, root: &mut RenderRoot) {
+        let Some(layer) = self.lookup_layer() else { return };
+        self.popup = None;
+        dialog::close(root, layer);
+        if let Some(ids) = &self.note_ids {
+            root.focus_on(Some(ids.body.id()));
         }
     }
 }

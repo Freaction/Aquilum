@@ -1,31 +1,5 @@
 use crate::search::note_date;
-
-const MONTHS_OF: [&str; 12] = [
-    "января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября",
-    "октября", "ноября", "декабря",
-];
-
-const MONTHS: [&str; 12] = [
-    "январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь",
-    "ноябрь", "декабрь",
-];
-
-const MONTHS_SHORT: [&str; 12] = [
-    "янв.", "февр.", "мар.", "апр.", "мая", "июн.", "июл.", "авг.", "сент.", "окт.", "нояб.",
-    "дек.",
-];
-
-const WEEKDAYS: [&str; 7] = [
-    "понедельник",
-    "вторник",
-    "среда",
-    "четверг",
-    "пятница",
-    "суббота",
-    "воскресенье",
-];
-
-const WEEKDAYS_SHORT: [&str; 7] = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
+use crate::text::calendar::RU;
 
 pub fn format(nanos: i64, pattern: &str) -> String {
     let (year, month, day, seconds) = note_date::to_civil(nanos);
@@ -58,12 +32,12 @@ pub fn format(nanos: i64, pattern: &str) -> String {
             "yyyy" | "yyy" => out.push_str(&format!("{year:04}")),
             "yy" => out.push_str(&format!("{:02}", year.rem_euclid(100))),
             "y" => out.push_str(&year.to_string()),
-            "MMMM" => out.push_str(MONTHS_OF[index]),
-            "MMM" => out.push_str(MONTHS_SHORT[index]),
+            "MMMM" => out.push_str(RU.months_of[index]),
+            "MMM" => out.push_str(RU.months_short_of[index]),
             "MM" => out.push_str(&format!("{month:02}")),
             "M" => out.push_str(&month.to_string()),
-            "LLLL" => out.push_str(MONTHS[index]),
-            "LLL" => out.push_str(MONTHS_SHORT[index]),
+            "LLLL" => out.push_str(RU.months[index]),
+            "LLL" => out.push_str(RU.months_short[index]),
             "LL" => out.push_str(&format!("{month:02}")),
             "L" => out.push_str(&month.to_string()),
             "dd" => out.push_str(&format!("{day:02}")),
@@ -76,8 +50,8 @@ pub fn format(nanos: i64, pattern: &str) -> String {
             "m" => out.push_str(&minute.to_string()),
             "ss" => out.push_str(&format!("{second:02}")),
             "s" => out.push_str(&second.to_string()),
-            "EEEE" | "cccc" => out.push_str(WEEKDAYS[weekday_index]),
-            "EEE" | "ccc" => out.push_str(WEEKDAYS_SHORT[weekday_index]),
+            "EEEE" | "cccc" => out.push_str(RU.weekdays[weekday_index]),
+            "EEE" | "ccc" => out.push_str(RU.weekdays_short[weekday_index]),
             "E" | "c" => out.push_str(&weekday.to_string()),
             _ => out.push_str(&token),
         }
@@ -107,6 +81,13 @@ mod tests {
         assert_eq!(format(at("2024-10-07"), "d MMM"), "7 окт.");
         assert_eq!(format(at("2024-10-07"), "d MMMM yyyy"), "7 октября 2024");
         assert_eq!(format(at("2024-10-07"), "LLLL"), "октябрь");
+    }
+
+    #[test]
+    fn a_short_month_alone_takes_the_nominative_like_luxon() {
+        assert_eq!(format(at("2024-05-07"), "d MMM"), "7 мая");
+        assert_eq!(format(at("2024-05-07"), "LLL"), "май");
+        assert_eq!(format(at("2024-07-07"), "LLL yyyy"), "июль 2024");
     }
 
     #[test]

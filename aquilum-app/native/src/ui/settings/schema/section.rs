@@ -8,7 +8,6 @@ pub enum Section {
     Reader,
     Data,
     Analysis,
-    #[cfg_attr(target_os = "android", allow(dead_code))]
     Mcp,
     History,
     Trash,
@@ -18,20 +17,11 @@ pub enum Section {
 }
 
 impl Section {
-    pub const ALL: &[Section] = &[
-        Section::Ui,
-        Section::Editor,
-        Section::Reader,
-        Section::Data,
-        Section::Analysis,
-        #[cfg(not(target_os = "android"))]
-        Section::Mcp,
-        Section::History,
-        Section::Trash,
-        Section::Sync,
-        Section::System,
-        Section::Shortcuts,
-    ];
+    pub const ALL: &[Section] = if crate::system::DESKTOP {
+        &[Section::Ui, Section::Editor, Section::Reader, Section::Data, Section::Analysis, Section::Mcp, Section::History, Section::Trash, Section::Sync, Section::System, Section::Shortcuts]
+    } else {
+        &[Section::Ui, Section::Editor, Section::Reader, Section::Data, Section::Analysis, Section::History, Section::Trash, Section::Sync, Section::System, Section::Shortcuts]
+    };
 
     pub fn key(self) -> &'static str {
         match self {

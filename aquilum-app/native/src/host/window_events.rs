@@ -49,12 +49,7 @@ impl Host {
                 return;
             }
             WindowEvent::RedrawRequested => self.redraw(),
-            #[cfg(not(target_os = "linux"))]
-            WindowEvent::ThemeChanged(theme) => {
-                if let Some(root) = &mut self.root {
-                    self.app.system_theme_changed(root, theme == winit::window::Theme::Dark);
-                }
-            }
+            WindowEvent::ThemeChanged(theme) => self.system_theme.window(Some(theme)),
             WindowEvent::DragEntered { id, .. } => {
                 use winit::data_transfer::TypeHint;
                 use winit::event_loop::DndAction;
@@ -87,7 +82,9 @@ impl Host {
                 }
             }
             WindowEvent::Focused(focused) => {
-                if !focused {
+                if focused {
+                    window.request_user_attention(None);
+                } else {
                     self.app.window_unfocused();
                 }
                 self.text_event(TextEvent::WindowFocusChange(focused));
@@ -122,8 +119,7 @@ impl Host {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 let Some(delta) = self.wheel_delta(delta) else { return };
-                let state = self.pointer_state();
-                self.pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: PRIMARY_MOUSE, delta, state }));
+                self.scroll(delta);
             }
             _ => {}
         }
@@ -137,11 +133,7 @@ impl Host {
             root.handle_window_event(MasonryWindowEvent::Resize(size));
         }
         self.fit_window();
-        if self.args.size.is_none()
-            && let Some(window) = &self.window
-        {
-            self.window_state.observe(&**window);
-        }
+        self.window_state.observe(window);
         self.redraw();
         self.redraw_pending = false;
     }

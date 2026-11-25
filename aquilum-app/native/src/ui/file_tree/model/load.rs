@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use aquilum_core::files::models::{FileItem, FileItemType};
 use aquilum_core::files::workspace::read_directory_impl;
 
-use super::{Lists, Row, TreeModel, comparable};
+use super::{Lists, Row, TreeModel};
+use aquilum_core::search::paths::identity;
 
 impl TreeModel {
     pub fn expand_to(&mut self, path: &Path) {
@@ -12,7 +13,7 @@ impl TreeModel {
         let mut folders: Vec<PathBuf> = path.ancestors().skip(1).take_while(|dir| dir.starts_with(&root) && *dir != root.as_path()).map(Path::to_path_buf).collect();
         folders.reverse();
         for folder in folders {
-            let key = comparable(&folder);
+            let key = identity(&folder);
             if self.expanded.insert(key.clone(), folder.clone()).is_none() && !self.directories.contains_key(&key) {
                 self.load(&folder);
             }
@@ -34,7 +35,7 @@ impl TreeModel {
         for path in changed {
             let mut current = path.parent();
             while let Some(dir) = current {
-                if self.directories.contains_key(&comparable(dir)) {
+                if self.directories.contains_key(&identity(dir)) {
                     dirs.insert(dir.to_path_buf());
                     break;
                 }
@@ -62,16 +63,16 @@ impl TreeModel {
                     self.stamp(&items);
                 }
                 self.order(&mut items);
-                self.directories.insert(comparable(dir), items);
+                self.directories.insert(identity(dir), items);
             }
             Err(e) => {
-                self.directories.remove(&comparable(dir));
+                self.directories.remove(&identity(dir));
                 report!("папка {} не прочитана: {e}", dir.display());
             }
         }
-        let nested: Vec<PathBuf> = self.directories.get(&comparable(dir)).into_iter().flatten()
-            .filter(|i| i.item_type == FileItemType::Folder && self.expanded.contains_key(&comparable(Path::new(&i.id))))
-            .filter(|i| !self.directories.contains_key(&comparable(Path::new(&i.id))))
+        let nested: Vec<PathBuf> = self.directories.get(&identity(dir)).into_iter().flatten()
+            .filter(|i| i.item_type == FileItemType::Folder && self.expanded.contains_key(&identity(Path::new(&i.id))))
+            .filter(|i| !self.directories.contains_key(&identity(Path::new(&i.id))))
             .map(|i| PathBuf::from(&i.id))
             .collect();
         for folder in nested {
@@ -82,7 +83,7 @@ impl TreeModel {
     pub(super) fn rebuild(&mut self) {
         let mut rows = Vec::new();
         if let Some(root) = self.root.clone() {
-            let key = comparable(&root);
+            let key = identity(&root);
             if self.filter.is_some() {
                 let kept = self.survivors(&root);
                 if let Some(items) = kept.get(&key) {
@@ -96,10 +97,10 @@ impl TreeModel {
     }
 
     fn visit(&self, lists: &Lists, items: &[FileItem], depth: usize, continuing: &[usize], rows: &mut Vec<Row>) {
-        let active = self.active.as_deref().map(comparable);
+        let active = self.active.as_deref().map(identity);
         for (index, item) in items.iter().enumerate() {
             let path = PathBuf::from(&item.id);
-            let key = comparable(&path);
+            let key = identity(&path);
             let folder = item.item_type == FileItemType::Folder;
             let expanded = folder && if self.filter.is_some() { lists.contains_key(&key) } else { self.expanded.contains_key(&key) };
             let count = if folder && self.filter.is_none() { self.counts.total(&path) } else { None };

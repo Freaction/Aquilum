@@ -43,9 +43,7 @@ impl App {
         }
         let workspace = self.tree.root()?.to_path_buf();
         let source = current.unwrap_or_else(|| workspace.clone());
-        let found = self.workspace.core.search.resolve_wiki_links(&workspace.to_string_lossy(), &source.to_string_lossy(), &[raw.to_owned()]);
-        let resolved = found.ok().and_then(|found| found.paths.into_iter().next().flatten()).map(PathBuf::from);
-        if let Some(path) = resolved.or_else(|| links::find_note(&workspace, raw)) {
+        if let Some(path) = self.workspace.core.search.resolve_wiki_link(&workspace, &source, raw) {
             return Some(path);
         }
         let base = if split(raw).note.contains(['/', '\\']) { workspace } else { crate::vault_files::notes_dir(&self.workspace.core, &workspace) };

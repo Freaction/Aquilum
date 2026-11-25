@@ -2,9 +2,10 @@ use masonry::accesskit::{Node, Role};
 use masonry::core::{AccessCtx, ChildrenIds, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PropertiesRef, RegisterCtx, Widget, WidgetPod};
 use masonry::imaging::Painter;
 use masonry::kurbo::{Axis, Point, Size};
-use masonry::layout::{LayoutSize, LenReq, Length};
+use masonry::layout::{LenReq, Length};
 
 use crate::ui::tokens::size;
+use crate::ui::widgets::MaxContent;
 
 const CONTROL_SHARE: f64 = 0.4;
 
@@ -55,11 +56,6 @@ impl SettingRow {
     }
 }
 
-fn request(cross: Option<f64>) -> (LayoutSize, Option<Length>) {
-    let cross = cross.map(Length::px);
-    (LayoutSize::maybe(Axis::Horizontal, cross), cross)
-}
-
 impl Widget for SettingRow {
     type Action = masonry::core::NoAction;
 
@@ -69,10 +65,7 @@ impl Widget for SettingRow {
     }
 
     fn measure(&mut self, ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, cross: Option<Length>) -> Length {
-        let mut length = |part, axis, cross| {
-            let (context, cross) = request(cross);
-            ctx.compute_length(self.pod(part), LenReq::MaxContent.into(), context, axis, cross).get()
-        };
+        let mut length = |part, axis, cross: Option<f64>| ctx.max_content(self.pod(part), axis, cross.map(Length::px)).get();
         if let (Axis::Horizontal, LenReq::FitContent(space)) = (axis, len_req) {
             return space;
         }
@@ -84,10 +77,7 @@ impl Widget for SettingRow {
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size: Size) {
-        let at = Arrangement::new(size.width, |part, axis, cross| {
-            let (context, cross) = request(cross);
-            ctx.compute_length(self.pod(part), LenReq::MaxContent.into(), context, axis, cross).get()
-        });
+        let at = Arrangement::new(size.width, |part, axis, cross: Option<f64>| ctx.max_content(self.pod(part), axis, cross.map(Length::px)).get());
         let (text, control) = if at.beside {
             let middle = |height: f64| ((size.height - height) / 2.0).max(0.0);
             (Point::new(0.0, middle(at.text.height)), Point::new(size.width - at.control.width, middle(at.control.height)))

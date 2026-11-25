@@ -25,7 +25,7 @@ impl Host {
                     self.show_cursor();
                 }
                 RenderRootSignal::SetTitle(title) => window.set_title(&title),
-                RenderRootSignal::TakeFocus => window.focus_window(),
+                RenderRootSignal::TakeFocus => focus(&*window),
                 RenderRootSignal::Exit => event_loop.exit(),
                 RenderRootSignal::NewLayer(_, root, pos) => {
                     self.root.as_mut().expect("корень есть").add_layer(root, pos)

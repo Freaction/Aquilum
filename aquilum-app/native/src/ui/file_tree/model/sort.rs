@@ -3,9 +3,11 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use aquilum_core::files::models::{FileItem, FileItemType};
+use aquilum_core::files::workspace::by_name;
 use serde::{Deserialize, Serialize};
 
-use super::{TreeModel, comparable};
+use super::TreeModel;
+use aquilum_core::search::paths::identity;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,23 +68,25 @@ impl TreeModel {
             let Ok(meta) = std::fs::metadata(&item.id) else { continue };
             let modified = meta.modified().map_or(0, nanos);
             let created = meta.created().map_or(modified, nanos);
-            self.times.insert(comparable(Path::new(&item.id)), (modified, created));
+            self.times.insert(identity(Path::new(&item.id)), (modified, created));
         }
     }
 
     pub(super) fn order(&self, items: &mut [FileItem]) {
-        let file = |i: &FileItem| i.item_type == FileItemType::File;
-        let name = |i: &FileItem| i.name.to_lowercase();
         match self.sort {
-            Sort::NameAsc => items.sort_by_cached_key(|i| (file(i), name(i))),
-            Sort::NameDesc => items.sort_by_cached_key(|i| (file(i), Reverse(name(i)))),
+            Sort::NameAsc => items.sort_by_cached_key(by_name),
+            Sort::NameDesc => items.sort_by_cached_key(|i| {
+                let (file, name) = by_name(i);
+                (file, Reverse(name))
+            }),
             sort => {
                 let newest = matches!(sort, Sort::ModifiedNew | Sort::CreatedNew);
                 let created = matches!(sort, Sort::CreatedNew | Sort::CreatedOld);
                 items.sort_by_cached_key(|i| {
-                    let time = self.times.get(&comparable(Path::new(&i.id))).map_or(0, |t| if created { t.1 } else { t.0 });
-                    let time = if !file(i) { 0 } else if newest { -time } else { time };
-                    (file(i), time, name(i))
+                    let (file, name) = by_name(i);
+                    let time = self.times.get(&identity(Path::new(&i.id))).map_or(0, |t| if created { t.1 } else { t.0 });
+                    let time = if !file { 0 } else if newest { -time } else { time };
+                    (file, time, name)
                 });
             }
         }

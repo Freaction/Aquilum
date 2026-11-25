@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use aquilum_core::files::models::{FileItem, FileItemType};
 use aquilum_core::files::workspace::read_directory_impl;
 
-use super::comparable;
+use aquilum_core::search::paths::identity;
 
 pub type Lists = HashMap<String, Vec<FileItem>>;
 
@@ -13,7 +13,7 @@ pub fn walk(root: &Path, mut visit: impl FnMut(String, Vec<FileItem>)) {
     while let Some(dir) = pending.pop() {
         let items = read_directory_impl(&dir).unwrap_or_default();
         pending.extend(items.iter().filter(|item| item.item_type == FileItemType::Folder).map(|item| PathBuf::from(&item.id)));
-        visit(comparable(&dir), items);
+        visit(identity(&dir), items);
     }
 }
 

@@ -30,6 +30,15 @@ impl Host {
         self.pinch_at(PRIMARY_MOUSE, state, delta);
     }
 
+    pub(super) fn scroll(&mut self, delta: ScrollDelta) {
+        let state = self.pointer_state();
+        self.pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: PRIMARY_MOUSE, delta, state }));
+    }
+
+    pub(super) fn pan(&mut self, dx: f32, dy: f32) {
+        self.scroll(ScrollDelta::PixelDelta(winit::dpi::PhysicalPosition::new(f64::from(dx), f64::from(dy))));
+    }
+
     pub(super) fn pinch_at(&mut self, pointer: PointerInfo, state: PointerState, delta: f64) {
         if !delta.is_finite() || delta == 0.0 {
             return;

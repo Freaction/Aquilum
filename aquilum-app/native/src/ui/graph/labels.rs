@@ -22,10 +22,7 @@ pub(super) fn readable(scale: f64) -> f64 {
 
 pub(super) fn label_layout(fcx: &mut FontContext, lcx: &mut LayoutContext<BrushIndex>, title: &str) -> Label {
     let font = theme::ui_font_settings();
-    let mut builder = lcx.ranged_builder(fcx, title, 1.0, true);
-    builder.push_default(StyleProperty::FontFamily(theme::ui_font(&font.family)));
-    builder.push_default(StyleProperty::FontSize(size::FONT_SIZE_UI_XS as f32));
-    builder.push_default(StyleProperty::FontWeight(FontWeight::new(number::FONT_WEIGHT_UI_STRONG as f32)));
+    let mut builder = crate::ui::text::font_builder(fcx, lcx, title, theme::ui_font(&font.family), size::FONT_SIZE_UI_XS as f32, number::FONT_WEIGHT_UI_STRONG as f32);
     builder.push_default(StyleProperty::Brush(BrushIndex(0)));
     let mut layout = builder.build(title);
     layout.break_all_lines(None);

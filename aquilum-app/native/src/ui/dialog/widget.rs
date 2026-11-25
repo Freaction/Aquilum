@@ -1,5 +1,4 @@
 use masonry::accesskit::{Node, Role};
-use masonry::core::keyboard::KeyState;
 use masonry::core::{
     AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update,
     UpdateCtx, Widget, WidgetPod,
@@ -23,11 +22,8 @@ impl Widget for Modal {
     type Action = DialogAnswer;
 
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
-        if let TextEvent::Keyboard(k) = event
-            && k.state == KeyState::Down
-            && !self.closing
-        {
-            match keymap::command(&[Scope::Dialog], &k.key, k.modifiers) {
+        if !self.closing {
+            match keymap::pressed(&[Scope::Dialog], event) {
                 Some(Command::Close) => ctx.submit_action::<DialogAnswer>(DialogAnswer::Cancel),
                 Some(Command::Confirm) if self.enter_confirms => {
                     ctx.submit_action::<DialogAnswer>(DialogAnswer::Confirm);

@@ -4,6 +4,8 @@ use masonry::imaging::Painter;
 use masonry::kurbo::{Axis, Point, Size};
 use masonry::layout::{LayoutSize, LenDef, LenReq, Length, SizeDef};
 
+use super::MaxContent;
+
 pub struct Wrap {
     children: Vec<WidgetPod<dyn Widget>>,
     gap: f64,
@@ -18,10 +20,8 @@ impl Wrap {
         self.children
             .iter_mut()
             .map(|child| {
-                let width = ctx.compute_length(child, LenReq::MaxContent.into(), LayoutSize::NONE, Axis::Horizontal, None).get();
-                let context = LayoutSize::maybe(Axis::Horizontal, Some(Length::px(width)));
-                let height = ctx.compute_length(child, LenReq::MaxContent.into(), context, Axis::Vertical, Some(Length::px(width))).get();
-                Size::new(width, height)
+                let width = ctx.max_content(child, Axis::Horizontal, None);
+                Size::new(width.get(), ctx.max_content(child, Axis::Vertical, Some(width)).get())
             })
             .collect()
     }

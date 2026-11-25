@@ -42,7 +42,7 @@ impl Host {
     }
 
     pub(super) fn restore_maximized(&self, window: &dyn Window) {
-        if self.args.size.is_none() && self.window_state.maximized() {
+        if self.window_state.maximized() {
             window.set_maximized(true);
         }
     }
@@ -83,9 +83,7 @@ impl Host {
             return;
         }
         aq_trace::counter("тачпад: пиксели", f64::from(dy));
-        let state = self.pointer_state();
-        let delta = ScrollDelta::PixelDelta(winit::dpi::PhysicalPosition::new(f64::from(dx), f64::from(dy)));
-        self.pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: PRIMARY_MOUSE, delta, state }));
+        self.pan(dx, dy);
         self.handle_signals(event_loop);
     }
 
@@ -122,9 +120,7 @@ impl Host {
 impl Drop for Host {
     fn drop(&mut self) {
         crate::clipboard::release();
-        if self.args.size.is_none()
-            && let Some(window) = &self.window
-        {
+        if let Some(window) = &self.window {
             self.window_state.persist(&**window);
         }
         self.metrics.write();

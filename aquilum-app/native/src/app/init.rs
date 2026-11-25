@@ -86,7 +86,9 @@ impl App {
         };
         crate::cover::set_waker(Arc::clone(&app.workspace.wake));
         app.start_index();
-        app.workspace.core.apply_mcp_settings();
+        if crate::system::DESKTOP {
+            app.workspace.core.apply_mcp_settings();
+        }
         if crate::updater::ASKS {
             app.updater.check();
         } else if auto_update {

@@ -99,7 +99,7 @@ fn poster(path: &Path) -> Option<crate::images::Picture> {
     if let Some(picture) = crate::images::cached(path) {
         return Some(picture);
     }
-    let image = crate::poster::video(path)?;
+    let image = crate::video::poster(path)?;
     let picture = crate::images::Picture { natural: (image.image.width, image.image.height), image };
     crate::images::remember(path, &picture);
     Some(picture)

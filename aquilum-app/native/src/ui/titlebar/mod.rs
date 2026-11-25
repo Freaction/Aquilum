@@ -7,7 +7,7 @@ use masonry::core::{
 use masonry::imaging::Painter;
 use crate::ui::editor::TextEditor;
 use masonry::kurbo::{Affine, Arc, Axis, BezPath, Insets, Point, Rect, RoundedRect, Size, Stroke, Vec2};
-use masonry::layout::{LayoutSize, LenDef, LenReq, Length, SizeDef};
+use masonry::layout::{LayoutSize, LenReq, Length};
 
 use uuid::Uuid;
 

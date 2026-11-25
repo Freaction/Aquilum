@@ -9,7 +9,7 @@ use masonry::layout::{LenReq, Length};
 
 use crate::ui::theme;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{Rule, place};
+use crate::ui::widgets::{Rule, inside, place};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Pane {
@@ -84,8 +84,7 @@ impl Widget for Panes {
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size: Size) {
-        let insets = if self.pane == Pane::Both { Insets::ZERO } else { self.insets };
-        let room = Rect::new(insets.x0, insets.y0, (size.width - insets.x1).max(insets.x0), (size.height - insets.y1).max(insets.y0));
+        let room = inside(size, if self.pane == Pane::Both { Insets::ZERO } else { self.insets });
         let [top, sub, list, rule, detail] = &mut self.pods;
         let head = if self.pane == Pane::Detail { sub } else { top };
         let height = ctx.compute_length(head, LenReq::MaxContent.into(), room.size().into(), Axis::Vertical, Some(Length::px(room.width()))).get();

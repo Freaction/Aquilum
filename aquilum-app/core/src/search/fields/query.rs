@@ -14,7 +14,7 @@ pub fn read(connection: &Connection, paths: &[String]) -> Result<HashMap<String,
              WHERE page.path IN ({list}) ORDER BY page.path, page.ordinal, field.ordinal"
         )
     };
-    let row = |row: &rusqlite::Row<'_>| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?, row.get::<_, String>(3)?, row.get::<_, Option<String>>(4)?));
+    let row = |row: &rusqlite::Row<'_>| <(String, String, i64, String, Option<String>)>::try_from(row);
     for_paths(connection, paths, sql, row, |(path, key, kind, text, items)| {
         let fields = found.entry(path).or_default();
         if !fields.iter().any(|field| field.key.eq_ignore_ascii_case(&key)) {
@@ -61,13 +61,7 @@ pub fn paths_with_tag(connection: &Connection, tag: &str) -> Result<HashSet<Stri
     let nested = format!("{wanted}/");
     let mut statement =
         connection.prepare(&format!("SELECT page.path, field.text_lower, field.items FROM {FIELDS} WHERE field.key_lower='tags'"))?;
-    let rows = statement.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, Option<String>>(2)?,
-        ))
-    })?;
+    let rows = statement.query_map([], |row| <(String, String, Option<String>)>::try_from(row))?;
     let mut found = HashSet::new();
     for row in rows {
         let (path, text, items) = row?;

@@ -1,3 +1,4 @@
+use crate::text::is_cyrillic;
 use rust_stemmers::{Algorithm, Stemmer as Snowball};
 use std::borrow::Cow;
 use std::mem;
@@ -99,10 +100,6 @@ fn stem_script(text: &str) -> Option<Script> {
     } else {
         None
     }
-}
-
-fn is_cyrillic(ch: char) -> bool {
-    matches!(ch, '\u{0400}'..='\u{04FF}' | '\u{0500}'..='\u{052F}')
 }
 
 fn apply_stem(stemmer: &Snowball, token: &mut Token, buffer: &mut String) {

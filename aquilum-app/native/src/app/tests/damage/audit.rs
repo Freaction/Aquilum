@@ -34,11 +34,11 @@ fn right_sidebar_scroll_stays_inside_its_viewport_scroll_audit() {
 
 #[test]
 fn settings_scroll_matches_full_frames_on_desktop_and_phone_scroll_audit() {
-    for spec in [FIXED, Spec { scale: 2.625, width: 1080, height: 1600 }] {
+    for spec in [FIXED, Spec { scale: 2.625, width: 1080, height: 1600 }, Spec { scale: 1.5, width: 1080, height: 1600 }] {
         let mut h = sized(spec, None);
         h.app.open_settings(&mut h.root);
         h.settle();
-        for section in [Section::Ui, Section::Editor] {
+        for section in [Section::Ui, Section::Editor, Section::Reader] {
             h.act(h.nav(section), crate::ui::widgets::Pressed);
             h.settle();
             assert_eq!(h.section(), Some(section));

@@ -82,7 +82,7 @@ pub fn installed_families(known: &[&str]) -> Vec<String> {
     use masonry::parley::fontique::{Collection, CollectionOptions};
     let mut collection = Collection::new(CollectionOptions { system_fonts: true, ..CollectionOptions::default() });
     let mut names: Vec<String> = collection.family_names().filter(|name| !name.starts_with(['.', '@']) && !known.contains(name)).map(str::to_owned).collect();
-    names.sort_by_key(|name| name.to_lowercase());
+    names.sort_by(|left, right| aquilum_core::text::collate::compare(left, right));
     names.dedup();
     names
 }

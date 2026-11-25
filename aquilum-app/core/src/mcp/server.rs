@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
-use std::thread::{self, JoinHandle};
+use std::thread::JoinHandle;
 
 const MAX_BODY_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_CONNECTIONS: usize = 16;
@@ -63,10 +63,7 @@ impl RunningServer {
             freed: Condvar::new(),
         });
         let accepted = Arc::clone(&endpoint);
-        let accepting = thread::Builder::new()
-            .name("aquilum-mcp".to_owned())
-            .spawn(move || accept(&listener, &accepted))
-            .map_err(|error| error.to_string())?;
+        let accepting = crate::threads::spawn("aquilum-mcp", move || accept(&listener, &accepted)).map_err(|error| error.to_string())?;
         Ok(Self {
             address,
             endpoint,
@@ -117,9 +114,7 @@ fn accept(listener: &TcpListener, endpoint: &Arc<Endpoint>) {
         let Some(slot) = Slot::wait(endpoint) else {
             return;
         };
-        let _ = thread::Builder::new()
-            .name("aquilum-mcp-connection".to_owned())
-            .spawn(move || serve(&stream, &slot.0));
+        let _ = crate::threads::spawn("aquilum-mcp-connection", move || serve(&stream, &slot.0));
     }
 }
 
@@ -218,6 +213,7 @@ mod tests {
     use std::net::Shutdown;
     use std::sync::atomic::AtomicUsize;
     use std::sync::mpsc;
+    use std::thread;
     use std::time::Duration;
 
     const TOKEN: &str = "test-token-123";

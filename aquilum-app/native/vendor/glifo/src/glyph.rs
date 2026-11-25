@@ -1286,7 +1286,7 @@ fn calculate_outline_transform(
         .as_coeffs();
 
     if snap_y {
-        final_transform[5] = final_transform[5].round();
+        final_transform[5] = (final_transform[5] + 0.5).floor();
     }
 
     Affine::new(final_transform)

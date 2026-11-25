@@ -429,14 +429,7 @@ fn deflate(matrix: &[f64], size: usize, vector: &[f64], value: f64) -> Vec<f64> 
 }
 
 fn orthogonalize(mut vector: Vec<f64>, basis: &[f64]) -> Vec<f64> {
-    let projection: f64 = vector
-        .iter()
-        .zip(basis)
-        .map(|(value, base)| value * base)
-        .sum();
-    for (value, base) in vector.iter_mut().zip(basis) {
-        *value -= projection * base;
-    }
+    remove_projection(&mut vector, basis);
     if normalize(&mut vector).is_none() {
         return perpendicular(basis);
     }
@@ -447,16 +440,16 @@ fn perpendicular(basis: &[f64]) -> Vec<f64> {
     let mut vector = (0..basis.len())
         .map(|index| if index % 2 == 0 { 1.0 } else { -1.0 })
         .collect::<Vec<f64>>();
-    let projection: f64 = vector
-        .iter()
-        .zip(basis)
-        .map(|(value, base)| value * base)
-        .sum();
+    remove_projection(&mut vector, basis);
+    normalize(&mut vector);
+    vector
+}
+
+fn remove_projection(vector: &mut [f64], basis: &[f64]) {
+    let projection: f64 = vector.iter().zip(basis).map(|(value, base)| value * base).sum();
     for (value, base) in vector.iter_mut().zip(basis) {
         *value -= projection * base;
     }
-    normalize(&mut vector);
-    vector
 }
 
 fn normalize(vector: &mut [f64]) -> Option<()> {

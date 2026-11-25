@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use masonry::core::{BrushIndex, EventCtx, PaintCtx, PointerEvent, PointerScrollEvent, ScrollDelta, Widget, WidgetPod, render_text};
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Point, Rect, RoundedRect, Size, Vec2};
-use masonry::parley::{FontContext, FontWeight, Layout, LayoutContext, StyleProperty};
+use masonry::parley::{FontContext, Layout, LayoutContext, StyleProperty};
 use masonry::peniko::{Color, ImageBrush};
 
 use super::text::{Line, Style};

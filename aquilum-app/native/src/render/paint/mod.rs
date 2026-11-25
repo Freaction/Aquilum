@@ -95,7 +95,7 @@ impl Painter {
         // Match damage hashing: floating-point noise must not flip glyph hinting across
         // a half-pixel boundary when the canvas is shifted by an integer number of pixels.
         for translation in &mut coefficients[4..] {
-            *translation = (*translation * crate::render::TRANSFORM_PRECISION).round() / crate::render::TRANSFORM_PRECISION;
+            *translation = (*translation * crate::render::TRANSFORM_PRECISION + 0.5).floor() / crate::render::TRANSFORM_PRECISION;
         }
         self.ctx.set_transform(Affine::new(coefficients));
     }

@@ -2,7 +2,7 @@
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+#[cfg(target_os = "android")]
 mod stub;
 #[cfg(target_os = "windows")]
 mod windows;
@@ -17,18 +17,14 @@ use masonry::peniko::ImageBrush;
 use self::linux::Engine;
 #[cfg(target_os = "macos")]
 use self::macos::Engine;
-#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+#[cfg(target_os = "android")]
 use self::stub::Engine;
 #[cfg(target_os = "windows")]
 use self::windows::Engine;
 
-#[cfg(target_os = "linux")]
 pub fn poster(path: &Path) -> Option<ImageBrush> {
     Engine::poster(path)
 }
-
-#[cfg(target_os = "macos")]
-pub use self::macos::poster;
 
 const MOVED: f64 = 0.05;
 

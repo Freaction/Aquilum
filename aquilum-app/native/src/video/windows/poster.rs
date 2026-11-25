@@ -1,0 +1,46 @@
+use std::path::Path;
+
+use masonry::peniko::ImageBrush;
+use windows::Win32::Foundation::SIZE as Extent;
+use windows::Win32::Graphics::Gdi::{BI_RGB, BITMAP, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, DeleteObject, GetDC, GetDIBits, GetObjectW, HGDIOBJ, ReleaseDC};
+use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
+use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK};
+use windows::core::HSTRING;
+
+const SIZE: i32 = 1024;
+
+impl super::Engine {
+    pub fn poster(path: &Path) -> Option<ImageBrush> {
+        let source = HSTRING::from(std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf()).as_os_str());
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            let factory: IShellItemImageFactory = SHCreateItemFromParsingName(&source, None).ok()?;
+            let bitmap = factory.GetImage(Extent { cx: SIZE, cy: SIZE }, SIIGBF_BIGGERSIZEOK).ok()?;
+            let object = HGDIOBJ(bitmap.0);
+            let mut info = BITMAP::default();
+            GetObjectW(object, std::mem::size_of::<BITMAP>() as i32, Some((&raw mut info).cast()));
+            let (width, height) = (info.bmWidth, info.bmHeight);
+            let mut header = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: width,
+                    biHeight: -height,
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: BI_RGB.0,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let mut pixels = vec![0u8; (width * height * 4).max(0) as usize];
+            let dc = GetDC(None);
+            let lines = GetDIBits(dc, bitmap, 0, height as u32, Some(pixels.as_mut_ptr().cast()), &mut header, DIB_RGB_COLORS);
+            ReleaseDC(None, dc);
+            let _ = DeleteObject(object);
+            if lines == 0 || width <= 0 || height <= 0 {
+                return None;
+            }
+            crate::render::from_bgrx(pixels, width as u32, height as u32)
+        }
+    }
+}

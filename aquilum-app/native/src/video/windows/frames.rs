@@ -1,8 +1,8 @@
 use masonry::peniko::ImageBrush;
 use windows::Win32::Media::MediaFoundation::{
     IMFSample, IMFSourceReader, MF_MT_DEFAULT_STRIDE, MF_MT_FRAME_SIZE, MF_MT_MAJOR_TYPE, MF_MT_SUBTYPE, MF_SOURCE_READER_ALL_STREAMS,
-    MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING, MF_SOURCE_READER_FIRST_VIDEO_STREAM, MF_SOURCE_READERF_ENDOFSTREAM, MFCreateAttributes,
-    MFCreateMediaType, MFCreateSourceReaderFromURL, MFMediaType_Video, MFVideoFormat_RGB32,
+    MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING, MF_SOURCE_READER_FIRST_VIDEO_STREAM, MFCreateAttributes, MFCreateMediaType,
+    MFCreateSourceReaderFromURL, MFMediaType_Video, MFVideoFormat_RGB32,
 };
 use windows::core::HSTRING;
 
@@ -55,17 +55,13 @@ impl Frames {
     }
 
     fn read(&mut self) -> Option<(f64, IMFSample)> {
-        unsafe {
-            loop {
-                let (mut flags, mut time) = (0u32, 0i64);
-                let mut sample = None;
-                if self.reader.ReadSample(STREAM, 0, None, Some(&mut flags), Some(&mut time), Some(&mut sample)).is_err() || flags & MF_SOURCE_READERF_ENDOFSTREAM.0 as u32 != 0 {
-                    self.ended = true;
-                    return None;
-                }
-                if let Some(sample) = sample {
-                    return Some((time as f64 / 1e7, sample));
-                }
+        loop {
+            let Some((time, sample)) = super::worker::read(&self.reader, STREAM) else {
+                self.ended = true;
+                return None;
+            };
+            if let Some(sample) = sample {
+                return Some((time, sample));
             }
         }
     }

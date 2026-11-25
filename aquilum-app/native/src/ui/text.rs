@@ -73,6 +73,21 @@ pub(crate) fn cut(layout: &Layout<BrushIndex>, room: f64) -> Option<usize> {
     None
 }
 
+pub fn font_builder<'a>(
+    font_cx: &'a mut FontContext,
+    layout_cx: &'a mut LayoutContext<BrushIndex>,
+    text: &'a str,
+    family: FontFamily<'_>,
+    size: f32,
+    weight: f32,
+) -> RangedBuilder<'a, BrushIndex> {
+    let mut builder = layout_cx.ranged_builder(font_cx, text, 1.0, true);
+    builder.push_default(StyleProperty::FontFamily(family));
+    builder.push_default(StyleProperty::FontSize(size));
+    builder.push_default(StyleProperty::FontWeight(FontWeight::new(weight)));
+    builder
+}
+
 pub fn builder<'a>(
     font_cx: &'a mut FontContext,
     layout_cx: &'a mut LayoutContext<BrushIndex>,
@@ -80,10 +95,7 @@ pub fn builder<'a>(
     family: FontFamily<'_>,
     style: Style,
 ) -> RangedBuilder<'a, BrushIndex> {
-    let mut builder = layout_cx.ranged_builder(font_cx, text, 1.0, true);
-    builder.push_default(StyleProperty::FontFamily(family));
-    builder.push_default(StyleProperty::FontSize(style.size));
-    builder.push_default(StyleProperty::FontWeight(FontWeight::new(style.weight)));
+    let mut builder = font_builder(font_cx, layout_cx, text, family, style.size, style.weight);
     builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(style.line_height as f32)));
     builder
 }

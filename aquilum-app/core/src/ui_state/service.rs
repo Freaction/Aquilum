@@ -2,7 +2,7 @@ use super::database::UiStateDatabase;
 use super::error::UiStateError;
 use super::models::{KnownWorkspace, LoadedSession, OpenSessionInput, SaveStateBatchInput};
 use super::validation::{validate_batch, validate_open_session};
-use crate::search::paths::{canonical_path, same_path};
+use crate::search::paths::canonical_path;
 use crate::settings::models::SyncSettings;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -81,15 +81,18 @@ impl UiStateService {
     }
 
     pub fn set_home_page(&self, path: &str, home_page: &str) -> Result<(), UiStateError> {
-        self.with_database(|database| database.set_home_page(path, home_page))
+        let path = canonical_path(Path::new(path));
+        self.with_database(|database| database.set_home_page(&path.to_string_lossy(), home_page))
     }
 
     pub fn set_sync(&self, path: &str, sync: &SyncSettings) -> Result<(), UiStateError> {
-        self.with_database(|database| database.set_sync(path, sync))
+        let path = canonical_path(Path::new(path));
+        self.with_database(|database| database.set_sync(&path.to_string_lossy(), sync))
     }
 
     pub fn workspace(&self, path: &Path) -> Option<KnownWorkspace> {
-        self.list_workspaces().ok()?.into_iter().find(|known| same_path(Path::new(&known.path), path))
+        let path = canonical_path(path);
+        self.with_database(|database| database.workspace(&path)).ok().flatten()
     }
 
     pub fn resolve_document(

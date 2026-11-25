@@ -13,7 +13,7 @@
 //!
 //! На выходе `$OUT_DIR/tokens.rs`:
 //! - `Theme` — цвета и тени (зависят от темы), значения `LIGHT` и `DARK`;
-//! - модули `size` (логические пиксели), `number`, `em`, `ms`, `text` — константы, одинаковые
+//! - модули `size` (логические пиксели), `number`, `em`, `ms` — константы, одинаковые
 //!   для обеих тем;
 //! - модуль `motion` — длительности в секундах (`FAST`, `MEDIUM`, `NORMAL`, `MORPH`, `SLOWER`) и кривые
 //!   `EASE_*` четвёркой чисел из токенов `--q-duration-*` и `--q-ease-*`.
@@ -35,7 +35,7 @@ const TOKEN_FILES: &[&str] = &[
 /// `--q-base-font-size`: 1rem в логических пикселях.
 const REM: f64 = 16.0;
 /// Значение зависит от окна или родителя (`vh`, `vw`, `ch`, `inherit`): статически не вычисляется,
-/// попадает в `text::*` как есть, считается в коде виджета.
+/// в код не попадает, считается в коде виджета.
 const DYNAMIC: &str = "динамическое значение";
 
 fn main() {
@@ -77,19 +77,18 @@ fn main() {
                 theme_fields.push((ident(name), l.clone(), d.clone()));
             }
             (Ok(l), Ok(d)) if l == d => {
-                let (module, ty, literal) = match l {
-                    Value::Length(px) => ("size", "f64", float(*px)),
-                    Value::Number(n) => ("number", "f64", float(*n)),
-                    Value::Em(em) => ("em", "f64", float(*em)),
-                    Value::Time(ms) => ("ms", "f64", float(*ms)),
-                    Value::Text(s) => ("text", "&str", format!("{s:?}")),
+                let id = ident(name);
+                let item = match l {
+                    Value::Length(px) => Some(("size", "f64", float(*px))),
+                    Value::Number(n) => Some(("number", "f64", float(*n))),
+                    Value::Em(em) => Some(("em", "f64", float(*em))),
+                    Value::Time(ms) => Some(("ms", "f64", float(*ms))),
+                    Value::Text(_) => None,
                     Value::Color(_) | Value::Shadows(_) => unreachable!(),
                 };
-                consts.entry(module).or_default().push((
-                    format!("{}: {ty}", ident(name).to_uppercase()),
-                    literal,
-                ));
-                let id = ident(name);
+                if let Some((module, ty, literal)) = item {
+                    consts.entry(module).or_default().push((format!("{}: {ty}", id.to_uppercase()), literal));
+                }
                 if let (Value::Time(ms), Some(short)) = (l, id.strip_prefix("duration_")) {
                     consts.entry("motion").or_default().push((format!("{}: f64", short.to_uppercase()), float(ms / 1000.0)));
                 }
@@ -100,13 +99,16 @@ fn main() {
                 }
             }
             (Ok(_), Ok(_)) => problems.push(format!("{name}: значение без цвета зависит от темы")),
-            (Err(e), _) if e == DYNAMIC => consts
-                .entry("text")
-                .or_default()
-                .push((format!("{}: &str", ident(name).to_uppercase()), format!("{:?}", light[name.as_str()]))),
+            (Err(e), _) if e == DYNAMIC => {}
             (Err(e), _) | (_, Err(e)) => problems.push(format!("{name}: {e}")),
         }
     }
+    let used = used_names(&Path::new(env!("CARGO_MANIFEST_DIR")).join("src"));
+    theme_fields.retain(|(field, ..)| used.contains(field));
+    for items in consts.values_mut() {
+        items.retain(|(decl, _)| decl.split(':').next().is_some_and(|name| used.contains(name)));
+    }
+    consts.retain(|_, items| !items.is_empty());
     let accent_light = accent_recipes(&light, &theme_fields, &mut problems);
     let accent_dark = accent_recipes(&dark, &theme_fields, &mut problems);
     // Нерешённые токены не роняют сборку, но видны в выводе cargo.
@@ -288,6 +290,12 @@ pub const FONTS: &[&[u8]] = &[
     for file in FONT_FILES {
         let path = source.join(file);
         println!("cargo:rerun-if-changed={}", path.display());
+        let target = out.join(file.replace(".woff2", ".ttf"));
+        writeln!(list, "    include_bytes!({:?}),", target.display().to_string()).unwrap();
+        let modified = |path: &Path| std::fs::metadata(path).and_then(|meta| meta.modified()).ok();
+        if modified(&target).zip(modified(&path)).is_some_and(|(built, source)| built >= source) {
+            continue;
+        }
         let woff2 = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         let mut ttf = wuff::decompress_woff2(&woff2).unwrap_or_else(|e| panic!("{file}: {e:?}"));
         if file.starts_with("inter-cyrillic") || file.starts_with("iAWriter") {
@@ -315,9 +323,7 @@ pub const FONTS: &[&[u8]] = &[
             }
             ttf = builder.copy_missing_tables(font).build();
         }
-        let target = out.join(file.replace(".woff2", ".ttf"));
         std::fs::write(&target, &ttf).unwrap();
-        writeln!(list, "    include_bytes!({:?}),", target.display().to_string()).unwrap();
     }
     list.push_str("];
 ");
@@ -456,7 +462,7 @@ impl<'a> Resolver<'a> {
             };
             p.pos += 1;
             let right = self.product(p)?;
-            left = arith(left, right, |a, b| a + op * b)?;
+            left = arith(left, right, false, |a, b| a + op * b)?;
         }
     }
 
@@ -464,19 +470,14 @@ impl<'a> Resolver<'a> {
         let mut left = self.atom(p)?;
         loop {
             p.skip_ws();
-            match p.peek() {
-                Some(b'*') => {
-                    p.pos += 1;
-                    let right = self.atom(p)?;
-                    left = scale(left, right, |a, b| a * b)?;
-                }
-                Some(b'/') => {
-                    p.pos += 1;
-                    let right = self.atom(p)?;
-                    left = scale(left, right, |a, b| a / b)?;
-                }
+            let divide = match p.peek() {
+                Some(b'*') => false,
+                Some(b'/') => true,
                 _ => return Ok(left),
-            }
+            };
+            p.pos += 1;
+            let right = self.atom(p)?;
+            left = arith(left, right, true, |a, b| if divide { a / b } else { a * b })?;
         }
     }
 
@@ -548,14 +549,14 @@ impl<'a> Resolver<'a> {
                 let mut acc = values.next().ok_or("пустой min/max")??;
                 for v in values {
                     let v = v?;
-                    acc = arith(acc, v, |a, b| if word == "min" { a.min(b) } else { a.max(b) })?;
+                    acc = arith(acc, v, false, |a, b| if word == "min" { a.min(b) } else { a.max(b) })?;
                 }
                 Ok(acc)
             }
             "clamp" => {
                 let [lo, mid, hi] = [args[0], args[1], args[2]].map(|a| self.expression(a));
-                let v = arith(lo?, mid?, f64::max)?;
-                arith(v, hi?, f64::min)
+                let v = arith(lo?, mid?, false, f64::max)?;
+                arith(v, hi?, false, f64::min)
             }
             "rgb" | "rgba" => {
                 let parts: Vec<&str> = args.iter().flat_map(|a| a.split_whitespace()).filter(|s| *s != "/").collect();
@@ -616,22 +617,13 @@ fn mix(a: [f64; 4], pa: f64, b: [f64; 4], pb: f64) -> [f64; 4] {
     [channel(0), channel(1), channel(2), alpha]
 }
 
-fn arith(a: Value, b: Value, f: impl Fn(f64, f64) -> f64) -> Result<Value, String> {
+fn arith(a: Value, b: Value, product: bool, f: impl Fn(f64, f64) -> f64) -> Result<Value, String> {
     match (a, b) {
-        (Value::Length(a), Value::Length(b)) => Ok(Value::Length(f(a, b))),
         (Value::Number(a), Value::Number(b)) => Ok(Value::Number(f(a, b))),
-        (Value::Length(a), Value::Number(b)) if b == 0.0 => Ok(Value::Length(f(a, 0.0))),
-        (Value::Number(a), Value::Length(b)) if a == 0.0 => Ok(Value::Length(f(0.0, b))),
-        (a, b) => Err(format!("арифметика {a:?} и {b:?}")),
-    }
-}
-
-fn scale(a: Value, b: Value, f: impl Fn(f64, f64) -> f64) -> Result<Value, String> {
-    match (a, b) {
-        (Value::Length(a), Value::Number(b)) => Ok(Value::Length(f(a, b))),
-        (Value::Number(a), Value::Length(b)) => Ok(Value::Length(f(a, b))),
-        (Value::Number(a), Value::Number(b)) => Ok(Value::Number(f(a, b))),
-        (a, b) => Err(format!("умножение {a:?} и {b:?}")),
+        (Value::Length(a), Value::Length(b)) if !product => Ok(Value::Length(f(a, b))),
+        (Value::Length(a), Value::Number(b)) if product || b == 0.0 => Ok(Value::Length(f(a, b))),
+        (Value::Number(a), Value::Length(b)) if product || a == 0.0 => Ok(Value::Length(f(a, b))),
+        (a, b) => Err(format!("{} {a:?} и {b:?}", if product { "умножение" } else { "арифметика" })),
     }
 }
 
@@ -710,6 +702,24 @@ impl<'a> Parser<'a> {
             Err(format!("ожидался «{}»", c as char))
         }
     }
+}
+
+fn used_names(dir: &Path) -> std::collections::HashSet<String> {
+    println!("cargo:rerun-if-changed={}", dir.display());
+    let mut names = std::collections::HashSet::new();
+    for entry in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())).flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            names.extend(used_names(&path));
+        } else if path.extension().is_some_and(|extension| extension == "rs") {
+            let code = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            for line in code.lines() {
+                let code = line.split("//").next().unwrap_or_default();
+                names.extend(code.split(|c: char| !(c.is_alphanumeric() || c == '_')).filter(|word| !word.is_empty()).map(str::to_owned));
+            }
+        }
+    }
+    names
 }
 
 fn ident(name: &str) -> String {

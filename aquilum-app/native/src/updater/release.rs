@@ -17,10 +17,8 @@ fn target() -> Option<String> {
         "darwin"
     } else if cfg!(target_os = "linux") {
         "linux"
-    } else if cfg!(target_os = "android") {
-        "android"
     } else {
-        return None;
+        "android"
     };
     let arch = if cfg!(target_arch = "x86_64") {
         "x86_64"

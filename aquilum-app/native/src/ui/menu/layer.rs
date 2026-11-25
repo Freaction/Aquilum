@@ -1,5 +1,4 @@
 use masonry::accesskit::{Node, Role};
-use masonry::core::keyboard::KeyState;
 use masonry::core::{
     AccessCtx, ChildrenIds, EventCtx, Layer, LayoutCtx, MeasureCtx, PaintCtx, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update,
     UpdateCtx, Widget, WidgetId, WidgetMut, WidgetPod,
@@ -58,11 +57,8 @@ impl Widget for Menu {
     }
 
     fn on_text_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &TextEvent) {
-        let close = match event {
-            TextEvent::Keyboard(k) => k.state == KeyState::Down && crate::ui::keymap::closes(&k.key, k.modifiers),
-            TextEvent::WindowFocusChange(false) => true,
-            _ => false,
-        };
+        use crate::ui::keymap::{self, Command, Scope};
+        let close = matches!(event, TextEvent::WindowFocusChange(false)) || keymap::pressed(&[Scope::Dialog], event) == Some(Command::Close);
         if close {
             ctx.submit_action::<MenuChoice>(MenuChoice::Dismissed);
             ctx.remove_layer(ctx.widget_id());

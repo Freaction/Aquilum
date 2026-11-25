@@ -12,9 +12,7 @@ impl UiStateDatabase {
                 "SELECT d.id, w.path, d.relative_path, d.missing_since_ms IS NOT NULL
                  FROM documents d JOIN workspaces w ON w.id = d.workspace_id",
             )?
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?, row.get::<_, bool>(3)?))
-            })?
+            .query_map([], |row| <(String, String, String, bool)>::try_from(row))?
             .collect::<Result<Vec<_>, _>>()?;
         let mut roots: HashMap<String, Option<PathBuf>> = HashMap::new();
         let transaction = self.connection.transaction()?;

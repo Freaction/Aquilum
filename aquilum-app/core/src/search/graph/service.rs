@@ -4,7 +4,6 @@ use crate::search::error::SearchError;
 use crate::search::models::SearchIndexState;
 use crate::search::paths::same_workspace;
 use crate::search::service::SearchService;
-use rusqlite::Connection;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 
@@ -17,7 +16,7 @@ impl SearchService {
     pub fn render_graph(&self, workspace: &str) -> Result<(Vec<u8>, Vec<String>), SearchError> {
         let source = self.graph_source(workspace)?;
         let _building = self.render_lock.lock().map_err(SearchError::task)?;
-        let snapshot = RenderSnapshot::build(&Connection::open(&source.metadata_path)?, &source.root)?;
+        let snapshot = RenderSnapshot::build(&crate::sqlite::read(&source.metadata_path)?, &source.root)?;
         let epoch = self.next_render_epoch.fetch_add(1, Ordering::Relaxed) + 1;
         Ok((encode(&snapshot, epoch), snapshot.paths))
     }

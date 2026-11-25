@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use aquilum_core::Core;
-use aquilum_core::ui_state::models::{OpenSessionInput, SaveStateBatchInput, SessionStateInput, TabKind, TabState, ViewStateInput};
+use aquilum_core::ui_state::models::{GraphCameraState, OpenSessionInput, SaveStateBatchInput, SessionStateInput, TabKind, TabState, ViewStateInput};
 use uuid::Uuid;
 
 use crate::tabs::{Tab, Tabs};
@@ -78,24 +78,17 @@ impl Session {
                 Some(TabState { tab_id: tab.id, document_id: tab.document_id, kind, position: position as i64 })
             })
             .collect();
-        self.sequence += 1;
-        let batch = SaveStateBatchInput {
-            workspace_id: self.workspace_id,
-            window_id: WINDOW_ID.into(),
-            epoch: self.epoch,
-            sequence: self.sequence,
-            now_ms: crate::dates::now_ms(),
-            session: Some(SessionStateInput { active_tab_id: Some(tabs.active_id()), tabs: Some(stored) }),
-            views: Vec::new(),
-            graph_camera: None,
-        };
-        if let Err(error) = core.ui_state.save_batch(&batch) {
-            report!("сессия вкладок не сохранена: {error:?}");
-        }
+        let session = SessionStateInput { active_tab_id: Some(tabs.active_id()), tabs: Some(stored) };
+        self.store(core, "сессия вкладок", Some(session), Vec::new(), None);
     }
 
     pub fn save_camera(&mut self, core: &Core, camera: (f64, f64, f64)) {
         self.camera = Some(camera);
+        let camera = GraphCameraState { center_x: camera.0, center_y: camera.1, scale: camera.2 };
+        self.store(core, "камера графа", None, Vec::new(), Some(camera));
+    }
+
+    fn store(&mut self, core: &Core, what: &str, session: Option<SessionStateInput>, views: Vec<ViewStateInput>, graph_camera: Option<GraphCameraState>) {
         self.sequence += 1;
         let batch = SaveStateBatchInput {
             workspace_id: self.workspace_id,
@@ -103,12 +96,12 @@ impl Session {
             epoch: self.epoch,
             sequence: self.sequence,
             now_ms: crate::dates::now_ms(),
-            session: None,
-            views: Vec::new(),
-            graph_camera: Some(aquilum_core::ui_state::models::GraphCameraState { center_x: camera.0, center_y: camera.1, scale: camera.2 }),
+            session,
+            views,
+            graph_camera,
         };
         if let Err(error) = core.ui_state.save_batch(&batch) {
-            report!("камера графа не сохранена: {error:?}");
+            report!("{what} не сохранена: {error:?}");
         }
     }
 
@@ -118,7 +111,6 @@ impl Session {
     }
 
     pub fn save_view(&mut self, core: &Core, document: Uuid, anchor: i64, offset: f64) {
-        self.sequence += 1;
         let view = ViewStateInput {
             path: None,
             document_id: document,
@@ -132,19 +124,7 @@ impl Session {
             scroll_offset_px: offset,
             focused_surface: "editor".into(),
         };
-        let batch = SaveStateBatchInput {
-            workspace_id: self.workspace_id,
-            window_id: WINDOW_ID.into(),
-            epoch: self.epoch,
-            sequence: self.sequence,
-            now_ms: crate::dates::now_ms(),
-            session: None,
-            views: vec![view],
-            graph_camera: None,
-        };
-        if let Err(error) = core.ui_state.save_batch(&batch) {
-            report!("позиция заметки не сохранена: {error:?}");
-        }
+        self.store(core, "позиция заметки", None, vec![view], None);
     }
 
     pub fn load_view(&self, core: &Core, document: Uuid) -> Option<(i64, f64)> {

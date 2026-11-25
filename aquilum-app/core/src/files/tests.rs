@@ -170,3 +170,14 @@ fn spliced_write_streams_the_normalized_text_with_replacements() {
     assert_eq!(text, "[[Note]] и [[Note|подпись]]\n");
     assert_eq!(written.hash, hash_bytes(text.as_bytes()));
 }
+
+#[test]
+fn yo_is_listed_among_ye_not_after_ya() {
+    let directory = tempfile::tempdir().expect("temporary workspace");
+    for name in ["Яблоко.md", "Ёж.md", "еда.md", "Жук.md", "Ель.md"] {
+        fs::write(directory.path().join(name), "").expect("fixture");
+    }
+    fs::create_dir(directory.path().join("ёлки")).expect("folder fixture");
+    let names: Vec<_> = read_directory_impl(directory.path()).expect("workspace").into_iter().map(|item| item.name).collect();
+    assert_eq!(names, ["ёлки", "еда", "Ёж", "Ель", "Жук", "Яблоко"]);
+}

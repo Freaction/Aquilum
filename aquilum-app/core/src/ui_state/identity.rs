@@ -27,8 +27,12 @@ impl UiStateDatabase {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    pub fn workspace(&self, path: &Path) -> Result<Option<KnownWorkspace>, UiStateError> {
+        Ok(self.list_workspaces()?.into_iter().find(|known| same_path(Path::new(&known.path), path)))
+    }
+
     fn find_workspace(&self, path: &str) -> Result<Option<Uuid>, UiStateError> {
-        Ok(self.list_workspaces()?.into_iter().find(|known| same_path(Path::new(&known.path), Path::new(path))).map(|known| known.id))
+        Ok(self.workspace(Path::new(path))?.map(|known| known.id))
     }
 
     pub fn set_home_page(&mut self, path: &str, home_page: &str) -> Result<(), UiStateError> {

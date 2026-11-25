@@ -75,7 +75,7 @@ pub(super) fn trash(config: &AppConfig, ctx: &Context) -> Vec<Block> {
                 t("settings.trash.retention"),
                 Some(t("settings.trash.retentionHint")),
                 Control::Dropdown { options, selected: position(&TRASH_DAYS, &config.trash.retention_days) },
-                |c, v| c.trash.retention_days = TRASH_DAYS[index(v).min(4)],
+                |c, v| c.trash.retention_days = pick(&TRASH_DAYS, v),
             ),
             info(
                 t("settings.trash.deleted"),

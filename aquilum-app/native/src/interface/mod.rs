@@ -7,7 +7,6 @@ mod tests;
 
 use std::path::{Path, PathBuf};
 
-use aquilum_core::files::document::write_content_atomic;
 use serde::{Deserialize, Serialize};
 
 pub use graph::GraphPrefs;
@@ -75,10 +74,7 @@ pub struct Interface {
 impl Interface {
     pub fn load(data_dir: &Path) -> Self {
         let path = data_dir.join("interface.json");
-        let mut state = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|json| serde_json::from_str::<State>(&json).ok())
-            .unwrap_or_default();
+        let mut state = crate::state_file::load::<State>(&path).unwrap_or_default();
         if !(MIN_SCALE..=MAX_SCALE).contains(&state.scale) {
             state.scale = 1.0;
         }
@@ -183,12 +179,7 @@ impl Interface {
     }
 
     fn save(&self) {
-        let Ok(json) = serde_json::to_string(&self.state) else { return };
-        let path = self.path.clone();
-        crate::disk::run(move || {
-            if let Err(e) = write_content_atomic(&path, &json, None) {
-                report!("состояние интерфейса не сохранено: {e}");
-            }
-        });
+        let (path, state) = (self.path.clone(), self.state.clone());
+        crate::disk::run(move || crate::state_file::save(&path, &state, "состояние интерфейса"));
     }
 }

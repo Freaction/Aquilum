@@ -4,7 +4,8 @@ use aquilum_core::files::models::{FileItem, FileItemType};
 use aquilum_core::text::matcher::{EXACT, Fold, Matcher, Mode, Options};
 
 use super::vault::Lists;
-use super::{Sort, TreeModel, comparable};
+use super::{Sort, TreeModel};
+use aquilum_core::search::paths::identity;
 
 const NAME: Options = Options { fold: Fold::Ascii, mode: Mode::Substring, ..EXACT };
 
@@ -30,7 +31,7 @@ impl Filter {
 }
 
 fn keep(source: &Lists, filter: &Filter, dir: &Path, kept: &mut Lists) -> bool {
-    let Some(items) = source.get(&comparable(dir)) else { return false };
+    let Some(items) = source.get(&identity(dir)) else { return false };
     let survivors: Vec<FileItem> = items
         .iter()
         .filter(|item| {
@@ -41,7 +42,7 @@ fn keep(source: &Lists, filter: &Filter, dir: &Path, kept: &mut Lists) -> bool {
         .collect();
     let any = !survivors.is_empty();
     if any {
-        kept.insert(comparable(dir), survivors);
+        kept.insert(identity(dir), survivors);
     }
     any
 }
@@ -81,7 +82,7 @@ impl TreeModel {
         }
         if self.index.is_some() && self.sort != Sort::NameAsc {
             if self.sort.by_time() {
-                let unknown: Vec<FileItem> = kept.values().flatten().filter(|item| !self.times.contains_key(&comparable(Path::new(&item.id)))).cloned().collect();
+                let unknown: Vec<FileItem> = kept.values().flatten().filter(|item| !self.times.contains_key(&identity(Path::new(&item.id)))).cloned().collect();
                 self.stamp(&unknown);
             }
             for items in kept.values_mut() {

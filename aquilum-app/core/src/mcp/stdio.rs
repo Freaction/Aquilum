@@ -1,6 +1,5 @@
 use serde_json::Value;
 use std::io::{BufRead, Write};
-use std::path::PathBuf;
 
 struct Endpoint {
     port: u16,
@@ -78,36 +77,10 @@ fn endpoint(app_identifier: &str) -> Option<Endpoint> {
         return Some(Endpoint { port, token });
     }
 
-    let settings = std::fs::read_to_string(settings_path(app_identifier)?).ok()?;
+    let settings = std::fs::read_to_string(crate::paths::data_dir(app_identifier)?.join("settings.json")).ok()?;
     let mcp = serde_json::from_str::<Value>(&settings).ok()?.get("mcp")?.clone();
     Some(Endpoint {
         port: u16::try_from(mcp.get("port").and_then(Value::as_u64)?).ok()?,
         token: mcp.get("token").and_then(Value::as_str)?.to_owned(),
     })
-}
-
-fn settings_path(app_identifier: &str) -> Option<PathBuf> {
-    let base = data_directory()?;
-    Some(base.join(app_identifier).join("settings.json"))
-}
-
-fn data_directory() -> Option<PathBuf> {
-    #[cfg(windows)]
-    {
-        std::env::var_os("APPDATA").map(PathBuf::from)
-    }
-    #[cfg(target_os = "macos")]
-    {
-        std::env::var_os("HOME")
-            .map(|home| PathBuf::from(home).join("Library").join("Application Support"))
-    }
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        std::env::var_os("XDG_DATA_HOME")
-            .map(PathBuf::from)
-            .or_else(|| {
-                std::env::var_os("HOME")
-                    .map(|home| PathBuf::from(home).join(".local").join("share"))
-            })
-    }
 }

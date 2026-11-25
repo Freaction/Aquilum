@@ -20,13 +20,13 @@ use masonry::core::{
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Circle, Point, Rect, RoundedRect, Size, Stroke};
-use masonry::layout::{LayoutSize, LenDef, LenReq, Length, SizeDef};
+use masonry::layout::{LenReq, Length};
 
 use crate::ui::icons;
 use crate::ui::menu::box_shadow;
 use crate::ui::tokens::{Shadow, number, size};
 use crate::ui::motion::EASE_DEFAULT;
-use crate::ui::widgets::{ControlSize, Press, bezier};
+use crate::ui::widgets::{ControlSize, MaxContent, Press, bezier, fit_height};
 use crate::ui::{motion, text, theme};
 
 #[derive(Clone, Debug, PartialEq)]

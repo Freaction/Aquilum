@@ -2,14 +2,13 @@ use super::names::{names, orphan_names, NAME_EXTENSION};
 use super::{history_root, millis, versions, VersionFile};
 use crate::history::delta;
 use crate::history::rebuild::{is_delta, rebuild};
-use crate::files::relocate::{remove_empty_folders, remove_files};
+use crate::files::relocate::{folders, remove_empty_folders, remove_files};
 use crate::files::trash::files_in;
 use std::fs;
 use std::io;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use walkdir::WalkDir;
 
 pub(super) const DAY: Duration = Duration::from_secs(24 * 60 * 60);
 
@@ -35,14 +34,8 @@ pub fn remove_expired(vault: &Path, retention_days: u32) -> u64 {
         return 0;
     }
     let cutoff = millis(SystemTime::now()).saturating_sub(millis(UNIX_EPOCH + DAY * retention_days));
-    let dirs = WalkDir::new(&root)
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_dir())
-        .map(|entry| entry.into_path())
-        .collect::<Vec<_>>();
     let mut removed = 0;
-    for dir in dirs {
+    for dir in folders(&root) {
         let note_exists = dir.strip_prefix(&root).is_ok_and(|relative| vault.join(relative).is_file());
         let expired = expire(&dir, cutoff, note_exists);
         removed += remove_files(&expired);

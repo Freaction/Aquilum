@@ -108,3 +108,20 @@ fn sync_is_turned_on_per_vault_after_connecting() {
     ctx.sync = SyncStatus::Running(aquilum_core::sync::Progress { done: 2, total: 4, down: count(2, 2), up: count(0, 1) });
     assert_eq!(description(&ctx), Some(stage("settings.sync.uploading", 0, 1)));
 }
+
+#[test]
+fn language_is_automatic_by_default_and_writes_language_codes() {
+    let mut config = AppConfig::default();
+    let ctx = Context::new(1.0);
+    let language = ui(&config, &ctx).remove(0).rows.remove(2);
+    let Control::Dropdown { options, selected } = &language.control else { panic!("язык — выпадающий список") };
+    assert_eq!(options[0], t("settings.ui.languageAuto"));
+    assert_eq!((options.len(), *selected), (i18n::LANGUAGES.len() + 1, 0));
+    let Some(Setter::Config(set)) = language.setter else { panic!("язык пишется в настройки") };
+    set(&mut config, &Value::Index(1));
+    assert_eq!(config.ui.language, "ru");
+    set(&mut config, &Value::Index(2));
+    assert_eq!(config.ui.language, "en");
+    set(&mut config, &Value::Index(0));
+    assert_eq!(config.ui.language, "");
+}

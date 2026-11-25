@@ -2,7 +2,7 @@ mod reorder;
 
 use super::*;
 use crate::ui::scroll::Pan;
-use crate::ui::widgets::{EASE_OUT, FAST, Tween};
+use crate::ui::widgets::{EASE_OUT, FAST, MaxContent, Tween};
 
 use reorder::{Reorder, slide};
 
@@ -96,16 +96,12 @@ impl Widget for TabStrip {
     }
 
     fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, _cross: Option<Length>) -> Length {
-        match (axis, len_req) {
-            (Axis::Vertical, _) => Length::px(size::TABS_HEIGHT),
-            (Axis::Horizontal, LenReq::FitContent(space)) => space,
-            (Axis::Horizontal, _) => Length::ZERO,
-        }
+        crate::ui::widgets::fixed_height(axis, len_req, size::TABS_HEIGHT, || 0.0)
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size_: Size) {
         let height = Some(Length::px(size_.height));
-        let widths: Vec<f64> = self.tabs.iter_mut().map(|tab| ctx.compute_length(tab, LenReq::MaxContent.into(), LayoutSize::maybe(Axis::Vertical, height), Axis::Horizontal, height).get()).collect();
+        let widths: Vec<f64> = self.tabs.iter_mut().map(|tab| ctx.max_content(tab, Axis::Horizontal, height).get()).collect();
         let (ear, gap) = (size::TAB_RADIUS, size::GAP_SM);
         let content = widths.iter().sum::<f64>() + gap * widths.len().saturating_sub(1) as f64 + ear * 2.0;
         self.follow |= self.pan.resize(content, size_.width);

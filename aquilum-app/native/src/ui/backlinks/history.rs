@@ -1,7 +1,7 @@
 use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
 use masonry::layout::Length;
 use masonry::properties::types::CrossAxisAlignment;
-use masonry::properties::{CornerRadius, Gap, Padding};
+use masonry::properties::{CornerRadius, Padding};
 use masonry::widgets::Flex;
 
 use super::{heading_label, heading_row, muted, notice};
@@ -11,7 +11,7 @@ use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::style;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{DocumentItem, TextButton, Variant};
+use crate::ui::widgets::{DocumentItem, TextButton, Variant, spaced};
 
 pub struct HistoryRow {
     pub label: String,
@@ -77,9 +77,7 @@ pub fn history_body(current_selected: bool, days: Vec<(String, Vec<(usize, Histo
         more_id = Some(button.id());
         list = list.with_fixed(NewWidget::new(Flex::row().with_fixed(button)));
     }
-    let list = NewWidget::new(list).with_props(
-        PropertySet::new().with(Gap::new(Length::px(size::SPACE_2))).with(Padding::all(Length::px(size::SPACE_8))),
-    );
+    let list = spaced(list, size::SPACE_2, size::SPACE_8);
     let body = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch).with(NewWidget::new(ScrollArea::new(list)), 1.0);
     (NewWidget::new(body).erased(), HistoryBody { current: current_id, rows, more: more_id, rename })
 }

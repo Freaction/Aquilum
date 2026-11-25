@@ -56,7 +56,7 @@ impl App {
         } else if pressed && Some(id) == more {
             self.open_cover_menu(root, id);
         } else if pressed && Some(id) == replace_book {
-            self.pick_image(false);
+            self.pick_image(Picked::BookCover);
         } else if pressed && Some(id) == book_button {
             self.book_pressed(root);
         } else if pressed && Some(id) == book_menu {
@@ -110,8 +110,8 @@ impl App {
 
     pub(in crate::app) fn cover_action(&mut self, root: &mut RenderRoot, action: CoverAction) {
         match action {
-            CoverAction::Add | CoverAction::Replace => self.pick_image(true),
-            CoverAction::UploadBook => self.pick_image(false),
+            CoverAction::Add | CoverAction::Replace => self.pick_image(Picked::PageCover),
+            CoverAction::UploadBook => self.pick_image(Picked::BookCover),
             CoverAction::Random => {
                 let current = self.fields().and_then(|f| f.text(PAGE_COVER).map(str::to_owned));
                 let next = cover::random_pattern(current.as_deref());

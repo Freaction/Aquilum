@@ -6,7 +6,7 @@ use masonry::properties::{Gap, Padding};
 use masonry::layout::UnitPoint;
 use masonry::widgets::{ChildAlignment, Flex, ZStack};
 
-use super::model::comparable;
+use aquilum_core::search::paths::identity;
 use super::pinned::Pinned;
 use super::pins::pins;
 use super::parts::{empty_state, rename_field, toolbar};
@@ -50,7 +50,7 @@ impl FileTree {
             return state;
         }
         let mut list = Flex::column().cross_axis_alignment(CrossAxisAlignment::Stretch);
-        let renaming = self.model.renaming().map(comparable);
+        let renaming = self.model.renaming().map(identity);
         let count = self.model.rows().len();
         self.first = self.first.min(count.saturating_sub(1));
         let last = (self.first + SPAN).min(count);
@@ -58,7 +58,7 @@ impl FileTree {
             list = list.with_fixed(spacer(self.first));
         }
         for row in &self.model.rows()[self.first..last] {
-            if renaming.as_deref() == Some(comparable(&row.path).as_str()) {
+            if renaming.as_deref() == Some(identity(&row.path).as_str()) {
                 let (field, rename) = rename_field(row);
                 self.row_ids.push(field.id());
                 self.rename = Some(rename);

@@ -4,7 +4,6 @@
 
 use std::path::{Path, PathBuf};
 
-use aquilum_core::files::document::write_content_atomic;
 use serde::{Deserialize, Serialize};
 use winit::dpi::{LogicalSize, PhysicalPosition};
 use winit::window::Window;
@@ -37,17 +36,14 @@ impl State {
 }
 
 pub struct WindowState {
-    path: PathBuf,
+    path: Option<PathBuf>,
     state: Option<State>,
 }
 
 impl WindowState {
-    pub fn load(data_dir: &Path) -> Self {
-        let path = data_dir.join("window-state.json");
-        let state = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|json| serde_json::from_str::<State>(&json).ok())
-            .filter(|state| state.valid());
+    pub fn load(data_dir: &Path, remember: bool) -> Self {
+        let path = remember.then(|| data_dir.join("window-state.json"));
+        let state = path.as_deref().and_then(crate::state_file::load::<State>).filter(|state| state.valid());
         WindowState { path, state }
     }
 
@@ -84,10 +80,8 @@ impl WindowState {
     /// Записывает размер на диск; вызывается при закрытии окна.
     pub fn persist(&mut self, window: &dyn Window) {
         self.observe(window);
-        let Some(state) = self.state else { return };
-        let Ok(json) = serde_json::to_string(&state) else { return };
-        if let Err(error) = write_content_atomic(&self.path, &json, None) {
-            report!("размер окна не сохранён: {error}");
+        if let (Some(path), Some(state)) = (&self.path, self.state) {
+            crate::state_file::save(path, &state, "размер окна");
         }
     }
 }

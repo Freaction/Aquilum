@@ -1,13 +1,12 @@
-use masonry::core::{LayoutCtx, MeasureCtx, NewWidget, PropertySet, WidgetPod};
+use masonry::core::{LayoutCtx, MeasureCtx, NewWidget, WidgetPod};
 use masonry::kurbo::{Axis, Point, Rect, Size};
-use masonry::layout::{LayoutSize, LenReq, Length};
 use masonry::peniko::Color;
 use masonry::properties::types::CrossAxisAlignment;
-use masonry::properties::{Gap, Padding};
 use masonry::widgets::Flex;
 
 use super::item::MenuItem;
 use crate::ui::tokens::size;
+use crate::ui::widgets::{MaxContent, spaced};
 
 pub struct Swatch<'a> {
     pub label: &'a str,
@@ -28,14 +27,13 @@ pub(super) struct Sub {
 }
 
 pub(super) fn panel(column: Flex) -> NewWidget<Flex> {
-    NewWidget::new(column).with_props(PropertySet::new().with(Gap::new(Length::px(size::GAP_XS))).with(Padding::all(Length::px(size::PADDING_2XS))))
+    spaced(column, size::GAP_XS, size::PADDING_2XS)
 }
 
 impl Sub {
     pub(super) fn measure(&mut self, ctx: &mut MeasureCtx<'_>) -> Size {
-        let width = ctx.compute_length(&mut self.panel, LenReq::MaxContent.into(), LayoutSize::NONE, Axis::Horizontal, None);
-        let context = LayoutSize::maybe(Axis::Horizontal, Some(width));
-        let height = ctx.compute_length(&mut self.panel, LenReq::MaxContent.into(), context, Axis::Vertical, Some(width));
+        let width = ctx.max_content(&mut self.panel, Axis::Horizontal, None);
+        let height = ctx.max_content(&mut self.panel, Axis::Vertical, Some(width));
         self.rect = Rect::from_origin_size(self.rect.origin(), Size::new(width.get(), height.get()));
         self.rect.size()
     }

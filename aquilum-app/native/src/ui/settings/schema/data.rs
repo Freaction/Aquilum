@@ -77,7 +77,7 @@ pub(super) fn history(config: &AppConfig, ctx: &Context) -> Vec<Block> {
                 t("settings.history.retention"),
                 Some(t("settings.history.retentionHint")),
                 Control::Dropdown { options, selected: position(&HISTORY_DAYS, &config.history.retention_days) },
-                |c, v| c.history.retention_days = HISTORY_DAYS[index(v).min(3)],
+                |c, v| c.history.retention_days = pick(&HISTORY_DAYS, v),
             ),
             info(
                 t("settings.history.stored"),

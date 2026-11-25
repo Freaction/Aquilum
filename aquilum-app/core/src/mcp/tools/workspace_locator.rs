@@ -32,15 +32,11 @@ pub fn open_guest(core: &Core, root: &Path) -> Result<(), String> {
 }
 
 pub fn known_workspace(core: &Core, input: &str) -> Result<PathBuf, String> {
-    let known = known_paths(core)?;
     let root = if Path::new(input).is_absolute() {
-        let wanted = canonical_path(Path::new(input));
-        known
-            .into_iter()
-            .find(|root| same_path(root, &wanted))
-            .ok_or_else(|| unknown_workspace(input))?
+        let known = core.ui_state.workspace(Path::new(input)).ok_or_else(|| unknown_workspace(input))?;
+        canonical_path(Path::new(&known.path))
     } else {
-        workspace_by_tail(&known, input)?
+        workspace_by_tail(&known_paths(core)?, input)?
     };
     if !root.is_dir() {
         return Err(format!("Папка базы знаний не найдена: {}", root.to_string_lossy()));

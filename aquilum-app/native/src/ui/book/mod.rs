@@ -1,5 +1,4 @@
 use masonry::accesskit::{Node, Role};
-use masonry::core::keyboard::KeyState;
 use masonry::core::{
     AccessCtx, ChildrenIds, CursorIcon, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent,
     PropertiesMut, PropertiesRef, PropertySet, QueryCtx, RegisterCtx, TextEvent, Update, UpdateCtx, Widget, WidgetId,

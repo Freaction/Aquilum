@@ -5,17 +5,15 @@ mod starters;
 
 use std::path::PathBuf;
 
-use masonry::accesskit::Role;
 use masonry::app::RenderRoot;
 use masonry::core::keyboard::{Key, Modifiers};
 use crate::ui::keymap::{self, Command, Scope};
 use masonry::core::{NewWidget, WidgetId};
-use masonry::kurbo::Point;
 use masonry::widgets::Flex;
 
 use super::{App, Outcome, Popup};
 use crate::i18n::t;
-use crate::ui::dialog::{CardSize, Modal, card};
+use crate::ui::dialog::{CardSize, card};
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::scroll::ScrollArea;
@@ -50,15 +48,12 @@ impl App {
         let body = Slot::fit(NewWidget::new(Flex::column()).erased());
         let body_handle = Handle::of(&body);
         let card = card(search_box.widget, body, search::template_footer());
-        let layer = Modal::new(card, &t("templateDialog.title"), CardSize::Anchored(search::card_size), Role::Dialog, false);
-        let layer_id = layer.id();
-        root.add_layer(layer, Point::ORIGIN);
-        root.focus_on(Some(search_box.field.id()));
+        let layer = super::search::show_layer(root, card, &t("templateDialog.title"), CardSize::Anchored(search::card_size), search_box.field.id());
 
         let templates = self.scan_templates();
         let filtered = (0..templates.len()).collect();
         self.popup = Some(Popup::Templates(TemplatesState {
-            layer: layer_id,
+            layer,
             field: search_box.field,
             placeholder: search_box.placeholder,
             query: String::new(),
@@ -73,15 +68,6 @@ impl App {
         self.render_templates(root);
     }
 
-    pub fn close_templates(&mut self, root: &mut RenderRoot) {
-        if let Some(Popup::Templates(state)) = self.popup.take_if(|popup| matches!(popup, Popup::Templates(_))) {
-            crate::ui::dialog::close(root, state.layer);
-            if let Some(ids) = &self.note_ids {
-                root.focus_on(Some(ids.body.id()));
-            }
-        }
-    }
-
     pub(super) fn templates_dir(&self) -> Option<PathBuf> {
         Some(crate::ui::settings::schema::templates_path(&self.tree.root()?, &self.workspace.core.settings.get_config().templates.folder))
     }
@@ -92,7 +78,7 @@ impl App {
             return Vec::new();
         }
         let mut list = scan::scan(&dir);
-        list.sort_by(|a, b| a.relative.to_lowercase().cmp(&b.relative.to_lowercase()));
+        list.sort_by(|a, b| aquilum_core::text::collate::compare(&a.relative, &b.relative));
         list
     }
 
@@ -121,7 +107,7 @@ impl App {
         let Some(Popup::Templates(state)) = &self.popup else { return Outcome::default() };
         let Some(&tmpl_idx) = state.filtered.get(index) else { return Outcome::default() };
         let template = state.templates[tmpl_idx].clone();
-        self.close_templates(root);
+        self.close_lookup(root);
 
         let content = template_text(&template.path);
 

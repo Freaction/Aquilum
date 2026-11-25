@@ -216,12 +216,8 @@ fn significant_word_count(text: &str) -> usize {
         .sum()
 }
 
-pub fn is_cyrillic(ch: char) -> bool {
-    matches!(ch, '\u{0400}'..='\u{04FF}' | '\u{0500}'..='\u{052F}')
-}
-
-pub fn body_term_lang(term: &str) -> &'static str {
-    if term.chars().any(is_cyrillic) {
+pub fn lang_of(term: &str) -> &'static str {
+    if term.chars().any(crate::text::is_cyrillic) {
         "ru"
     } else {
         "en"

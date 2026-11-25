@@ -15,7 +15,6 @@ use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED
 use windows::Win32::UI::Input::Pointer::GetPointerType;
 use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{DM_POINTERHITTEST, POINTER_INPUT_TYPE, PT_TOUCHPAD};
-use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 use handler::Handler;
@@ -66,8 +65,7 @@ unsafe extern "system" fn hit_test(hwnd: HWND, message: u32, wparam: WPARAM, lpa
 
 impl Touchpad {
     pub fn attach(window: &dyn Window) -> Option<Self> {
-        let Ok(RawWindowHandle::Win32(handle)) = window.window_handle().map(|h| h.as_raw()) else { return None };
-        let hwnd = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
+        let hwnd = crate::host::hwnd(window)?;
         unsafe {
             let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             let manager: IDirectManipulationManager = CoCreateInstance(&DirectManipulationManager, None, CLSCTX_INPROC_SERVER).ok()?;

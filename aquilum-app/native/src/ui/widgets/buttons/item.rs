@@ -9,7 +9,7 @@ use masonry::layout::{LenReq, Length};
 
 use crate::ui::icons::Icon;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{Press, Pressed};
+use crate::ui::widgets::{Press, Pressed, fixed_height};
 use crate::ui::{text, theme};
 
 pub struct ItemButton {
@@ -68,11 +68,7 @@ impl Widget for ItemButton {
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
 
     fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, _cross: Option<Length>) -> Length {
-        match (axis, len_req) {
-            (Axis::Vertical, _) => Length::px(size::SIZE_32),
-            (Axis::Horizontal, LenReq::FitContent(space)) => space,
-            (Axis::Horizontal, _) => Length::px(size::SIZE_32),
-        }
+        fixed_height(axis, len_req, size::SIZE_32, || size::SIZE_32)
     }
 
     fn layout(&mut self, _ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, _size: Size) {}

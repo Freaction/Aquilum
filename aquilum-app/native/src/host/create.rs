@@ -4,12 +4,12 @@ impl Host {
     pub(super) fn create_window(&mut self, event_loop: &dyn ActiveEventLoop) {
         let attributes = WindowAttributes::default()
             .with_title("Aquilum")
-            .with_decorations(NATIVE_FRAME)
+            .with_decorations(!ui::titlebar::OWN_CONTROLS)
             .with_visible(false)
             .with_window_icon(window_icon());
         #[cfg(target_os = "windows")]
         let attributes = attributes.with_platform_attributes(Box::new(
-            winit::platform::windows::WindowAttributesWindows::default().with_undecorated_shadow(true).with_class_name(crate::instance::WINDOW_CLASS),
+            winit::platform::windows::WindowAttributesWindows::default().with_undecorated_shadow(true),
         ));
         #[cfg(target_os = "linux")]
         let attributes = linux::attributes(attributes, event_loop);
@@ -22,15 +22,12 @@ impl Host {
             None => attributes,
         };
         let window = event_loop.create_window(attributes).expect("окно");
-        self.accessibility = Accessibility::attach(&*window, event_loop.create_proxy());
+        self.accessibility = Accessibility::attach(&*window, Arc::clone(&self.wake));
         cloak(&*window, true);
         self.restore_maximized(&*window);
         self.metrics.window_created(self.started, window.scale_factor());
-        #[cfg(not(target_os = "linux"))]
-        let system_dark = window.theme() == Some(winit::window::Theme::Dark);
-        #[cfg(target_os = "linux")]
-        let system_dark = self.system_theme.current().unwrap_or(false);
-        let widget = self.app.root_widget(system_dark);
+        self.system_theme.window(window.theme());
+        let widget = self.app.root_widget(self.system_theme.take().unwrap_or(false));
         let options = RenderRootOptions {
             default_properties: Arc::new(ui::theme::default_properties()),
             use_system_fonts: true,
@@ -42,6 +39,10 @@ impl Host {
         let signals = self.signals.clone();
         let mut root = RenderRoot::new(widget, move |signal| signals.borrow_mut().push(signal), options);
         ui::theme::register_fonts(&mut root);
+        #[cfg(not(feature = "installed"))]
+        if self.args.paint_flashing {
+            self.renderer.toggle_overlay();
+        }
         if !self.args.restore {
             self.app.forget_session();
         }

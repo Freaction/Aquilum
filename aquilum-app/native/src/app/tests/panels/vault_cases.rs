@@ -1,7 +1,7 @@
-use super::workspaces::{choose, open_dialog, places, remember, rename_field, state};
+use super::workspaces::{choose, open_dialog, places, remember, rename_field, rows, state};
 use super::*;
 use crate::app::book::Picked;
-use crate::app::workspaces::manage::{DELETE, RENAME};
+use crate::app::workspaces::manage::Command;
 use crate::ui::dialog::DialogAnswer;
 use crate::ui::editor::TextAction;
 use crate::ui::scroll::Scrolled;
@@ -19,7 +19,7 @@ fn scrolling_keeps_the_renaming_and_a_click_commits_it() {
     let mut h = Harness::with(Some(&vaults[0]), 1.0);
     remember(&h, &vaults[1]);
     open_dialog(&mut h);
-    choose(&mut h, &vaults[1], RENAME);
+    choose(&mut h, &vaults[1], Command::Rename);
     let field = rename_field(&h).unwrap();
     h.type_text("Третья");
     let layer = state(&h).dialog.layer;
@@ -38,7 +38,7 @@ fn only_the_letter_case_of_a_vault_can_change() {
     let mut h = Harness::with(Some(&vaults[0]), 1.0);
     remember(&h, &vaults[1]);
     open_dialog(&mut h);
-    choose(&mut h, &vaults[1], RENAME);
+    choose(&mut h, &vaults[1], Command::Rename);
     h.act(rename_field(&h).unwrap(), TextAction::Entered("вторая".into()));
     assert_eq!(state(&h).error.as_deref(), None);
     assert_eq!(names(places.path()), ["Первая", "вторая"]);
@@ -65,10 +65,23 @@ fn deleting_a_vault_that_holds_the_open_one_moves_outside_it() {
     remember(&h, &vaults[0]);
     remember(&h, &vaults[1]);
     open_dialog(&mut h);
-    choose(&mut h, &vaults[0], DELETE);
+    choose(&mut h, &vaults[0], Command::Delete);
     let (confirm, _) = state(&h).cancel();
     h.act(confirm, DialogAnswer::Confirm);
     crate::disk::wait();
     assert!(!vaults[0].exists());
+    assert!(same_path(h.app.tree.root().unwrap(), &vaults[1]));
+}
+
+#[test]
+fn forgetting_the_open_vault_keeps_its_folder_and_moves_to_another() {
+    let (_places, vaults) = places(&["Первая", "Вторая"]);
+    let mut h = Harness::with(Some(&vaults[0]), 1.0);
+    remember(&h, &vaults[1]);
+    open_dialog(&mut h);
+    choose(&mut h, &vaults[0], Command::Forget);
+    assert!(vaults[0].join("a.md").is_file(), "файлы базы удалены");
+    assert!(h.app.workspace.core.ui_state.workspace(&vaults[0]).is_none(), "база осталась в списке");
+    assert_eq!(rows(&h).len(), 1);
     assert!(same_path(h.app.tree.root().unwrap(), &vaults[1]));
 }

@@ -90,11 +90,7 @@ impl Widget for TreeRow {
         len_req: LenReq,
         _cross_length: Option<Length>,
     ) -> Length {
-        match (axis, len_req) {
-            (Axis::Vertical, _) => Length::px(Self::height()),
-            (Axis::Horizontal, LenReq::FitContent(space)) => space,
-            (Axis::Horizontal, _) => Length::px(paint::text_x(self.row.depth) + size::SIDEBAR_ITEM_PADDING),
-        }
+        crate::ui::widgets::fixed_height(axis, len_req, Self::height(), || paint::text_x(self.row.depth) + size::SIDEBAR_ITEM_PADDING)
     }
 
     fn layout(&mut self, _ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, _size: Size) {}

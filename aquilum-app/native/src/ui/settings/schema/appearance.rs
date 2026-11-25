@@ -30,14 +30,17 @@ pub(super) fn ui(config: &AppConfig, ctx: &Context) -> Vec<Block> {
     let language = row(
         t("settings.ui.language"),
         None,
-        Control::Dropdown { options: vec!["Русский".into(), "English".into()], selected: language_index(&config.ui.language) },
-        |c, v| c.ui.language = LANGUAGES[index(v).min(1)].to_owned(),
+        Control::Dropdown {
+            options: std::iter::once(t("settings.ui.languageAuto")).chain(i18n::LANGUAGES.iter().map(|(_, name)| (*name).to_owned())).collect(),
+            selected: i18n::LANGUAGES.iter().position(|(code, _)| *code == config.ui.language).map_or(0, |at| at + 1),
+        },
+        |c, v| c.ui.language = index(v).checked_sub(1).and_then(|at| i18n::LANGUAGES.get(at)).map_or("", |(code, _)| code).to_owned(),
     );
     let fonts = font_rows(
         &config.ui.font,
         &families(&UI_FAMILIES),
         |c, v| c.ui.font.font_family = family(&UI_FAMILIES, v),
-        |c, v| c.ui.font.font_weight = WEIGHTS[index(v).min(4)],
+        |c, v| c.ui.font.font_weight = pick(&WEIGHTS, v),
         |c, v| c.ui.font.font_size_base = font_size(v, 14),
     );
     let mut display = vec![scale_row, theme];
@@ -72,7 +75,7 @@ pub(super) fn editor(config: &AppConfig) -> Vec<Block> {
         &e.font,
         &families(&EDITOR_FAMILIES),
         |c, v| c.editor.font.font_family = family(&EDITOR_FAMILIES, v),
-        |c, v| c.editor.font.font_weight = WEIGHTS[index(v).min(4)],
+        |c, v| c.editor.font.font_weight = pick(&WEIGHTS, v),
         |c, v| c.editor.font.font_size_base = font_size(v, 16),
     );
     fonts.push(row(
@@ -127,7 +130,7 @@ pub(super) fn reader(config: &AppConfig) -> Vec<Block> {
         &r.font,
         &families(&READER_FAMILIES),
         |c, v| c.reader.font.font_family = family(&READER_FAMILIES, v),
-        |c, v| c.reader.font.font_weight = WEIGHTS[index(v).min(4)],
+        |c, v| c.reader.font.font_weight = pick(&WEIGHTS, v),
         |c, v| c.reader.font.font_size_base = font_size(v, 18),
     );
     fonts.push(row(
@@ -151,7 +154,7 @@ pub(super) fn reader(config: &AppConfig) -> Vec<Block> {
                         options: vec![t("settings.reader.flowPaginated"), t("settings.reader.flowScrolled")],
                         selected: position(&READER_FLOWS, &r.flow.as_str()),
                     },
-                    |c, v| c.reader.flow = READER_FLOWS[index(v).min(1)].to_owned(),
+                    |c, v| c.reader.flow = pick(&READER_FLOWS, v).to_owned(),
                 ),
                 row(
                     t("settings.reader.maxWidth"),
@@ -184,7 +187,7 @@ pub fn reader_quick(config: &AppConfig) -> Vec<Row> {
             t("reader.flow"),
             None,
             Control::Segmented { options: vec![t("reader.flowPaginated"), t("reader.flowScrolled")], selected: position(&READER_FLOWS, &r.flow.as_str()) },
-            |c, v| c.reader.flow = READER_FLOWS[index(v).min(1)].to_owned(),
+            |c, v| c.reader.flow = pick(&READER_FLOWS, v).to_owned(),
         ),
         row(t("reader.fontSize"), None, Control::Number(Number::font_size(r.font.font_size_base)), |c, v| {
             c.reader.font.font_size_base = font_size(v, 18)

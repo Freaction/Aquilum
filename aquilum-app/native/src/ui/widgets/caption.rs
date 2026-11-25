@@ -48,11 +48,7 @@ impl Widget for Caption {
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
 
     fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, _cross: Option<Length>) -> Length {
-        match (axis, len_req) {
-            (Axis::Vertical, _) => Length::px(size::SIZE_20),
-            (Axis::Horizontal, LenReq::FitContent(space)) => space,
-            (Axis::Horizontal, _) => Length::ZERO,
-        }
+        super::fixed_height(axis, len_req, size::SIZE_20, || 0.0)
     }
 
     fn layout(&mut self, _ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, _size: Size) {}

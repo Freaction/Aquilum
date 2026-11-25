@@ -105,37 +105,37 @@ impl Engine {
             crate::render::from_bgrx(pixels, w as u32, h as u32)
         }
     }
+
+    #[allow(deprecated)]
+    pub fn poster(path: &Path) -> Option<ImageBrush> {
+        use objc2_av_foundation::{AVAsset, AVAssetImageGenerator};
+        use objc2_core_foundation::{CGPoint, CGRect, CGSize};
+        use objc2_core_graphics::{CGBitmapContextCreate, CGBitmapInfo, CGColorSpace, CGContext, CGImage, CGImageAlphaInfo};
+        const SIZE: f64 = 1024.0;
+        let absolute = std::path::absolute(path).ok()?;
+        unsafe {
+            let url = NSURL::fileURLWithPath(&NSString::from_str(&absolute.to_string_lossy()));
+            let generator = AVAssetImageGenerator::assetImageGeneratorWithAsset(&AVAsset::assetWithURL(&url));
+            generator.setAppliesPreferredTrackTransform(true);
+            generator.setMaximumSize(CGSize::new(SIZE, SIZE));
+            let image = generator.copyCGImageAtTime_actualTime_error(CMTime::with_seconds(0.0, TIMESCALE), std::ptr::null_mut()).ok()?;
+            let (w, h) = (CGImage::width(Some(&image)), CGImage::height(Some(&image)));
+            if w == 0 || h == 0 {
+                return None;
+            }
+            let mut pixels = vec![0u8; w * h * 4];
+            let space = CGColorSpace::new_device_rgb()?;
+            let info = CGImageAlphaInfo::PremultipliedLast.0 | CGBitmapInfo::ByteOrder32Big.0;
+            let context = CGBitmapContextCreate(pixels.as_mut_ptr().cast(), w, h, 8, w * 4, Some(&space), info)?;
+            CGContext::draw_image(Some(&context), CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(w as f64, h as f64)), Some(&image));
+            drop(context);
+            crate::render::from_rgba(pixels, w as u32, h as u32, ImageAlphaType::AlphaPremultiplied)
+        }
+    }
 }
 
 impl Drop for Engine {
     fn drop(&mut self) {
         unsafe { self.player.pause() };
-    }
-}
-
-#[allow(deprecated)]
-pub fn poster(path: &Path) -> Option<ImageBrush> {
-    use objc2_av_foundation::{AVAsset, AVAssetImageGenerator};
-    use objc2_core_foundation::{CGPoint, CGRect, CGSize};
-    use objc2_core_graphics::{CGBitmapContextCreate, CGBitmapInfo, CGColorSpace, CGContext, CGImage, CGImageAlphaInfo};
-    const SIZE: f64 = 1024.0;
-    let absolute = std::path::absolute(path).ok()?;
-    unsafe {
-        let url = NSURL::fileURLWithPath(&NSString::from_str(&absolute.to_string_lossy()));
-        let generator = AVAssetImageGenerator::assetImageGeneratorWithAsset(&AVAsset::assetWithURL(&url));
-        generator.setAppliesPreferredTrackTransform(true);
-        generator.setMaximumSize(CGSize::new(SIZE, SIZE));
-        let image = generator.copyCGImageAtTime_actualTime_error(CMTime::with_seconds(0.0, TIMESCALE), std::ptr::null_mut()).ok()?;
-        let (w, h) = (CGImage::width(Some(&image)), CGImage::height(Some(&image)));
-        if w == 0 || h == 0 {
-            return None;
-        }
-        let mut pixels = vec![0u8; w * h * 4];
-        let space = CGColorSpace::new_device_rgb()?;
-        let info = CGImageAlphaInfo::PremultipliedLast.0 | CGBitmapInfo::ByteOrder32Big.0;
-        let context = CGBitmapContextCreate(pixels.as_mut_ptr().cast(), w, h, 8, w * 4, Some(&space), info)?;
-        CGContext::draw_image(Some(&context), CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(w as f64, h as f64)), Some(&image));
-        drop(context);
-        crate::render::from_rgba(pixels, w as u32, h as u32, ImageAlphaType::AlphaPremultiplied)
     }
 }

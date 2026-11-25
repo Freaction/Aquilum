@@ -46,21 +46,15 @@ impl Host {
             let height = f64::from(self.window().surface_size().height);
             self.pointer.position = winit::dpi::PhysicalPosition::new(center.x * scale * 0.8, (center.y * scale).clamp(height * 0.2, height * 0.8));
         }
-        let state = self.pointer_state();
         match step {
-            crate::replay::Step::Wheel(lines) => {
-                self.pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: PRIMARY_MOUSE, delta: ScrollDelta::LineDelta(0.0, lines), state }));
-            }
+            crate::replay::Step::Wheel(lines) => self.scroll(ScrollDelta::LineDelta(0.0, lines)),
             crate::replay::Step::Pinch(delta) => self.pinch(f64::from(delta)),
             crate::replay::Step::Focus => {
                 if let Some(root) = &mut self.root {
                     self.app.toggle_focus_mode(root);
                 }
             }
-            crate::replay::Step::Pan(dx, dy) => {
-                let delta = ScrollDelta::PixelDelta(winit::dpi::PhysicalPosition::new(f64::from(dx), f64::from(dy)));
-                self.pointer_event(PointerEvent::Scroll(PointerScrollEvent { pointer: PRIMARY_MOUSE, delta, state }));
-            }
+            crate::replay::Step::Pan(dx, dy) => self.pan(dx, dy),
         }
         self.handle_signals(event_loop);
     }

@@ -2,6 +2,7 @@ use super::attachments::MEDIA_EXTENSIONS;
 use super::error::FileCommandError;
 use super::models::{FileItem, FileItemType};
 use crate::search::paths::is_hidden_name;
+use crate::text::collate;
 use std::fs;
 use std::path::Path;
 
@@ -71,12 +72,11 @@ pub fn read_directory_impl(path: &Path) -> Result<Vec<FileItem>, FileCommandErro
         });
     }
 
-    items.sort_by_cached_key(|item| {
-        (
-            item.item_type == FileItemType::File,
-            item.name.to_lowercase(),
-        )
-    });
+    items.sort_by_cached_key(by_name);
 
     Ok(items)
+}
+
+pub fn by_name(item: &FileItem) -> (bool, collate::Key) {
+    (item.item_type == FileItemType::File, collate::key(&item.name))
 }

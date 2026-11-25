@@ -1,4 +1,3 @@
-use masonry::core::keyboard::KeyState;
 use masonry::core::{BrushIndex, EventCtx, PointerButtonEvent, PointerEvent, PointerUpdate, TextEvent};
 use masonry::imaging::Painter;
 use masonry::kurbo::{Rect, Vec2};
@@ -58,11 +57,7 @@ impl Label {
     }
 
     pub(super) fn keyboard(&mut self, ctx: &mut EventCtx<'_>, event: &TextEvent) {
-        let TextEvent::Keyboard(key) = event else { return };
-        if key.state != KeyState::Down {
-            return;
-        }
-        let command = keymap::command(&[Scope::Text], &key.key, key.modifiers);
+        let command = keymap::pressed(&[Scope::Text], event);
         let select_all = command == Some(Command::SelectAll);
         if command == Some(Command::Copy) {
             if let Some(text) = self.text.get(self.selection.text_range()).filter(|text| !text.is_empty()) {

@@ -101,6 +101,12 @@ pub(super) fn items(value: &Value) -> &[Value] {
     }
 }
 
+fn span_of(arguments: &[Value], len: usize) -> std::ops::Range<usize> {
+    let at = |index| arguments.get(index).and_then(Value::as_number).map(|value| (value.max(0.0) as usize).min(len));
+    let to = at(2).unwrap_or(len);
+    at(1).unwrap_or(0).min(to)..to
+}
+
 #[cfg(test)]
 mod tests {
     use super::call;

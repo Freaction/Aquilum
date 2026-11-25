@@ -15,7 +15,7 @@ const HEAP_EVERY: Duration = Duration::from_millis(250);
 
 fn watch_peaks(output: &std::path::Path) {
     let (peaks, series) = (output.with_extension("peak.txt"), output.with_extension("heap.txt"));
-    std::thread::spawn(move || {
+    let _ = aquilum_core::threads::spawn("пики памяти", move || {
         let started = Instant::now();
         let (mut top, mut logged) = (CURRENT.load(Ordering::Relaxed), Duration::ZERO);
         let mut log = std::fs::File::create(&series).ok();

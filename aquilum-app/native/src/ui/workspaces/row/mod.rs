@@ -8,13 +8,13 @@ use masonry::core::{
 };
 use masonry::imaging::Painter;
 use masonry::kurbo::{Axis, Point, Rect, Size};
-use masonry::layout::{LenDef, LenReq, Length, SizeDef};
+use masonry::layout::{LenReq, Length};
 
 use crate::i18n::t;
 use crate::ui::editor::{TextEditor, rename_editor};
 use crate::ui::handle::Handle;
 use crate::ui::tokens::size;
-use crate::ui::widgets::{EASE_OUT, FAST, Press, Tween};
+use crate::ui::widgets::{EASE_OUT, FAST, Press, Tween, fit_height, fixed_height};
 use crate::ui::{style, text};
 
 #[derive(Debug)]
@@ -147,18 +147,13 @@ impl Widget for WorkspaceRow {
     }
 
     fn measure(&mut self, _ctx: &mut MeasureCtx<'_>, _props: &PropertiesRef<'_>, axis: Axis, len_req: LenReq, _cross: Option<Length>) -> Length {
-        match (axis, len_req) {
-            (Axis::Vertical, _) => Length::px(size::WORKSPACE_ROW_HEIGHT + 2.0),
-            (Axis::Horizontal, LenReq::FitContent(space)) => space,
-            (Axis::Horizontal, _) => Length::ZERO,
-        }
+        fixed_height(axis, len_req, size::WORKSPACE_ROW_HEIGHT + 2.0, || 0.0)
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size: Size) {
         let (left, width, top) = self.text_span(Rect::from_origin_size(Point::ORIGIN, size));
         let Some(field) = &mut self.field else { return };
-        let fit = SizeDef::new(LenDef::FitContent(Length::px(width)), LenDef::MaxContent);
-        let height = ctx.compute_size(field, fit, Size::new(width, size.height).into()).height;
+        let height = fit_height(ctx, field, width, Size::new(width, size.height).into());
         ctx.run_layout(field, Size::new(width, height));
         ctx.place_child(field, Point::new(left, top));
     }

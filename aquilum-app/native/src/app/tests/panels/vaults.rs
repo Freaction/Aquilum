@@ -1,7 +1,7 @@
 use super::workspaces::{choose, menu_layer, open_dialog, places, remember, rename_field, row, rows, state};
 use super::*;
 use crate::app::book::Picked;
-use crate::app::workspaces::manage::{DELETE, DUPLICATE, RENAME, SYNC};
+use crate::app::workspaces::manage::Command;
 use crate::i18n::t;
 use crate::ui::dialog::DialogAnswer;
 use crate::ui::editor::{TextAction, TextEditor};
@@ -12,7 +12,7 @@ fn synced(h: &Harness, path: &std::path::Path) -> bool {
 }
 
 fn answer_delete(h: &mut Harness, path: &std::path::Path, answer: DialogAnswer) {
-    choose(h, path, DELETE);
+    choose(h, path, Command::Delete);
     let (confirm, cancel) = state(h).cancel();
     assert!(cancel.downcast_ref::<DialogAnswer>().is_some() && confirm != state(h).dialog.layer, "нет вопроса об удалении");
     h.act(confirm, answer);
@@ -53,7 +53,7 @@ fn renaming_the_open_vault_moves_it_and_keeps_its_tabs() {
     h.open(vaults[0].join("a.md"));
     let id = h.app.workspace.core.ui_state.workspace(&vaults[0]).unwrap().id;
     open_dialog(&mut h);
-    choose(&mut h, &vaults[0], RENAME);
+    choose(&mut h, &vaults[0], Command::Rename);
     let field = rename_field(&h).unwrap();
     h.act(field, TextAction::Entered("Вторая".into()));
 
@@ -72,18 +72,18 @@ fn a_taken_name_is_reported_and_escape_or_back_cancel_only_the_renaming() {
     let mut h = Harness::with(Some(&vaults[0]), 1.0);
     remember(&h, &vaults[1]);
     open_dialog(&mut h);
-    choose(&mut h, &vaults[1], RENAME);
+    choose(&mut h, &vaults[1], Command::Rename);
     h.act(rename_field(&h).unwrap(), TextAction::Entered("Первая".into()));
     assert!(vaults[1].is_dir());
     assert!(state(&h).error.as_deref().unwrap().contains(&t("workspaces.nameTaken")));
 
-    choose(&mut h, &vaults[1], RENAME);
+    choose(&mut h, &vaults[1], Command::Rename);
     assert_eq!(state(&h).error.as_deref(), None);
     h.escape();
     assert!(matches!(h.app.popup, Some(Popup::Workspaces(_))), "Escape закрыл окно баз");
     assert!(rename_field(&h).is_none());
 
-    choose(&mut h, &vaults[1], RENAME);
+    choose(&mut h, &vaults[1], Command::Rename);
     h.type_text("Третья");
     h.app.back(&mut h.root);
     assert!(matches!(h.app.popup, Some(Popup::Workspaces(_))), "«Назад» закрыл окно баз");
@@ -134,7 +134,7 @@ fn duplicating_a_vault_copies_its_notes_next_to_it() {
     let (places, vaults) = places(&["Первая"]);
     let mut h = Harness::with(Some(&vaults[0]), 1.0);
     open_dialog(&mut h);
-    choose(&mut h, &vaults[0], DUPLICATE);
+    choose(&mut h, &vaults[0], Command::Duplicate);
     assert!(h.wait_for(|h| rename_field(h).is_some()), "копия не появилась в списке");
     let copy = places.path().join("Первая (1)");
     assert_eq!(std::fs::read_to_string(copy.join("a.md")).unwrap(), "Первая");
@@ -149,11 +149,11 @@ fn sync_is_toggled_per_vault_and_needs_dropbox_to_turn_on() {
     let on = aquilum_core::settings::models::SyncSettings { enabled: true, ..Default::default() };
     h.app.workspace.core.ui_state.set_sync(&vaults[1].to_string_lossy(), &on).unwrap();
     open_dialog(&mut h);
-    choose(&mut h, &vaults[1], SYNC);
+    choose(&mut h, &vaults[1], Command::Sync);
     assert!(!synced(&h, &vaults[1]));
     assert!(matches!(h.app.popup, Some(Popup::Workspaces(_))));
 
-    choose(&mut h, &vaults[1], SYNC);
+    choose(&mut h, &vaults[1], Command::Sync);
     assert!(synced(&h, &vaults[1]) && !synced(&h, &vaults[0]));
     assert_eq!(h.section(), Some(Section::Sync), "без входа в Dropbox должен открыться раздел синхронизации");
 }

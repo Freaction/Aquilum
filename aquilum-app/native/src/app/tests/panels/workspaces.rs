@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use super::*;
 use crate::app::workspaces::WorkspacesState;
+use crate::app::workspaces::manage::{COMMANDS, Command};
 use crate::ui::menu::MenuChoice;
 use crate::ui::widgets::Pressed;
 use crate::ui::workspaces::RowAction;
@@ -35,10 +36,11 @@ pub(super) fn row(h: &Harness, path: &Path) -> WidgetId {
     rows(h).into_iter().find(|(_, listed, _)| same_path(listed, path)).unwrap_or_else(|| panic!("нет строки {}", path.display())).0
 }
 
-pub(super) fn choose(h: &mut Harness, path: &Path, item: usize) {
+pub(super) fn choose(h: &mut Harness, path: &Path, command: Command) {
     let row = row(h, path);
     h.act(row, RowAction::Menu(masonry::kurbo::Point::new(200.0, 200.0)));
     let menu = menu_layer(h).expect("меню базы не открылось");
+    let item = COMMANDS.iter().position(|listed| *listed == command).expect("пункта нет в меню");
     h.act(menu, MenuChoice::Item(item));
 }
 
@@ -92,7 +94,7 @@ fn workspace_dialog_switches_vaults() {
     h.escape();
     assert!(h.app.popup.is_none());
     h.app.switch_workspace(&mut h.root, second.path().join(".").join("..").join(second.path().file_name().unwrap()));
-    let reopened = Workspace::open(Some(h._data.path()), None, || {}).unwrap();
+    let reopened = Workspace::open(h._data.path(), None, std::sync::Arc::new(|| {})).unwrap();
     assert!(same_path(reopened.root.as_deref().unwrap(), second.path()));
     let known = h.app.workspace.core.ui_state.list_workspaces().unwrap();
     assert_eq!(known.iter().filter(|w| same_path(Path::new(&w.path), second.path())).count(), 1);

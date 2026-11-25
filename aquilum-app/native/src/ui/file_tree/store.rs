@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use super::model::{Sort, comparable};
+use super::model::Sort;
+use aquilum_core::search::paths::identity;
 
 pub(super) struct ExpandedStore {
     path: PathBuf,
@@ -24,24 +25,21 @@ struct StoreFile {
 impl ExpandedStore {
     pub(super) fn load(data_dir: &Path) -> Self {
         let path = data_dir.join("expanded-folders.json");
-        let file = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|json| serde_json::from_str::<StoreFile>(&json).ok())
-            .unwrap_or_default();
+        let file = crate::state_file::load::<StoreFile>(&path).unwrap_or_default();
         ExpandedStore { path, workspaces: file.workspaces, sorts: file.sorts, colors: file.colors }
     }
 
     pub(super) fn sort(&self, root: &Path) -> Sort {
-        self.sorts.get(&comparable(root)).copied().unwrap_or_default()
+        self.sorts.get(&identity(root)).copied().unwrap_or_default()
     }
 
     pub(super) fn set_sort(&mut self, root: &Path, sort: Sort) {
-        self.sorts.insert(comparable(root), sort);
+        self.sorts.insert(identity(root), sort);
         self.save();
     }
 
     pub(super) fn colors(&self, root: &Path) -> Vec<(PathBuf, String)> {
-        self.colors.get(&comparable(root)).into_iter().flatten().map(|(relative, name)| (root.join(relative), name.clone())).collect()
+        self.colors.get(&identity(root)).into_iter().flatten().map(|(relative, name)| (root.join(relative), name.clone())).collect()
     }
 
     pub(super) fn set_colors(&mut self, root: &Path, colors: &[(PathBuf, &str)]) {
@@ -49,13 +47,13 @@ impl ExpandedStore {
             .iter()
             .filter_map(|(path, name)| Some((path.strip_prefix(root).ok()?.to_string_lossy().replace('\\', "/"), (*name).to_owned())))
             .collect();
-        self.colors.insert(comparable(root), relative);
+        self.colors.insert(identity(root), relative);
         self.save();
     }
 
     pub(super) fn get(&self, root: &Path) -> Vec<PathBuf> {
         self.workspaces
-            .get(&comparable(root))
+            .get(&identity(root))
             .into_iter()
             .flatten()
             .map(|relative| root.join(relative))
@@ -68,15 +66,12 @@ impl ExpandedStore {
             .filter_map(|p| p.strip_prefix(root).ok())
             .map(|p| p.to_string_lossy().replace('\\', "/"))
             .collect();
-        self.workspaces.insert(comparable(root), relative);
+        self.workspaces.insert(identity(root), relative);
         self.save();
     }
 
     fn save(&self) {
         let file = StoreFile { workspaces: self.workspaces.clone(), sorts: self.sorts.clone(), colors: self.colors.clone() };
-        let Ok(json) = serde_json::to_string(&file) else { return };
-        if let Err(e) = aquilum_core::files::document::write_content_atomic(&self.path, &json, None) {
-            report!("раскрытые папки не сохранены: {e}");
-        }
+        crate::state_file::save(&self.path, &file, "раскрытые папки");
     }
 }

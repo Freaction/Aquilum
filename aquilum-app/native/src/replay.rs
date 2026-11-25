@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 
 const STEP: Duration = Duration::from_millis(64);
 const FLING_STEP: Duration = Duration::from_millis(8);
+const GRAPH_STEP: Duration = Duration::from_millis(16);
 const FLING_LINES: f32 = 3.0;
 const REFRESH_MS: f64 = 1000.0 / 120.0;
 const FOCUS_SECONDS: f64 = 1.2;
@@ -48,11 +49,6 @@ impl Replay {
     }
 
     pub fn step(&mut self, now: Instant) -> Option<Step> {
-        match self.kind {
-            Kind::Scroll | Kind::Fling => return self.scroll(now).map(Step::Wheel),
-            Kind::Focus => return self.focus(now),
-            Kind::Graph => {}
-        }
         let started = *self.started.get_or_insert(now);
         let next = *self.next.get_or_insert(now);
         if now < next {
@@ -63,47 +59,22 @@ impl Replay {
             self.next = None;
             return None;
         }
-        self.next = Some(next + Duration::from_millis(16));
+        let direction = if elapsed < self.length / 2 { -1.0 } else { 1.0 };
         let phase = (elapsed.as_secs_f64() % 10.0) / 10.0;
-        Some(match phase {
-            p if p < 0.35 => Step::Pinch(0.02),
-            p if p < 0.65 => Step::Pan(6.0, 3.0),
-            _ => Step::Pinch(-0.02),
-        })
-    }
-
-    fn focus(&mut self, now: Instant) -> Option<Step> {
-        let started = *self.started.get_or_insert(now);
-        let next = *self.next.get_or_insert(now);
-        if now < next {
-            return None;
-        }
-        if now - started >= self.length {
-            self.next = None;
-            return None;
-        }
-        self.next = Some(next + Duration::from_secs_f64(FOCUS_SECONDS));
-        Some(Step::Focus)
+        let (interval, step) = match self.kind {
+            Kind::Scroll => (STEP, Step::Wheel(direction)),
+            Kind::Fling => (FLING_STEP, Step::Wheel(direction * FLING_LINES)),
+            Kind::Focus => (Duration::from_secs_f64(FOCUS_SECONDS), Step::Focus),
+            Kind::Graph if phase < 0.35 => (GRAPH_STEP, Step::Pinch(0.02)),
+            Kind::Graph if phase < 0.65 => (GRAPH_STEP, Step::Pan(6.0, 3.0)),
+            Kind::Graph => (GRAPH_STEP, Step::Pinch(-0.02)),
+        };
+        self.next = Some(next + interval);
+        Some(step)
     }
 
     pub fn wake(&self) -> Option<Instant> {
         self.next
-    }
-
-    fn scroll(&mut self, now: Instant) -> Option<f32> {
-        let started = *self.started.get_or_insert(now);
-        let next = *self.next.get_or_insert(now);
-        if now < next {
-            return None;
-        }
-        let elapsed = now - started;
-        if elapsed >= self.length {
-            self.next = None;
-            return None;
-        }
-        let (step, lines) = if self.kind == Kind::Fling { (FLING_STEP, FLING_LINES) } else { (STEP, 1.0) };
-        self.next = Some(next + step);
-        Some(if elapsed < self.length / 2 { -lines } else { lines })
     }
 
     pub fn running(&self) -> bool {
