@@ -77,4 +77,3 @@ fn a_finger_never_starts_a_tooltip() {
     root.handle_pointer_event(moved(TOUCH, pointer_at(button.center().x, button.center().y, 1.0)));
     assert!(crate::ui::timer::next().is_none());
 }
-

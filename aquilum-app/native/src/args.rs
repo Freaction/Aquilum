@@ -65,7 +65,6 @@ pub fn parse() -> Result<Args, String> {
         let mut value = || it.next().ok_or_else(|| format!("{flag}: нет значения"));
         match flag.as_str() {
             "--vault" => args.vault = Some(value()?.into()),
-            #[cfg(not(feature = "installed"))]
             "--data-dir" => args.data_dir = Some(value()?.into()),
             "--size" => {
                 let v = value()?;
