@@ -8,10 +8,11 @@ use super::model::Row;
 use crate::i18n::t;
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
+use crate::ui::keymap::Command;
 use crate::ui::search::{self, Placeholder};
 use crate::ui::tokens::size;
 use crate::ui::widgets::{IconButton, IconView, Label, Leading, Slot, TextButton, Variant};
-use crate::ui::{icons, style, theme};
+use crate::ui::{icons, style};
 
 #[derive(Clone, Copy)]
 pub(super) struct Toolbar {
@@ -28,7 +29,7 @@ pub(super) struct Toolbar {
 
 pub(super) fn toolbar(query: &str) -> (NewWidget<Flex>, Toolbar) {
     let button = |icon, label: &str| NewWidget::new(IconButton::new(icon, t(label)).small());
-    let new_note = button(icons::SQUARE_PEN, "fileTree.newNote");
+    let new_note = NewWidget::new(IconButton::new(icons::SQUARE_PEN, t("fileTree.newNote")).small().keys(Command::NewNote));
     let new_folder = button(icons::FOLDER_PLUS, "fileTree.newFolder");
     let sort = button(icons::ARROW_UP_NARROW_WIDE, "fileTree.sort");
     let collapse = button(icons::CHEVRONS_DOWN_UP, "fileTree.collapseAll");
@@ -64,7 +65,7 @@ pub(super) fn toolbar(query: &str) -> (NewWidget<Flex>, Toolbar) {
 }
 
 pub(super) fn empty_state() -> (NewWidget<Flex>, WidgetId) {
-    let icon = IconView::new(icons::FILE_TEXT, size::SIZE_40, size::SIZE_28, 1.4, || theme::current().icon_muted);
+    let icon = IconView::new(icons::FILE_TEXT, size::SIZE_40, size::SIZE_28, 1.4, |t| t.icon_muted);
     let title = Label::new(&t("fileTree.empty"), |t| t.text_secondary)
         .leading(Leading::Times(crate::ui::tokens::number::FONT_LINE_HEIGHT_SNUG as f32));
     let title = NewWidget::new(title);

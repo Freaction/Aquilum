@@ -13,6 +13,7 @@ mod label;
 mod layout;
 mod sash;
 mod size;
+mod tip;
 
 pub use buttons::*;
 pub use appear::*;
@@ -26,6 +27,7 @@ pub use label::{Font, Label, Leading, Paint, Scale};
 pub use layout::*;
 pub use sash::{Edge, Edged, Sash, SashAction};
 pub use size::*;
+pub use tip::Tip;
 
 use masonry::core::{EventCtx, PointerButtonEvent, PointerEvent};
 

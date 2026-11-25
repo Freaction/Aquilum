@@ -13,7 +13,8 @@ use masonry::widgets::Flex;
 use super::{Joined, Look, Variant, paint_button};
 use crate::ui::icons::Icon;
 use crate::ui::tokens::number;
-use crate::ui::widgets::{ControlSize, Press, Pressed};
+use crate::ui::keymap::Command;
+use crate::ui::widgets::{ControlSize, Press, Pressed, Tip};
 use crate::ui::text;
 
 pub struct TextButton {
@@ -23,6 +24,7 @@ pub struct TextButton {
     icons: [Option<Icon>; 2],
     line: text::Line,
     press: Press,
+    tip: Tip,
     size: ControlSize,
     joined: Option<Joined>,
     icon_only: bool,
@@ -30,7 +32,12 @@ pub struct TextButton {
 
 impl TextButton {
     pub fn new(label: impl Into<String>, variant: Variant) -> Self {
-        TextButton { label: label.into(), variant, pressed: false, icons: [None, None], line: text::Line::default(), press: Press::default(), size: ControlSize::S.fit(), joined: None, icon_only: false }
+        TextButton { label: label.into(), variant, pressed: false, icons: [None, None], line: text::Line::default(), press: Press::default(), tip: Tip::new(false), size: ControlSize::S.fit(), joined: None, icon_only: false }
+    }
+
+    pub fn keys(mut self, command: Command) -> Self {
+        self.tip.keys(command);
+        self
     }
 
     pub fn size(mut self, size: ControlSize) -> Self {
@@ -41,6 +48,7 @@ impl TextButton {
     pub fn icon_only(mut self, icon: Icon) -> Self {
         self.icons = [Some(icon), None];
         self.icon_only = true;
+        self.tip.label = true;
         self
     }
 
@@ -109,6 +117,7 @@ impl Widget for TextButton {
     type Action = Pressed;
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
+        self.tip.pointer(ctx, event);
         if self.press.pointer(ctx, event) {
             ctx.submit_action::<Pressed>(Pressed);
         }
@@ -121,6 +130,7 @@ impl Widget for TextButton {
     }
 
     fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
+        self.tip.update(ctx, event);
         match event {
             Update::HoveredChanged(_) => ctx.request_paint_only(),
             Update::FontsChanged => {
@@ -129,6 +139,10 @@ impl Widget for TextButton {
             }
             _ => {}
         }
+    }
+
+    fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, _interval: u64) {
+        self.tip.anim_frame(ctx, &self.label);
     }
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}

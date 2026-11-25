@@ -15,6 +15,7 @@ impl App {
         }
         self.adopt_body(root);
         self.queue_save();
+        self.refresh_outline();
         if could_affect_frontmatter {
             self.refresh_hero(root);
             self.metadata_changed(root, had);

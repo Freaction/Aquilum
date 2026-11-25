@@ -91,6 +91,29 @@ fn wheel_glide_lands_exactly_and_stays_in_bounds() {
 }
 
 #[test]
+fn glide_to_is_smooth_faster_when_far_and_instant_without_motion() {
+    let mut root = root();
+    let arrive = |root: &mut RenderRoot, target: f64| {
+        let from = offset(root);
+        root.edit_widget_with_tag(TAG, |mut area| ScrollArea::glide_to(&mut area, target));
+        assert_eq!(offset(root), from, "переход начался скачком");
+        let mut trace = Vec::new();
+        frames(root, 100, &mut trace);
+        assert!((offset(root) - target).abs() < 0.5, "не доехал до {target}: {trace:?}");
+        assert!(trace.windows(2).all(|w| (w[1] - w[0]) * (target - from) >= 0.0), "ход назад: {trace:?}");
+        let taken = trace.iter().position(|o| (o - target).abs() < 0.5).unwrap() + 1;
+        (target - from).abs() / taken as f64
+    };
+    let near = arrive(&mut root, 200.0);
+    let far = arrive(&mut root, 4600.0);
+    assert!(far > near * 3.0, "дальний переход не быстрее: {near:.1} против {far:.1} пикселей за кадр");
+    crate::ui::motion::set(false);
+    root.edit_widget_with_tag(TAG, |mut area| ScrollArea::glide_to(&mut area, 0.0));
+    crate::ui::motion::set(true);
+    assert_eq!(offset(&root), 0.0, "без анимаций переход не мгновенный");
+}
+
+#[test]
 fn continuous_wheel_moves_every_frame_without_jolts() {
     let mut root = root();
     let mut trace = vec![offset(&root)];

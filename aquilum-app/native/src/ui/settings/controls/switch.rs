@@ -93,7 +93,7 @@ impl Widget for Switch {
         let track_color = if self.on { t.bg_accent } else { t.bg_surface_active };
         painter.fill(track, track_color.multiply_alpha(alpha)).draw();
         let inset = size::SWITCH_HANDLE_INSET;
-        let x = bounds.x0 + inset + size::SWITCH_HANDLE_TRAVEL * bezier(EASE_STANDARD, self.travel);
+        let x = bounds.x0 + inset + size::SWITCH_HANDLE_TRAVEL * bezier(EASE_DEFAULT, self.travel);
         let r = size::SWITCH_HANDLE_SIZE / 2.0;
         let handle = Circle::new((x + r, bounds.center().y), r);
         let rect = RoundedRect::from_rect(Rect::from_center_size(handle.center, Size::new(r * 2.0, r * 2.0)), r);

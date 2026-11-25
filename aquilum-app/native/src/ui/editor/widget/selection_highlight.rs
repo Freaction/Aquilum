@@ -1,6 +1,7 @@
 use std::ops::{Range, RangeInclusive};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
+use masonry::core::{UpdateCtx, WidgetMut};
 use masonry::imaging::Painter;
 use masonry::peniko::Color;
 
@@ -8,7 +9,12 @@ use aquilum_core::text::matcher::Matcher;
 
 use super::TextEditor;
 use super::matching::{HOVER, SELECTION};
+use crate::ui::motion::{self, EASE_DEFAULT};
 use crate::ui::theme;
+use crate::ui::widgets::bezier;
+
+const FLASH: Duration = Duration::from_millis(2000);
+const FADE: Duration = Duration::from_millis(1000);
 
 impl TextEditor {
     pub(super) fn shown_bytes(&self, shown: &RangeInclusive<usize>) -> Range<usize> {
@@ -43,29 +49,40 @@ impl TextEditor {
         self.paint_visible_matches(painter, shown, &Matcher::any(&self.hover_terms, HOVER), None, color);
     }
 
-    pub(super) fn paint_external_reveal(&self, painter: &mut Painter<'_>, shown: RangeInclusive<usize>) {
-        let Some((range, start)) = &self.external_reveal else { return };
-        let elapsed = start.elapsed().as_secs_f32();
-        if elapsed < 0.9 {
-            let alpha = (1.0 - elapsed / 0.9).clamp(0.0, 1.0);
-            let tm = theme::current();
-            let color = tm.bg_accent.multiply_alpha(alpha * 0.4);
-            self.paint_range(painter, shown, range.clone(), color);
+    pub(super) fn paint_flash(&self, painter: &mut Painter<'_>, shown: RangeInclusive<usize>) {
+        let Some((range, start)) = &self.flash else { return };
+        let faded = start.elapsed().saturating_sub(FLASH - FADE).as_secs_f64() / FADE.as_secs_f64();
+        let alpha = if motion::on() { 1.0 - bezier(EASE_DEFAULT, faded.min(1.0)) } else { 1.0 };
+        self.paint_range(painter, shown, range.clone(), theme::current().search_match_bg.multiply_alpha(alpha as f32));
+    }
+
+    pub(super) fn tick_flash(&mut self, ctx: &mut UpdateCtx<'_>) -> Option<Instant> {
+        let start = self.flash.as_ref()?.1;
+        let (fade, end) = (start + FLASH - FADE, start + FLASH);
+        match Instant::now() {
+            now if now >= end => {
+                self.flash = None;
+                ctx.request_render();
+                None
+            }
+            now if motion::on() && now >= fade => {
+                ctx.request_anim_frame();
+                ctx.request_render();
+                None
+            }
+            _ => Some(if motion::on() { fade } else { end }),
         }
     }
 
-    pub fn set_hover_terms(this: &mut masonry::core::WidgetMut<'_, Self>, terms: Vec<String>) {
+    pub fn set_hover_terms(this: &mut WidgetMut<'_, Self>, terms: Vec<String>) {
         if this.widget.hover_terms != terms {
             this.widget.hover_terms = terms;
             this.ctx.request_paint_only();
         }
     }
 
-    pub fn reveal_external_insert(this: &mut masonry::core::WidgetMut<'_, Self>, range: Range<usize>) {
-        if !crate::ui::motion::on() {
-            return;
-        }
-        this.widget.external_reveal = Some((range, Instant::now()));
+    pub fn flash(this: &mut WidgetMut<'_, Self>, range: Range<usize>) {
+        this.widget.flash = Some((range, Instant::now()));
         this.ctx.request_anim_frame();
         this.ctx.request_paint_only();
     }

@@ -137,6 +137,7 @@ pub struct App {
     listing: Option<Listing>,
     panel_key: Option<(PathBuf, crate::links::Mode, crate::links::Method)>,
     panel_generation: u64,
+    outline_scan: aquilum_core::text::cancel::Generation,
     panel_tx: Sender<Listing>,
     panel_rx: Receiver<Listing>,
     panel_body: Option<Body>,

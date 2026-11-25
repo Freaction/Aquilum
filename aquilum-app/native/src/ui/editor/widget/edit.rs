@@ -62,7 +62,7 @@ impl TextEditor {
         self.hovered_table = self.hovered_table.map(map);
         self.hovered_link = self.hovered_link.map(|(start, hit)| (map(start), hit));
         self.unit = self.unit.take().map(|(count, range)| (count, map(range.start)..map(range.end)));
-        self.external_reveal = self.external_reveal.take().map(|(range, at)| (map(range.start)..map(range.end), at));
+        self.flash = self.flash.take().map(|(range, at)| (map(range.start)..map(range.end), at));
         self.media.remap(map);
         change
     }

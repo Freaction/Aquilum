@@ -98,6 +98,15 @@ impl<W: Widget> ScrollArea<W> {
         }
     }
 
+    pub fn glide_to(this: &mut WidgetMut<'_, Self>, offset: f64) {
+        let (from, to) = (this.widget.offset, offset.clamp(0.0, this.widget.max_offset()));
+        if !crate::ui::motion::on() || (to - from).abs() < 0.5 {
+            return Self::set_offset(this, offset);
+        }
+        this.widget.glide = Some(super::glide::Glide::toward(this.widget.glide, from, to));
+        this.ctx.request_anim_frame();
+    }
+
     #[cfg(feature = "memory-probe")]
     pub fn set_fraction(this: &mut WidgetMut<'_, Self>, fraction: f64) {
         let offset = this.widget.max_offset() * fraction;

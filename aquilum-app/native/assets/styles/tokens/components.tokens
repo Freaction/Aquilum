@@ -181,6 +181,13 @@
   --q-dialog-overlay-bg: var(--q-bg-overlay-subtle);
   --q-dialog-border: var(--q-border-subtle);
   --q-dialog-shadow: var(--q-elevation-float);
+  --q-tooltip-bg: var(--q-bg-inverse-muted);
+  --q-tooltip-text: var(--q-text-inverse);
+  --q-tooltip-hint: var(--q-icon-inverse-muted);
+  --q-tooltip-radius: var(--q-radius-md);
+  --q-tooltip-padding-x: var(--q-space-8);
+  --q-tooltip-padding-y: var(--q-space-4);
+  --q-tooltip-max-width: 20rem;
   --q-menu-divider: var(--q-icon-quiet);
   --q-menu-min-width: 8rem;
   --q-menu-list-max-height: 16rem;

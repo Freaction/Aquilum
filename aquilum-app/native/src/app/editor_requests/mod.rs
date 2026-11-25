@@ -4,11 +4,14 @@ pub mod suggest;
 pub use menu::EditorCommand;
 
 use masonry::app::RenderRoot;
-use masonry::kurbo::Point;
+use masonry::core::WidgetId;
+use masonry::kurbo::{Axis, Point, Rect};
 
 use super::{App, Popup, jobs};
 use crate::ui::editor::resolve::Request;
 use crate::ui::editor::TextEditor;
+use crate::ui::menu::Menu;
+use crate::ui::widgets::beside;
 
 impl App {
     pub(in crate::app) fn on_editor_request(&mut self, root: &mut RenderRoot, request: Request) -> bool {
@@ -52,23 +55,22 @@ impl App {
         self.show_layer(root, crate::ui::viewer::Viewer::new(image), Point::ORIGIN, |layer| Popup::Viewer { layer });
     }
 
-    pub(in crate::app) fn show_layer(&mut self, root: &mut RenderRoot, widget: masonry::core::NewWidget<impl masonry::core::Widget + ?Sized>, at: Point, popup: impl FnOnce(masonry::core::WidgetId) -> Popup) {
+    pub(in crate::app) fn show_layer(&mut self, root: &mut RenderRoot, widget: masonry::core::NewWidget<impl masonry::core::Widget + ?Sized>, at: Point, popup: impl FnOnce(WidgetId) -> Popup) {
         let layer = widget.id();
         root.add_layer(widget, at);
         root.focus_on(Some(layer));
         self.popup = Some(popup(layer));
     }
 
-    pub(in crate::app) fn show_menu(&mut self, root: &mut RenderRoot, menu: masonry::core::NewWidget<crate::ui::menu::Menu>, trigger: masonry::kurbo::Rect, popup: impl FnOnce(masonry::core::WidgetId) -> Popup) {
+    pub(in crate::app) fn show_menu(&mut self, root: &mut RenderRoot, menu: masonry::core::NewWidget<Menu>, trigger: Rect, popup: impl FnOnce(WidgetId) -> Popup) {
         let layer = menu.id();
         self.show_layer(root, menu, Point::ZERO, popup);
         self.place_layer(root, layer, trigger);
     }
 
-    pub(in crate::app) fn place_layer(&self, root: &mut RenderRoot, layer: masonry::core::WidgetId, trigger: masonry::kurbo::Rect) {
-        use crate::ui::menu::Menu;
+    pub(in crate::app) fn place_layer(&self, root: &mut RenderRoot, layer: WidgetId, trigger: Rect) {
         if let Some(size) = root.get_widget(layer).map(|w| w.ctx().bounding_box().size()) {
-            let (at, height) = Menu::around(trigger, size, self.room());
+            let (at, height) = beside(trigger, size, self.room(), Axis::Vertical, false);
             root.edit_widget(layer, |mut w| {
                 if let Some(mut menu) = w.try_downcast::<Menu>() {
                     Menu::set_max_height(&mut menu, height);

@@ -36,7 +36,7 @@ fn backlinks_panel_lists_and_opens_mentions() {
     h.send(item, ItemAction::Open { new_tab: true });
     assert_eq!(h.tab_paths(), [Some("b".to_owned()), Some("a".to_owned())]);
 
-    let outgoing = h.app.chrome.as_ref().unwrap().panel_parts.modes[1].0.id();
+    let outgoing = super::outline::mode_button(&h, crate::links::Mode::Outgoing);
     h.send(outgoing, Pressed);
     let listing = h.wait_listing();
     assert_eq!(listing.items.len(), 1);

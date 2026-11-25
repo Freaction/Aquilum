@@ -99,7 +99,12 @@
     "outgoingTitle": "Links to other documents",
     "empty": "No linked mentions",
     "outgoingEmpty": "No links to other documents",
-    "historyTab": "History"
+    "historyTab": "History",
+    "outlineTab": "Outline"
+  },
+  "outline": {
+    "empty": "No headings in this note",
+    "limited": "Showing the first {{count}} headings"
   },
   "history": {
     "title": "History",

@@ -11,12 +11,14 @@ use masonry::layout::{LenReq, Length};
 use crate::ui::icons::Icon;
 use crate::ui::theme;
 use crate::ui::tokens::{number, size};
-use crate::ui::widgets::{ControlSize, Press, Pressed};
+use crate::ui::keymap::Command;
+use crate::ui::widgets::{ControlSize, Press, Pressed, Tip};
 
 pub struct IconButton {
     icon: Icon,
     label: String,
     press: Press,
+    tip: Tip,
     pressed: Option<bool>,
     white: bool,
     inline: bool,
@@ -25,7 +27,17 @@ pub struct IconButton {
 
 impl IconButton {
     pub fn new(icon: Icon, label: impl Into<String>) -> Self {
-        IconButton { icon, label: label.into(), press: Press::default(), pressed: None, white: false, inline: false, size: ControlSize::S.fit() }
+        IconButton { icon, label: label.into(), press: Press::default(), tip: Tip::new(true), pressed: None, white: false, inline: false, size: ControlSize::S.fit() }
+    }
+
+    pub fn keys(mut self, command: Command) -> Self {
+        self.tip.keys(command);
+        self
+    }
+
+    pub fn beside(mut self) -> Self {
+        self.tip.beside();
+        self
     }
 
     pub fn mode(icon: Icon, label: impl Into<String>, pressed: bool) -> Self {
@@ -73,6 +85,7 @@ impl Widget for IconButton {
     type Action = Pressed;
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
+        self.tip.pointer(ctx, event);
         if self.press.pointer(ctx, event) {
             ctx.submit_action::<Pressed>(Pressed);
         }
@@ -85,9 +98,14 @@ impl Widget for IconButton {
     }
 
     fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
+        self.tip.update(ctx, event);
         if matches!(event, Update::HoveredChanged(_)) {
             ctx.request_paint_only();
         }
+    }
+
+    fn on_anim_frame(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, _interval: u64) {
+        self.tip.anim_frame(ctx, &self.label);
     }
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}

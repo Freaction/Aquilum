@@ -9,8 +9,8 @@ use masonry::layout::{LayoutSize, LenReq, Length};
 
 use super::scrim::Scrim;
 use crate::interface::{Screen, Side, drawer_width};
-use crate::ui::motion::{self, approach};
-use crate::ui::widgets::{EASE_STANDARD, RAIL_WIDTH, bezier, place};
+use crate::ui::motion::{self, EASE_DEFAULT, approach};
+use crate::ui::widgets::{RAIL_WIDTH, bezier, place};
 
 pub struct Stage {
     main: WidgetPod<dyn Widget>,
@@ -68,7 +68,7 @@ impl Stage {
     }
 
     fn eased(&self) -> f64 {
-        bezier(EASE_STANDARD, self.progress)
+        bezier(EASE_DEFAULT, self.progress)
     }
 
     fn shown(&self) -> Option<Side> {

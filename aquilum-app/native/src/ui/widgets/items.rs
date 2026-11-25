@@ -9,13 +9,12 @@ use masonry::core::{
 use masonry::imaging::Painter;
 use masonry::kurbo::{Affine, Axis, Point, RoundedRect, Size};
 use masonry::layout::{LenReq, Length};
-use masonry::peniko::Color;
 
 use crate::ui::icons::Icon;
 use crate::ui::tokens::size;
 use crate::ui::{text, theme};
 
-use super::{Press, Pressed};
+use super::{Paint, Press, Pressed};
 
 /// Иконка без действия: квадрат `container`, внутри иконка `size` с обводкой `stroke` в
 /// пикселях (как `vector-effect: non-scaling-stroke`).
@@ -24,7 +23,7 @@ pub struct IconView {
     container: f64,
     size: f64,
     stroke: f64,
-    color: fn() -> Color,
+    color: Paint,
     spin: bool,
 }
 
@@ -32,7 +31,7 @@ const SPIN_SECONDS: f64 = 1.0;
 const SPIN_FRAME: Duration = Duration::from_millis(33);
 
 impl IconView {
-    pub fn new(icon: Icon, container: f64, size: f64, stroke: f64, color: fn() -> Color) -> NewWidget<Self> {
+    pub fn new(icon: Icon, container: f64, size: f64, stroke: f64, color: Paint) -> NewWidget<Self> {
         NewWidget::new(IconView { icon, container, size, stroke, color, spin: false })
     }
 
@@ -79,7 +78,7 @@ impl Widget for IconView {
         let origin = ctx.content_box().center() - masonry::kurbo::Vec2::new(self.size / 2.0, self.size / 2.0);
         // Обводка задана в пикселях, а `draw` ждёт единицы сетки 24×24.
         let stroke = self.stroke * 24.0 / self.size;
-        self.icon.turned(self.turn()).draw(painter, origin, self.size, stroke, (self.color)());
+        self.icon.turned(self.turn()).draw(painter, origin, self.size, stroke, (self.color)(&theme::current()));
     }
 
     fn accessibility_role(&self) -> Role {

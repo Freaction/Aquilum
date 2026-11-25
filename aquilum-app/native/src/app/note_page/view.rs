@@ -1,8 +1,11 @@
+use std::ops::Range;
 use std::time::{Duration, Instant};
 
 use masonry::app::RenderRoot;
 
 use super::super::App;
+use crate::ui::editor::TextEditor;
+use crate::ui::scroll::ScrollArea;
 
 pub const VIEW_SAVE_DELAY: Duration = Duration::from_millis(500);
 
@@ -27,7 +30,7 @@ impl App {
 
     pub fn restore_view(&mut self, root: &mut RenderRoot) -> bool {
         let Some((anchor, px)) = self.restore else { return false };
-        let restored = self.scroll_note_to(root, anchor.saturating_sub(self.hidden), |_| px);
+        let restored = self.scroll_note_to(root, anchor.saturating_sub(self.hidden), |_| px, false);
         if restored {
             self.restore = None;
         }
@@ -44,18 +47,28 @@ impl App {
         }
     }
 
-    /// Прокручивает заметку так, чтобы место `byte` текста (без метаданных) оказалось посередине.
-    pub(crate) fn reveal(&mut self, root: &mut RenderRoot, byte: usize) {
-        self.scroll_note_to(root, byte, |height| -height / 2.0);
+    pub(crate) fn reveal(&mut self, root: &mut RenderRoot, byte: usize, glide: bool) {
+        self.scroll_note_to(root, byte, |height| -height / 2.0, glide);
     }
 
-    fn scroll_note_to(&self, root: &mut RenderRoot, byte: usize, shift: impl FnOnce(f64) -> f64) -> bool {
+    pub(in crate::app) fn jump_to(&mut self, root: &mut RenderRoot, spot: Range<usize>, glide: bool) {
+        self.reveal(root, spot.start, glide);
+        let Some(ids) = &self.note_ids else { return };
+        ids.body.edit(root, |mut body| {
+            TextEditor::select_byte_range(&mut body, spot.start, spot.start);
+            if !spot.is_empty() {
+                TextEditor::flash(&mut body, spot);
+            }
+        });
+    }
+
+    fn scroll_note_to(&self, root: &mut RenderRoot, byte: usize, shift: impl FnOnce(f64) -> f64, glide: bool) -> bool {
         let Some((viewport, editor, offset)) = self.scroll_geometry(root) else { return false };
         let Some(ids) = &self.note_ids else { return false };
         let Some(top) = ids.body.get(root).and_then(|body| body.inner().top_of(byte)) else { return false };
         let height = root.get_widget(ids.scroll.id()).map_or(0.0, |w| w.ctx().bounding_box().height());
         let target = editor - viewport + offset + top + shift(height);
-        ids.scroll.edit(root, |mut area| crate::ui::scroll::ScrollArea::set_offset(&mut area, target));
+        ids.scroll.edit(root, |mut area| if glide { ScrollArea::glide_to(&mut area, target) } else { ScrollArea::set_offset(&mut area, target) });
         true
     }
 }

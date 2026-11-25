@@ -1,12 +1,15 @@
 mod mode;
 mod notes;
+mod outline;
 mod panel;
 pub mod reader;
 
+use std::ops::Range;
 use std::path::PathBuf;
 
 pub use mode::{Method, Mode};
 pub use notes::{find_note, linked_file_path};
+pub use outline::outline;
 pub use panel::run;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -14,6 +17,7 @@ pub enum Target {
     Note(PathBuf, Option<usize>),
     Wiki(String),
     Url(String),
+    Spot(Range<usize>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -22,6 +26,7 @@ pub struct Item {
     pub counter: Option<String>,
     pub target: Target,
     pub reasons: Vec<String>,
+    pub depth: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]

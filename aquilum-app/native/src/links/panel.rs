@@ -20,7 +20,7 @@ pub fn run(core: &Core, request: &Request) -> Listing {
     };
     let notice = |key: &str| Listing { generation: request.generation, items: Vec::new(), notice: Some(t(key)) };
     match (request.mode, request.method) {
-        (Mode::History, _) => listing(Vec::new(), "history.empty"),
+        (Mode::History | Mode::Outline, _) => listing(Vec::new(), "history.empty"),
         (Mode::Backlinks, _) => {
             let items = core.search.backlinks(&workspace, &document).unwrap_or_default();
             let items = counted(items.into_iter().map(|link| (link.title, Target::Note(PathBuf::from(link.path), Some(link.offset)))));
@@ -41,7 +41,7 @@ pub fn run(core: &Core, request: &Request) -> Listing {
                 Ok(result) if result.offline => notice("wikixiv.offline"),
                 Ok(result) if result.insufficient_text => notice("wikixiv.insufficient"),
                 Ok(result) => {
-                    let items = result.hits.into_iter().map(|hit| Item { title: hit.title, counter: None, target: Target::Url(hit.url), reasons: hit.matched_terms }).collect();
+                    let items = result.hits.into_iter().map(|hit| Item { title: hit.title, counter: None, target: Target::Url(hit.url), reasons: hit.matched_terms, depth: 0 }).collect();
                     listing(items, "wikixiv.empty")
                 }
                 Err(_) => notice("wikixiv.error"),
@@ -59,6 +59,7 @@ pub fn run(core: &Core, request: &Request) -> Listing {
                             title: r.title,
                             target: Target::Note(PathBuf::from(r.path), None),
                             reasons: r.reasons,
+                            depth: 0,
                         })
                         .collect();
                     listing(items, "analysis.empty")
@@ -81,7 +82,7 @@ fn counted(links: impl Iterator<Item = (String, Target)>) -> Vec<Item> {
         let same = |item: &Item| key(&item.target) == wanted;
         match items.iter_mut().find(|(item, _)| same(item)) {
             Some((_, count)) => *count += 1,
-            None => items.push((Item { title, counter: None, target, reasons: Vec::new() }, 1)),
+            None => items.push((Item { title, counter: None, target, reasons: Vec::new(), depth: 0 }, 1)),
         }
     }
     items

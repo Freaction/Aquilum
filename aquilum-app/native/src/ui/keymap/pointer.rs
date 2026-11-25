@@ -7,6 +7,10 @@ pub fn press(button: Option<PointerButton>) -> bool {
     matches!(button, None | Some(PointerButton::Primary))
 }
 
+pub fn hovers(pointer: PointerType) -> bool {
+    pointer != PointerType::Touch
+}
+
 pub fn context(button: Option<PointerButton>) -> bool {
     button == Some(PointerButton::Secondary)
 }

@@ -43,6 +43,7 @@ pub fn body(mode: Mode, methods: &[Method], method: Method, listing: Option<&Lis
             (Mode::Backlinks, _) => t("backlinks.mentionsTitle"),
             (Mode::Outgoing, _) => t("backlinks.outgoingTitle"),
             (Mode::History, _) => t("history.title"),
+            (Mode::Outline, _) => t("backlinks.outlineTab"),
         };
         let head = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center);
         let head = if graph {
@@ -55,12 +56,16 @@ pub fn body(mode: Mode, methods: &[Method], method: Method, listing: Option<&Lis
             list = list.with_fixed(notice(text));
         }
         for item in &listing.items {
-            let widget = DocumentItem::new(&item.title, item.counter.clone());
+            let widget = match mode {
+                Mode::Outline => DocumentItem::heading(&item.title, item.depth),
+                _ => DocumentItem::new(&item.title, item.counter.clone()),
+            };
             items.push((widget.id(), item.target.clone(), item.reasons.clone()));
             list = list.with_fixed(widget);
         }
+        let gap = if mode == Mode::Outline { 0.0 } else { size::SPACE_2 };
         let list = NewWidget::new(list).with_props(
-            PropertySet::new().with(Gap::new(Length::px(size::SPACE_2))).with(Padding::all(Length::px(size::SPACE_8))),
+            PropertySet::new().with(Gap::new(Length::px(gap))).with(Padding::all(Length::px(size::SPACE_8))),
         );
         column = column.with(NewWidget::new(ScrollArea::new(list)), 1.0);
     }

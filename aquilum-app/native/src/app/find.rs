@@ -50,7 +50,7 @@ impl App {
         let Some((status, start)) = ids.body.edit(root, |mut body| TextEditor::find_step(&mut body, delta)) else { return };
         self.show_status(root, status);
         if let Some(byte) = start {
-            self.reveal(root, byte);
+            self.reveal(root, byte, false);
         }
     }
 

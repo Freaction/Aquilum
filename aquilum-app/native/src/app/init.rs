@@ -40,6 +40,7 @@ impl App {
             listing: None,
             panel_key: None,
             panel_generation: 0,
+            outline_scan: Default::default(),
             panel_tx,
             panel_rx,
             panel_body: None,

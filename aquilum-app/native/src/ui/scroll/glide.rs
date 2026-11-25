@@ -1,7 +1,9 @@
 use std::time::{Duration, Instant};
 
+use crate::ui::motion::{NORMAL, SLOWER};
 use crate::ui::widgets::bezier;
 
+const DISTANCE_DIVISOR: f64 = 60.0;
 const MIN_SECONDS: f64 = 0.05;
 const MAX_SECONDS: f64 = 0.2;
 const INTERVAL_RATIO: f64 = 2.0;
@@ -24,6 +26,11 @@ impl Glide {
         let norm = (1.0 + slope * slope).sqrt();
         let curve = (VELOCITY_WEIGHT / norm, VELOCITY_WEIGHT * slope / norm, 1.0 - STOP_WEIGHT, 1.0);
         Glide { from, to, duration, elapsed: 0.0, curve }
+    }
+
+    pub fn toward(current: Option<Glide>, from: f64, to: f64) -> Self {
+        let duration = ((to - from).abs().sqrt() / DISTANCE_DIVISOR).clamp(NORMAL, SLOWER);
+        Glide::new(from, to, current.map_or(0.0, |g| g.velocity()), duration)
     }
 
     fn at(&self, elapsed: f64) -> f64 {

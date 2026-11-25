@@ -12,7 +12,6 @@ use super::handle::Handle;
 use super::icons;
 use super::search::{self, Placeholder};
 use super::settings::controls::InputBox;
-use super::theme;
 use super::tokens::size;
 use super::widgets::{ControlSize, IconButton, IconView, Label};
 use crate::i18n::t;
@@ -31,7 +30,7 @@ pub fn find_bar() -> (NewWidget<dyn Widget>, FindBar) {
     let (placeholder, field, placeholder_handle) = search::field("", t("editor.find"), size::SIZE_24);
     let counter = NewWidget::new(Label::new("0/0", |t| t.text_muted).nowrap());
     let counter_handle = Handle::of(&counter);
-    let icon = IconView::new(icons::SEARCH, size::SIZE_16, size::SIZE_16, 1.4, || theme::current().icon_secondary);
+    let icon = IconView::new(icons::SEARCH, size::SIZE_16, size::SIZE_16, 1.4, |t| t.icon_secondary);
     let input = InputBox::new(search::input_row(icon, placeholder, Some(search::after_gap(counter).erased())), size::PAGE_SEARCH_MAX_WIDTH);
     let button = |icon, label: &str| NewWidget::new(IconButton::new(icon, t(label)));
     let (prev, next, all, close) =

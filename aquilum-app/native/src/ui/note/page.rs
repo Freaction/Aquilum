@@ -11,6 +11,7 @@ use crate::i18n::t;
 use crate::ui::editor::TextEditor;
 use crate::ui::handle::Handle;
 use crate::ui::icons;
+use crate::ui::keymap::Command;
 use crate::ui::scroll::ScrollArea;
 use crate::ui::style;
 use crate::ui::tokens::size;
@@ -72,15 +73,15 @@ pub fn hero_parts(view: crate::ui::book::HeroView) -> HeroParts {
 }
 
 pub fn page(view: NoteView<'_>) -> (NewWidget<Flex>, NoteIds) {
-    let back = NewWidget::new(IconButton::new(icons::ARROW_LEFT, t("editor.back"))).disabled(!view.can_back);
-    let forward = NewWidget::new(IconButton::new(icons::ARROW_RIGHT, t("editor.forward"))).disabled(!view.can_forward);
+    let back = NewWidget::new(IconButton::new(icons::ARROW_LEFT, t("editor.back")).keys(Command::Back)).disabled(!view.can_back);
+    let forward = NewWidget::new(IconButton::new(icons::ARROW_RIGHT, t("editor.forward")).keys(Command::Forward)).disabled(!view.can_forward);
     let (back_id, forward_id) = (back.id(), forward.id());
-    let focus = NewWidget::new(TextButton::new(t("editor.focusMode"), Variant::Ghost).size(ControlSize::Xs).pressed(view.focus_mode));
+    let focus = NewWidget::new(TextButton::new(t("editor.focusMode"), Variant::Ghost).keys(Command::FocusMode).size(ControlSize::Xs).pressed(view.focus_mode));
     let focus_id = focus.id();
     let focus_button = Handle::of(&focus);
     let focus = Slot::shown(focus, !view.compact);
     let focus_shown = Handle::of(&focus);
-    let search = NewWidget::new(IconButton::new(icons::SEARCH, t("editor.findInNote")));
+    let search = NewWidget::new(IconButton::new(icons::SEARCH, t("editor.findInNote")).keys(Command::FindInNote));
     let search_id = search.id();
     let search = Slot::shown(search, !view.focus_mode);
     let more = NewWidget::new(IconButton::new(icons::MORE_HORIZONTAL, t("editor.noteActions")));

@@ -9,6 +9,14 @@ pub const NETWORK: Icon = Icon::lucide(&[
     Shape::Path("M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"),
     Shape::Path("M12 12V8"),
 ]);
+pub const TABLE_OF_CONTENTS: Icon = Icon::lucide(&[
+    Shape::Path("M16 5H3"),
+    Shape::Path("M16 12H3"),
+    Shape::Path("M16 19H3"),
+    Shape::Path("M21 5h.01"),
+    Shape::Path("M21 12h.01"),
+    Shape::Path("M21 19h.01"),
+]);
 pub const BACKLINKS: Icon =
     Icon::on_grid(&[Shape::Path(LINK_PATH), Shape::Path("M14.1667 12.5L11.6667 15L14.1667 17.5M11.6667 15H17.5")], 20.0);
 pub const OUTGOING_LINKS: Icon =

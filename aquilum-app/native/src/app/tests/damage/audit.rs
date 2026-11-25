@@ -11,7 +11,7 @@ fn right_sidebar_scroll_stays_inside_its_viewport_scroll_audit() {
     h.app.listing = Some(crate::links::Listing {
         generation: h.app.panel_generation,
         notice: None,
-        items: (0..80).map(|i| crate::links::Item { title: format!("Связанная заметка {i:03}"), counter: None, target: crate::links::Target::Wiki(format!("Заметка {i}")), reasons: Vec::new() }).collect(),
+        items: (0..80).map(|i| crate::links::Item { title: format!("Связанная заметка {i:03}"), counter: None, target: crate::links::Target::Wiki(format!("Заметка {i}")), reasons: Vec::new(), depth: 0 }).collect(),
     });
     h.app.render_panel(&mut h.root);
     h.settle();

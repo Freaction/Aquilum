@@ -30,20 +30,13 @@ impl TextEditor {
         if playing {
             ctx.request_anim_frame();
         }
-        if let Some((_, start)) = &self.external_reveal {
-            if start.elapsed().as_secs_f32() >= 0.9 {
-                self.external_reveal = None;
-            } else {
-                ctx.request_anim_frame();
-                ctx.request_render();
-            }
-        }
+        let flash = self.tick_flash(ctx);
         if self.copied.is_some_and(|(_, at)| at.elapsed() >= super::code::COPIED) {
             self.copied = None;
             ctx.request_render();
         }
         let settle = self.settle_menu(|shown| ctx.submit_action::<TextAction>(shown));
-        let next = self.copied.map(|(_, at)| at + super::code::COPIED).into_iter().chain(settle).min();
+        let next = self.copied.map(|(_, at)| at + super::code::COPIED).into_iter().chain(settle).chain(flash).min();
         if !(ctx.is_window_focused() && ctx.is_focus_target()) {
             if let Some(at) = next {
                 crate::ui::timer::wake(ctx.widget_id(), at);

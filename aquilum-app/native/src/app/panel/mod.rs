@@ -1,5 +1,6 @@
 mod drawer;
 mod open;
+mod outline;
 mod screen;
 
 use std::sync::Arc;
@@ -71,7 +72,9 @@ impl App {
             return;
         }
         let document = self.tabs.active().path.clone();
-        if let (true, Some(workspace), Some(document)) = (self.panel_visible(), self.tree.root(), document) {
+        if self.panel_mode() == Mode::Outline {
+            self.request_outline();
+        } else if let (true, Some(workspace), Some(document)) = (self.panel_visible(), self.tree.root(), document) {
             let (mode, method) = (self.panel_mode(), self.panel_method());
             let text = match (mode, method) {
                 (Mode::Analysis, Method::Wikixiv) => head(&crate::rope::Text(&self.text)).unwrap_or_default(),
@@ -110,9 +113,9 @@ impl App {
     pub(super) fn on_panel_results(&mut self, root: &mut RenderRoot) {
         let latest: Option<Listing> = self.panel_rx.try_iter().filter(|l| l.generation == self.panel_generation).last();
         if let Some(listing) = latest {
-            let same = self.listing.as_ref().is_some_and(|old| old.items == listing.items && old.notice == listing.notice);
+            let kept = self.keep_rows(root, &listing);
             self.listing = Some(listing);
-            if !same {
+            if !kept {
                 self.render_panel(root);
             }
         }

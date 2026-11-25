@@ -5,7 +5,6 @@ use masonry::app::RenderRoot;
 use masonry::widgets::IndexedStack;
 
 use super::super::{App, Outcome};
-use crate::ui::editor::TextEditor;
 use crate::ui::widgets::Slot;
 
 impl App {
@@ -47,7 +46,7 @@ impl App {
             return true;
         };
         if self.shows(&path) {
-            self.reveal_pending(root, &path);
+            self.reveal_pending(root, &path, true);
             self.show_page(root, 0);
             return true;
         }
@@ -61,7 +60,7 @@ impl App {
                 self.note = Some(note);
                 let _zone = aq_trace::zone("открытие: страница заметки");
                 self.render_note(root);
-                self.reveal_pending(root, &path);
+                self.reveal_pending(root, &path, false);
             }
             Err(error) => {
                 let err_str = format!("{error}");
@@ -120,13 +119,10 @@ impl App {
         self.open_in(root, path, false)
     }
 
-    fn reveal_pending(&mut self, root: &mut RenderRoot, path: &Path) {
+    fn reveal_pending(&mut self, root: &mut RenderRoot, path: &Path, glide: bool) {
         let Some((_, units)) = self.pending_reveal.take().filter(|(target, _)| same_path(target, path)) else { return };
         let byte = self.byte_of(usize::try_from(units).unwrap_or(0)).saturating_sub(self.hidden);
-        self.reveal(root, byte);
-        if let Some(ids) = &self.note_ids {
-            ids.body.edit(root, |mut b| TextEditor::select_byte_range(&mut b, byte, byte));
-        }
+        self.jump_to(root, byte..byte, glide);
     }
 
     pub(in crate::app) fn open_in(&mut self, root: &mut RenderRoot, path: PathBuf, new_tab: bool) -> bool {

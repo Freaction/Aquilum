@@ -25,6 +25,7 @@ pub fn panel(mode: Mode, has_analysis: bool, width: f64, open: bool, from: bool)
     let mut buttons = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center);
     let mut modes = Vec::new();
     let mut entries = vec![
+        (Mode::Outline, icons::TABLE_OF_CONTENTS, t("backlinks.outlineTab")),
         (Mode::Backlinks, icons::BACKLINKS, t("backlinks.backlinksTab")),
         (Mode::Outgoing, icons::OUTGOING_LINKS, t("backlinks.outgoingTab")),
     ];

@@ -57,7 +57,7 @@ impl TextEditor {
             menu: Default::default(),
             grips: Default::default(),
             hover_terms: Vec::new(),
-            external_reveal: None,
+            flash: None,
             extra_cursors: Vec::new(),
             wake: None,
         }

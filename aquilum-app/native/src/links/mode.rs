@@ -2,6 +2,7 @@ use crate::i18n::t;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
+    Outline,
     Backlinks,
     Outgoing,
     Analysis,
@@ -11,6 +12,7 @@ pub enum Mode {
 impl Mode {
     pub fn key(self) -> &'static str {
         match self {
+            Mode::Outline => "outline",
             Mode::Backlinks => "backlinks",
             Mode::Outgoing => "outgoing",
             Mode::Analysis => "analysis",
@@ -19,7 +21,7 @@ impl Mode {
     }
 
     pub fn from_key(key: &str) -> Option<Mode> {
-        [Mode::Backlinks, Mode::Outgoing, Mode::Analysis, Mode::History].into_iter().find(|m| m.key() == key)
+        [Mode::Outline, Mode::Backlinks, Mode::Outgoing, Mode::Analysis, Mode::History].into_iter().find(|m| m.key() == key)
     }
 }
 

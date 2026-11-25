@@ -19,6 +19,11 @@ impl TextEditor {
         self.caret()
     }
 
+    #[cfg(test)]
+    pub fn flashed(&self) -> Option<Range<usize>> {
+        self.flash.as_ref().map(|(range, _)| range.clone())
+    }
+
     pub fn caret_offset(&self) -> usize {
         self.selection().start
     }

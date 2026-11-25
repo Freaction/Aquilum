@@ -9,7 +9,6 @@ use masonry::widgets::Flex;
 use super::card::{CardKind, ResultCard};
 use crate::i18n::t;
 use crate::ui::icons::Icon;
-use crate::ui::theme;
 use crate::ui::tokens::{number, size};
 use crate::ui::widgets::{IconView, Label, Leading, MaxWidth, Paint, Scale, kbd};
 
@@ -26,7 +25,7 @@ pub fn empty_state_with(icon: Icon, title: &str, description: Option<&str>, acti
     let mut column = Flex::column()
         .main_axis_alignment(MainAxisAlignment::Center)
         .cross_axis_alignment(CrossAxisAlignment::Center)
-        .with_fixed(IconView::new(icon, size::EMPTY_STATE_ICON_CONTAINER, size::EMPTY_STATE_ICON_SIZE, 1.4, || theme::current().icon_muted))
+        .with_fixed(IconView::new(icon, size::EMPTY_STATE_ICON_CONTAINER, size::EMPTY_STATE_ICON_SIZE, 1.4, |t| t.icon_muted))
         .with_fixed(MaxWidth::new(copy, size::EMPTY_STATE_WIDTH));
     if let Some(action) = action {
         column = column.with_fixed(action);
@@ -44,7 +43,7 @@ fn centered(text: &str, paint: Paint) -> NewWidget<Label> {
 
 fn hint(keys: &str, text: &str) -> NewWidget<Flex> {
     let label = Label::new(text, |t| t.text_tertiary).scale(Scale::Small).nowrap();
-    let row = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(kbd(keys, size::SPACE_2)).with_fixed(NewWidget::new(label));
+    let row = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center).with_fixed(kbd(keys, size::SPACE_2, |t| t.search_key_hint_color)).with_fixed(NewWidget::new(label));
     NewWidget::new(row).with_props(PropertySet::new().with(Gap::new(Length::px(size::SPACE_4))))
 }
 

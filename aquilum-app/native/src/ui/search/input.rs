@@ -121,7 +121,7 @@ pub struct FilterBox {
 pub fn filter_box(query: &str, hint: String) -> FilterBox {
     let (placeholder, field, placeholder_handle) = field(query, hint, size::INPUT_CONTENT_HEIGHT);
     let glyph = ControlSize::Xs.fit().field_icon();
-    let icon = IconView::new(icons::SEARCH, glyph, glyph, 1.4, || theme::current().icon_faint);
+    let icon = IconView::new(icons::SEARCH, glyph, glyph, 1.4, |t| t.icon_faint);
     let clear = NewWidget::new(IconButton::new(icons::X, t("search.clear")).inline());
     let clear_handle = Handle::of(&clear);
     let clear_slot = Slot::shown(after_gap(clear), !query.is_empty());
@@ -141,7 +141,7 @@ fn row(query: &str, hint: String, clear: Option<NewWidget<IconButton>>) -> FindB
     let has_clear = clear.is_some();
     let mut row = Flex::row()
         .cross_axis_alignment(CrossAxisAlignment::Center)
-        .with_fixed(IconView::new(icons::SEARCH, size::SIZE_20, size::SIZE_20, 1.4, || theme::current().icon_secondary))
+        .with_fixed(IconView::new(icons::SEARCH, size::SIZE_20, size::SIZE_20, 1.4, |t| t.icon_secondary))
         .with(placeholder, 1.0);
     if let Some(clear) = clear {
         row = row.with_fixed(clear);

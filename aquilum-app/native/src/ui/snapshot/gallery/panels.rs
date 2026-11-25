@@ -9,7 +9,7 @@ use crate::ui::tokens::size;
 use crate::ui::widgets::Slot;
 
 fn item(title: &str, counter: Option<&str>) -> Item {
-    Item { title: title.into(), counter: counter.map(str::to_owned), target: Target::Wiki(title.into()), reasons: Vec::new() }
+    Item { title: title.into(), counter: counter.map(str::to_owned), target: Target::Wiki(title.into()), reasons: Vec::new(), depth: 0 }
 }
 
 fn history_row(label: &str, time: &str, selected: bool) -> HistoryRow {

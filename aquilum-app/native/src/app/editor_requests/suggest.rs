@@ -1,12 +1,12 @@
 use masonry::app::RenderRoot;
 use masonry::core::ErasedAction;
-use masonry::kurbo::{Size, Vec2};
+use masonry::kurbo::{Axis, Size, Vec2};
 
 use super::super::App;
 use crate::ui::editor::TextEditor;
-use crate::ui::menu::Menu;
 use crate::ui::suggest::{SuggestList, SuggestPicked};
 use crate::ui::tokens::size;
+use crate::ui::widgets::beside;
 
 impl App {
     pub(in crate::app) fn show_suggest(&mut self, root: &mut RenderRoot, view: Option<crate::ui::editor::resolve::Suggestions>) {
@@ -19,7 +19,7 @@ impl App {
         let Some(transform) = root.get_widget(view.editor).map(|w| w.ctx().window_transform()) else { return };
         let caret = transform.transform_rect_bbox(view.caret) - Vec2::new(size::PADDING_XS + size::GAP_XS, 0.0);
         let natural = SuggestList::size_for(&view.items);
-        let (at, height) = Menu::around(caret, natural, self.room());
+        let (at, height) = beside(caret, natural, self.room(), Axis::Vertical, false);
         let fitted = Size::new(natural.width, height);
         match self.suggest_layer {
             Some((layer, _)) => {

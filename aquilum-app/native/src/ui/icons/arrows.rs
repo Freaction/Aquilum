@@ -14,6 +14,8 @@ pub const ARROW_UP_NARROW_WIDE: Icon = Icon::lucide(&[
     Shape::Path("M11 20h10"),
 ]);
 pub const CORNER_DOWN_LEFT: Icon = Icon::lucide(&[Shape::Path("M20 4v7a4 4 0 0 1-4 4H4"), Shape::Path("m9 10-5 5 5 5")]);
+pub const COMMAND: Icon = Icon::lucide(&[Shape::Path("M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3")]);
+pub const OPTION: Icon = Icon::lucide(&[Shape::Path("M14 3h7"), Shape::Path("M3 3h5.28a1 1 0 0 1 .948.684l5.544 16.632a1 1 0 0 0 .949.684H21")]);
 pub const ARROW_UP: Icon = Icon::lucide(&[Shape::Path("m5 12 7-7 7 7"), Shape::Path("M12 19V5")]);
 pub const ARROW_DOWN: Icon = Icon::lucide(&[Shape::Path("M12 5v14"), Shape::Path("m19 12-7 7-7-7")]);
 pub const ARROW_LEFT: Icon = Icon::lucide(&[Shape::Path("m12 19-7-7 7-7"), Shape::Path("M19 12H5")]);

@@ -15,7 +15,7 @@ use crate::ui::handle::Handle;
 use crate::ui::text::selectable;
 use crate::ui::tokens::size;
 use crate::ui::widgets::{ControlSize, IconButton, IconView, Label, Leading, Paint, TextButton, Variant, kbd};
-use crate::ui::{icons, style, theme};
+use crate::ui::{icons, style};
 
 pub(super) const LEADING: Leading = Leading::Times(1.21);
 
@@ -109,10 +109,10 @@ fn buttons_row(buttons: &[schema::Button], indicator: Option<Indicator>, binding
         flex = flex.with(widget, FlexParams::new(grow, FlexBasis::Auto, None));
     }
     if let Some(indicator) = indicator {
-        let (icon, color): (_, fn() -> masonry::peniko::Color) = match indicator {
-            Indicator::Syncing => (icons::REFRESH_CW, || theme::current().icon_warning),
-            Indicator::Synced => (icons::CHECK, || theme::current().icon_success),
-            Indicator::Failed => (icons::TRIANGLE_ALERT, || theme::current().icon_muted),
+        let (icon, color): (_, crate::ui::widgets::Paint) = match indicator {
+            Indicator::Syncing => (icons::REFRESH_CW, |t| t.icon_warning),
+            Indicator::Synced => (icons::CHECK, |t| t.icon_success),
+            Indicator::Failed => (icons::TRIANGLE_ALERT, |t| t.icon_muted),
         };
         let view = IconView::new(icon, size::SIZE_32, size::SIZE_20, 1.2, color);
         flex = flex.with_fixed(if indicator == Indicator::Syncing { IconView::spinning(view) } else { view });
@@ -159,6 +159,6 @@ pub(super) fn control_widget(row: &Row, bindings: &mut HashMap<WidgetId, Binding
             plain_input(bindings, text_field(value, false), binding, *commit)
         }
         Control::Color(hex) => color_input(bindings, setter, hex),
-        Control::Kbd(keys) => kbd(keys, size::SPACE_4).erased(),
+        Control::Kbd(keys) => kbd(keys, size::SPACE_4, |t| t.search_key_hint_color).erased(),
     }
 }

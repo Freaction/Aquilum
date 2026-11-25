@@ -22,6 +22,11 @@ impl App {
                 false
             }
             Target::Wiki(raw) => self.open_wiki(root, &raw, new_tab),
+            Target::Spot(spot) => {
+                self.set_drawer(root, None);
+                self.jump_to(root, spot, true);
+                false
+            }
         }
     }
 

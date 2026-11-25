@@ -2,10 +2,10 @@ use masonry::accesskit::{Action, Node, Role};
 use masonry::core::{
     AccessCtx, AccessEvent, CursorIcon, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
     PointerEvent, PropertiesMut, PropertiesRef, QueryCtx, RegisterCtx, Update,
-    UpdateCtx, Widget, render_text,
+    UpdateCtx, Widget, WidgetMut, render_text,
 };
 use masonry::imaging::Painter;
-use masonry::kurbo::{Affine, Axis, Point, Size};
+use masonry::kurbo::{Affine, Axis, Point, Rect, Size};
 use masonry::layout::{LenReq, Length};
 
 use crate::ui::tokens::size;
@@ -24,6 +24,7 @@ pub struct DocumentItem {
     label: String,
     counter: Option<String>,
     selected: bool,
+    depth: usize,
     line: text::Line,
     counter_line: text::Line,
     press: Press,
@@ -31,18 +32,36 @@ pub struct DocumentItem {
 
 impl DocumentItem {
     pub fn new(label: &str, counter: Option<String>) -> NewWidget<Self> {
-        Self::with_selection(label, counter, false)
+        Self::item(label, counter, false, 0)
+    }
+
+    pub fn heading(label: &str, depth: usize) -> NewWidget<Self> {
+        Self::item(label, None, false, depth)
     }
 
     pub fn with_selection(label: &str, counter: Option<String>, selected: bool) -> NewWidget<Self> {
+        Self::item(label, counter, selected, 0)
+    }
+
+    fn item(label: &str, counter: Option<String>, selected: bool, depth: usize) -> NewWidget<Self> {
         NewWidget::new(DocumentItem {
             label: label.to_owned(),
             counter,
             selected,
+            depth,
             line: text::Line::default(),
             counter_line: text::Line::default(),
             press: Press::default(),
         })
+    }
+
+    pub fn set_label(this: &mut WidgetMut<'_, Self>, label: &str) {
+        if this.widget.label != label {
+            this.widget.label = label.to_owned();
+            this.widget.line.clear();
+            this.ctx.request_paint_only();
+            this.ctx.request_accessibility_update();
+        }
     }
 }
 
@@ -108,9 +127,15 @@ impl Widget for DocumentItem {
             render_text(painter, Affine::translate((right, y)), layout, &[t.text_primary.multiply_alpha(0.4).into()], true);
             right -= size::SPACE_8;
         }
-        let width = (right - bounds.x0 - pad).max(0.0);
+        let indent = size::SIDEBAR_TREE_INDENT;
+        for column in 0..self.depth {
+            let x = bounds.x0 + pad + (column as f64 + 0.5) * indent;
+            painter.fill(Rect::new(x, bounds.y0, x + 1.0, bounds.y1), t.sidebar_tree_guide).draw();
+        }
+        let left = bounds.x0 + pad + self.depth as f64 * indent;
+        let width = (right - left).max(0.0);
         let layout = self.line.layout(ctx, &self.label, width, style);
-        render_text(painter, Affine::translate((bounds.x0 + pad, y)), layout, &[t.text_link.into()], true);
+        render_text(painter, Affine::translate((left, y)), layout, &[t.text_link.into()], true);
     }
 
     fn get_cursor(&self, _ctx: &QueryCtx<'_>, _pos: Point) -> CursorIcon {

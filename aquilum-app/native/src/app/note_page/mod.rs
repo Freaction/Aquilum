@@ -121,12 +121,13 @@ impl App {
             if change.removed + change.inserted > 0 {
                 crate::ui::editor::TextEditor::reset_rope(&mut body, visible.clone());
                 if reveal && visible.byte_len() > prev.byte_len() {
-                    crate::ui::editor::TextEditor::reveal_external_insert(&mut body, change.at..change.at + change.inserted);
+                    crate::ui::editor::TextEditor::flash(&mut body,change.at..change.at + change.inserted);
                 }
             }
         });
         let metadata = note::metadata_widget(self.metadata_state());
         ids.metadata.edit(root, |mut slot| Slot::set_child(&mut slot, metadata));
+        self.refresh_outline();
     }
 
     pub(in crate::app) fn refresh_note_names(&mut self, root: &mut RenderRoot) {

@@ -44,7 +44,7 @@ impl TextEditor {
         }
         self.paint_extra_selections(painter, shown.clone(), props.get::<SelectionColor>(ctx.property_cache()).color);
         self.paint_hover_terms(painter, shown.clone());
-        self.paint_external_reveal(painter, shown.clone());
+        self.paint_flash(painter, shown.clone());
         for found in self.find_marks(&shown) {
             self.paint_range(painter, shown.clone(), found.clone(), tm.search_match_bg);
         }

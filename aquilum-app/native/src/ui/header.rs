@@ -13,6 +13,7 @@ use super::tokens::size;
 use super::widgets::{BAR_HEIGHT, Collapse, IconButton, Slot, Underlined};
 use super::icons;
 use crate::i18n;
+use crate::ui::keymap::Command;
 
 pub(super) struct Titlebar {
     pub(super) widget: NewWidget<Flex>,
@@ -60,7 +61,7 @@ pub(super) fn titlebar(tabs: Vec<NewWidget<dyn Widget>>, active: usize, title: &
         .with_props(PropertySet::new().with(Padding { top: Length::ZERO, bottom: Length::ZERO, left: Length::px(size::SPACE_2), right: Length::ZERO }));
     let tabs_view = NewWidget::new(IndexedStack::new().with(strip).with(select).with_active_child(usize::from(compact)));
     let tabs_view_handle = Handle::of(&tabs_view);
-    let plus = NewWidget::new(IconButton::new(icons::PLUS, i18n::t("tabs.newTab")));
+    let plus = NewWidget::new(IconButton::new(icons::PLUS, i18n::t("tabs.newTab")).keys(Command::NewTab));
     let plus_id = plus.id();
     let list = NewWidget::new(IconButton::new(icons::CHEVRON_DOWN, i18n::t("tabs.list")));
     let list_id = list.id();
