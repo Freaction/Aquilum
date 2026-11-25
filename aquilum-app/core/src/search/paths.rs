@@ -5,7 +5,7 @@ use crate::history::AQUILUM_FOLDER;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use unicode_normalization::UnicodeNormalization;
+use unicode_normalization::{UnicodeNormalization, is_nfc};
 use walkdir::{DirEntry, WalkDir};
 
 const HIDDEN_NAMES: [&str; 6] = [AQUILUM_FOLDER, TRASH_FOLDER, QUANTUM_FOLDER, ".git", ".obsidian", ".DS_Store"];
@@ -15,12 +15,12 @@ pub fn title(path: impl AsRef<Path>) -> String {
 }
 
 pub fn identity(path: &Path) -> String {
-    let normalized: String = slash_path(&normalize_extended_prefix(path.to_path_buf())).nfc().collect();
-    if cfg!(any(windows, target_os = "macos")) {
-        normalized.trim_end_matches('/').to_lowercase()
-    } else {
-        normalized.trim_end_matches('/').to_owned()
+    let mut normalized = slash_path(&normalize_extended_prefix(path.to_path_buf()));
+    if !is_nfc(&normalized) {
+        normalized = normalized.nfc().collect();
     }
+    let trimmed = normalized.trim_end_matches('/');
+    if cfg!(any(windows, target_os = "macos")) { trimmed.to_lowercase() } else { trimmed.to_owned() }
 }
 
 pub fn canonical_workspace(workspace: &str) -> Result<PathBuf, SearchError> {

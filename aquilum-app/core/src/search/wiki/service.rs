@@ -1,5 +1,5 @@
 use super::repository::candidate_sources;
-use super::target::{notes_titled, split, title_key};
+use super::target::{notes_titled, relative_key, split, target_key, title_key};
 use super::{
     backlinks, outgoing_links, plan_for_rename, resolve_many, LinkRewrite,
 };
@@ -67,12 +67,12 @@ impl SearchService {
 
     pub fn resolve_wiki_link(&self, workspace: &Path, source: &Path, target: &str) -> Option<PathBuf> {
         let found = self.resolve_wiki_links(&workspace.to_string_lossy(), &source.to_string_lossy(), &[target.to_owned()]).ok();
-        let complete = found.as_ref().is_some_and(|found| found.complete);
-        match found.and_then(|found| found.paths.into_iter().next().flatten()) {
-            Some(path) => Some(PathBuf::from(path)),
-            None if complete => None,
-            None => notes_titled(workspace, split(target).note.rsplit(['/', '\\']).next()?).into_iter().next(),
+        if let Some(path) = found.and_then(|found| found.paths.into_iter().next().flatten()) {
+            return Some(PathBuf::from(path));
         }
+        let (key, kind) = target_key(target);
+        let title = split(target).note.rsplit(['/', '\\']).next()?;
+        notes_titled(workspace, title).into_iter().find(|path| kind == "name" || relative_key(workspace, path) == key)
     }
 
     pub fn plan_links_for_rename(
@@ -130,6 +130,7 @@ mod tests {
         let resolve = |target: &str| service.resolve_wiki_link(vault.path(), vault.path(), target);
         assert_eq!(resolve("книга#Раздел"), Some(note.clone()));
         assert_eq!(resolve("Папка/Книга.md|подпись"), Some(note));
+        assert_eq!(resolve("Другая/Книга"), None);
         assert_eq!(resolve("#Раздел"), None);
         assert_eq!(resolve("Нет такой"), None);
     }
