@@ -67,7 +67,15 @@ The result remains portable Markdown on disk. Nested lists, both numbered-list s
 
 ![Rich Markdown editing with lists, callouts, and embedded content](screenshots/rich-editor.jpg)
 
-### 5. Manage tasks without a separate task database
+### 5. Draw diagrams with Mermaid
+
+A fenced `mermaid` block becomes a diagram right inside the note. All 23 Mermaid diagram types are supported: flowcharts, sequence, class, state, and ER diagrams, as well as mind maps, Gantt charts, timelines, Git graphs, Kanban boards, and charts. Diagrams use the colors of the current theme in light, dark, and night modes, and labels can contain `$$…$$` formulas.
+
+Each arrow is a single smooth curve that leaves a block perpendicular to its side. When an arrow would cross another block, the blocks move apart instead of the arrow bending around them. A click anywhere on a diagram opens its source, and a click outside shows the drawing again. Every diagram type is collected in the [test note](#try-every-feature-in-one-note).
+
+![A Mermaid flowchart drawn inside a note](screenshots/mermaid-diagram.jpg)
+
+### 6. Manage tasks without a separate task database
 
 Tasks remain ordinary Markdown checkboxes in the notes where they belong, but behave like interactive controls in the editor. You can complete an item in place, keep project context around it, and use metadata to distinguish areas, statuses, or dates without copying the task into another system.
 
@@ -75,7 +83,7 @@ A live `TASK` query can collect matching items from many notes into one dashboar
 
 ![Interactive tasks and project rollups in Aquilum](screenshots/tasks.jpg)
 
-### 6. Edit structured tables visually
+### 7. Edit structured tables visually
 
 Tables stay readable as Markdown but gain spreadsheet-like interaction where it matters. You can resize columns, select a rectangular range, merge cells, and move rows or columns from visual controls instead of manually repairing separators after every change. Keyboard navigation keeps editing efficient when a table contains many fields.
 
@@ -83,7 +91,7 @@ The editor keeps the visual grid and Markdown source synchronized. That means th
 
 ![A structured Markdown table in Aquilum](screenshots/tables.jpg)
 
-### 7. Keep media, references, and context together
+### 8. Keep media, references, and context together
 
 Paste an image from the clipboard or import an image or video file and Aquilum stores it as a local attachment in the vault. Images can be cropped inside the editor, so preparing a diagram, scan, or illustration does not require a separate round trip through another application. PDFs and other source files can live beside the notes that interpret them.
 
@@ -91,13 +99,13 @@ The link panels on the right show both directions of context: outgoing links rev
 
 ![A book note with a cover and the backlinks panel in Aquilum](screenshots/media-backlinks.jpg)
 
-### 8. Build a local book library
+### 9. Build a local book library
 
 Add EPUB, MOBI, AZW3, and FB2 books without moving reading into a separate cloud service. The library presents covers, authors, formats, and reading progress in one place, while the original book files remain in the vault. Opening a title resumes the saved position, making the library useful for both reference works and long-form reading.
 
 ![Book library with reading progress](screenshots/book-library.jpg)
 
-### 9. Read and collect passages without leaving the vault
+### 10. Read and collect passages without leaving the vault
 
 The built-in reader provides a focused two-column layout and controls for typeface, text size, line height, content width, alignment, and hyphenation. Reading position and progress stay synchronized with the library, so closing the book does not lose your place.
 
@@ -105,7 +113,7 @@ Selected passages can be saved as quotes in the corresponding book note. From th
 
 ![Two-column book reader in Aquilum](screenshots/book-reader.jpg)
 
-### 10. Reuse structure with templates and metadata
+### 11. Reuse structure with templates and metadata
 
 Templates turn recurring note structures into a repeatable workflow. Search for a template, apply it to the current note, or create a new document from it; date and time placeholders are resolved when the template is used. Starter templates cover ordinary notes and books, while your own templates can represent meetings, research sources, people, projects, or any other repeated format.
 
@@ -113,13 +121,13 @@ The book example shows YAML frontmatter as editable fields rather than an opaque
 
 ![Book note template with structured metadata](screenshots/book-template.jpg)
 
-### 11. Adapt the interface to your way of working
+### 12. Adapt the interface to your way of working
 
 Appearance settings cover the whole working environment rather than a single editor theme. Choose a light, dark, or night theme (or follow the system), the interface language, accent color, UI scale, editor and reader fonts, line height, and content width. You can also choose the home note and tune reading separately from writing, so a dense research workspace and a calm book layout do not have to share the same typography.
 
 ![Aquilum interface and appearance settings](screenshots/appearance-settings.jpg)
 
-### 12. Recover deleted notes and folders
+### 13. Recover deleted notes and folders
 
 Deleting content does not immediately erase it. Notes and whole folders move to Aquilum's trash, where you can see what was removed and restore it to its previous location. The retention period is configurable, so temporary cleanup and long-term safety can be balanced for the size of your vault.
 
@@ -127,7 +135,7 @@ Trash is one layer of a broader recovery model. Note history handles edits insid
 
 ![Trash with restorable notes and folders](screenshots/trash-restore.jpg)
 
-### 13. Take the same vault to your phone
+### 14. Take the same vault to your phone
 
 The Android app is the same Aquilum, not a separate companion. Notes, live queries, and covers look the way they do on the desktop. On a narrow screen the tab strip becomes a tab picker, and the file tree and the side panels open from the buttons on either side of it. The screenshot shows the home page: today's date, the current time, and progress bars for the day, week, month, season, and year.
 
