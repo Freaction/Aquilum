@@ -208,6 +208,16 @@ Download from the [latest release](https://github.com/Freaction/Aquilum/releases
 - `.rpm` for Fedora and other RPM-based distributions: `sudo dnf install ./Aquilum-<version>-1.x86_64.rpm`;
 - AppImage for any distribution: make it executable and run it.
 
+## Try every feature in one note
+
+[`markdown-test.md`](aquilum-app/native/testdata/markdown-test.md) is a single note (in Russian) that contains everything the editor can display: headings, lists and tasks, tables, quotes and callouts, highlighted code, footnotes, wiki links and embeds, formulas, Dataview queries, and all 23 types of Mermaid diagrams. Each release is checked against this note.
+
+1. Open the [raw file](https://raw.githubusercontent.com/Freaction/Aquilum/main/aquilum-app/native/testdata/markdown-test.md) and save it as `markdown-test.md` (Ctrl+S, or ⌘S on macOS).
+2. Put the file into your vault, the folder you opened in Aquilum. Any subfolder works too. On Android, the vaults are in `Android/data/com.dmitriy.aquilum/files`.
+3. Open the note from the file tree. Click inside a block to see its Markdown source, then click outside it to see the rendered result again.
+
+Some links and embeds point to files that do not exist on purpose, to show how missing notes and images look.
+
 ## Updates
 
 Aquilum checks this public repository for updates at launch. When a newer version is available, it can download it, show progress, verify the signed update package, install it, and restart. On Linux the app updates itself only when it runs as an AppImage; `.deb` and `.rpm` installations are updated by installing the new package. On Android a bar at the bottom of the window offers **Update** or **Close**: the update is downloaded, checked against its signature, and handed to the system installer; after **Close** that version can still be installed from **Settings → System**. Without a network connection, the app starts normally and your local vault remains available.
