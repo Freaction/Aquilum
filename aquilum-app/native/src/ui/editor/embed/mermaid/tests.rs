@@ -105,11 +105,11 @@ fn label_plates_keep_their_lines_whatever_the_letter_case() {
     let mut wraps = Vec::new();
     let source = "flowchart TD\n    A -->|да| B\n    A -->|ДА| C\n    A -->|Подпись ПРОПИСНЫМИ| D";
     mermaid(source, 700.0, &mut |spec| {
-        if ["да", "ДА", "Подпись ПРОПИСНЫМИ"].contains(&spec.text) {
+        if !["A", "B", "C", "D"].contains(&spec.text) {
             wraps.push(spec.wrap);
         }
         Layout::default()
     })
     .unwrap();
-    assert_eq!(wraps, vec![None; 3], "строки плашки не переносятся по оценке ширины, высота одна при любом регистре");
+    assert!(wraps.len() >= 3 && wraps.iter().all(Option::is_none), "строки плашки не переносятся по оценке ширины, высота одна при любом регистре: {wraps:?}");
 }

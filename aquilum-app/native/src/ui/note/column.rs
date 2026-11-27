@@ -132,6 +132,9 @@ impl Widget for EditorColumn {
 
     fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
         let PointerEvent::Down(e) = event else { return };
+        if ctx.target() != ctx.widget_id() {
+            return;
+        }
         let at = ctx.local_position(e.state.position);
         if crate::ui::keymap::pointer::press(e.button) && (at.x < self.span.0 || at.x > self.span.1) {
             ctx.submit_action::<Margin>(Margin { at: ctx.to_window(at), left: at.x < self.span.0 });
