@@ -1,6 +1,6 @@
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, ChildrenIds, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PropertiesMut,
+    AccessCtx, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerEvent, PropertiesMut,
     PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget, WidgetMut, WidgetPod,
 };
 use masonry::imaging::Painter;
@@ -26,8 +26,15 @@ pub fn ch_width(ctx: &mut MeasureCtx<'_>) -> f64 {
 
 const WIDE_MARGIN: f64 = size::SPACE_32 - size::EDITOR_PADDING_X;
 
+#[derive(Clone, Copy, Debug)]
+pub struct Margin {
+    pub at: Point,
+    pub left: bool,
+}
+
 pub struct EditorColumn {
     child: WidgetPod<Flex>,
+    span: (f64, f64),
     ch: Option<(EditorFont, f64)>,
     inset: f64,
     wide: bool,
@@ -36,7 +43,7 @@ pub struct EditorColumn {
 
 impl EditorColumn {
     pub fn new(child: NewWidget<Flex>, inset: f64, wide: bool) -> NewWidget<Self> {
-        NewWidget::new(EditorColumn { child: child.to_pod(), ch: None, inset, wide, blend: if wide { 1.0 } else { 0.0 } })
+        NewWidget::new(EditorColumn { child: child.to_pod(), span: (0.0, 0.0), ch: None, inset, wide, blend: if wide { 1.0 } else { 0.0 } })
     }
 
     pub fn set_wide(this: &mut WidgetMut<'_, Self>, wide: bool) {
@@ -74,7 +81,7 @@ impl EditorColumn {
 }
 
 impl Widget for EditorColumn {
-    type Action = masonry::core::NoAction;
+    type Action = Margin;
 
     fn update(&mut self, ctx: &mut UpdateCtx<'_>, _props: &mut PropertiesMut<'_>, event: &Update) {
         if matches!(event, Update::FontsChanged) {
@@ -118,7 +125,18 @@ impl Widget for EditorColumn {
         let auto = SizeDef::new(LenDef::Fixed(Length::px(inner)), LenDef::MaxContent);
         let child = ctx.compute_size(&mut self.child, auto, Size::new(inner, size_.height).into());
         ctx.run_layout(&mut self.child, Size::new(inner, child.height.max(size_.height)));
-        ctx.place_child(&mut self.child, Point::new(((size_.width - inner) / 2.0).round(), 0.0));
+        let left = ((size_.width - inner) / 2.0).round();
+        ctx.place_child(&mut self.child, Point::new(left, 0.0));
+        self.span = (left, left + inner);
+    }
+
+    fn on_pointer_event(&mut self, ctx: &mut EventCtx<'_>, _props: &mut PropertiesMut<'_>, event: &PointerEvent) {
+        let PointerEvent::Down(e) = event else { return };
+        let at = ctx.local_position(e.state.position);
+        if crate::ui::keymap::pointer::press(e.button) && (at.x < self.span.0 || at.x > self.span.1) {
+            ctx.submit_action::<Margin>(Margin { at: ctx.to_window(at), left: at.x < self.span.0 });
+            ctx.set_handled();
+        }
     }
 
     fn paint(&mut self, _ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, _painter: &mut Painter<'_>) {}

@@ -7,7 +7,7 @@ use masonry::core::{PointerButton, PointerButtonEvent, PointerEvent, PointerInfo
 use masonry::dpi::PhysicalPosition;
 use masonry::kurbo::{Axis, Point, Vec2};
 
-use super::support::{TAG, unfocused};
+use super::support::{TAG, editor_id, unfocused};
 use crate::test_dir::{MOUSE, TOUCH, pointer_at};
 use crate::ui::editor::TextEditor;
 use crate::ui::editor::resolve::{Book, Fetch, Grid, Media, Part, Request, Resolver, Shape};
@@ -104,4 +104,58 @@ fn the_scrollbar_is_dragged_after_hovering_it_and_keeps_the_card_in_place() {
     mouse(&mut root, thumb.center() + Vec2::new(40.0, 8.0), "up");
     mouse(&mut root, thumb.center() + Vec2::new(200.0, 0.0), "move");
     assert_eq!(span(&root).offset, dragged.offset, "после отпускания полоса продолжила тянуться");
+}
+
+#[test]
+fn a_click_anywhere_on_a_drawn_block_opens_its_source() {
+    let source = "выше
+
+```dataview
+TABLE file.link FROM \"Книги\"
+```
+
+ниже
+";
+    let mut root = unfocused(TextEditor::new(source).markdown().with_resolver(Some(Arc::new(Wide))), 700, 400);
+    let _ = root.redraw();
+    let (shift, bottom) = {
+        let w = root.get_widget_with_tag(TAG).unwrap();
+        (w.ctx().window_transform().translation().y, w.inner().top_of(source.find("```
+
+ниже").unwrap() + 4).unwrap())
+    };
+    let low = Point::new(200.0, shift + bottom - 16.0);
+    mouse(&mut root, low, "down");
+    mouse(&mut root, low, "up");
+    let caret = root.get_widget_with_tag(TAG).unwrap().inner().caret_offset();
+    assert_eq!(caret, source.find("```dataview").unwrap(), "клик по нижней части таблицы датавью открывает её исходник, а не ставит каретку после блока");
+}
+
+#[test]
+fn a_click_beside_a_block_puts_the_caret_above_or_below_it() {
+    let source = "выше
+
+```dataview
+TABLE file.link FROM \"Книги\"
+```
+
+ниже
+";
+    let (start, after) = (source.find("```dataview").unwrap(), source.find("```
+
+ниже").unwrap() + 4);
+    let mut root = unfocused(TextEditor::new(source).markdown().with_resolver(Some(Arc::new(Wide))), 700, 400);
+    let _ = root.redraw();
+    let id = editor_id(&root);
+    let (shift, top, bottom) = {
+        let w = root.get_widget_with_tag(TAG).unwrap();
+        (w.ctx().window_transform().translation().y, w.inner().top_of(start).unwrap(), w.inner().top_of(after).unwrap())
+    };
+    let mut beside = |y: f64| {
+        root.edit_widget(id, |mut w| TextEditor::margin(&mut w.downcast::<TextEditor>(), Point::new(0.0, shift + y), false));
+        let _ = root.redraw();
+        root.get_widget_with_tag(TAG).unwrap().inner().caret_offset()
+    };
+    assert_eq!(beside(bottom - 12.0), after, "клик сбоку от нижней половины блока — каретка под блоком");
+    assert_eq!(beside(top + 12.0), start - 1, "клик сбоку от верхней половины блока — каретка над блоком");
 }

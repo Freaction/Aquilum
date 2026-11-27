@@ -80,14 +80,32 @@ impl TextEditor {
         }
         let i = self.doc.at_y(point.y.clamp(0.0, self.doc.height()));
         let p = self.doc.paragraph(i);
-        if matches!(p.fold, Fold::Head | Fold::Member) {
-            let head = (0..=i).rev().find(|&j| self.doc.paragraph(j).fold == Fold::Head).unwrap_or(i);
-            let below = point.y > (self.doc.top(head) + self.doc.bottom(head)) / 2.0;
+        if let Some(head) = self.doc.fold_head(i) {
+            let drawn = matches!(self.doc.paragraph(head).embed.map(|e| &e.view), Some(crate::ui::editor::embed::View::Drawing(_)));
+            let below = !drawn && point.y > (self.doc.top(head) + self.doc.bottom(head)) / 2.0;
             return (if below { (self.doc.folded_end(head) + 1).min(self.doc.len()) } else { self.doc.paragraph(head).start }, Affinity::Downstream);
         }
         let Some(layout) = p.laid() else { return (p.start, Affinity::Downstream) };
         let (local, affinity) = caret::hit(layout, self.doc.slice(p.range()), point - self.doc.origin(i));
         (p.start + local, affinity)
+    }
+
+    pub(super) fn beside(&self, y: f64, left: bool) -> usize {
+        let len = self.doc.len();
+        if y <= 0.0 || y >= self.doc.height() {
+            return if y <= 0.0 { 0 } else { len };
+        }
+        let i = self.doc.at_y(y);
+        let span = match self.doc.fold_head(i) {
+            Some(head) => Some((head, head, self.doc.folded_end(head))),
+            None => self.doc.extent(i).map(|(first, last)| (first, last, self.doc.paragraph(last).end())),
+        };
+        let Some((first, last, end)) = span else {
+            let x = if left { self.shift().x } else { self.shift().x + self.width };
+            return self.hit(Point::new(x, y)).0;
+        };
+        let below = y > (self.doc.top(first) + self.doc.bottom(last)) / 2.0;
+        if below { (end + 1).min(len) } else { self.doc.paragraph(first).start.saturating_sub(1) }
     }
 
     pub(super) fn step(&self, forward: bool, word: bool) -> (usize, Affinity) {

@@ -32,4 +32,5 @@ pub enum Lang {
     Lua,
     Dataview,
     Math,
+    Mermaid,
 }

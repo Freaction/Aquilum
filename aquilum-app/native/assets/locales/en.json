@@ -717,5 +717,17 @@
     "cloudLoading": "Loading…",
     "cloudHint": "Download from Dropbox",
     "cloudFailed": "Could not get the list of bases from Dropbox: {{reason}}"
+  },
+  "diagram": {
+    "alt": "if",
+    "else": "else",
+    "opt": "optional",
+    "loop": "loop",
+    "par": "in parallel",
+    "and": "and",
+    "critical": "critical",
+    "option": "or",
+    "break": "break",
+    "other": "other"
   }
 }

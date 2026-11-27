@@ -171,3 +171,26 @@ fn note_snapshot() {
         std::fs::write(out.join(format!("note-{i}.png")), r.png()).unwrap();
     }
 }
+
+#[test]
+#[ignore]
+fn mermaid_snapshots() {
+    let out = std::path::PathBuf::from(std::env::var("AQ_OUT").unwrap());
+    let texts = [include_str!("../../../testdata/mermaid-cases.md"), include_str!("../../../testdata/markdown-test.md")];
+    let bodies: Vec<&str> = texts.iter().flat_map(|t| t.split("```mermaid").skip(1)).map(|b| b[..b.find("```").unwrap()].trim()).collect();
+    let only = std::env::var("AQ_ONLY").unwrap_or_default();
+    let width: u32 = std::env::var("AQ_WIDTH").ok().and_then(|w| w.parse().ok()).unwrap_or(1400);
+    let mut h = Harness::with(None, 2.0);
+    h.root.handle_window_event(masonry::core::WindowEvent::Resize(PhysicalSize::new(width * 2, 4400)));
+    h.app.window_resized(&mut h.root, Size::new(f64::from(width), 2200.0));
+    h.settle();
+    for (i, body) in bodies.into_iter().enumerate() {
+        if !only.is_empty() && !only.split(',').any(|n| n.parse() == Ok(i)) {
+            continue;
+        }
+        h.open(h.write_note(&format!("m{i:02}.md"), &format!("# {i}\n\n```mermaid\n{body}\n```\n")));
+        let shot = image::load_from_memory(&h.frame((width * 2) as u16, 4400, 2.0).png()).unwrap();
+        let left = if width < 600 { 0 } else { 680 };
+        shot.crop_imm(left, 480, (width * 2 - left).min(1320), 3900).save(out.join(format!("m{i:02}-{width}.png"))).unwrap();
+    }
+}

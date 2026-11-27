@@ -45,6 +45,14 @@ impl App {
             }
             return Some(Outcome::default());
         }
+        if id == ids.column.id() {
+            if let Some(margin) = action.downcast_ref::<crate::ui::note::Margin>() {
+                let body = ids.body;
+                body.edit(root, |mut editor| TextEditor::margin(&mut editor, margin.at, margin.left));
+                root.focus_on(Some(body.id()));
+            }
+            return Some(Outcome::default());
+        }
         if id == ids.body.id() {
             let (scroll, body) = (ids.scroll, ids.body);
             match action.downcast_ref::<TextAction>() {

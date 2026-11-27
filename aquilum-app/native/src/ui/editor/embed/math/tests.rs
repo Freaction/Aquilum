@@ -5,6 +5,7 @@ use masonry::parley::{FontContext, Layout, LayoutContext, LineMetrics, Positione
 
 use super::super::View;
 use super::super::drawing::Item;
+use super::super::tone::Paint;
 use super::math;
 use crate::ui::editor::document::Document;
 use crate::ui::editor::markdown::{Boxed, Decor, Fonts};
@@ -26,7 +27,7 @@ fn marks(source: &str, available: f64) -> Marks {
     for item in &drawing.items {
         match item {
             Item::Glyphs(font, _, run, color) => marks.glyphs.extend(run.iter().map(|g| (Point::new(g.x.into(), g.y.into()), color.is_some(), font.data.clone()))),
-            Item::Path(path, color, _) => marks.rules.push((path.bounding_box(), color.is_some())),
+            Item::Path(path, paint, _) => marks.rules.push((path.bounding_box(), *paint != Paint::Text)),
             _ => panic!("в формуле только глифы и линии"),
         }
     }

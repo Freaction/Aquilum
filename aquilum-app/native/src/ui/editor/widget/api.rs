@@ -99,6 +99,12 @@ impl TextEditor {
         Self::repaint(this);
     }
 
+    pub fn margin(this: &mut WidgetMut<'_, Self>, window: Point, left: bool) {
+        let y = (this.ctx.window_transform().inverse() * window).y;
+        let at = this.widget.beside(y, left);
+        Self::select_byte_range(this, at, at);
+    }
+
     pub fn select_byte_range(this: &mut WidgetMut<'_, Self>, start: usize, end: usize) {
         let widget = &mut *this.widget;
         widget.anchor = widget.doc.floor(start);

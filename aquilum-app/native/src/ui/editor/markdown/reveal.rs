@@ -26,6 +26,7 @@ pub enum Part {
     Dataview,
     Book,
     Math,
+    Mermaid,
     Image,
     Table,
 }
@@ -36,7 +37,7 @@ impl Part {
             Part::Inline | Part::Tag | Part::Bullet | Part::Task => Reveal::Touch,
             Part::Heading | Part::Quote | Part::Rule | Part::CalloutName => Reveal::Line,
             Part::Setext | Part::Fence | Part::Callout | Part::Dataview | Part::Book => Reveal::Block,
-            Part::Math => Reveal::Below,
+            Part::Math | Part::Mermaid => Reveal::Below,
             Part::Image => Reveal::Above,
             Part::Table => Reveal::Never,
         }

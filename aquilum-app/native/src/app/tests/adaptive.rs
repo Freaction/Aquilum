@@ -14,8 +14,12 @@ pub(super) fn at_width(width: f64) -> Harness {
 }
 
 pub(super) fn resize(h: &mut Harness, width: f64) {
-    h.root.handle_window_event(masonry::core::WindowEvent::Resize(PhysicalSize::new(width as u32, H)));
-    h.app.window_resized(&mut h.root, Size::new(width, f64::from(H)));
+    resize_to(h, width, H);
+}
+
+pub(super) fn resize_to(h: &mut Harness, width: f64, height: u32) {
+    h.root.handle_window_event(masonry::core::WindowEvent::Resize(PhysicalSize::new(width as u32, height)));
+    h.app.window_resized(&mut h.root, Size::new(width, f64::from(height)));
     h.settle();
 }
 

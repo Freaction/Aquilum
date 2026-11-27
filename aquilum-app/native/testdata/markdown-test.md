@@ -776,6 +776,10 @@ $$
 
 ## 14. Диаграммы (Mermaid)
 
+Все типы Mermaid рисуются в оформлении приложения: блок-схема, последовательность, классы, состояния, ER, mindmap, круговая, Гант, хронология, ветки Git, доска, матрица 2×2, график, путь пользователя, пакет, радар, карта площадей, блоки, требования, C4, архитектура, ZenUML и Sankey; формулы `$$…$$` в подписях — модулем формул. Пустые диаграммы и ошибки синтаксиса показываются кодом. Каретка внутри блока — исходник, под ним живой предпросмотр. Широкая диаграмма сначала ужимается под ширину колонки, а когда мельче уже нельзя — прокручивается вбок, как таблица.
+
+### Блок-схема
+
 ```mermaid
 graph TD
     A[Начало] --> B{Условие?}
@@ -784,6 +788,39 @@ graph TD
     C --> E[Конец]
     D --> E
 ```
+
+Формы узлов, группы и виды стрелок:
+
+```mermaid
+flowchart TD
+    subgraph Клиент
+        A([Открыть заметку]) --> B[/Ввод текста/]
+    end
+    subgraph Ядро
+        C[(Индекс)] --> D{{Поиск}}
+        E((Синхронизация))
+    end
+    B --> C
+    D -.-> A
+    B ==> E
+```
+
+Длинная подпись переносится внутри узла:
+
+```mermaid
+graph TD
+    A[Очень длинная подпись узла, которая не помещается в одну строку и должна переноситься] --> B[Коротко]
+```
+
+Широкая цепочка слева направо — на ПК ужимается, на телефоне прокручивается вбок:
+
+```mermaid
+flowchart LR
+    A[Идея] --> B[Черновик] --> C[Правка] --> D[Ревью] --> E[Вёрстка] --> F[Публикация] --> G[Отзывы] --> H[Новая версия]
+    D -- замечания --> C
+```
+
+### Последовательность
 
 ```mermaid
 sequenceDiagram
@@ -794,6 +831,27 @@ sequenceDiagram
     Note over U,E: Живое обновление
 ```
 
+Нумерация, ветки и циклы:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Приложение
+    participant D as Dropbox
+    A->>D: Список изменений
+    alt Есть изменения
+        D-->>A: Файлы
+        A->>A: Слияние
+    else Нет изменений
+        D-->>A: Пусто
+    end
+    loop Каждые 5 минут
+        A->>D: Проверка
+    end
+```
+
+### Классы
+
 ```mermaid
 classDiagram
     class Note {
@@ -801,8 +859,54 @@ classDiagram
         +String content
         +save() bool
     }
+    class Tag {
+        +String name
+    }
     Note <|-- DailyNote
+    Note "1" --> "*" Tag : помечена
 ```
+
+### Состояния
+
+```mermaid
+stateDiagram-v2
+    [*] --> Черновик
+    Черновик --> Проверка: отправить
+    Проверка --> Черновик: вернуть
+    Проверка --> Опубликовано: принять
+    Опубликовано --> [*]
+```
+
+### ER
+
+```mermaid
+erDiagram
+    NOTE ||--o{ TAG : "помечена"
+    NOTE ||--|{ LINK : "содержит"
+    NOTE {
+        string title
+        date created
+    }
+    TAG {
+        string name
+    }
+```
+
+### Mindmap
+
+```mermaid
+mindmap
+  root((Aquilum))
+    Редактор
+      Живой предпросмотр
+      Таблицы
+    Поиск
+      Опечатки
+      BM25
+    Граф
+```
+
+### Круговая
 
 ```mermaid
 pie title Распределение
@@ -810,6 +914,548 @@ pie title Распределение
     "Тесты" : 30
     "Документация" : 25
 ```
+
+```mermaid
+pie showData
+    title Заметки по папкам
+    "Работа" : 120
+    "Книги" : 64
+    "Идеи" : 31
+    "Дневник" : 22
+    "Архив" : 9
+```
+
+### Гант
+
+```mermaid
+gantt
+    title Выпуск 0.4
+    dateFormat YYYY-MM-DD
+    section Диаграммы
+    Раскладка      :done, a1, 2026-11-20, 3d
+    Отрисовка      :active, a2, after a1, 5d
+    section Проверка
+    Телефон        :a3, after a2, 2d
+    Выпуск         :milestone, after a3, 0d
+```
+
+### Сложные и пограничные случаи
+
+Большая блок-схема: циклы, развилки, сходящиеся ветки, несколько стрелок из одного узла.
+
+```mermaid
+flowchart TD
+    Start([Новая заметка]) --> Kind{Тип?}
+    Kind -- Книга --> Book[Карточка книги]
+    Kind -- Статья --> Web[Сохранить страницу]
+    Kind -- Мысль --> Idea[Черновик]
+    Book --> Read[[Чтение]]
+    Read --> Quote[/Цитаты/]
+    Quote --> Link[(Связи)]
+    Web --> Link
+    Idea --> Link
+    Link --> Review{Готово?}
+    Review -- нет --> Idea
+    Review -- да --> Done([В базе])
+    Read -. перечитать .-> Read
+```
+
+Справа налево, вложенные группы и стрелки между группами.
+
+```mermaid
+flowchart RL
+    subgraph Облако
+        direction TB
+        S3[(Хранилище)]
+        API[Сервер]
+    end
+    subgraph Устройство
+        subgraph Приложение
+            UI[Интерфейс] --> Core[Ядро]
+        end
+        DB[(Локальная база)]
+    end
+    Core --> DB
+    Core <--> API
+    API --> S3
+```
+
+Снизу вверх, длинные подписи на стрелках и многострочный текст в узле.
+
+```mermaid
+graph BT
+    A["Первая строка<br/>вторая строка<br/>третья"] -->|очень длинная подпись стрелки, которая должна переноситься| B[Цель]
+    C[Ещё источник] -->|коротко| B
+    D[Третий] --> B
+    E[Четвёртый] --> B
+```
+
+Пустые и странные подписи, эмодзи, одна стрелка в себя.
+
+```mermaid
+graph LR
+    A[" "] --> B["📚 Книги"]
+    B --> C["C# & .NET <тег>"]
+    C --> C
+    B --> D((1))
+```
+
+Пять участников, заметки слева, справа и над несколькими, вложенные блоки.
+
+```mermaid
+sequenceDiagram
+    actor U as Пользователь
+    participant E as Редактор
+    participant I as Индекс
+    participant S as Синхронизация
+    participant C as Облако
+    U->>+E: Сохранить
+    Note left of U: Ctrl+S
+    E->>I: Обновить запись
+    par Параллельно
+        I-->>E: Готово
+    and
+        E->>S: Отправить изменения
+    end
+    loop Пока есть файлы
+        S->>C: Загрузить
+        alt Конфликт
+            C-->>S: Ошибка 409
+            S->>S: Создать копию
+        else Успех
+            C-->>S: 200
+        end
+    end
+    Note over S,C: Повтор через 5 минут
+    opt Есть сеть
+        S->>C: Проверка
+    end
+    critical Запись на диск
+        E->>E: fsync
+    option Нет места
+        E-->>U: Ошибка
+    end
+    E-->>-U: Сохранено
+    Note right of C: конец
+```
+
+Сообщения через несколько колонок и длинные тексты.
+
+```mermaid
+sequenceDiagram
+    participant A as Алиса
+    participant B as Борис
+    participant C as Вера
+    A->>C: Очень длинное сообщение, которое идёт через всю диаграмму и должно помещаться
+    C-->>A: Ответ
+    B->>B: Подумать
+    break Отмена
+        B-->>A: Не получилось
+    end
+```
+
+Классы: интерфейс, обобщения, все виды связей и кратности.
+
+```mermaid
+classDiagram
+    class Storage~T~ {
+        <<interface>>
+        +load(id) T
+        +save(item T)
+    }
+    class NoteStore {
+        -cache Map~String, Note~
+        +load(id) Note
+        +save(item Note)
+    }
+    class Note {
+        +String title
+        +List~Tag~ tags
+    }
+    class Tag
+    class Vault
+    Storage <|.. NoteStore : реализует
+    NoteStore o-- Note : хранит
+    Vault *-- NoteStore : владеет
+    Note "1" --> "0..*" Tag
+    Note ..> Vault : зависит
+```
+
+Состояния: вложенное состояние, выбор, развилка и заметка.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Закрыта
+    Закрыта --> Открыта: открыть
+    state Открыта {
+        [*] --> Чтение
+        Чтение --> Правка: начать ввод
+        Правка --> Чтение: пауза 2 с
+    }
+    Открыта --> Проверка
+    state Проверка <<choice>>
+    Проверка --> Сохранена: изменений нет
+    Проверка --> Запись: есть изменения
+    state fork <<fork>>
+    Запись --> fork
+    fork --> Индекс
+    fork --> Облако
+    state join <<join>>
+    Индекс --> join
+    Облако --> join
+    join --> Сохранена
+    Сохранена --> [*]
+    note right of Запись: атомарно
+```
+
+ER: ключи, все кратности, связь сущности с собой.
+
+```mermaid
+erDiagram
+    VAULT ||--|{ NOTE : "содержит"
+    NOTE }o--o{ TAG : "помечена"
+    NOTE |o--o| COVER : "обложка"
+    NOTE ||--o{ NOTE : "ссылается"
+    VAULT {
+        string id PK
+        string path
+    }
+    NOTE {
+        string id PK
+        string vault_id FK
+        string title
+        datetime modified
+    }
+    TAG {
+        string name PK
+    }
+```
+
+Глубокая mindmap с разными формами узлов.
+
+```mermaid
+mindmap
+  root((База знаний))
+    Книги
+      [Прочитано]
+        Фантастика
+        Наука
+      (Читаю)
+      ))Хочу((
+    Проекты
+      {{Aquilum}}
+        Редактор
+        Синхронизация
+        Диаграммы
+      Работа
+    Заметки
+      Ежедневные
+      Идеи с очень длинным названием, которое не помещается
+```
+
+Круговая: одна доля, много долей, ноль и дробные значения.
+
+```mermaid
+pie title Только одна
+    "Всё" : 1
+```
+
+```mermaid
+pie showData
+    title Теги
+    "работа" : 42.5
+    "книги" : 31.2
+    "идеи" : 12
+    "здоровье" : 9
+    "финансы" : 7
+    "путешествия" : 5
+    "музыка" : 4
+    "кино" : 3
+    "спорт" : 2
+    "пусто" : 0
+```
+
+Гант: много задач, критичные, зависимости, выходные и долгий срок.
+
+```mermaid
+gantt
+    title Год проекта
+    dateFormat YYYY-MM-DD
+    excludes weekends
+    section Ядро
+    Поиск             :done, s1, 2026-01-05, 30d
+    Синхронизация     :crit, done, s2, after s1, 45d
+    Индекс v2         :active, s3, after s2, 20d
+    section Интерфейс
+    Нативное окно     :done, u1, 2026-02-01, 60d
+    Диаграммы         :active, u2, 2026-11-20, 14d
+    Телефон           :u3, after u1, 90d
+    section Выпуски
+    0.3               :milestone, m1, 2026-06-01, 0d
+    0.4               :milestone, m2, 2026-12-15, 0d
+```
+
+Пустая диаграмма и только заголовок — показываются кодом:
+
+```mermaid
+graph TD
+```
+
+```mermaid
+sequenceDiagram
+```
+
+Формулы в подписях — модулем формул редактора:
+
+```mermaid
+flowchart LR
+    A["$$x^2 + y^2 = r^2$$"] --> B["Площадь $$\pi r^2$$"]
+    B -->|"$$\frac{d}{dr}$$"| C["Длина $$2\pi r$$"]
+```
+
+Сложные формулы: интегралы и суммы с пределами, корни, матрицы, векторный анализ:
+
+```mermaid
+flowchart TD
+    A["$$\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}$$"] --> B["$$\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}$$"]
+    B -->|"$$\lim_{n \to \infty}$$"| C["$$\begin{pmatrix} a & b \\ c & d \end{pmatrix}$$"]
+    C --> D["Корни: $$x_{1,2} = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$"]
+    A -.->|"$$\nabla \cdot \vec{E} = \frac{\rho}{\varepsilon_0}$$"| D
+```
+
+Формулы в сообщениях последовательности:
+
+```mermaid
+sequenceDiagram
+    participant S as Студент
+    participant T as Преподаватель
+    S->>T: Почему $$e^{i\pi} + 1 = 0$$?
+    T-->>S: $$e^{i\varphi} = \cos\varphi + i\sin\varphi$$
+    Note over S,T: $$\varphi = \pi$$
+```
+
+### Хронология, ветки Git, доски и графики
+
+```mermaid
+timeline
+    title История
+    2026-10 : Нативная версия
+    2026-11 : Синхронизация : Mermaid
+```
+
+```mermaid
+gitGraph
+    commit
+    branch native-ui
+    commit
+    checkout main
+    merge native-ui
+```
+
+```mermaid
+timeline
+    title Выпуски
+    section 2026
+        Октябрь : Нативная версия
+        Ноябрь : Синхронизация : Mermaid
+    section 2027
+        Весна : Телефон
+```
+
+```mermaid
+gitGraph
+    commit id: "начало"
+    commit
+    branch native-ui
+    commit id: "окно"
+    commit type: HIGHLIGHT
+    checkout main
+    commit
+    merge native-ui tag: "0.3"
+    branch android
+    commit
+    checkout main
+    merge android
+```
+
+```mermaid
+kanban
+  Сделать
+    [Обложки книг]@{ priority: 'High', assigned: 'Дима' }
+    [Импорт из Obsidian]
+  В работе
+    [Диаграммы Mermaid]@{ ticket: AQ-42, priority: 'Very High' }
+  Готово
+    [Синхронизация с Dropbox]@{ priority: 'Low' }
+```
+
+```mermaid
+quadrantChart
+    title Что делать дальше
+    x-axis Мало усилий --> Много усилий
+    y-axis Мало пользы --> Много пользы
+    quadrant-1 Запланировать
+    quadrant-2 Сделать сразу
+    quadrant-3 Отложить
+    quadrant-4 Не делать
+    Mermaid: [0.7, 0.85]
+    Тёмная тема: [0.2, 0.7]
+    Экспорт PDF: [0.8, 0.3]
+    Горячие клавиши: [0.3, 0.25]
+```
+
+```mermaid
+xychart-beta
+    title "Заметки за полгода"
+    x-axis [янв, фев, мар, апр, май, июн]
+    y-axis "Заметок" 0 --> 120
+    bar [30, 45, 60, 80, 95, 110]
+    line [20, 40, 50, 75, 85, 100]
+```
+
+```mermaid
+journey
+    title Как я пишу заметку
+    section Утро
+      Открыть базу: 5: Я
+      Найти заметку: 3: Я
+    section День
+      Писать: 4: Я, Кот
+      Искать ссылку: 2: Я
+```
+
+Горизонтальный график и ветки Git сверху вниз:
+
+```mermaid
+xychart-beta horizontal
+    title "Заметки по папкам"
+    x-axis [Работа, Книги, Идеи, Дневник]
+    bar [120, 64, 31, 22]
+```
+
+```mermaid
+gitGraph TB:
+    commit
+    branch native-ui
+    commit id: "окно"
+    checkout main
+    commit
+    merge native-ui tag: "0.3"
+```
+
+### Пакет, радар, карта площадей, блоки
+
+```mermaid
+packet-beta
+    title Заголовок UDP
+    0-15: "Порт отправителя"
+    16-31: "Порт получателя"
+    32-47: "Длина"
+    48-63: "Контрольная сумма"
+    64-95: "Данные"
+```
+
+```mermaid
+radar-beta
+    title Навыки
+    axis a["Код"], b["Дизайн"], c["Тексты"], d["Тесты"], e["Продукт"]
+    curve x["Аня"]{4, 3, 5, 2, 4}
+    curve y["Борис"]{3, 5, 2, 4, 3}
+    max 5
+```
+
+```mermaid
+treemap-beta
+"Заметки"
+    "Работа": 120
+    "Книги": 64
+"Вложения"
+    "Картинки": 80
+    "PDF": 45
+    "Аудио": 12
+```
+
+```mermaid
+block-beta
+    columns 3
+    a["Ввод"] b["Разбор"] c["Раскладка"]
+    d["Холст"]:2 e(("Экран"))
+    a --> b
+    b --> c
+    c --> d
+    d --> e
+```
+
+### Требования, C4, архитектура
+
+```mermaid
+requirementDiagram
+    requirement sync {
+    id: 1
+    text: Заметки синхронизируются с облаком
+    risk: high
+    verifymethod: test
+    }
+    element dropbox {
+    type: сервис
+    }
+    dropbox - satisfies -> sync
+```
+
+```mermaid
+C4Context
+    title Aquilum
+    Person(user, "Пользователь", "Пишет заметки")
+    System_Boundary(app, "Приложение") {
+        System(editor, "Редактор", "Живой предпросмотр")
+        SystemDb(index, "Индекс", "Поиск по базе")
+    }
+    System_Ext(cloud, "Dropbox", "Облако")
+    Rel(user, editor, "Пишет")
+    Rel(editor, index, "Обновляет")
+    Rel(editor, cloud, "Синхронизирует", "HTTPS")
+```
+
+```mermaid
+architecture-beta
+    group app(cloud)[Приложение]
+    service ui(server)[Интерфейс] in app
+    service db(database)[База] in app
+    service cloud(internet)[Облако]
+    ui:R --> L:db
+    db:R --> L:cloud
+```
+
+### ZenUML и Sankey
+
+```mermaid
+zenuml
+    title Сохранение заметки
+    @Actor Пользователь
+    @Starter(Пользователь)
+    Редактор.save(note) {
+        result = Диск.write(note)
+        if(result.ok) {
+            Индекс.update(note)
+        } else {
+            return ошибка
+        }
+    }
+```
+
+```mermaid
+sankey-beta
+Заметки,Работа,120
+Заметки,Книги,64
+Заметки,Идеи,31
+Работа,Проекты,80
+Работа,Встречи,40
+Книги,Цитаты,50
+```
+
+### Показываются кодом
+
+Ошибка синтаксиса:
 
 ```mermaid
 this is not valid mermaid syntax

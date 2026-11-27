@@ -21,7 +21,7 @@ enum Fetched {
     Grid(Fetch<Grid>),
     Media(media::EmbedLine, Fetch<Media>),
     Books(Vec<embed::BookRow>),
-    Math(String),
+    Preview(Lang, String),
 }
 
 fn book_header(header: &str) -> (bool, String, String) {
@@ -41,7 +41,10 @@ impl Document {
         let resolved = self.resolver.is_some();
         match block(i) {
             Block::Table { first: true, .. } => until(&|b| matches!(b, Block::Table { last: true, .. })).map(|e| (e, Part::Table.reveal())),
-            Block::Code { first: true, lang: Some(Lang::Math), .. } => until(&|b| matches!(b, Block::Code { last: true, .. })).map(|e| (e, Part::Math.reveal())),
+            Block::Code { first: true, lang: Some(lang), .. } if lang.previewed() => {
+                let part = if *lang == Lang::Mermaid { Part::Mermaid } else { Part::Math };
+                until(&|b| matches!(b, Block::Code { last: true, .. })).map(|e| (e, part.reveal()))
+            }
             Block::Code { first: true, lang: Some(Lang::Dataview), .. } if resolved => until(&|b| matches!(b, Block::Code { last: true, .. })).map(|e| (e, Part::Dataview.reveal())),
             Block::Image if resolved => Some((i, Part::Image.reveal())),
             Block::Callout { kind: Callout::Book, .. } if resolved => {
@@ -96,7 +99,7 @@ impl Document {
                 let closed = lines.len() > 1 && matches!(self.blocks.get(last).1, Block::Code { fence: true, .. });
                 let body = lines[1..lines.len() - usize::from(closed)].join("\n");
                 match (lang, resolver) {
-                    (Some(Lang::Math), _) => (Fetched::Math(body), 0),
+                    (Some(lang), _) if lang.previewed() => (Fetched::Preview(*lang, body), 0),
                     (_, Some(resolver)) => {
                         let (grid, stamp) = resolver.dataview(&body);
                         (Fetched::Grid(grid), stamp)
@@ -159,13 +162,17 @@ impl Document {
             Fetched::Grid(grid) => View::Drawing(embed::dataview(&grid, available, self.print, &mut |spec| text::spec_layout(fcx, lcx, styles, fonts, spec))),
             Fetched::Media(line, fetched) => View::Media(MediaView::new(&fetched, line, available, self.uncropped == Some(start))),
             Fetched::Books(rows) => View::Drawing(embed::books(&rows, available, &mut |spec| text::spec_layout(fcx, lcx, styles, fonts, spec))),
-            Fetched::Math(body) => match embed::math(&body, f64::from(fonts.size), available) {
-                Some(drawing) => View::Drawing(drawing),
-                None => {
+            Fetched::Preview(lang, body) => {
+                let drawing = match lang {
+                    Lang::Mermaid => embed::mermaid(&body, available, &mut |spec| text::spec_layout(fcx, lcx, styles, fonts, spec)),
+                    _ => embed::math(&body, f64::from(fonts.size), available),
+                };
+                let Some(drawing) = drawing else {
                     self.embeds.remove(first);
                     return None;
-                }
-            },
+                };
+                View::Drawing(drawing)
+            }
         };
         let height = view.height();
         self.embeds.insert(first, Embed { key, view, x });

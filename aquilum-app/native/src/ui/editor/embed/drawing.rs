@@ -9,20 +9,13 @@ use masonry::peniko::{BlendMode, Brush, BrushRef, Color, Fill, FontData, ImageBr
 
 use super::super::markdown;
 use super::panel;
+use super::tone::{Paint, Tone};
 use crate::ui::scroll::bar::Span;
 use crate::ui::theme;
 use crate::ui::tokens::size;
 
 const UNDERLINE: f64 = 1.0;
 const UNDERLINE_GAP: f64 = 2.0;
-
-#[derive(Clone, Copy)]
-pub(super) enum Tone {
-    Divider,
-    Accent,
-    AccentSubtle,
-    CoverBg,
-}
 
 pub(super) enum Item {
     Text(Point, Layout<BrushIndex>, String),
@@ -32,7 +25,7 @@ pub(super) enum Item {
     Bullet(Point),
     Button(RoundedRect, bool),
     Dim(Box<Item>),
-    Path(BezPath, Option<Color>, Option<Stroke>),
+    Path(BezPath, Paint, Option<Stroke>),
     Glyphs(FontData, f32, Vec<Glyph>, Option<Color>),
 }
 
@@ -135,16 +128,6 @@ pub(super) fn link_hits(layout: &Layout<BrushIndex>, at: Point, links: &[(Range<
     out
 }
 
-fn color(tone: Tone) -> Color {
-    let tm = theme::current();
-    match tone {
-        Tone::Divider => tm.block_divider,
-        Tone::Accent => tm.bg_accent,
-        Tone::AccentSubtle => tm.bg_accent_subtle,
-        Tone::CoverBg => tm.book_callout_cover_bg,
-    }
-}
-
 fn dimmed<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, paint: impl FnOnce(&mut Painter<'_, S>)) {
     painter.with_group(GroupRef::new().with_composite(Composite::new(BlendMode::default(), 0.5)), paint);
 }
@@ -152,7 +135,7 @@ fn dimmed<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, paint: impl FnOnc
 pub(super) fn paint_item<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, item: &Item, at: Affine, palette: &[Brush], hover: Option<Rect>) {
     match item {
         Item::Text(p, layout, _) => render_text(painter, at * Affine::translate(p.to_vec2()), layout, palette, true),
-        Item::Fill(shape, tone) => painter.fill(at.transform_rect_bbox(shape.rect()).to_rounded_rect(shape.radii()), color(*tone)).draw(),
+        Item::Fill(shape, tone) => painter.fill(at.transform_rect_bbox(shape.rect()).to_rounded_rect(shape.radii()), tone.color()).draw(),
         Item::Image(shape, image, [l, t, cr, cb]) => {
             let r = at.transform_rect_bbox(shape.rect());
             let (w, h) = (f64::from(image.image.width) * (cr - l) / 100.0, f64::from(image.image.height) * (cb - t) / 100.0);
@@ -174,10 +157,13 @@ pub(super) fn paint_item<S: PaintSink + ?Sized>(painter: &mut Painter<'_, S>, it
         }
         Item::Bullet(p) => markdown::paint_bullet(painter, at * *p),
         Item::Dim(inner) => dimmed(painter, |painter| paint_item(painter, inner, at, palette, hover)),
-        Item::Path(path, color, stroke) => match stroke {
-            Some(stroke) => painter.stroke(path, stroke, ink(color, palette)).transform(at).draw(),
-            None => painter.fill(path, ink(color, palette)).transform(at).draw(),
-        },
+        Item::Path(path, paint, stroke) => {
+            let brush = paint.brush(palette);
+            match stroke {
+                Some(stroke) => painter.stroke(path, stroke, brush).transform(at).draw(),
+                None => painter.fill(path, brush).transform(at).draw(),
+            }
+        }
         Item::Glyphs(font, size, glyphs, color) => painter.glyphs(font, ink(color, palette)).transform(at).font_size(*size).hint(true).draw(&Style::Fill(Fill::NonZero), glyphs),
     }
 }

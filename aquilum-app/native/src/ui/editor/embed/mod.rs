@@ -3,21 +3,25 @@ mod dataview;
 mod drawing;
 mod math;
 pub mod media;
+mod mermaid;
 mod metrics;
 pub mod panel;
 mod spec;
+mod tone;
 
 use masonry::imaging::Painter;
 use masonry::peniko::Brush;
 
 use super::table::{Overlay, TableView};
-use drawing::{Item, Tone, link_hits};
+use drawing::{Item, link_hits};
+use tone::Tone;
 
 pub use book::{Row as BookRow, books};
 pub use dataview::dataview;
 pub use drawing::{Action, Drawing};
 pub use math::{Formula, formula, math};
 pub use media::{MediaHit, MediaOverlay, MediaView};
+pub use mermaid::mermaid;
 pub use spec::{Font, Spec};
 
 pub enum View {

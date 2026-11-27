@@ -1,0 +1,16 @@
+[package]
+name = "mermaid-rs-renderer"
+version = "0.3.1"
+edition = "2024"
+description = "Форк mermaid-rs-renderer 0.3.1 под Aquilum: разбор восьми типов (блок-схема, классы, состояния, ER, mindmap, последовательность, круговая, Гант) и раскладка всех, кроме последовательности; замер текста встроенным Inter; события последовательности в порядке исходника; без SVG-вывода, init-директив и отладочных проверок"
+license = "MIT"
+repository = "https://github.com/1jehuang/mermaid-rs-renderer"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0"
+regex = "1.12"
+once_cell = "1.21.4"
+ttf-parser = "0.25"

@@ -10,6 +10,7 @@ use ratex_layout::{LayoutOptions, layout, to_display_list};
 use ratex_types::{Color as Ink, DisplayItem, DisplayList, MathStyle, PathCommand};
 
 use super::drawing::{Drawing, Item, paint_item};
+use super::tone::Paint;
 
 const SCALE: f64 = 1.21;
 const GAP: f64 = 0.5;
@@ -45,6 +46,11 @@ pub fn formula(source: &str, size: f64, display: bool) -> Option<Formula> {
     Some(Formula { width: (list.width * em) as f32, ascent: (list.height * em) as f32, depth: (list.depth * em) as f32, items: draw(&list, em, Vec2::ZERO) })
 }
 
+pub(super) fn placed(source: &str, size: f64, origin: Vec2) -> Option<Vec<Item>> {
+    let list = display_list(source, MathStyle::Display)?;
+    Some(draw(&list, size * SCALE, origin))
+}
+
 fn display_list(source: &str, style: MathStyle) -> Option<DisplayList> {
     let nodes = ratex_parser::parser::parse(source).ok()?;
     let list = to_display_list(&layout(&nodes, &LayoutOptions { style, ..LayoutOptions::default() }));
@@ -66,22 +72,26 @@ fn draw(list: &DisplayList, em: f64, origin: Vec2) -> Vec<Item> {
                 }
             }
             DisplayItem::Line { x, y, width, thickness, color, dashed: false } => {
-                items.push(Item::Path(Rect::from_points(at(*x, y - thickness / 2.0), at(x + width, y + thickness / 2.0)).to_path(TOLERANCE), tint(color), None));
+                items.push(Item::Path(Rect::from_points(at(*x, y - thickness / 2.0), at(x + width, y + thickness / 2.0)).to_path(TOLERANCE), paint(color), None));
             }
             DisplayItem::Line { x, y, width, thickness, color, dashed: true } => {
                 let dash = 3.0 * thickness * em;
-                items.push(Item::Path(Line::new(at(*x, *y), at(x + width, *y)).to_path(TOLERANCE), tint(color), Some(Stroke::new(thickness * em).with_dashes(0.0, [dash, dash]))));
+                items.push(Item::Path(Line::new(at(*x, *y), at(x + width, *y)).to_path(TOLERANCE), paint(color), Some(Stroke::new(thickness * em).with_dashes(0.0, [dash, dash]))));
             }
             DisplayItem::Rect { x, y, width, height, color } => {
-                items.push(Item::Path(Rect::from_points(at(*x, *y), at(x + width, y + height)).to_path(TOLERANCE), tint(color), None));
+                items.push(Item::Path(Rect::from_points(at(*x, *y), at(x + width, y + height)).to_path(TOLERANCE), paint(color), None));
             }
             DisplayItem::Path { x, y, commands, fill, color } => {
                 let stroke = (!fill).then(|| Stroke::new(STROKE * em));
-                items.extend(subpaths(commands, |px, py| at(x + px, y + py), *fill).into_iter().map(|path| Item::Path(path, tint(color), stroke.clone())));
+                items.extend(subpaths(commands, |px, py| at(x + px, y + py), *fill).into_iter().map(|path| Item::Path(path, paint(color), stroke.clone())));
             }
         }
     }
     items
+}
+
+fn paint(color: &Ink) -> Paint {
+    tint(color).map_or(Paint::Text, Paint::Fixed)
 }
 
 fn tint(color: &Ink) -> Option<Color> {

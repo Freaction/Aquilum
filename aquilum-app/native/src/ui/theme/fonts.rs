@@ -42,6 +42,10 @@ pub fn bundled_fonts() -> &'static [FontData] {
     &BUNDLED
 }
 
+pub fn inter_upright() -> [&'static [u8]; 2] {
+    [bundled::FONTS[0], bundled::FONTS[2]]
+}
+
 pub fn register_fonts(root: &mut RenderRoot) {
     for font in bundled_fonts() {
         root.register_fonts(font.data.clone());

@@ -30,6 +30,11 @@ const SQL: &[&str] = &[
 const DATAVIEW: &[&str] = &[
     "and", "as", "asc", "by", "calendar", "desc", "flatten", "from", "group", "id", "limit", "list", "not", "or", "sort", "table", "task", "where", "without", "once",
 ];
+const MERMAID: &[&str] = &[
+    "graph", "flowchart", "subgraph", "end", "direction", "sequenceDiagram", "participant", "actor", "Note", "note", "over", "loop", "alt", "else", "opt", "par", "and",
+    "rect", "critical", "break", "activate", "deactivate", "autonumber", "classDiagram", "class", "stateDiagram", "state", "erDiagram", "mindmap", "pie", "title",
+    "showData", "gantt", "dateFormat", "axisFormat", "section", "classDef", "style", "linkStyle", "click",
+];
 const LUA: &[&str] = &["and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"];
 
 impl Lang {
@@ -49,8 +54,13 @@ impl Lang {
             "yaml" | "yml" | "toml" | "ini" => Lang::Yaml,
             "html" | "xml" | "svg" | "vue" => Lang::Markup,
             "lua" => Lang::Lua,
+            "mermaid" => Lang::Mermaid,
             _ => return None,
         })
+    }
+
+    pub fn previewed(self) -> bool {
+        matches!(self, Lang::Math | Lang::Mermaid)
     }
 
     pub(super) fn keywords(self) -> &'static [&'static str] {
@@ -64,6 +74,7 @@ impl Lang {
             Lang::Sql => SQL,
             Lang::Lua => LUA,
             Lang::Dataview => DATAVIEW,
+            Lang::Mermaid => MERMAID,
             Lang::Css | Lang::Json | Lang::Yaml | Lang::Markup | Lang::Math => &[],
         }
     }
@@ -73,6 +84,7 @@ impl Lang {
             Lang::Python | Lang::Shell | Lang::Yaml => &["#"],
             Lang::Sql | Lang::Lua => &["--"],
             Lang::Dataview => &["//"],
+            Lang::Mermaid => &["%%"],
             Lang::Markup => &["<!--"],
             Lang::Json => &[],
             _ => &["//", "/*"],

@@ -3,7 +3,6 @@ use std::ops::Range;
 use masonry::core::{BrushIndex, StyleSet};
 use masonry::parley::{FontContext, LayoutContext};
 
-use super::super::super::highlight::Lang;
 use super::super::super::markdown::{Block, Reveal};
 use super::super::{Document, Fold};
 
@@ -13,7 +12,7 @@ impl Document {
         let all = !self.placed;
         let len = self.lines.count();
         let (mut i, until) = if all { (0, len) } else { (from.min(len.saturating_sub(1)), until.min(len)) };
-        while i > 0 && (self.heights.fold(i) == Fold::Member || self.inside(i) && matches!(self.blocks.get(i).1, Block::Code { first: false, lang: Some(Lang::Math), .. })) {
+        while i > 0 && (self.heights.fold(i) == Fold::Member || self.inside(i) && matches!(self.blocks.get(i).1, Block::Code { first: false, lang: Some(lang), .. } if lang.previewed())) {
             i -= 1;
         }
         let mut top = self.top(i);

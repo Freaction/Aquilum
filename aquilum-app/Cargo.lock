@@ -179,6 +179,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.105"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cb931c189b85683d69a5cfad41d4d418671e1ac413dd209f3f2fc31e3cfd902"
+
+[[package]]
 name = "anymap3"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -196,7 +202,7 @@ version = "0.1.0"
 
 [[package]]
 name = "aquilum-android"
-version = "0.3.30"
+version = "0.3.31"
 dependencies = [
  "aquilum-native",
  "jni",
@@ -204,7 +210,7 @@ dependencies = [
 
 [[package]]
 name = "aquilum-core"
-version = "0.3.30"
+version = "0.3.31"
 dependencies = [
  "atomic-write-file",
  "base64",
@@ -243,7 +249,7 @@ dependencies = [
 
 [[package]]
 name = "aquilum-native"
-version = "0.3.30"
+version = "0.3.31"
 dependencies = [
  "accesskit_macos",
  "accesskit_unix",
@@ -269,6 +275,7 @@ dependencies = [
  "jpeg-decoder",
  "krilla",
  "masonry",
+ "mermaid-rs-renderer",
  "minisign-verify",
  "ndk",
  "ndk-sys",
@@ -2598,6 +2605,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "mermaid-rs-renderer"
+version = "0.3.1"
+dependencies = [
+ "anyhow",
+ "once_cell",
+ "regex",
+ "ttf-parser",
 ]
 
 [[package]]

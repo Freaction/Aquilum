@@ -729,5 +729,17 @@
     "cloudLoading": "Загрузка…",
     "cloudHint": "Скачать из Dropbox",
     "cloudFailed": "Не удалось получить список баз из Dropbox: {{reason}}"
+  },
+  "diagram": {
+    "alt": "если",
+    "else": "иначе",
+    "opt": "если",
+    "loop": "повтор",
+    "par": "одновременно",
+    "and": "и",
+    "critical": "важно",
+    "option": "или",
+    "break": "прервать",
+    "other": "другое"
   }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "aquilum-native"
-version = "0.3.30"
+version = "0.3.31"
 description = "Aquilum native UI (Masonry on winit + vello_cpu), no WebView"
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"
@@ -61,6 +61,7 @@ ratex-layout = "0.1.14"
 ratex-types = "0.1.14"
 ratex-font = "0.1.14"
 ratex-katex-fonts = "0.1.14"
+mermaid-rs-renderer = { path = "vendor/mermaid-rs-renderer" }
 aq_trace = { path = "vendor/aq_trace" }
 crop = { version = "0.4", features = ["utf16-metric"] }
 blake3 = "1.8.5"

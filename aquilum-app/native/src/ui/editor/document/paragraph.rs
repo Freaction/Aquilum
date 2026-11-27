@@ -72,8 +72,25 @@ impl Document {
         &self.blocks.get(line).1
     }
 
+    pub fn extent(&self, line: usize) -> Option<(usize, usize)> {
+        let edges = |j: usize| match self.block(j) {
+            Block::Code { first, last, .. } | Block::Table { first, last } => Some((*first, *last)),
+            Block::Image => Some((true, true)),
+            _ => None,
+        };
+        edges(line)?;
+        let first = (0..=line).rev().find(|&j| edges(j).is_none_or(|e| e.0)).unwrap_or(line);
+        let last = (line..self.lines.count()).find(|&j| edges(j).is_none_or(|e| e.1)).unwrap_or(line);
+        Some((first, last))
+    }
+
     pub fn frame(&self, line: usize) -> &Frame {
         &self.blocks.get(line).0
+    }
+
+    pub fn fold_head(&self, line: usize) -> Option<usize> {
+        let fold = |j: usize| self.heights.fold(j);
+        matches!(fold(line), Fold::Head | Fold::Member).then(|| (0..=line).rev().find(|&j| fold(j) == Fold::Head).unwrap_or(line))
     }
 
     pub fn folded_end(&self, head: usize) -> usize {
